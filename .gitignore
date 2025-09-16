@@ -1,0 +1,13 @@
+# Build files
+.gradle/
+build/
+*.apk
+*.aab
+
+# IDE files
+.idea/
+*.iml
+
+# OS files
+.DS_Store
+Thumbs.db
