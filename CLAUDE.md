@@ -186,6 +186,374 @@ data class VodContent(
 🚧 **In Development** - Category filters, search functionality  
 📋 **Planned** - Live TV integration, recording capabilities
 
+## Key Event Management System
+
+### 🎯 **Core Principle: Single Source of Truth**
+**NEVER allow multiple components to handle the same key event simultaneously**
+
+### **Hierarchy of Key Event Handling**
+
+#### **Level 1: MainActivity (Global Navigation)**
+- **Scope**: Cross-screen navigation (back to HOME, app exit)
+- **Keys**: BACK (when needs to exit screens)
+- **Pattern**: Uses callbacks from child screens to coordinate
+- **Rule**: Only handles keys when child screens explicitly delegate
+
+```kotlin
+// ✅ CORRECT: Callback-based coordination
+TopMenuScreen(
+    onBackPressed = { isMenuFocused ->
+        if (isMenuFocused) {
+            currentScreen = NavigationScreen.HOME
+            true // consumed
+        } else {
+            false // let child handle
+        }
+    }
+)
+```
+
+#### **Level 2: Screen Components (Screen-specific Logic)**
+- **Scope**: Intra-screen navigation (menu ↔ content)
+- **Keys**: BACK, UP, DOWN, LEFT, RIGHT
+- **Pattern**: Uses `onPreviewKeyEvent` with callback delegation
+- **Rule**: Must coordinate with MainActivity via callbacks
+
+```kotlin
+// ✅ CORRECT: Screen-level with callback delegation
+.onPreviewKeyEvent { event ->
+    if (event.key == Key.Back) {
+        val handled = onBackPressed(menuState.isMenuFocused)
+        if (!handled && !menuState.isMenuFocused) {
+            // Handle locally if not handled by parent
+            menuState = menuState.copy(isMenuFocused = true)
+            return@onPreviewKeyEvent true
+        }
+        return@onPreviewKeyEvent handled
+    }
+    // ... other keys
+}
+```
+
+#### **Level 3: Component Widgets (Micro-interactions)**
+- **Scope**: Individual component focus (list navigation, form inputs)
+- **Keys**: LEFT, RIGHT, UP, DOWN, ENTER
+- **Pattern**: Uses `onKeyEvent` or state management
+- **Rule**: Never handle BACK - always delegate up
+
+```kotlin
+// ✅ CORRECT: Widget-level navigation only
+LazyRow(
+    modifier = Modifier.onPreviewKeyEvent { event ->
+        when (event.key) {
+            Key.DirectionLeft, Key.DirectionRight -> {
+                // Handle internal navigation
+                true
+            }
+            else -> false // Delegate all other keys up
+        }
+    }
+)
+```
+
+### **🚫 ANTI-PATTERNS (That Cause Conflicts)**
+
+#### **❌ Multiple BACK handlers**
+```kotlin
+// WRONG: MainActivity has onPreviewKeyEvent for BACK
+.onPreviewKeyEvent { event ->
+    if (event.key == Key.Back) {
+        currentScreen = NavigationScreen.HOME
+        true
+    }
+}
+
+// WRONG: AND TopMenuScreen also handles BACK
+.onPreviewKeyEvent { event ->
+    if (event.key == Key.Back) {
+        // This will NEVER execute!
+        menuState = menuState.copy(isMenuFocused = true)
+        true
+    }
+}
+```
+
+#### **❌ Direct event interception without coordination**
+```kotlin
+// WRONG: No callback, direct interception
+.onPreviewKeyEvent { event ->
+    // This creates race conditions
+    handleDirectly(event)
+}
+```
+
+### **✅ STANDARD PATTERNS**
+
+#### **Pattern 1: Callback Delegation (MainActivity ↔ Screens)**
+```kotlin
+// Parent (MainActivity)
+Screen(
+    onBackPressed = { screenState ->
+        if (shouldExitScreen(screenState)) {
+            navigateAway()
+            true
+        } else {
+            false // Let screen handle
+        }
+    }
+)
+
+// Child (Screen)
+fun Screen(onBackPressed: (State) -> Boolean) {
+    .onPreviewKeyEvent { event ->
+        if (event.key == Key.Back) {
+            val handled = onBackPressed(currentState)
+            if (!handled) {
+                // Handle locally
+                handleBackLocally()
+                return@onPreviewKeyEvent true
+            }
+            return@onPreviewKeyEvent handled
+        }
+    }
+}
+```
+
+#### **Pattern 2: State-Based Focus Management**
+```kotlin
+// Use state to coordinate between components
+var focusLevel by remember { mutableStateOf(FocusLevel.MENU) }
+
+when (focusLevel) {
+    FocusLevel.MENU -> // Menu handles keys
+    FocusLevel.CONTENT -> // Content handles keys
+}
+```
+
+### **🔧 DEBUGGING TOOLS**
+
+#### **Key Event Flow Logging**
+Add to any key handler for debugging:
+```kotlin
+.onPreviewKeyEvent { event ->
+    Log.d("KeyEvent", "${componentName}: ${event.key} - handled: $result")
+    result
+}
+```
+
+#### **Focus State Debug Overlay**
+```kotlin
+// Debug overlay showing current key handlers
+Box {
+    YourContent()
+    if (BuildConfig.DEBUG) {
+        KeyEventDebugOverlay(
+            activeHandlers = listOf("MainActivity.onBack", "TopMenu.onPreview"),
+            currentFocus = currentFocusState
+        )
+    }
+}
+```
+
+### **📋 CONFLICT PREVENTION CHECKLIST**
+
+**🚨 MANDATORY**: Before adding ANY key event handler, follow the complete checklist:
+
+**→ See `KEY_EVENT_CHECKLIST.md` for the comprehensive checklist ←**
+
+Quick pre-implementation checks:
+
+1. **❓ Is there already a handler for this key?**
+   - Search codebase: `grep -r "Key\.Back\|KEYCODE_BACK"`
+   - Check parent components
+
+2. **❓ What level should handle this key?**
+   - Global navigation → MainActivity callback
+   - Screen navigation → Screen component
+   - Widget navigation → Widget component
+
+3. **❓ Does this need coordination?**
+   - BACK always needs coordination
+   - Directional keys might need delegation
+
+4. **❓ Is this handler documented?**
+   - Add comment explaining scope and delegation
+   - Update this section if adding new patterns
+
+**For complete implementation and testing guidelines, use `KEY_EVENT_CHECKLIST.md`**
+
+### **⚠️ CRITICAL RULES**
+
+1. **ONE BACK HANDLER PER LEVEL**: Never have multiple components handle Key.Back at the same level
+2. **ALWAYS DELEGATE UP**: Lower-level components should use callbacks to coordinate with higher levels  
+3. **EXPLICIT CONSUMPTION**: Always return explicit `true`/`false` from key handlers
+4. **DOCUMENT SCOPE**: Comment what keys each handler manages and why
+
+### **📝 COMMIT MESSAGE TEMPLATE**
+When modifying key event handling:
+```
+Fix/Add: [Component] key event handling
+
+- Scope: [What keys and scenarios]
+- Coordination: [How it delegates/coordinates]
+- Conflicts: [What conflicts this resolves/avoids]
+
+Fixes: [Issue description if applicable]
+```
+
+### **🏗️ NAMING CONVENTIONS & STRUCTURE**
+
+#### **Handler IDs (for KeyEventManager)**
+```
+Pattern: {Component}.{Scope}.{Purpose}
+
+Examples:
+✅ MainActivity.Global.Navigation
+✅ TopMenuScreen.Screen.BackNavigation  
+✅ SliderComponent.Component.ArrowKeys
+✅ SearchButton.Widget.FocusControl
+
+❌ backHandler (too vague)
+❌ keyListener (not descriptive)
+❌ handler1 (no context)
+```
+
+#### **Callback Function Names**
+```
+Pattern: on{Action}{Context}
+
+Examples:
+✅ onBackPressed(isAtTopLevel: Boolean) -> Boolean
+✅ onNavigateToContent() -> Unit
+✅ onReturnToMenu() -> Unit  
+✅ onFocusChanged(isFocused: Boolean) -> Unit
+
+❌ handleBack() (doesn't indicate delegation)
+❌ backCallback() (too generic)
+❌ onKey() (no action specified)
+```
+
+#### **State Variable Names**
+```
+Pattern: {scope}{State}{Type}
+
+Examples:
+✅ menuFocusState: FocusState
+✅ contentShouldFocus: Boolean
+✅ currentNavigationLevel: NavigationLevel
+✅ isMenuFocused: Boolean
+
+❌ focused (ambiguous scope)
+❌ state (too generic)
+❌ flag (no meaning)
+```
+
+#### **File Organization**
+```
+/utils/
+  ├── KeyEventManager.kt       # Central coordination system
+  ├── KeyEventPatterns.kt      # Reusable patterns & helpers
+  └── KeyEventDebugTools.kt    # Debug overlays & logging
+
+/screens/
+  ├── MainActivity.kt          # Global-level handlers only
+  ├── TopMenuScreen.kt         # Screen-level + delegation
+  └── SliderScreen.kt          # Screen-level + delegation
+
+Pattern: Keep key handling logic close to the component that uses it
+```
+
+#### **Comment Templates**
+```kotlin
+// ✅ GOOD: Descriptive handler comment
+/**
+ * KEY HANDLER: TopMenuScreen Navigation
+ * 
+ * Scope: Handles BACK key coordination with MainActivity
+ * Delegation: BACK from menu -> MainActivity (exit screen)
+ *            BACK from content -> local (return to menu)
+ * Conflicts: None (uses callback delegation pattern)
+ * 
+ * @see MainActivity.onBackPressed for coordination logic
+ */
+.onPreviewKeyEvent { event ->
+    if (event.key == Key.Back) {
+        val handled = onBackPressed(menuState.isMenuFocused)
+        // ... rest of logic
+    }
+}
+
+// ❌ BAD: No context or delegation info
+.onPreviewKeyEvent { event ->
+    // Handle back key
+    handleBack(event)
+}
+```
+
+### **📚 CENTRAL SYSTEMS (New Architecture)**
+
+#### **KeyEventManager (Singleton)**
+- **Location**: `/utils/KeyEventManager.kt`
+- **Purpose**: Centralized registration and conflict detection
+- **Usage**: `RegisterKeyHandler` composable or direct registration
+- **Benefits**: Automatic priority handling, conflict detection, debug logging
+
+#### **KeyEventPatterns (Utilities)**
+- **Location**: `/utils/KeyEventPatterns.kt`  
+- **Purpose**: Pre-built patterns for common scenarios
+- **Available Patterns**:
+  - `GlobalNavigationKeyHandler` - MainActivity level
+  - `ScreenNavigationKeyHandler` - Screen level with delegation
+  - `ComponentNavigationKeyHandler` - Component level
+  - `WidgetKeyHandler` - Widget micro-interactions
+- **Benefits**: Consistent behavior, reduced boilerplate, conflict prevention
+
+#### **Safe Migration Path**
+When updating existing components:
+1. **Wrap existing logic** with `SafeNavigationScope`
+2. **Register handlers** using `RegisterKeyHandler`
+3. **Add debugging** with `KeyEventDebugOverlay`
+4. **Test for conflicts** using `KeyEventManager.detectConflicts()`
+5. **Gradually migrate** to standard patterns
+
+Example migration:
+```kotlin
+// OLD: Direct onPreviewKeyEvent
+.onPreviewKeyEvent { event ->
+    when (event.key) {
+        Key.Back -> handleBack()
+        Key.DirectionLeft -> handleLeft()
+        else -> false
+    }
+}
+
+// NEW: Using KeyEventManager
+SafeNavigationScope(
+    scopeId = "SliderScreen.Navigation",
+    priority = KeyEventManager.Priority.SCREEN,
+    keys = setOf(Key.Back, Key.DirectionLeft, Key.DirectionRight),
+    onKeyEvent = { event ->
+        when (event.key) {
+            Key.Back -> handleBack()
+            Key.DirectionLeft -> handleLeft()
+            Key.DirectionRight -> handleRight()
+            else -> false
+        }
+    },
+    showDebugOverlay = BuildConfig.DEBUG
+) {
+    // Your screen content
+}
+```
+
+### **Recent Conflict Resolution (Reference)**
+- **Issue**: MainActivity `onPreviewKeyEvent` for BACK conflicted with TopMenuScreen callback system
+- **Solution**: Removed MainActivity `onPreviewKeyEvent`, used callback delegation pattern
+- **Result**: Clean separation - MainActivity handles exit, TopMenuScreen handles internal navigation
+- **Files**: `MainActivity.kt`, `TopMenuScreen.kt` (Commit: 25d0639)
+
+---
+
 ## Version History
 
 ### Version 0.06 - Full Integration with Enhanced UX (2025-09-12)

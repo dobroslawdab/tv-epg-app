@@ -1,4 +1,4 @@
-package com.example.tv
+package com.example.tv.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -36,14 +36,20 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import coil.compose.AsyncImage
-import com.example.tv.ui.theme.figmaRadialBackground
 import com.example.tv.version001.VodContent
 import com.example.tv.version001.loadVodContentFromAssets
 import kotlinx.coroutines.launch
 
+/**
+ * Large Slider Component with full-size cards
+ * Based on SliderScreen but as reusable component with isSectionFocused support
+ */
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-fun SliderScreen() {
+fun LargeSliderComponent(
+    modifier: Modifier = Modifier,
+    isSectionFocused: Boolean = true
+) {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
     val scaleX = configuration.screenWidthDp / 1920f
@@ -65,11 +71,12 @@ fun SliderScreen() {
     }
 
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFF48227C))
+        modifier = modifier
+            .fillMaxWidth()
+            .height(sy(742)) // Natural height of large cards
             .onPreviewKeyEvent { event ->
-                if (event.type != KeyEventType.KeyDown || isScrolling) return@onPreviewKeyEvent true
+                if (!isSectionFocused || event.type != KeyEventType.KeyDown || isScrolling) 
+                    return@onPreviewKeyEvent false
 
                 val newIndex = when (event.key) {
                     Key.DirectionLeft -> if (focusedIndex > 0) focusedIndex - 1 else -1
@@ -80,28 +87,31 @@ fun SliderScreen() {
                     if (newIndex < focusRequesters.size) {
                         focusRequesters[newIndex].requestFocus()
                     }
+                    return@onPreviewKeyEvent true
                 }
-                true
+                false
             },
         contentAlignment = Alignment.Center
     ) {
-        LaunchedEffect(Unit) {
-            if (movies.isNotEmpty()) {
+        // Handle focus gain and loss
+        LaunchedEffect(isSectionFocused) {
+            if (isSectionFocused && movies.isNotEmpty()) {
                 focusRequesters.firstOrNull()?.requestFocus()
             }
+            // Note: Focus clearing is handled by Compose automatically when component becomes inactive
         }
 
         if (movies.isNotEmpty()) {
             LazyRow(
                 state = listState,
-                contentPadding = PaddingValues(horizontal = sx(134)), // (1920 - 1652) / 2
+                contentPadding = PaddingValues(horizontal = sx(296)), // (1920 - 1328) / 2
                 horizontalArrangement = Arrangement.spacedBy(sx(20)),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 itemsIndexed(movies) { index, movie ->
-                    MovieCard(
+                    LargeMovieCard(
                         movie = movie,
-                        isFocused = index == focusedIndex,
+                        isFocused = index == focusedIndex && isSectionFocused,
                         focusRequester = focusRequesters[index],
                         onFocusChanged = { isFocused ->
                             if (isFocused) focusedIndex = index
@@ -116,7 +126,7 @@ fun SliderScreen() {
 }
 
 @Composable
-internal fun MovieCard(
+internal fun LargeMovieCard(
     movie: VodContent,
     isFocused: Boolean,
     focusRequester: FocusRequester,
@@ -124,12 +134,21 @@ internal fun MovieCard(
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp
 ) {
-    var isCardFocused by remember { mutableStateOf(false) }
+    var isButtonFocused by remember { mutableStateOf(false) }
 
     Card(
         modifier = Modifier
             .width(sx(1328))  // Narrower width like LiveScreen
-            .height(sy(742)),
+            .height(sy(742))  // Same height
+            .focusRequester(focusRequester)
+            .focusable()
+            .onFocusChanged { focusState ->
+                val nowFocused = focusState.isFocused
+                if (nowFocused != isButtonFocused) {
+                    isButtonFocused = nowFocused
+                    onFocusChanged(nowFocused)
+                }
+            },
         shape = RoundedCornerShape(sx(20)),
         colors = CardDefaults.cardColors(
             containerColor = Color(0xFF5B3987)
@@ -149,7 +168,7 @@ internal fun MovieCard(
                         .clip(RoundedCornerShape(topEnd = sx(20), bottomEnd = sx(20))),
                     contentScale = ContentScale.Crop
                 )
-                // Gradient is now inside this Box, so it has the same size and position
+                // Gradient overlay
                 Box(
                     modifier = Modifier
                         .matchParentSize()
@@ -159,7 +178,6 @@ internal fun MovieCard(
                                     Color(0xFF5A3887),
                                     Color(0x005A3887) // rgba(90, 56, 135, 0)
                                 ),
-                                // Sprawia, że gradient jest tylko na lewej połowie obrazu
                                 endX = sx(1028).value * 0.75f
                             )
                         )
@@ -170,100 +188,46 @@ internal fun MovieCard(
             Column(
                 modifier = Modifier
                     .align(Alignment.CenterStart)
-                    .width(sx(874))
-                    .padding(sx(100))
-                    .zIndex(1f), // Ensure content is drawn on top of the gradient
-                verticalArrangement = Arrangement.spacedBy(sy(31))
+                    .padding(sx(40)),
+                verticalArrangement = Arrangement.spacedBy(sy(20))
             ) {
-                // Channel Logo
-                AsyncImage(
-                    model = movie.channelLogoUrl,
-                    contentDescription = "Channel Logo",
-                    modifier = Modifier
-                        .width(sx(168))
-                        .height(sy(168))
-                        .clip(RoundedCornerShape(8.dp))
+                // Category
+                Text(
+                    text = movie.category,
+                    style = TextStyle(
+                        fontSize = sy(20).value.sp,
+                        fontWeight = FontWeight.W600,
+                        color = Color(0xFFEEEEEE)
+                    )
                 )
 
-                // Text Details
-                Column(verticalArrangement = Arrangement.spacedBy(sy(14))) {
-                    Text(
-                        text = movie.title,
-                        color = Color(0xFFEEEEEE),
-                        fontSize = sy(64).value.sp,
-                        fontWeight = FontWeight.W500,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(sx(16))
-                    ) {
-                        Text(movie.category, style = metadataStyle(sy))
-                        MetadataSeparator(sy)
-                        Text("25 min", style = metadataStyle(sy))
-                        MetadataSeparator(sy)
-                        Text("2020 r.", style = metadataStyle(sy))
-                        MetadataSeparator(sy)
-                        Text("Polska", style = metadataStyle(sy))
-                        MetadataSeparator(sy)
-                        Text("7 lat", style = metadataStyle(sy))
-                    }
-                    Text(
-                        text = movie.description,
-                        color = Color(0xFFEEEEEE),
-                        fontSize = sy(28).value.sp,
-                        fontWeight = FontWeight.W500,
-                        maxLines = 3,
-                        overflow = TextOverflow.Ellipsis,
-                        lineHeight = (sy(28).value * 1.43).sp
-                    )
-                }
+                // Title
+                Text(
+                    text = movie.title,
+                    style = TextStyle(
+                        fontSize = sy(48).value.sp,
+                        fontWeight = FontWeight.W700,
+                        color = Color(0xFFEEEEEE)
+                    ),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.width(sx(500))
+                )
+
+                // Description
+                Text(
+                    text = movie.description,
+                    style = TextStyle(
+                        fontSize = sy(18).value.sp,
+                        fontWeight = FontWeight.W400,
+                        color = Color(0xFFEEEEEE)
+                    ),
+                    maxLines = 4,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.width(sx(500))
+                )
 
             }
-
-            // Tiny invisible Button (1px x 1px) - working focus solution
-            Button(
-                onClick = { /* Handle play - invisible action */ },
-                modifier = Modifier
-                    .size(1.dp, 1.dp) // Tiny 1px x 1px size
-                    .align(Alignment.TopStart)
-                    .focusRequester(focusRequester)
-                    .onFocusChanged { focusState ->
-                        val nowFocused = focusState.isFocused
-                        if (nowFocused != isCardFocused) {
-                            isCardFocused = nowFocused
-                            onFocusChanged(nowFocused)
-                        }
-                    },
-                shape = RoundedCornerShape(0.dp), // No rounding for tiny button
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.Transparent, // Invisible
-                    contentColor = Color.Transparent   // Invisible text
-                ),
-                border = null, // No border on button (card has border)
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp) // No padding
-            ) {
-                // Empty content
-            }
-
         }
     }
-}
-
-
-@Composable
-private fun metadataStyle(sy: (Int) -> androidx.compose.ui.unit.Dp) = TextStyle(
-    color = Color(0xCCEEEEEE),
-    fontSize = sy(20).value.sp,
-    fontWeight = FontWeight.W700,
-    letterSpacing = 0.4.sp
-)
-
-@Composable
-private fun MetadataSeparator(sy: (Int) -> androidx.compose.ui.unit.Dp) {
-    Box(modifier = Modifier
-        .width(2.dp)
-        .height(sy(24))
-        .background(Color(0xCCEEEEEE)))
 }

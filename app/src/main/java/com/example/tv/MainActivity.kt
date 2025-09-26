@@ -40,7 +40,7 @@ class MainActivity : ComponentActivity() {
 }
 
 enum class NavigationScreen {
-    HOME, EPG, SLIDER, VIDEOSLIDER, CHANNELE, VERSION001
+    HOME, LIVE, COMPONENT_SHOWCASE, VERSION003, VERSION002, TOP_MENU, VERSION001, SHORTCUT, CHANNELE, VIDEOSLIDER, SLIDER, EPG
 }
 
 // Kolory z Figma dla nowego menu
@@ -52,8 +52,8 @@ object MenuColors {
     val BorderColor = Color(0xFFFFFFFF)
 }
 
-// Model danych dla elementu menu
-data class MenuItem(
+// Model danych dla elementu menu głównego
+data class MainMenuItem(
     val id: String,
     val title: String,
     val navigationScreen: NavigationScreen
@@ -61,7 +61,7 @@ data class MenuItem(
 
 @Composable
 fun MenuGridItem(
-    item: MenuItem,
+    item: MainMenuItem,
     isFocused: Boolean,
     onFocusChanged: (Boolean) -> Unit,
     onItemSelected: (NavigationScreen) -> Unit,
@@ -106,7 +106,7 @@ fun MenuGridItem(
 
 @Composable
 fun TVMenuGrid(
-    menuItems: List<MenuItem>,
+    menuItems: List<MainMenuItem>,
     onItemSelected: (NavigationScreen) -> Unit,
     columns: Int = 3,
     itemsPerColumn: Int = 10,
@@ -185,7 +185,7 @@ private fun handleKeyNavigation(
     currentPosition: Pair<Int, Int>,
     columns: Int,
     itemsPerColumn: Int,
-    menuItems: List<MenuItem>,
+    menuItems: List<MainMenuItem>,
     focusRequesters: List<List<FocusRequester>>,
     onPositionChanged: (Pair<Int, Int>) -> Unit
 ): Boolean {
@@ -252,14 +252,20 @@ fun TvRoot() {
         repository.startBackgroundRefresh()
     }
 
-    // Menu items dla 5 ekranów
+    // Menu items dla wszystkich ekranów - najnowsze na górze
     val menuItems = remember {
         listOf(
-            MenuItem(id = "epg", title = "EPG", navigationScreen = NavigationScreen.EPG),
-            MenuItem(id = "slider", title = "Slider", navigationScreen = NavigationScreen.SLIDER),
-            MenuItem(id = "videoslider", title = "Video Slider", navigationScreen = NavigationScreen.VIDEOSLIDER),
-            MenuItem(id = "channele", title = "Channele", navigationScreen = NavigationScreen.CHANNELE),
-            MenuItem(id = "version001", title = "Wersja 0.01", navigationScreen = NavigationScreen.VERSION001)
+            MainMenuItem(id = "live", title = "Live TV", navigationScreen = NavigationScreen.LIVE),
+            MainMenuItem(id = "component_showcase", title = "Component Showcase", navigationScreen = NavigationScreen.COMPONENT_SHOWCASE),
+            MainMenuItem(id = "version003", title = "Wersja 0.03", navigationScreen = NavigationScreen.VERSION003),
+            MainMenuItem(id = "version002", title = "Wersja 0.02", navigationScreen = NavigationScreen.VERSION002),
+            MainMenuItem(id = "top_menu", title = "Top Menu", navigationScreen = NavigationScreen.TOP_MENU),
+            MainMenuItem(id = "version001", title = "Wersja 0.01", navigationScreen = NavigationScreen.VERSION001),
+            MainMenuItem(id = "shortcut", title = "Shortcuts", navigationScreen = NavigationScreen.SHORTCUT),
+            MainMenuItem(id = "channele", title = "Channels", navigationScreen = NavigationScreen.CHANNELE),
+            MainMenuItem(id = "videoslider", title = "Video Slider", navigationScreen = NavigationScreen.VIDEOSLIDER),
+            MainMenuItem(id = "slider", title = "Slider duży", navigationScreen = NavigationScreen.SLIDER),
+            MainMenuItem(id = "epg", title = "TV Guide (EPG)", navigationScreen = NavigationScreen.EPG)
         )
     }
 
@@ -267,19 +273,46 @@ fun TvRoot() {
         modifier = Modifier
             .fillMaxSize()
             .figmaRadialBackground()
-            .onPreviewKeyEvent { event ->
-                val keyCode = event.nativeKeyEvent.keyCode
-                val action = event.nativeKeyEvent.action
-                when {
-                    keyCode == KeyEvent.KEYCODE_BACK && action == KeyEvent.ACTION_DOWN && currentScreen != NavigationScreen.HOME -> {
-                        currentScreen = NavigationScreen.HOME
-                        true
-                    }
-                    else -> false
-                }
-            }
     ) {
         when (currentScreen) {
+            NavigationScreen.LIVE -> {
+                LiveScreen(
+                    onBackPressed = {
+                        currentScreen = NavigationScreen.HOME
+                    }
+                )
+            }
+            NavigationScreen.COMPONENT_SHOWCASE -> {
+                ComponentShowcaseScreen()
+            }
+            NavigationScreen.VERSION003 -> {
+                Version003Screen(
+                    onBackPressed = { isMenuFocused ->
+                        if (isMenuFocused) {
+                            // BACK from menu - return to HOME
+                            currentScreen = NavigationScreen.HOME
+                            true
+                        } else {
+                            // BACK from content - let Version003Screen handle (return to menu)
+                            false
+                        }
+                    }
+                )
+            }
+            NavigationScreen.VERSION002 -> {
+                Version002Screen(
+                    onBackPressed = { isMenuFocused ->
+                        if (isMenuFocused) {
+                            // BACK from menu - return to HOME
+                            currentScreen = NavigationScreen.HOME
+                            true
+                        } else {
+                            // BACK from content - let Version002Screen handle (return to menu)
+                            false
+                        }
+                    }
+                )
+            }
             NavigationScreen.HOME -> {
                 Box(
                     modifier = Modifier
@@ -292,8 +325,8 @@ fun TvRoot() {
                         onItemSelected = { selectedScreen ->
                             currentScreen = selectedScreen
                         },
-                        columns = 1,
-                        itemsPerColumn = 5,
+                        columns = 3,
+                        itemsPerColumn = 4,
                         initialFocusPosition = Pair(0, 0)
                     )
                 }
@@ -358,6 +391,23 @@ fun TvRoot() {
             }
             NavigationScreen.VERSION001 -> {
                 Version001Screen()
+            }
+            NavigationScreen.SHORTCUT -> {
+                ShortcutScreen()
+            }
+            NavigationScreen.TOP_MENU -> {
+                TopMenuScreen(
+                    onBackPressed = { isMenuFocused ->
+                        if (isMenuFocused) {
+                            // BACK from menu - return to HOME
+                            currentScreen = NavigationScreen.HOME
+                            true
+                        } else {
+                            // BACK from content - let TopMenuScreen handle (return to menu)
+                            false
+                        }
+                    }
+                )
             }
         }
     }

@@ -68,6 +68,9 @@ dependencies {
   // Coil for image loading (channel logos)
   implementation("io.coil-kt:coil-compose:2.7.0")
   
+  // Lottie for animations
+  implementation("com.airbnb.android:lottie-compose:6.2.0")
+  
   // ExoPlayer for mini-player
   implementation("com.google.android.exoplayer:exoplayer:2.19.1")
   implementation("com.google.android.exoplayer:exoplayer-hls:2.19.1")

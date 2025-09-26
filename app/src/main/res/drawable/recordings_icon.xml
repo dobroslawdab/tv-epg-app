@@ -1,0 +1,13 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Recording/Video camera icon for "Nagrania" -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M18,10.48V6c0,-1.1 -0.9,-2 -2,-2H4C2.9,4 2,4.9 2,6v8c0,1.1 0.9,2 2,2h12c1.1,0 2,-0.9 2,-2v-4.48l4,3.98v-9L18,10.48z"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M9,9m-1,0a1,1 0,1 1,2 0a1,1 0,1 1,-2 0"/>
+</vector>

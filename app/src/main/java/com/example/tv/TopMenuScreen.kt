@@ -11,6 +11,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -41,10 +43,14 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.example.tv.ui.theme.figmaRadialBackground
 import com.example.tv.version001.loadVodContentFromAssets
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-fun TopMenuScreen() {
+fun TopMenuScreen(
+    onBackPressed: (isMenuFocused: Boolean) -> Boolean = { false }
+) {
     val configuration = LocalConfiguration.current
     val scaleX = configuration.screenWidthDp / 1920f
     val scaleY = configuration.screenHeightDp / 1080f
@@ -147,29 +153,109 @@ fun TopMenuScreen() {
                     return@onPreviewKeyEvent false
                 }
 
+                // Handle BACK key first - check with callback
+                if (event.key == Key.Back) {
+                    val handled = onBackPressed(menuState.isMenuFocused)
+                    if (!handled && !menuState.isMenuFocused) {
+                        // BACK from content - return to menu
+                        menuState = menuState.copy(
+                            isMenuFocused = true,
+                            focusedArea = FocusArea.LEFT_MENU // Always return to left menu
+                        )
+                        contentShouldFocus = false
+                        return@onPreviewKeyEvent true
+                    }
+                    return@onPreviewKeyEvent handled
+                }
+
                 when {
                     menuState.isMenuFocused -> {
                         // Menu navigation
                         when (event.key) {
                             Key.DirectionLeft -> {
-                                val currentIndex = menuItems.indexOfFirst { it.id == menuState.focusedItemId }
-                                val newIndex = if (currentIndex > 0) currentIndex - 1 else menuItems.size - 1
-                                menuState = menuState.copy(focusedItemId = menuItems[newIndex].id)
+                                when (menuState.focusedArea) {
+                                    FocusArea.LEFT_MENU -> {
+                                        // Navigate within left menu
+                                        val currentIndex = menuItems.indexOfFirst { it.id == menuState.focusedItemId }
+                                        val newIndex = if (currentIndex > 0) currentIndex - 1 else menuItems.size - 1
+                                        menuState = menuState.copy(focusedItemId = menuItems[newIndex].id)
+                                    }
+                                    FocusArea.RIGHT_MENU -> {
+                                        // Navigate within right menu or go to left menu
+                                        when (menuState.rightMenuFocusedItem) {
+                                            RightMenuItem.SETTINGS -> {
+                                                // From settings to notifications
+                                                menuState = menuState.copy(rightMenuFocusedItem = RightMenuItem.NOTIFICATIONS)
+                                            }
+                                            RightMenuItem.NOTIFICATIONS, null -> {
+                                                // From notifications to left menu
+                                                menuState = menuState.copy(
+                                                    focusedArea = FocusArea.LEFT_MENU,
+                                                    rightMenuFocusedItem = null
+                                                )
+                                            }
+                                        }
+                                    }
+                                    else -> { /* No action for CONTENT */ }
+                                }
                                 true
                             }
                             Key.DirectionRight -> {
-                                val currentIndex = menuItems.indexOfFirst { it.id == menuState.focusedItemId }
-                                val newIndex = if (currentIndex < menuItems.size - 1) currentIndex + 1 else 0
-                                menuState = menuState.copy(focusedItemId = menuItems[newIndex].id)
+                                when (menuState.focusedArea) {
+                                    FocusArea.LEFT_MENU -> {
+                                        val currentIndex = menuItems.indexOfFirst { it.id == menuState.focusedItemId }
+                                        if (currentIndex < menuItems.size - 1) {
+                                            // Navigate within left menu
+                                            val newIndex = currentIndex + 1
+                                            menuState = menuState.copy(focusedItemId = menuItems[newIndex].id)
+                                        } else {
+                                            // From last left menu item to right menu
+                                            menuState = menuState.copy(
+                                                focusedArea = FocusArea.RIGHT_MENU,
+                                                rightMenuFocusedItem = RightMenuItem.NOTIFICATIONS
+                                            )
+                                        }
+                                    }
+                                    FocusArea.RIGHT_MENU -> {
+                                        // Navigate within right menu
+                                        when (menuState.rightMenuFocusedItem) {
+                                            RightMenuItem.NOTIFICATIONS -> {
+                                                menuState = menuState.copy(rightMenuFocusedItem = RightMenuItem.SETTINGS)
+                                            }
+                                            RightMenuItem.SETTINGS, null -> {
+                                                // Stay on settings (end of navigation)
+                                            }
+                                        }
+                                    }
+                                    else -> { /* No action for CONTENT */ }
+                                }
                                 true
                             }
                             Key.DirectionDown, Key.Enter, Key.DirectionCenter -> {
-                                // Select current item and move focus to content ONLY when user presses DOWN/OK
-                                menuState = menuState.copy(
-                                    selectedItemId = menuState.focusedItemId,
-                                    isMenuFocused = false // Menu loses focus only when user explicitly navigates down
-                                )
-                                contentShouldFocus = true // Activate content focus
+                                when (menuState.focusedArea) {
+                                    FocusArea.LEFT_MENU -> {
+                                        // Select current item and move focus to content ONLY when user presses DOWN/OK
+                                        menuState = menuState.copy(
+                                            selectedItemId = menuState.focusedItemId,
+                                            isMenuFocused = false,
+                                            focusedArea = FocusArea.CONTENT
+                                        )
+                                        contentShouldFocus = true // Activate content focus
+                                    }
+                                    FocusArea.RIGHT_MENU -> {
+                                        // Right menu icons don't navigate to content, they trigger actions
+                                        when (menuState.rightMenuFocusedItem) {
+                                            RightMenuItem.NOTIFICATIONS -> {
+                                                // TODO: Show notifications panel
+                                            }
+                                            RightMenuItem.SETTINGS -> {
+                                                // TODO: Show settings panel
+                                            }
+                                            null -> { /* No action */ }
+                                        }
+                                    }
+                                    else -> { /* No action for CONTENT */ }
+                                }
                                 true
                             }
                             else -> false
@@ -178,9 +264,12 @@ fun TopMenuScreen() {
                     else -> {
                         // Content area - handle BACK and UP to return to menu
                         when (event.key) {
-                            Key.Back, Key.DirectionUp -> {
+                            Key.DirectionUp -> {
                                 // Return focus to menu and reset content focus
-                                menuState = menuState.copy(isMenuFocused = true)
+                                menuState = menuState.copy(
+                                    isMenuFocused = true,
+                                    focusedArea = FocusArea.LEFT_MENU // Always return to left menu
+                                )
                                 contentShouldFocus = false
                                 true
                             }
@@ -190,7 +279,7 @@ fun TopMenuScreen() {
                 }
             }
     ) {
-        // Top Menu Bar
+        // Top Menu Bar (Left)
         TopMenuBar(
             menuItems = menuItems,
             menuState = menuState,
@@ -201,6 +290,20 @@ fun TopMenuScreen() {
             sx = { sx(it) },
             sy = { sy(it) },
             modifier = Modifier.align(Alignment.TopCenter)
+        )
+        
+        // Right Menu Bar (Icons + Clock)
+        RightMenuBar(
+            menuState = menuState,
+            onRightMenuItemFocused = { rightMenuItem ->
+                menuState = menuState.copy(
+                    focusedArea = if (rightMenuItem != null) FocusArea.RIGHT_MENU else FocusArea.LEFT_MENU,
+                    rightMenuFocusedItem = rightMenuItem
+                )
+            },
+            sx = { sx(it) },
+            sy = { sy(it) },
+            modifier = Modifier.align(Alignment.TopEnd)
         )
 
         // Content Area (below menu)
@@ -279,7 +382,7 @@ fun TopMenuScreen() {
 }
 
 @Composable
-private fun TopMenuBar(
+fun TopMenuBar(
     menuItems: List<MenuItem>,
     menuState: TopMenuState,
     focusRequesters: Map<String, FocusRequester>,
@@ -309,7 +412,9 @@ private fun TopMenuBar(
                     // Search Icon (first item)
                     MenuSearchIcon(
                         isSelected = menuState.selectedItemId == item.id,
-                        isFocused = menuState.focusedItemId == item.id && menuState.isMenuFocused,
+                        isFocused = menuState.focusedItemId == item.id && 
+                                   menuState.isMenuFocused && 
+                                   menuState.focusedArea == FocusArea.LEFT_MENU,
                         focusRequester = focusRequesters[item.id]!!,
                         onFocused = { onMenuItemFocused(item.id) },
                         sx = sx,
@@ -320,7 +425,9 @@ private fun TopMenuBar(
                     MenuButton(
                         title = item.title,
                         isSelected = menuState.selectedItemId == item.id,
-                        isFocused = menuState.focusedItemId == item.id && menuState.isMenuFocused,
+                        isFocused = menuState.focusedItemId == item.id && 
+                                   menuState.isMenuFocused && 
+                                   menuState.focusedArea == FocusArea.LEFT_MENU,
                         focusRequester = focusRequesters[item.id]!!,
                         onFocused = { onMenuItemFocused(item.id) },
                         sx = sx,
@@ -460,10 +567,6 @@ private fun FocusableContentCard(
                 if (event.type == KeyEventType.KeyDown && isFocused) {
                     when (event.key) {
                         Key.DirectionUp -> {
-                            onReturnToMenu()
-                            true
-                        }
-                        Key.Back -> {
                             onReturnToMenu()
                             true
                         }
@@ -817,3 +920,132 @@ private fun AplikacjeContentScreen(
     onReturnToMenu = onReturnToMenu,
     shouldAutoFocus = shouldAutoFocus
 )
+
+@Composable
+fun RightMenuBar(
+    menuState: TopMenuState,
+    onRightMenuItemFocused: (RightMenuItem?) -> Unit,
+    sx: (Int) -> androidx.compose.ui.unit.Dp,
+    sy: (Int) -> androidx.compose.ui.unit.Dp,
+    modifier: Modifier = Modifier
+) {
+    // State for digital clock
+    var currentTime by remember { mutableStateOf(LocalTime.now()) }
+    var showColon by remember { mutableStateOf(true) }
+    
+    // Update time every second
+    LaunchedEffect(Unit) {
+        while (true) {
+            currentTime = LocalTime.now()
+            showColon = !showColon // Toggle colon every second
+            delay(1000) // 1 second delay
+        }
+    }
+    
+    Row(
+        modifier = modifier
+            .padding(top = sy(20), end = sx(30)) // Aligned with TopMenuBar padding
+            .height(sy(97)), // Same height as TopMenuBar
+        horizontalArrangement = Arrangement.spacedBy(sx(30)), // 30px gap between icons and clock
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Icons section with 10px gap
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(sx(10)),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Notifications icon
+            RightMenuIcon(
+                icon = Icons.Default.Notifications,
+                contentDescription = "Powiadomienia",
+                isFocused = menuState.focusedArea == FocusArea.RIGHT_MENU && 
+                           menuState.rightMenuFocusedItem == RightMenuItem.NOTIFICATIONS,
+                onClick = { onRightMenuItemFocused(RightMenuItem.NOTIFICATIONS) },
+                sx = sx,
+                sy = sy
+            )
+            
+            // Settings icon  
+            RightMenuIcon(
+                icon = Icons.Default.Settings,
+                contentDescription = "Ustawienia",
+                isFocused = menuState.focusedArea == FocusArea.RIGHT_MENU && 
+                           menuState.rightMenuFocusedItem == RightMenuItem.SETTINGS,
+                onClick = { onRightMenuItemFocused(RightMenuItem.SETTINGS) },
+                sx = sx,
+                sy = sy
+            )
+        }
+        
+        // Digital clock with stable space for colon
+        Row(
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            val hour = currentTime.hour.toString().padStart(2, '0')
+            val minute = currentTime.minute.toString().padStart(2, '0')
+            
+            Text(
+                text = hour,
+                color = Color.White,
+                fontSize = sy(40).value.sp,
+                fontWeight = FontWeight.Medium,
+                lineHeight = sy(39).value.sp,
+                letterSpacing = 0.2.sp
+            )
+            
+            // Colon with stable space - changes only opacity
+            Text(
+                text = ":",
+                color = Color.White.copy(alpha = if (showColon) 1f else 0f),
+                fontSize = sy(40).value.sp,
+                fontWeight = FontWeight.Medium,
+                lineHeight = sy(39).value.sp,
+                letterSpacing = 0.2.sp
+            )
+            
+            Text(
+                text = minute,
+                color = Color.White,
+                fontSize = sy(40).value.sp,
+                fontWeight = FontWeight.Medium,
+                lineHeight = sy(39).value.sp,
+                letterSpacing = 0.2.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun RightMenuIcon(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    contentDescription: String,
+    isFocused: Boolean,
+    onClick: () -> Unit,
+    sx: (Int) -> androidx.compose.ui.unit.Dp,
+    sy: (Int) -> androidx.compose.ui.unit.Dp,
+    modifier: Modifier = Modifier
+) {
+    val backgroundColor = if (isFocused) Color(0xFF5AECD3) else Color(0x33EEEEEE) // Aqua when focused
+    val iconColor = if (isFocused) Color(0xFF48227C) else Color(0xFFEEEEEE) // Purple when focused
+    
+    Box(
+        modifier = modifier
+            .size(sx(80), sy(80)) // 80x80px
+            .background(
+                color = backgroundColor,
+                shape = CircleShape // border-radius: 64px (circular)
+            )
+            .clickable { onClick() }
+            .focusable(),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            tint = iconColor,
+            modifier = Modifier.size(sx(48), sy(48)) // 48x48px icon size
+        )
+    }
+}
+
