@@ -27,6 +27,8 @@ import com.google.android.exoplayer2.ExoPlayer
 import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.ui.PlayerView
 import com.uxellence.tv.v3.ui.theme.figmaRadialBackground
+import com.uxellence.tv.v3.channels.ChannelManager
+import android.util.Log
 
 /**
  * Live Channel Data Model
@@ -40,13 +42,17 @@ data class LiveChannel(
 )
 
 /**
- * Live TV Screen - Multiple channels with numeric remote control
- * Odtwarzacz telewizji w bloku o wysokości 742px z obsługą przycisków 1-9
+ * Live TV Screen - Dynamic channels loaded from ChannelManager
+ * Odtwarzacz telewizji w bloku o wysokości 742px z obsługą przycisków 1-9 oraz UP/DOWN
+ *
+ * @param onBackPressed Callback when BACK button is pressed
+ * @param initialChannelName Optional channel name to start with (e.g. "TVP1", "Polsat")
  */
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun LiveScreen(
-    onBackPressed: () -> Unit = {}
+    onBackPressed: () -> Unit = {},
+    initialChannelName: String? = null
 ) {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
@@ -55,22 +61,37 @@ fun LiveScreen(
     fun sx(px: Int) = (px * scaleX).dp
     fun sy(px: Int) = (px * scaleY).dp
 
-    // Channels list with stream URLs
+    // Initialize ChannelManager if needed
+    LaunchedEffect(Unit) {
+        if (!ChannelManager.isInitialized()) {
+            Log.d("LiveScreen", "Initializing ChannelManager...")
+            ChannelManager.initialize(context)
+        }
+    }
+
+    // Load channels dynamically from ChannelManager
     val channels = remember {
-        listOf(
-            LiveChannel(1, "TVP1", "https://ec06-krk3.cache.orange.pl/dai4/org1/vb/104/tvp1hd/index.m3u8"),
-            LiveChannel(2, "Polsat", "https://lb2-e2-19.pluscdn.pl/ch/1502600/308/dash/20a18c30/live.mpd", true),
-            LiveChannel(3, "Polsat News", "http://cdn-s-lb2.pluscdn.pl/lv/1517830/349/dash/81ec4c32/live.mpd", true),
-            LiveChannel(4, "Polsat News Polityka", "https://lb2-e3-20.pluscdn.pl/lv/1511888/322/dash/52a9b70b/live.mpd", true),
-            LiveChannel(5, "Polsat Viasat Nature", "https://liveovh010.cda.pl/enc104/polsatviasatnaturehdraw/polsatviasatnaturehdraw.mpd"),
-            LiveChannel(6, "4Fun TV", "https://stream.4fun.tv:8888/hls/4f.m3u8"),
-            LiveChannel(7, "Viasat Explore Classic", "https://da9c49fa.wurl.com/master/f36d25e7e52f1ba8d7e56eb859c636563214f541/UmFrdXRlblRWLXBsX1ZpYXNhdEV4cGxvcmVfSExT/playlist.m3u8"),
-            LiveChannel(8, "Euronews", "https://7060743b4b224241b86325460b14d152.mediatailor.eu-west-1.amazonaws.com/v1/master/0547f18649bd788bec7b67b746e47670f558b6b2/production-LiveChannel-6769/bitok/eyJzdGlkIjoiMTE3OTllNGEtYmU1OC00ZjQyLTkxOTYtY2VlYWQzZGU2MDJjIiwibWt0IjoicGwiLCJjaCI6Njc2OSwicHRmIjo1fQ==/26235/euronews-pl.m3u8"),
-            LiveChannel(9, "Top Movies Polska", "https://top-movies-rakuten-tv-pl.fast.rakuten.tv/v1/master/0547f18649bd788bec7b67b746e47670f558b6b2/production-LiveChannel-6059/master.m3u8")
+        ChannelManager.getAllChannels(includeUnavailable = false).mapIndexed { index, channelData ->
+            LiveChannel(
+                number = index + 1,
+                name = channelData.name,
+                streamUrl = channelData.streamUrl,
+                isGeoBlocked = channelData.isGeoBlocked,
+                logoUrl = channelData.logoUrl
+            )
+        }
+    }
+
+    // Find initial channel by name, or default to first available
+    var currentChannelIndex by remember {
+        mutableStateOf(
+            initialChannelName?.let { name ->
+                channels.indexOfFirst {
+                    it.name.equals(name, ignoreCase = true)
+                }
+            }?.takeIf { it >= 0 } ?: 0
         )
     }
-    
-    var currentChannelIndex by remember { mutableStateOf(3) } // Start on channel 4 (Polsat News Polityka)
     var isError by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
     var lastKeyPressed by remember { mutableStateOf("") }
@@ -184,48 +205,58 @@ fun LiveScreen(
                         onKeyPressed = { key, keyCode ->
                             lastKeyPressed = "Key: $key | Code: $keyCode"
                             keyPressTime = System.currentTimeMillis()
-                            
+
                             // Try different key mapping approaches
                             val handled = when {
-                                // Native key codes
-                                keyCode == 8 -> { currentChannelIndex = 0; true }  // KEYCODE_1
-                                keyCode == 9 -> { currentChannelIndex = 1; true }  // KEYCODE_2
-                                keyCode == 10 -> { currentChannelIndex = 2; true } // KEYCODE_3
-                                keyCode == 11 -> { currentChannelIndex = 3; true } // KEYCODE_4
-                                keyCode == 12 -> { currentChannelIndex = 4; true } // KEYCODE_5
-                                keyCode == 13 -> { currentChannelIndex = 5; true } // KEYCODE_6
-                                keyCode == 14 -> { currentChannelIndex = 6; true } // KEYCODE_7
-                                keyCode == 15 -> { currentChannelIndex = 7; true } // KEYCODE_8
-                                keyCode == 16 -> { currentChannelIndex = 8; true } // KEYCODE_9
-                                
-                                // Compose Key enum
-                                key == Key.One -> { currentChannelIndex = 0; true }
-                                key == Key.Two -> { currentChannelIndex = 1; true }
-                                key == Key.Three -> { currentChannelIndex = 2; true }
-                                key == Key.Four -> { currentChannelIndex = 3; true }
-                                key == Key.Five -> { currentChannelIndex = 4; true }
-                                key == Key.Six -> { currentChannelIndex = 5; true }
-                                key == Key.Seven -> { currentChannelIndex = 6; true }
-                                key == Key.Eight -> { currentChannelIndex = 7; true }
-                                key == Key.Nine -> { currentChannelIndex = 8; true }
-                                
-                                // Backup controls
-                                key == Key.DirectionUp -> { 
-                                    if (currentChannelIndex < channels.size - 1) currentChannelIndex++
-                                    true 
+                                // Native key codes for numeric buttons (1-9)
+                                keyCode == 8 && channels.size > 0 -> { currentChannelIndex = 0; true }  // KEYCODE_1
+                                keyCode == 9 && channels.size > 1 -> { currentChannelIndex = 1; true }  // KEYCODE_2
+                                keyCode == 10 && channels.size > 2 -> { currentChannelIndex = 2; true } // KEYCODE_3
+                                keyCode == 11 && channels.size > 3 -> { currentChannelIndex = 3; true } // KEYCODE_4
+                                keyCode == 12 && channels.size > 4 -> { currentChannelIndex = 4; true } // KEYCODE_5
+                                keyCode == 13 && channels.size > 5 -> { currentChannelIndex = 5; true } // KEYCODE_6
+                                keyCode == 14 && channels.size > 6 -> { currentChannelIndex = 6; true } // KEYCODE_7
+                                keyCode == 15 && channels.size > 7 -> { currentChannelIndex = 7; true } // KEYCODE_8
+                                keyCode == 16 && channels.size > 8 -> { currentChannelIndex = 8; true } // KEYCODE_9
+
+                                // Compose Key enum for numeric buttons
+                                key == Key.One && channels.size > 0 -> { currentChannelIndex = 0; true }
+                                key == Key.Two && channels.size > 1 -> { currentChannelIndex = 1; true }
+                                key == Key.Three && channels.size > 2 -> { currentChannelIndex = 2; true }
+                                key == Key.Four && channels.size > 3 -> { currentChannelIndex = 3; true }
+                                key == Key.Five && channels.size > 4 -> { currentChannelIndex = 4; true }
+                                key == Key.Six && channels.size > 5 -> { currentChannelIndex = 5; true }
+                                key == Key.Seven && channels.size > 6 -> { currentChannelIndex = 6; true }
+                                key == Key.Eight && channels.size > 7 -> { currentChannelIndex = 7; true }
+                                key == Key.Nine && channels.size > 8 -> { currentChannelIndex = 8; true }
+
+                                // Channel navigation: UP = next channel, DOWN = previous channel
+                                key == Key.DirectionUp -> {
+                                    if (currentChannelIndex < channels.size - 1) {
+                                        currentChannelIndex++
+                                    } else {
+                                        // Wrap around to first channel
+                                        currentChannelIndex = 0
+                                    }
+                                    true
                                 }
-                                key == Key.DirectionDown -> { 
-                                    if (currentChannelIndex > 0) currentChannelIndex--
-                                    true 
+                                key == Key.DirectionDown -> {
+                                    if (currentChannelIndex > 0) {
+                                        currentChannelIndex--
+                                    } else {
+                                        // Wrap around to last channel
+                                        currentChannelIndex = channels.size - 1
+                                    }
+                                    true
                                 }
-                                
+
                                 else -> false
                             }
-                            
+
                             if (handled) {
-                                lastKeyPressed = "SUCCESS: $key -> Channel ${currentChannelIndex + 1}"
+                                lastKeyPressed = "SUCCESS: $key -> Channel ${currentChannelIndex + 1} (${channels.getOrNull(currentChannelIndex)?.name ?: "Unknown"})"
                             }
-                            
+
                             handled
                         }
                     )
@@ -331,11 +362,12 @@ fun FocusableVideoPlayer(
             factory = { ctx ->
                 PlayerView(ctx).apply {
                     this.player = player
-                    useController = false // Disable controls
-                    controllerAutoShow = false
-                    controllerHideOnTouch = true
-                    hideController()
-                    isFocusable = false // Prevent PlayerView from taking focus
+                    // Enable controls for Play/Pause and seeking
+                    useController = true
+                    controllerAutoShow = true
+                    controllerShowTimeoutMs = 5000 // Auto-hide after 5 seconds
+                    controllerHideOnTouch = false // Keep controls accessible
+                    isFocusable = false // Prevent PlayerView from taking focus (parent Box handles it)
                     isClickable = false
                     setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
                 }

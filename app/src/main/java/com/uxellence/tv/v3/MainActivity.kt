@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.uxellence.tv.v3.epg.*
 import com.uxellence.tv.v3.repository.EpgRepository
+import com.uxellence.tv.v3.channels.ChannelManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.uxellence.tv.v3.ui.theme.figmaRadialBackground
@@ -45,6 +46,8 @@ class MainActivity : ComponentActivity() {
         setAppLocale(this, "pl")
         // Initialize VOD data cache once at startup (avoids repeated I/O)
         VodDataCache.initialize(this)
+        // Initialize ChannelManager with TV channels database
+        ChannelManager.initialize(this)
         setContent { TvRoot() }
     }
 
@@ -270,6 +273,7 @@ fun TvRoot() {
     val context = LocalContext.current
     val repository = remember { EpgRepository.getInstance(context) }
     var currentScreen by remember { mutableStateOf(NavigationScreen.SPLASH) }
+    var selectedChannelName by remember { mutableStateOf<String?>(null) }
 
     // Start background EPG loading on app start
     LaunchedEffect(Unit) {
@@ -334,7 +338,9 @@ fun TvRoot() {
                 LiveScreen(
                     onBackPressed = {
                         currentScreen = NavigationScreen.HOME
-                    }
+                        selectedChannelName = null // Reset selected channel
+                    },
+                    initialChannelName = selectedChannelName
                 )
             }
             NavigationScreen.FOCUS_MINI_CARD -> {
@@ -466,6 +472,10 @@ fun TvRoot() {
                     },
                     onShowMainMenu = {
                         currentScreen = NavigationScreen.HOME
+                    },
+                    onNavigateToLiveScreen = { channelName ->
+                        selectedChannelName = channelName
+                        currentScreen = NavigationScreen.LIVE
                     }
                 )
             }

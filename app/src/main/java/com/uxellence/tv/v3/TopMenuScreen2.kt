@@ -541,7 +541,8 @@ private fun ChannelLogosGrid(
 @Composable
 fun TopMenuScreen2(
     onBackPressed: (isMenuFocused: Boolean) -> Boolean = { false },
-    onShowMainMenu: () -> Unit = {}
+    onShowMainMenu: () -> Unit = {},
+    onNavigateToLiveScreen: (String) -> Unit = {}
 ) {
     val configuration = LocalConfiguration.current
     val scaleX = configuration.screenWidthDp / 1920f
