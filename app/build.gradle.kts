@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
   id("com.android.application")
   id("org.jetbrains.kotlin.android")
@@ -6,17 +8,32 @@ plugins {
 }
 
 android {
-  namespace = "com.example.tv"
-  compileSdk = 34
+  namespace = "com.uxellence.tv.v3"
+  compileSdk = 35
 
-  defaultConfig {
-    applicationId = "com.example.tv"
-    minSdk = 23
-    targetSdk = 34
-    versionCode = 1
-    versionName = "1.0"
+      defaultConfig {
+          applicationId = "com.uxellence.tv.v3"
+          minSdk = 21
+          targetSdk = 35
+          versionCode = 12
+          versionName = "3.3.0"
+  
+          // Specify the ABIs to build for. Including both 32-bit and 64-bit ensures compatibility.
+          ndk {
+              abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a"))
+          }
+  
+          vectorDrawables { useSupportLibrary = true }
+    // Load API keys from local.properties
+    val properties = Properties()
+    val localPropertiesFile = rootProject.file("local.properties")
+    if (localPropertiesFile.exists()) {
+      properties.load(localPropertiesFile.inputStream())
+    }
 
-    vectorDrawables { useSupportLibrary = true }
+    buildConfigField("String", "GEMINI_API_KEY", "\"${properties.getProperty("GEMINI_API_KEY", "")}\"")
+    buildConfigField("String", "TMDB_API_KEY", "\"${properties.getProperty("TMDB_API_KEY", "716cc02044e4d92d0a012a426902cc2d")}\"")
+    buildConfigField("String", "ELEVENLABS_API_KEY", "\"${properties.getProperty("ELEVENLABS_API_KEY", "")}\"")
   }
 
   buildTypes {
@@ -36,7 +53,10 @@ android {
   }
   kotlinOptions { jvmTarget = "17" }
 
-  buildFeatures { compose = true }
+  buildFeatures {
+    compose = true
+    buildConfig = true
+  }
   composeOptions { kotlinCompilerExtensionVersion = "1.5.14" }
 
   packaging {
@@ -82,7 +102,25 @@ dependencies {
   
   // Kotlinx Serialization for JSON parsing
   implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
-  
+
+  // HTTP Client for Gemini API
+  implementation("io.ktor:ktor-client-core:2.3.7")
+  implementation("io.ktor:ktor-client-android:2.3.7")
+  implementation("io.ktor:ktor-client-content-negotiation:2.3.7")
+  implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.7")
+  implementation("io.ktor:ktor-client-logging:2.3.7")
+
+  // ElevenLabs Speech-to-Text API
+  implementation("com.squareup.okhttp3:okhttp:4.12.0")
+  implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+  implementation("com.squareup.retrofit2:retrofit:2.11.0")
+  implementation("com.squareup.retrofit2:converter-gson:2.11.0")
+  implementation("com.google.code.gson:gson:2.10.1")
+
+  // ViewModel for state management
+  implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
+  implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0")
+
   // Core library desugaring for Java 8 Time API support on older Android versions
   coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 }

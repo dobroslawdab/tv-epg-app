@@ -330,6 +330,145 @@ when (focusLevel) {
 }
 ```
 
+### **📱 SECTION NAVIGATION DELEGATION PATTERN**
+
+**Critical Pattern**: For multi-screen applications with a central navigation hub (like TopMenuScreen2), sections must delegate navigation to their child components.
+
+#### **When to Use Delegation vs. Custom Handling**
+
+**✅ Use Delegation** (return `false` to let child handle):
+- Section has its own `handleNavigation` function (e.g., `handleMojeChannelsNavigation`, `handleVodNavigation`)
+- Section has complex multi-row navigation (channel-by-channel)
+- Section manages its own focus state and FocusRequesters
+- Examples: **MOJE**, **START**, **APLIKACJE**, **VOD**
+
+**❌ Use Custom Handling** (return `true` after handling):
+- Section has simple single-level navigation
+- Section uses GlobalFocusManager for row navigation
+- Section needs special menu transition logic
+- Example: **TELEWIZJA** (uses GlobalFocusManager.navigateRow)
+
+#### **Implementation Pattern**
+
+**In TopMenuScreen2 onPreviewKeyEvent** (line ~200):
+```kotlin
+when (currentSection) {
+    "VOD" -> {
+        // VOD handles its own navigation entirely
+        false // Let VodWithChannels handle all keys
+    }
+    "MOJE" -> {
+        // MOJE handles its own navigation entirely
+        false // Let MojeChannelsScreen handle all keys
+    }
+    "START" -> {
+        // START handles its own navigation entirely
+        false // Let StartChannelsScreen handle all keys
+    }
+    "APLIKACJE" -> {
+        // APLIKACJE handles its own navigation entirely
+        false // Let AplikacjeChannelsScreen handle all keys
+    }
+    "TELEWIZJA" -> {
+        // TELEWIZJA uses custom GlobalFocusManager navigation
+        when (event.key) {
+            Key.DirectionUp -> {
+                val newState = GlobalFocusManager.navigateRow(globalFocusState.value, RowDirection.UP)
+                if (newState.currentRow == 0) {
+                    globalFocusState.value = GlobalFocusManager.returnToMenu(globalFocusState.value)
+                } else {
+                    globalFocusState.value = newState
+                }
+                true
+            }
+            // ... other keys
+        }
+    }
+}
+```
+
+**In Child Component** (e.g., VodWithChannels):
+```kotlin
+Box(
+    modifier = Modifier
+        .fillMaxSize()
+        .onPreviewKeyEvent { event ->
+            handleVodNavigation(
+                event = event,
+                focusedRowIndex = focusedRowIndex,
+                focusedColIndex = focusedColIndex,
+                onFocusChange = { row, col ->
+                    focusedRowIndex = row
+                    focusedColIndex = col
+                },
+                channelFocusRequesters = channelFocusRequesters,
+                channels = channels,
+                lazyListStates = lazyListStates,
+                coroutineScope = coroutineScope,
+                gridContent = gridContent,
+                onReturnToMenu = onReturnToMenu // Callback to parent
+            )
+        }
+) { /* content */ }
+```
+
+#### **Checklist: Adding a New Section**
+
+When adding a new section to TopMenuScreen2:
+
+1. ✅ **Does section have complex navigation?**
+   - Multi-row channel navigation → Use delegation pattern
+   - Simple navigation → Consider custom handling
+
+2. ✅ **Create complete navigation handler**
+   - Function: `handleXXXNavigation(event, focusedRowIndex, focusedColIndex, ...)`
+   - Handle: UP, DOWN, LEFT, RIGHT
+   - Include: `onReturnToMenu` callback for menu transition
+
+3. ✅ **Add to TopMenuScreen2 delegation list**
+   - Add section to `when (currentSection)` block
+   - Return `false` with comment: `"// XXX handles its own navigation entirely"`
+
+4. ✅ **Test navigation flow**
+   - Channel-to-channel (UP/DOWN): Should move between channels
+   - First channel UP: Should eventually reach menu
+   - Menu transition: Should use `onReturnToMenu` callback
+
+5. ✅ **Document in Recent Conflict Resolution**
+   - If solving navigation conflict, document in CLAUDE.md
+
+#### **Common Anti-Pattern**
+
+**❌ WRONG** - Parent intercepts keys that child should handle:
+```kotlin
+"VOD" -> {
+    when (event.key) {
+        Key.DirectionUp -> {
+            if (globalFocusState.value.currentRow == 1) {
+                globalFocusState.value = GlobalFocusManager.returnToMenu(globalFocusState.value)
+                true // ❌ Parent handles menu transition directly
+            } else false
+        }
+        else -> false
+    }
+}
+```
+
+**✅ CORRECT** - Parent delegates to child, child calls callback:
+```kotlin
+// In TopMenuScreen2:
+"VOD" -> {
+    false // Let VodWithChannels handle all keys
+}
+
+// In VodWithChannels handleVodNavigation:
+when {
+    focusedRowIndex == 1 -> {
+        onReturnToMenu() // ✅ Child uses callback for menu transition
+    }
+}
+```
+
 ### **🔧 DEBUGGING TOOLS**
 
 #### **Key Event Flow Logging**
@@ -547,10 +686,35 @@ SafeNavigationScope(
 ```
 
 ### **Recent Conflict Resolution (Reference)**
+
+#### **Issue #1: MainActivity BACK Key Conflict** (Historical)
 - **Issue**: MainActivity `onPreviewKeyEvent` for BACK conflicted with TopMenuScreen callback system
 - **Solution**: Removed MainActivity `onPreviewKeyEvent`, used callback delegation pattern
 - **Result**: Clean separation - MainActivity handles exit, TopMenuScreen handles internal navigation
 - **Files**: `MainActivity.kt`, `TopMenuScreen.kt` (Commit: 25d0639)
+
+#### **Issue #2: APLIKACJE Navigation Conflict** (2025-09-30)
+- **Issue**: TopMenuScreen2 intercepted UP key for APLIKACJE in `else` block (line 242), preventing channel-by-channel navigation
+- **Symptom**: Pressing UP from any channel content jumped directly to menu instead of moving to previous channel
+- **Root Cause**: APLIKACJE not listed in delegation sections, fell through to default behavior
+- **Solution**: Added APLIKACJE to delegation list (lines 238-240), returning `false` to let AplikacjeChannelsScreen handle all keys
+- **Result**: UP navigation now moves channel-by-channel, only returns to menu from CategoryIcon of first channel
+- **Files**: `TopMenuScreen2.kt:238-240` (AplikacjeChannelsScreen handles its own navigation via `handleAplikacjeChannelsNavigation`)
+
+#### **Issue #3: VOD Navigation Conflict** (2025-09-30)
+- **Issue**: TopMenuScreen2 had custom UP key handling for VOD (lines 201-210), intercepting `currentRow == 1` to return to menu directly
+- **Symptom**: VOD navigation behavior inconsistent with MOJE/START/APLIKACJE pattern
+- **Root Cause**: VOD used old pattern of parent-level interception instead of delegation to child component
+- **Solution**: Replaced custom handling with delegation pattern (return `false`), letting VodWithChannels handle all keys
+- **Result**: VOD now uses same delegation pattern as other sections, child component handles menu transition via `onReturnToMenu` callback
+- **Files**: `TopMenuScreen2.kt:201-204` (VodWithChannels handles its own navigation via `handleVodNavigation`)
+- **Documentation**: Added comprehensive Section Navigation Delegation Pattern to CLAUDE.md
+
+#### **Key Learnings**
+1. **Delegation Pattern**: Sections with complex multi-row navigation (MOJE, START, APLIKACJE, VOD) should delegate ALL keys to child components
+2. **Callback Pattern**: Child components use `onReturnToMenu` callback for menu transitions instead of parent intercepting keys
+3. **Consistency**: All similar sections should follow the same pattern for maintainability
+4. **Documentation**: Critical patterns must be documented in CLAUDE.md with examples and checklists
 
 ---
 
@@ -664,3 +828,304 @@ CategoryIcon(
     }
 )
 ```
+
+## TELEWIZJA EPG Channels System (2025-10-17)
+
+### 📋 System Overview
+
+**Purpose**: Display EPG (Electronic Program Guide) content from last 24 hours organized by content type with descriptive two-line channel headers.
+
+### 📺 Channel Structure
+
+TELEWIZJA section contains 12 channels organized as follows:
+
+#### **Row 0: Slider Mix** (Type: `slider-max`)
+- Large hero slider with mixed VOD content
+- Full-width presentation
+
+#### **Row 1: Teraz w TV** (Type: `horizontal`)
+- Current live programs from all channels
+- Data source: `EpgRepository.getCurrentProgram()` for 10 channels
+- Updates in real-time based on current time
+
+#### **Rows 2-5: EPG Content Channels** (Type: `horizontal`)
+All use **two-line naming format** with EPG data from last 24 hours:
+
+1. **"FILMY, dzis były w TV"**
+   - Feature-length movies (90+ minutes)
+   - Data source: `EpgRepository.getLast24HoursMovies()`
+   - Filter: duration ≥ 90 min, categories contain "film"
+
+2. **"SERIALE, dzis były w TV"**
+   - TV series episodes
+   - Data source: `EpgRepository.getLast24HoursSeries()`
+   - Filter: categories contain "serial" OR description has S[X]E[Y]/E[N] format
+   - **Excluded categories**: magazyn, poradnik, teleturniej, rozrywka, rozrywkowy, show, reality show, talk-show, informacyjny, wiadomości, news
+
+3. **"SPORT, dzis było w TV"**
+   - Sports events and matches
+   - Data source: `EpgRepository.getLast24HoursSports()`
+   - Filter: categories match sport keywords (mecz, liga, puchar, etc.)
+   - **Excluded keywords**: "turniej" (removed to prevent catching "teleturniej")
+
+4. **"TELETURNIEJE, dzis były w TV"**
+   - Game shows only
+   - Data source: `EpgRepository.getLast24HoursGameShows()`
+   - Filter: categories contain "teleturniej"
+
+#### **Rows 6-11: TV Channel Collections** (Type: `app-icons`)
+- "Moja lista kanałów" - User's favorite channels
+- "Wszystkie kanały" - All available channels
+- "Dla dzieci" - Kids channels
+- "Dokumenty" - Documentary channels
+- "Filmy i seriale HBO" - HBO content
+- "Informacyjne" - News channels
+
+### 🎨 Visual Design: EPG Channels
+
+EPG channels (rows 2-5) use **text-only CategoryIcon** style:
+
+```kotlin
+// CategoryIcon configuration for EPG channels
+val isEpgChannel = channel in listOf(
+    "Teraz w TV",
+    "FILMY, dzis były w TV",
+    "SERIALE, dzis były w TV",
+    "SPORT, dzis było w TV",
+    "TELETURNIEJE, dzis były w TV"
+)
+
+CategoryIcon(
+    text = channel,
+    showIcon = false,  // No icon, text only
+    showBackgroundWhenFocused = true  // Black background when focused
+)
+```
+
+**Text properties** (Version001Screen.kt:703-712):
+- Font size: 24sp (scaled)
+- Font weight: Medium (500)
+- Color: #EEEEEE (white)
+- Max width: 200px
+- **Max lines: 2** (enables two-line wrapping)
+- Text align: Center
+- Line height: 1.33
+
+**Visual appearance**:
+- Unfocused: Black background (rgba(0, 0, 0, 0.10)), no border
+- Focused: Darker black (rgba(0, 0, 0, 0.30)), aqua border (#5AECD3)
+- Same dimensions as regular CategoryIcon: 240x216px
+
+### 🗂 Data Mapping
+
+**File**: `TopMenuScreen2.kt`
+
+**Channel names** (line 1513-1526):
+```kotlin
+val channels = listOf(
+    "Slider Mix",
+    "Teraz w TV",
+    "FILMY, dzis były w TV",      // EPG: movies
+    "SERIALE, dzis były w TV",     // EPG: series
+    "SPORT, dzis było w TV",       // EPG: sports
+    "TELETURNIEJE, dzis były w TV", // EPG: game shows
+    "Moja lista kanałów",
+    "Wszystkie kanały",
+    "Dla dzieci",
+    "Dokumenty",
+    "Filmy i seriale HBO",
+    "Informacyjne"
+)
+```
+
+**Channel types mapping** (line 1529-1544):
+```kotlin
+val channelTypes = mapOf(
+    "Slider Mix" to "slider-max",
+    "Teraz w TV" to "horizontal",
+    "FILMY, dzis były w TV" to "horizontal",
+    "SERIALE, dzis były w TV" to "horizontal",
+    "SPORT, dzis było w TV" to "horizontal",
+    "TELETURNIEJE, dzis były w TV" to "horizontal",
+    "Moja lista kanałów" to "app-icons",
+    // ... other channels
+)
+```
+
+**Grid content sources** (line 1546-1620):
+```kotlin
+val gridContent = remember(terazWTvPrograms, najczesciejMovies, serialePrograms, sportPrograms, teleturniejePrograms) {
+    channels.associateWith { channelName ->
+        when (channelName) {
+            "Teraz w TV" -> terazWTvPrograms  // Current live programs
+            "FILMY, dzis były w TV" -> najczesciejMovies  // Last 24h movies
+            "SERIALE, dzis były w TV" -> serialePrograms  // Last 24h series
+            "SPORT, dzis było w TV" -> sportPrograms  // Last 24h sports
+            "TELETURNIEJE, dzis były w TV" -> teleturniejePrograms  // Last 24h game shows
+            // ... other channels
+        }
+    }
+}
+```
+
+### 🔍 EPG Data Filtering
+
+**File**: `EpgRepository.kt`
+
+#### Movies Filter (line 98-154)
+```kotlin
+suspend fun getLast24HoursMovies(): List<EpgProgram> {
+    val movies = allPrograms.filter { program ->
+        // Duration ≥ 90 minutes (feature-length)
+        val duration = Duration.between(program.startUtc, program.endUtc).toMinutes()
+        val isFeatureLength = duration >= 90
+
+        // Categories contain "film"
+        val hasMovieCategory = program.categories.any {
+            it.lowercase().contains("film")
+        }
+
+        hasMovieCategory && isFeatureLength
+    }
+
+    return movies
+        .sortedByDescending { it.startUtc }
+        .distinctBy { it.title.lowercase().trim() }
+        .take(10)
+}
+```
+
+#### Series Filter (line 157-216)
+```kotlin
+suspend fun getLast24HoursSeries(): List<EpgProgram> {
+    val unwantedCategories = setOf(
+        "rozrywka", "rozrywkowy", "show", "reality show", "talk-show",
+        "informacyjny", "wiadomości", "news",
+        "magazyn", "poradnik", "teleturniej"
+    )
+
+    val series = allPrograms.filter { program ->
+        // 1. Category contains "serial"
+        val hasSeriesCategory = program.categories.any {
+            it.lowercase().contains("serial")
+        }
+
+        // 2. OR description contains S[X]E[Y] or E[N]
+        val hasEpisodeInfo = program.description?.let { desc ->
+            desc.contains(Regex("S\\d+E\\d+")) || desc.contains(Regex("E\\d+"))
+        } ?: false
+
+        // 3. Exclude unwanted categories
+        val noUnwantedCategories = program.categories.none { category ->
+            unwantedCategories.any { unwanted ->
+                category.lowercase().contains(unwanted)
+            }
+        }
+
+        // 4. Duration > 20 minutes
+        val duration = Duration.between(program.startUtc, program.endUtc).toMinutes()
+        val isEpisodeLength = duration > 20
+
+        (hasSeriesCategory || hasEpisodeInfo) && noUnwantedCategories && isEpisodeLength
+    }
+
+    return series
+        .sortedByDescending { it.startUtc }
+        .distinctBy { it.title.lowercase().trim() }
+        .take(10)
+}
+```
+
+#### Sports Filter (line 219-261)
+```kotlin
+suspend fun getLast24HoursSports(): List<EpgProgram> {
+    val sportKeywords = setOf(
+        "sport", "mecz", "match", "rozgrywki",
+        "piłka nożna", "football", "soccer", "tenis", "tennis",
+        "siatkówka", "volleyball", "koszykówka", "basketball",
+        "liga", "puchar", "mistrzostwa", "championship",
+        "formuła", "formula", "wyścig", "race", "golf",
+        "hokej", "hockey", "boks", "boxing", "rugby",
+        "skoki", "jumping", "narciarstwo", "skiing"
+        // NOTE: "turniej" removed to prevent catching "teleturniej"
+    )
+
+    val sports = allPrograms.filter { program ->
+        program.categories.any { category ->
+            sportKeywords.any { keyword ->
+                category.lowercase().contains(keyword)
+            }
+        }
+    }
+
+    return sports
+        .sortedByDescending { it.startUtc }
+        .distinctBy { it.title.lowercase().trim() }
+        .take(10)
+}
+```
+
+#### Game Shows Filter (line 265-302)
+```kotlin
+suspend fun getLast24HoursGameShows(): List<EpgProgram> {
+    val gameShowCategories = setOf("teleturniej")
+
+    val gameShows = allPrograms.filter { program ->
+        program.categories.any { category ->
+            gameShowCategories.any { gameShowCategory ->
+                category.lowercase().contains(gameShowCategory)
+            }
+        }
+    }
+
+    return gameShows
+        .sortedByDescending { it.startUtc }
+        .distinctBy { it.title.lowercase().trim() }
+        .take(10)
+}
+```
+
+### 🎯 Key Design Decisions
+
+1. **Two-line naming**: Provides context ("dzis były/było w TV") while maintaining clean visual hierarchy
+2. **Text-only style**: Matches WIDEO section pattern (Seriale, Filmy fabularne) - no icons, just text
+3. **Last 24h window**: Shows recently aired content that users might want to catch up on
+4. **Strict filtering**: Prevents content misclassification (e.g., game shows in sports, magazines in series)
+5. **Deduplication**: `distinctBy { title }` ensures same program doesn't appear multiple times
+
+### 💾 Backup Files
+- `TV_componenty_backup_20251017_104642` - Two-line EPG channels implementation
+
+### 🛠 Implementation Files
+- **TopMenuScreen2.kt** (lines 1513-1620, 6290): Channel configuration and grid content
+- **Version001Screen.kt** (lines 597-716): CategoryIcon component with maxLines support
+- **EpgRepository.kt** (lines 98-302): EPG data filtering logic
+- **EpgAdapter.kt**: EPG to VodContent conversion
+
+## MOJE Section Spacing System (2025-09-29)
+
+### 📋 System Documentation
+
+**Zasada**: Wysokość wiersza (CategoryIcon 216px) + odstęp między wierszami
+
+### 📊 Stałe systemu:
+```kotlin
+private const val MOJE_FIXED_FOCUS_Y = 340 // Zfokusowany wiersz zawsze na tej wysokości
+private const val MOJE_NORMAL_ROW_HEIGHT = 256 // CategoryIcon (216px) + odstęp (40px)
+private const val MOJE_EXPANDED_ROW_HEIGHT = 546 // CategoryIcon (216px) + miniaturki (290px) + odstęp (40px)
+private const val MOJE_CONTENT_FOCUS_EXTRA_SPACING = 100 // Dodatkowe odsunięcie nad zfokusowanym wierszem z treścią
+```
+
+### 🔄 Scenariusze:
+- **Fokus na CategoryIcon**: 40px odstęp między wierszami
+- **Fokus na treści**: dodatkowo 100px odsunięcie nad zfokusowanym wierszem
+- **Wiersze nie nachodzą** na siebie - każdy ma pełną wysokość + odstęp
+
+### 💾 Backup Files:
+- `TopMenuScreen2_backup_moje_spacing_system_20250929_100436.kt` (52K)
+- `app-debug-moje-spacing-system-20250929_100446.apk` (604M)
+
+### 🛠 Implementacja:
+- Plik: `TopMenuScreen2.kt:930` - funkcja `calculateMojeChannelYPosition`
+- Wzorowana na Version001Screen z dostosowanymi wartościami
+- Automatyczne wykrywanie fokusa: CategoryIcon (`focusedColIndex == -1`) vs treść (`focusedColIndex >= 0`)

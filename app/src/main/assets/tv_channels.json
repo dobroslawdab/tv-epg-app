@@ -1,0 +1,58 @@
+[
+  {
+    "name": "Fokus TV HD",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/logo/FOTV_cl.png?srcmode=3&srcw=1/1&srch=1/1&dstw=75&dsth=75&quality=100"
+  },
+  {
+    "name": "Nowa TV",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/logo/NOWA_cl.png?srcmode=3&srcw=1/1&srch=1/1&dstw=75&dsth=75&quality=100"
+  },
+  {
+    "name": "Zoom TV",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/logo/zoomtv_cl.png?srcmode=3&srcw=1/1&srch=1/1&dstw=75&dsth=75&quality=100"
+  },
+  {
+    "name": "HBO",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/logo/HBO_bw.png?srcmode=3&srcw=1/1&srch=1/1&dstw=75&dsth=75&quality=100"
+  },
+  {
+    "name": "HBO2",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/logo/HBO2_cl.png?srcmode=3&srcw=1/1&srch=1/1&dstw=75&dsth=75&quality=100"
+  },
+  {
+    "name": "HBO3",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/logo/HBO3_cl.png?srcmode=3&srcw=1/1&srch=1/1&dstw=75&dsth=75&quality=100"
+  },
+  {
+    "name": "Baby TV",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/logo/BB_bw.png?srcmode=3&srcw=1/1&srch=1/1&dstw=75&dsth=75&quality=100"
+  },
+  {
+    "name": "Duck TV",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/logo/DUCV_cl.png?srcmode=3&srcw=1/1&srch=1/1&dstw=75&dsth=75&quality=100"
+  },
+  {
+    "name": "POLSAT JimJam",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/logo/jim_jam.png?srcmode=3&srcw=1/1&srch=1/1&dstw=75&dsth=75&quality=100"
+  },
+  {
+    "name": "Eska TV",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/logo/eskatv_cl.png?srcmode=3&srcw=1/1&srch=1/1&dstw=75&dsth=75&quality=100"
+  },
+  {
+    "name": "Eska TV Extra",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/logo/eskatv_extra_cl.png?srcmode=3&srcw=1/1&srch=1/1&dstw=75&dsth=75&quality=100"
+  },
+  {
+    "name": "Kino Polska Muzyka",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/logo/KPM_bw.png?srcmode=3&srcw=1/1&srch=1/1&dstw=75&dsth=75&quality=100"
+  },
+  {
+    "name": "Polo TV",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/logo/POLO_cl.png?srcmode=3&srcw=1/1&srch=1/1&dstw=75&dsth=75&quality=100"
+  },
+  {
+    "name": "Bloomberg Television",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/logo/Bloomberg_bw.png?srcmode=3&srcw=1/1&srch=1/1&dstw=75&dsth=75&quality=100"
+  }
+]
