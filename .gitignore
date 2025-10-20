@@ -1,13 +1,26 @@
 # Build files
 .gradle/
-build/
+**/build/
 *.apk
 *.aab
+*.dex
+*.class
 
 # IDE files
 .idea/
 *.iml
+.vscode/
 
 # OS files
 .DS_Store
 Thumbs.db
+
+# Manual backups (use git instead!)
+*_backup*.kt
+*_v[0-9][0-9][0-9]_*.kt
+*_backup_*.apk
+app-debug-*.apk
+*_TEMP.kt
+
+# Local properties
+local.properties
