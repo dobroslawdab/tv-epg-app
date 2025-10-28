@@ -5,6 +5,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -14,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
@@ -41,25 +44,44 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.google.android.exoplayer2.ExoPlayer
 import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.ui.PlayerView
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
- * EPG Day Screen - Simple single channel view
+ * Channel EPG Row - Single channel with its programs
+ */
+data class ChannelEpgRow(
+    val channel: TvChannelData,
+    val channelNumber: Int,
+    val programs: List<EpgProgram>,
+    val currentProgramIndex: Int,
+    val lazyListState: LazyListState  // Each channel has its own scroll state
+)
+
+/**
+ * EPG Day Screen - Multi-channel view with vertical navigation
  *
- * Shows horizontal row of programs for the first available channel
+ * Shows multiple channels with horizontal program rows
  *
  * Navigation:
- * - LEFT/RIGHT: Navigate between programs
- * - BACK: Return to previous screen
+ * - UP/DOWN: Navigate between channels (3 visible: previous, current, next)
+ * - LEFT/RIGHT: Navigate between programs within channel
+ * - BACK: Return to initial channel/program, then exit
  *
  * Design specs:
- * - Programs displayed horizontally at bottom
+ * - Programs displayed horizontally per channel
+ * - Focused channel at center with alpha 1.0
+ * - Adjacent channels with alpha 0.5
  * - Focused program at X=330px from left edge
  * - Gradient overlay (320px height) from bottom
  */
 
 // EPG DAY CONSTANTS
-private const val EPG_DAY_GRADIENT_HEIGHT = 320    // Gradient height from bottom
+private const val EPG_DAY_GRADIENT_TOP = 276       // Gradient starts at Y=276px (from Figma)
+private const val EPG_DAY_GRADIENT_HEIGHT = 804    // Gradient height from Figma
+private const val EPG_DAY_SCREEN_WIDTH = 1920      // Screen width (1920x1080 resolution)
 private const val EPG_DAY_FOCUSED_X = 330          // Focused item position from left edge
+private const val EPG_DAY_END_PADDING = EPG_DAY_SCREEN_WIDTH - EPG_DAY_FOCUSED_X  // 1590px - allows last program to scroll to focus position
 private const val EPG_DAY_BOTTOM_PADDING = 90      // Space from bottom (for tape/controls)
 private const val EPG_DAY_ITEM_WIDTH = 908         // Figma: 908px item width
 private const val EPG_DAY_BODY_HEIGHT = 134        // Figma: 134px body height
@@ -76,6 +98,15 @@ private const val EPG_DAY_CHANNEL_NUMBER_HEIGHT = 48 // Number box height (match
 private const val EPG_DAY_CHANNEL_NUMBER_FONT = 28 // Number font size (reduced)
 private const val EPG_DAY_CHANNEL_GAP = 12         // Gap between number and logo (reduced)
 
+// FIXED FOCUS PATTERN - Dynamic based on expanded state
+private const val EPG_DAY_FIXED_FOCUS_Y_SINGLE = 1000  // 80px from bottom (1 channel mode)
+private const val EPG_DAY_FIXED_FOCUS_Y_MULTI = 960    // 120px from bottom (3+ channels mode)
+private const val EPG_DAY_CHANNEL_ROW_HEIGHT = 142     // Height per channel row (body 134 + progress 8)
+
+// VIEWPORT HEIGHT - Limits how many channels are visible at once
+private const val EPG_DAY_VIEWPORT_HEIGHT_SINGLE = 142  // 1 channel (142px)
+private const val EPG_DAY_VIEWPORT_HEIGHT_MULTI = 446   // 3 channels (3×142 + 2×10 gap)
+
 @Composable
 fun EpgDayScreen(
     onBackPressed: () -> Unit,  // Focus Architect: callback delegation to MainActivity
@@ -84,22 +115,62 @@ fun EpgDayScreen(
 ) {
     val context = LocalContext.current
     val repository = remember { EpgRepository.getInstance(context) }
+    val coroutineScope = rememberCoroutineScope()  // For async scrolling operations
 
-    // Simple state - single channel
-    var programs by remember { mutableStateOf<List<EpgProgram>>(emptyList()) }
-    var focusedProgramIndex by remember { mutableStateOf(0) }
-    var currentlyPlayingProgramIndex by remember { mutableStateOf(0) }  // Track currently playing program for smart BACK
+    // Multi-channel state
+    var allChannelRows by remember { mutableStateOf<List<ChannelEpgRow>>(emptyList()) }
+    var focusedChannelIndex by remember { mutableStateOf(0) }  // Which channel is focused
+    var focusedProgramIndex by remember { mutableStateOf(0) }  // Which program within channel
+    var initialChannelIndex by remember { mutableStateOf(0) }  // For BACK navigation
+    var initialProgramIndex by remember { mutableStateOf(0) }  // For BACK navigation
     var isLoading by remember { mutableStateOf(true) }
     var streamUrl by remember { mutableStateOf("") }
     var player by remember { mutableStateOf<ExoPlayer?>(null) }
-    val lazyListState = rememberLazyListState()
     val rootFocus = remember { FocusRequester() }
+    val columnScrollState = rememberLazyListState()  // For vertical scrolling between channels
 
-    // Channel info for overlay (logo + number)
+    // NEW: Dynamic expand/collapse state
+    var isExpanded by remember { mutableStateOf(false) }  // false = 1 channel, true = 3+ channels
+
+    // NEW: Interface visibility state (for BACK navigation)
+    var interfaceVisible by remember { mutableStateOf(true) }
+
+    // NEW: Reference time for synchronization (instead of always using now())
+    var focusedTime by remember { mutableStateOf(Instant.now()) }
+
+    // NEW: Start channel for BACK navigation
+    val startChannelIndex = remember { focusedChannelIndex }
+
+    // NEW: Dynamic Y position based on expanded state
+    val currentFocusY = if (isExpanded) {
+        EPG_DAY_FIXED_FOCUS_Y_MULTI  // 120px from bottom (3+ channels)
+    } else {
+        EPG_DAY_FIXED_FOCUS_Y_SINGLE  // 80px from bottom (1 channel)
+    }
+
+    // NEW: Dynamic viewport height - limits visible channels
+    val currentViewportHeight = if (isExpanded) {
+        EPG_DAY_VIEWPORT_HEIGHT_MULTI  // 446px (3 channels)
+    } else {
+        EPG_DAY_VIEWPORT_HEIGHT_SINGLE  // 142px (1 channel)
+    }
+
+    // NEW: Viewport offset - positions focused channel correctly
+    val viewportOffset = if (isExpanded) {
+        // Expanded mode: Focused channel (position 2) has bottom edge at currentFocusY (960px)
+        // Offset = bottom_edge_of_focused - 2_channels_above - gap
+        currentFocusY - (2 * EPG_DAY_CHANNEL_ROW_HEIGHT) - 10  // 960 - 284 - 10 = 666px
+    } else {
+        // Single channel mode: bottom edge at currentFocusY (1000px)
+        currentFocusY - EPG_DAY_CHANNEL_ROW_HEIGHT  // 1000 - 142 = 858px
+    }
+
+    // Current channel state (for display)
     var currentChannel by remember { mutableStateOf<TvChannelData?>(null) }
     var channelNumber by remember { mutableStateOf(1) }
+    var programs by remember { mutableStateOf<List<EpgProgram>>(emptyList()) }
 
-    // Load EPG data for first available channel only
+    // Load EPG data for multiple channels (15 channels)
     LaunchedEffect(Unit) {
         try {
             isLoading = true
@@ -109,59 +180,79 @@ fun EpgDayScreen(
                 ChannelManager.initialize(context)
             }
 
-            // DEBUG: Check channels from ChannelManager
             val allChannels = ChannelManager.getAllChannels(includeUnavailable = false)
-            android.util.Log.d("EpgDayScreen", "=== EPG DAY DEBUG START ===")
-            android.util.Log.d("EpgDayScreen", "Total channels from ChannelManager: ${allChannels.size}")
+            android.util.Log.d("EpgDayScreen", "=== MULTI-CHANNEL EPG START ===")
+            android.util.Log.d("EpgDayScreen", "Total channels: ${allChannels.size}")
 
-            val firstChannel = allChannels.firstOrNull()
-            android.util.Log.d("EpgDayScreen", "First channel: ${firstChannel?.name} (ID: ${firstChannel?.id})")
+            // Load channels with EPG data (skip empty channels)
+            val now = Instant.now()
+            val rows = mutableListOf<ChannelEpgRow>()
+            var channelIndex = 0  // Track actual channel number after filtering
 
-            // Set channel info for overlay
-            currentChannel = firstChannel
-            channelNumber = if (firstChannel != null) {
-                allChannels.indexOf(firstChannel) + 1
-            } else {
-                1
-            }
-            android.util.Log.d("EpgDayScreen", "Channel number: $channelNumber")
+            for (channel in allChannels) {
+                try {
+                    val channelId = channel.epgId ?: channel.id
+                    android.util.Log.d("EpgDayScreen", "Checking channel: ${channel.name} (ID: $channelId)")
 
-            // Get stream URL for live TV playback
-            streamUrl = firstChannel?.streamUrl ?: ""
-            android.util.Log.d("EpgDayScreen", "Stream URL: $streamUrl")
+                    val programsList = repository.getFullDayPrograms(channelId, now)
 
-            if (firstChannel != null) {
-                val now = Instant.now()
+                    // SKIP channels without EPG data
+                    if (programsList.isEmpty()) {
+                        android.util.Log.d("EpgDayScreen", "  - Skipping ${channel.name} - no EPG data")
+                        continue  // Skip to next channel
+                    }
 
-                // Use epgId for EPG database lookup, fallback to id if epgId is null
-                val channelId = firstChannel.epgId ?: firstChannel.id
+                    val sortedPrograms = programsList.sortedBy { it.startUtc }
 
-                // DEBUG: Call getFullDayPrograms
-                android.util.Log.d("EpgDayScreen", "Calling getFullDayPrograms(channelId='$channelId' [epgId='${firstChannel.epgId}', id='${firstChannel.id}'], date=$now)")
-                val programsList = repository.getFullDayPrograms(channelId, now)
+                    // Find currently playing program for this channel
+                    val currentIndex = sortedPrograms.indexOfFirst { program ->
+                        !now.isBefore(program.startUtc) && now.isBefore(program.endUtc)
+                    }
+                    val currentProgIndex = if (currentIndex >= 0) currentIndex else 0
 
-                // DEBUG: Check programs
-                android.util.Log.d("EpgDayScreen", "Programs found: ${programsList.size}")
-                programsList.take(3).forEach { prog ->
-                    android.util.Log.d("EpgDayScreen", "  - ${prog.title} (${prog.startUtc})")
+                    channelIndex++  // Increment only for channels with EPG
+
+                    rows.add(
+                        ChannelEpgRow(
+                            channel = channel,
+                            channelNumber = channelIndex,
+                            programs = sortedPrograms,
+                            currentProgramIndex = currentProgIndex,
+                            lazyListState = LazyListState()  // Each channel has its own scroll state
+                        )
+                    )
+
+                    android.util.Log.d("EpgDayScreen", "  - Loaded ${sortedPrograms.size} programs for ${channel.name}, current at index $currentProgIndex")
+
+                    // STOP when we have 15 channels with EPG
+                    if (channelIndex >= 15) {
+                        break  // Exit loop
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("EpgDayScreen", "Failed to load channel ${channel.name}: ${e.message}")
                 }
-
-                programs = programsList.sortedBy { it.startUtc }
-
-                // Find currently playing program and save it for smart BACK navigation
-                val currentIndex = programs.indexOfFirst { program ->
-                    !now.isBefore(program.startUtc) && now.isBefore(program.endUtc)
-                }
-                currentlyPlayingProgramIndex = if (currentIndex >= 0) currentIndex else 0
-                focusedProgramIndex = currentlyPlayingProgramIndex
-
-                android.util.Log.d("EpgDayScreen", "Focused program index: $focusedProgramIndex / ${programs.size}")
-                android.util.Log.d("EpgDayScreen", "=== EPG DAY DEBUG END ===")
-            } else {
-                android.util.Log.e("EpgDayScreen", "ERROR: firstChannel is NULL! No channels available from ChannelManager")
             }
+
+            allChannelRows = rows
+
+            // Set initial channel (first one) as active
+            if (rows.isNotEmpty()) {
+                val firstRow = rows[0]
+                currentChannel = firstRow.channel
+                channelNumber = firstRow.channelNumber
+                programs = firstRow.programs
+                focusedProgramIndex = firstRow.currentProgramIndex
+                initialChannelIndex = 0
+                initialProgramIndex = firstRow.currentProgramIndex
+
+                // Player stays on first channel
+                streamUrl = firstRow.channel.streamUrl
+                android.util.Log.d("EpgDayScreen", "Initial stream URL: $streamUrl")
+            }
+
+            android.util.Log.d("EpgDayScreen", "=== MULTI-CHANNEL EPG END: ${rows.size} channels loaded ===")
         } catch (e: Exception) {
-            android.util.Log.e("EpgDayScreen", "EXCEPTION during EPG load: ${e.message}", e)
+            android.util.Log.e("EpgDayScreen", "EXCEPTION during multi-channel load: ${e.message}", e)
             e.printStackTrace()
         } finally {
             isLoading = false
@@ -173,13 +264,111 @@ fun EpgDayScreen(
         rootFocus.requestFocus()
     }
 
-    // Auto-scroll to currently playing program
-    LaunchedEffect(focusedProgramIndex, programs.size) {
-        if (programs.isNotEmpty()) {
-            lazyListState.animateScrollToItem(
-                index = focusedProgramIndex,
-                scrollOffset = 0
-            )
+    // Synchronize X position: ALL channels scroll to their currentProgram (same X position for all)
+    LaunchedEffect(allChannelRows.size) {
+        if (allChannelRows.isNotEmpty()) {
+            allChannelRows.forEach { channelRow ->
+                if (channelRow.programs.isNotEmpty() && channelRow.currentProgramIndex in channelRow.programs.indices) {
+                    // Use scrollToItem (instant, no animation) for initial positioning
+                    channelRow.lazyListState.scrollToItem(
+                        index = channelRow.currentProgramIndex,
+                        scrollOffset = 0
+                    )
+                    android.util.Log.d("EpgDayScreen", "Synced channel ${channelRow.channel.name} to program index ${channelRow.currentProgramIndex}")
+                }
+            }
+        }
+    }
+
+    // Auto-scroll programs ONLY for focused channel
+    LaunchedEffect(focusedProgramIndex, focusedChannelIndex) {
+        if (allChannelRows.isNotEmpty() && focusedChannelIndex in allChannelRows.indices) {
+            val focusedChannel = allChannelRows[focusedChannelIndex]
+            if (focusedChannel.programs.isNotEmpty()) {
+                focusedChannel.lazyListState.animateScrollToItem(
+                    index = focusedProgramIndex,
+                    scrollOffset = 0
+                )
+            }
+        }
+    }
+
+    // Auto-scroll LazyColumn to keep focused channel at position 2 (middle) in expanded mode
+    LaunchedEffect(focusedChannelIndex, isExpanded) {
+        if (allChannelRows.isEmpty()) return@LaunchedEffect
+
+        // Scroll directly to focused channel (contentPadding handles first/last positioning)
+        columnScrollState.animateScrollToItem(
+            index = focusedChannelIndex,
+            scrollOffset = 0
+        )
+    }
+
+    // NEW: Sync ALL channels to focused program's time (works in all modes)
+    // Syncs in background for 1-channel mode (ready for expand), visible effect in 3-channel mode
+    LaunchedEffect(focusedTime) {  // Trigger on focusedTime change (LEFT/RIGHT navigation)
+        if (allChannelRows.isEmpty()) return@LaunchedEffect  // Only check if rows exist
+
+        android.util.Log.d("EpgDayScreen", "=== TIME SYNC: Syncing all channels to $focusedTime (mode: ${if (isExpanded) "3-channel" else "1-channel"}) ===")
+
+        // Sync ALL channels (including focused) to focusedTime
+        allChannelRows.forEachIndexed { index, channelRow ->
+            val matchingIndex = channelRow.programs.indexOfFirst { program ->
+                !focusedTime.isBefore(program.startUtc) &&
+                focusedTime.isBefore(program.endUtc)
+            }
+
+            if (matchingIndex >= 0) {
+                if (index == focusedChannelIndex) {
+                    // Focused channel - ANIMATED scroll
+                    channelRow.lazyListState.animateScrollToItem(matchingIndex, 0)
+                    android.util.Log.d("EpgDayScreen", "  [ANIMATED] Synced ${channelRow.channel.name} to program index $matchingIndex")
+                } else {
+                    // Other channels - INSTANT jump (no animation)
+                    channelRow.lazyListState.scrollToItem(matchingIndex, 0)
+                    android.util.Log.d("EpgDayScreen", "  [INSTANT] Synced ${channelRow.channel.name} to program index $matchingIndex")
+                }
+            } else {
+                android.util.Log.d("EpgDayScreen", "  No matching program for ${channelRow.channel.name} at $focusedTime")
+            }
+        }
+    }
+
+    // Helper function: Sync all channels to a specific time
+    // Used by BACK navigation to ensure all channels show correct programs
+    fun syncAllChannelsToTime(
+        targetTime: Instant,
+        animateFocused: Boolean = true,
+        forceFocusedScroll: Boolean = false
+    ) {
+        android.util.Log.d("EpgDayScreen", "=== MANUAL SYNC: All channels to $targetTime (animate focused: $animateFocused, force: $forceFocusedScroll) ===")
+
+        coroutineScope.launch {
+            allChannelRows.forEachIndexed { index, channelRow ->
+                val matchingIndex = channelRow.programs.indexOfFirst { program ->
+                    !targetTime.isBefore(program.startUtc) &&
+                    targetTime.isBefore(program.endUtc)
+                }
+
+                if (matchingIndex >= 0) {
+                    if (index == focusedChannelIndex) {
+                        // Focused channel - ANIMATED or INSTANT based on parameter
+                        if (animateFocused || forceFocusedScroll) {
+                            channelRow.lazyListState.animateScrollToItem(matchingIndex, 0)
+                            android.util.Log.d("EpgDayScreen", "  [FOCUSED-ANIMATED] Synced ${channelRow.channel.name} to program index $matchingIndex")
+                        } else {
+                            channelRow.lazyListState.scrollToItem(matchingIndex, 0)
+                            android.util.Log.d("EpgDayScreen", "  [FOCUSED-INSTANT] Synced ${channelRow.channel.name} to program index $matchingIndex")
+                        }
+                    } else {
+                        // Other channels - INSTANT jump (no animation)
+                        channelRow.lazyListState.scrollToItem(matchingIndex, 0)
+                        android.util.Log.d("EpgDayScreen", "  [INSTANT] Synced ${channelRow.channel.name} to program index $matchingIndex")
+                    }
+                } else {
+                    android.util.Log.d("EpgDayScreen", "  No matching program for ${channelRow.channel.name} at $targetTime")
+                }
+            }
         }
     }
 
@@ -210,35 +399,210 @@ fun EpgDayScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF48227C))  // Figma: #48227C purple background
+            .clipToBounds()  // Clip content outside bounds (hides channels above visible area)
             .focusRequester(rootFocus)
             .focusable()
             .onPreviewKeyEvent { event ->
-                // Simple navigation: LEFT/RIGHT for programs, BACK to exit
+                // Multi-channel navigation: UP/DOWN for channels, LEFT/RIGHT for programs
                 if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
 
+                // PRIORITY: If interface hidden, UP/DOWN/OK restores it (shows 1-channel view with current program)
+                if (!interfaceVisible && event.key in setOf(Key.DirectionUp, Key.DirectionDown, Key.Enter)) {
+                    interfaceVisible = true
+                    android.util.Log.d("EpgDayScreen", "Navigation restored interface (UP/DOWN/OK)")
+                    return@onPreviewKeyEvent true
+                }
+
                 when (event.key) {
+                    Key.DirectionUp -> {
+                        if (!isExpanded) {
+                            // State 1 channel: UP does nothing
+                            false
+                        } else {
+                            // State expanded: Normal scrolling
+                            if (focusedChannelIndex > 0 && allChannelRows.isNotEmpty()) {
+                                focusedChannelIndex--
+                                val newRow = allChannelRows[focusedChannelIndex]
+                                currentChannel = newRow.channel
+                                channelNumber = newRow.channelNumber
+                                programs = newRow.programs
+
+                                // Find program matching focusedTime on new channel
+                                val matchingIndex = programs.indexOfFirst { program ->
+                                    !focusedTime.isBefore(program.startUtc) && focusedTime.isBefore(program.endUtc)
+                                }
+                                focusedProgramIndex = if (matchingIndex >= 0) matchingIndex else newRow.currentProgramIndex
+
+                                android.util.Log.d("EpgDayScreen", "UP: Channel ${newRow.channel.name}, program index $focusedProgramIndex (time: $focusedTime)")
+                                true
+                            } else false
+                        }
+                    }
+                    Key.DirectionDown -> {
+                        if (!isExpanded) {
+                            // FIRST DOWN: Expand + move to next channel
+                            isExpanded = true
+                            if (focusedChannelIndex < allChannelRows.lastIndex) {
+                                focusedChannelIndex++
+                                val newRow = allChannelRows[focusedChannelIndex]
+                                currentChannel = newRow.channel
+                                channelNumber = newRow.channelNumber
+                                programs = newRow.programs
+
+                                // Find program matching focusedTime on new channel
+                                val matchingIndex = programs.indexOfFirst { program ->
+                                    !focusedTime.isBefore(program.startUtc) && focusedTime.isBefore(program.endUtc)
+                                }
+                                focusedProgramIndex = if (matchingIndex >= 0) matchingIndex else newRow.currentProgramIndex
+
+                                android.util.Log.d("EpgDayScreen", "DOWN (EXPAND): Channel ${newRow.channel.name}, program index $focusedProgramIndex (time: $focusedTime)")
+                            }
+                            true
+                        } else {
+                            // SUBSEQUENT DOWN: Normal scrolling
+                            if (focusedChannelIndex < allChannelRows.lastIndex) {
+                                focusedChannelIndex++
+                                val newRow = allChannelRows[focusedChannelIndex]
+                                currentChannel = newRow.channel
+                                channelNumber = newRow.channelNumber
+                                programs = newRow.programs
+
+                                // Find program matching focusedTime on new channel
+                                val matchingIndex = programs.indexOfFirst { program ->
+                                    !focusedTime.isBefore(program.startUtc) && focusedTime.isBefore(program.endUtc)
+                                }
+                                focusedProgramIndex = if (matchingIndex >= 0) matchingIndex else newRow.currentProgramIndex
+
+                                android.util.Log.d("EpgDayScreen", "DOWN: Channel ${newRow.channel.name}, program index $focusedProgramIndex (time: $focusedTime)")
+                                true
+                            } else false
+                        }
+                    }
                     Key.DirectionLeft -> {
+                        // Navigate to previous program + UPDATE focusedTime for sync
                         if (focusedProgramIndex > 0) {
                             focusedProgramIndex--
+
+                            // Update focusedTime for synchronization
+                            if (programs.isNotEmpty() && focusedProgramIndex in programs.indices) {
+                                focusedTime = programs[focusedProgramIndex].startUtc
+                            }
+
+                            android.util.Log.d("EpgDayScreen", "LEFT: Program $focusedProgramIndex, time: $focusedTime")
                             true
                         } else false
                     }
                     Key.DirectionRight -> {
+                        // Navigate to next program + UPDATE focusedTime for sync
                         if (focusedProgramIndex < programs.lastIndex) {
                             focusedProgramIndex++
+
+                            // Update focusedTime for synchronization
+                            if (programs.isNotEmpty() && focusedProgramIndex in programs.indices) {
+                                focusedTime = programs[focusedProgramIndex].startUtc
+                            }
+
+                            android.util.Log.d("EpgDayScreen", "RIGHT: Program $focusedProgramIndex, time: $focusedTime")
                             true
                         } else false
                     }
                     Key.Back -> {
-                        // Smart BACK: First return to currently playing program, then exit
-                        if (focusedProgramIndex != currentlyPlayingProgramIndex) {
-                            // User is not on currently playing program - return to it first
-                            focusedProgramIndex = currentlyPlayingProgramIndex
-                            true
-                        } else {
-                            // User is already on currently playing program - exit screen
-                            onBackPressed()
-                            true
+                        when {
+                            // LEVEL 1: Expanded mode → Collapse + reset to "now"
+                            isExpanded -> {
+                                // STEP 1: Prepare data (synchronously)
+                                focusedChannelIndex = startChannelIndex
+                                val startRow = allChannelRows[startChannelIndex]
+                                currentChannel = startRow.channel
+                                channelNumber = startRow.channelNumber
+                                programs = startRow.programs
+
+                                // Find current program (now)
+                                val now = Instant.now()
+                                val currentProgram = programs.firstOrNull {
+                                    !now.isBefore(it.startUtc) && now.isBefore(it.endUtc)
+                                }
+                                focusedProgramIndex = if (currentProgram != null) {
+                                    programs.indexOf(currentProgram)
+                                } else {
+                                    startRow.currentProgramIndex
+                                }
+
+                                // STEP 2: Update focusedTime IMMEDIATELY (triggers LaunchedEffect sync)
+                                focusedTime = now
+
+                                // STEP 3: Collapse viewport IMMEDIATELY (before animations)
+                                isExpanded = false
+                                interfaceVisible = true
+                                android.util.Log.d("EpgDayScreen", "BACK Level 1: Collapsed viewport, starting animations")
+
+                                // STEP 4: Jump immediately to correct position (no animations)
+                                coroutineScope.launch {
+                                    // 4a) Vertical jump to start channel (INSTANT - no animation)
+                                    columnScrollState.scrollToItem(startChannelIndex, 0)
+                                    android.util.Log.d("EpgDayScreen", "BACK: Instant vertical jump to channel $startChannelIndex")
+
+                                    // 4b) Horizontal jump using syncAllChannelsToTime (INSTANT - no animation)
+                                    // Uses same logic as LEVEL 2 - forceFocusedScroll ensures scroll even if time didn't change
+                                    syncAllChannelsToTime(
+                                        targetTime = now,
+                                        animateFocused = false,  // NO animation - instant jump
+                                        forceFocusedScroll = true
+                                    )
+                                    android.util.Log.d("EpgDayScreen", "BACK: Instant horizontal jump via syncAllChannelsToTime")
+
+                                    android.util.Log.d("EpgDayScreen", "BACK Level 1: Complete (collapse → instant jump)")
+                                }
+
+                                true
+                            }
+
+                            // LEVEL 2-4: Not expanded - check current program status
+                            !isExpanded -> {
+                                val now = Instant.now()
+                                val currentProgram = programs.firstOrNull {
+                                    !now.isBefore(it.startUtc) && now.isBefore(it.endUtc)
+                                }
+                                val isOnCurrentProgram = currentProgram != null &&
+                                    programs.getOrNull(focusedProgramIndex) == currentProgram
+
+                                when {
+                                    // LEVEL 2: Not on current program → Reset to "now"
+                                    !isOnCurrentProgram -> {
+                                        if (currentProgram != null) {
+                                            focusedProgramIndex = programs.indexOf(currentProgram)
+                                            focusedTime = now
+
+                                            // Sync ALL channels to current time
+                                            // Use forceFocusedScroll to ensure scroll even if focusedTime didn't change
+                                            syncAllChannelsToTime(
+                                                targetTime = now,
+                                                animateFocused = true,
+                                                forceFocusedScroll = true
+                                            )
+
+                                            android.util.Log.d("EpgDayScreen", "BACK Level 2: Reset to current program (NOW), synced all channels")
+                                        }
+                                        true
+                                    }
+
+                                    // LEVEL 3: On current program + interface visible → Hide interface
+                                    interfaceVisible -> {
+                                        interfaceVisible = false
+                                        android.util.Log.d("EpgDayScreen", "BACK Level 3: Hide interface")
+                                        true
+                                    }
+
+                                    // LEVEL 4: Interface hidden → Exit
+                                    else -> {
+                                        android.util.Log.d("EpgDayScreen", "BACK Level 4: Exit screen")
+                                        onBackPressed()
+                                        true
+                                    }
+                                }
+                            }
+
+                            else -> false
                         }
                     }
                     else -> false
@@ -260,25 +624,41 @@ fun EpgDayScreen(
             )
         }
 
-        // Gradient overlay: pełny fiolet na dole → przezroczysty na górze
-        // Only 320px height from bottom (not full screen)
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(sy(EPG_DAY_GRADIENT_HEIGHT))
-                .align(Alignment.BottomStart)
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            Color(0x0048227C),  // Top: transparent purple
-                            Color(0xFF48227C)   // Bottom: full purple #48227C
-                        )
+        // Gradient overlay: 3 states based on interface visibility and expanded mode
+        // State 1: Single channel + interface → 61%→82% (subtle, Figma data-state="bottom")
+        // State 2: Expanded mode + interface → 45%→63% (stronger, better EPG readability)
+        // State 3: Interface hidden → NO GRADIENT (clean player view)
+        if (interfaceVisible) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(sy(EPG_DAY_GRADIENT_HEIGHT))  // 804px height
+                    .offset(y = sy(EPG_DAY_GRADIENT_TOP))  // Start at Y=276px
+                    .background(
+                        brush = if (isExpanded) {
+                            // 3-channel mode: stronger gradient for EPG readability
+                            Brush.verticalGradient(
+                                0.45f to Color(0x0048227C),  // Transparent until 45%
+                                0.63f to Color(0xFF48227C),  // Full color from 63%
+                                startY = 0f,
+                                endY = Float.POSITIVE_INFINITY
+                            )
+                        } else {
+                            // 1-channel mode: subtle gradient from Figma
+                            Brush.verticalGradient(
+                                0.61f to Color(0x0048227C),  // Transparent until 61%
+                                0.82f to Color(0xFF48227C),  // Full color from 82%
+                                startY = 0f,
+                                endY = Float.POSITIVE_INFINITY
+                            )
+                        }
                     )
-                )
-                .zIndex(1f)
-        )
+                    .zIndex(1f)
+            )
+        }
+        // else: No gradient when interface is hidden (clean player view)
 
-        // EPG Programs Row
+        // EPG Multi-Channel View (LazyColumn)
         if (isLoading) {
             Box(
                 modifier = Modifier
@@ -292,7 +672,7 @@ fun EpgDayScreen(
                     fontSize = (24 * sy(1).value / 1).sp
                 )
             }
-        } else if (programs.isEmpty()) {
+        } else if (allChannelRows.isEmpty()) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -300,52 +680,73 @@ fun EpgDayScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "Brak programów do wyświetlenia",
+                    text = "Brak kanałów do wyświetlenia",
                     color = Color(0xFFEEEEEE),
                     fontSize = (24 * sy(1).value / 1).sp
                 )
             }
-        } else {
-            // Programs LazyRow
-            LazyRow(
-                state = lazyListState,
+        } else if (interfaceVisible) {
+            // LazyColumn with LIMITED VIEWPORT (1 or 3 channels max) - visible when interface is shown
+            LazyColumn(
+                state = columnScrollState,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .align(Alignment.BottomStart)
-                    .padding(bottom = sy(EPG_DAY_BOTTOM_PADDING))
+                    .height(sy(currentViewportHeight))  // Limited height: 142px (1 ch) or 446px (3 ch)
+                    .offset(y = sy(viewportOffset))  // Position focused channel at 120px from bottom
                     .zIndex(2f),
-                horizontalArrangement = Arrangement.spacedBy(sx(EPG_DAY_ITEM_GAP)),
                 contentPadding = PaddingValues(
-                    start = sx(EPG_DAY_FOCUSED_X),
-                    end = sx(80)
-                )
+                    top = if (isExpanded) sy(EPG_DAY_CHANNEL_ROW_HEIGHT + 10) else 0.dp,    // 152px space for first channel
+                    bottom = if (isExpanded) sy(EPG_DAY_CHANNEL_ROW_HEIGHT + 10) else 0.dp  // 152px space for last channel
+                ),
+                verticalArrangement = Arrangement.spacedBy(sy(10))  // 10px gap between channels
             ) {
-                itemsIndexed(programs) { index, program ->
-                    EpgDayItem(
-                        program = program,
-                        isFocused = index == focusedProgramIndex,
-                        sx = sx,
-                        sy = sy
-                    )
+                itemsIndexed(allChannelRows) { channelIndex, channelRow ->
+                    val isFocusedChannel = channelIndex == focusedChannelIndex
+
+                    // Each channel = Box with ChannelInfoOverlay + LazyRow of programs
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(sy(EPG_DAY_CHANNEL_ROW_HEIGHT))  // 142px (body 134 + progress 8)
+                    ) {
+                        // Channel Info Overlay (logo + number) - centered to programs row
+                        ChannelInfoOverlay(
+                            channel = channelRow.channel,
+                            channelNumber = channelRow.channelNumber,
+                            modifier = Modifier
+                                .align(Alignment.CenterStart)  // Centered to 142px Box = centered to LazyRow
+                                .padding(start = sx(EPG_DAY_CHANNEL_INFO_X))
+                                .zIndex(3f),
+                            sx = sx,
+                            sy = sy
+                        )
+
+                        // Programs LazyRow - horizontal scrolling (centered in Box)
+                        LazyRow(
+                            state = channelRow.lazyListState,  // Each channel has its own scroll state
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .align(Alignment.CenterStart)  // Centered in Box, aligned with ChannelInfoOverlay
+                                .zIndex(2f),
+                            horizontalArrangement = Arrangement.spacedBy(sx(EPG_DAY_ITEM_GAP)),
+                            contentPadding = PaddingValues(
+                                start = sx(EPG_DAY_FOCUSED_X),  // 330px - first program starts at focus position
+                                end = sx(EPG_DAY_END_PADDING)   // 1590px - allows last program to scroll to focus position
+                            )
+                        ) {
+                            itemsIndexed(channelRow.programs) { programIndex, program ->
+                                EpgDayItem(
+                                    program = program,
+                                    isFocused = isFocusedChannel && programIndex == focusedProgramIndex,
+                                    focusedTime = focusedTime,  // NEW: Pass focusedTime for sync
+                                    sx = sx,
+                                    sy = sy
+                                )
+                            }
+                        }
+                    }
                 }
             }
-        }
-
-        // Channel Info Overlay (logo + number) - z-index 3f (above programs)
-        if (currentChannel != null) {
-            ChannelInfoOverlay(
-                channel = currentChannel!!,
-                channelNumber = channelNumber,
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(
-                        start = sx(EPG_DAY_CHANNEL_INFO_X),
-                        bottom = sy(EPG_DAY_BOTTOM_PADDING + EPG_DAY_BODY_HEIGHT / 2 - 24)  // Center of EPG row (adjusted for 48px height)
-                    )
-                    .zIndex(3f),
-                sx = sx,
-                sy = sy
-            )
         }
     }
 }
@@ -363,6 +764,7 @@ fun EpgDayScreen(
 fun EpgDayItem(
     program: EpgProgram,
     isFocused: Boolean,
+    focusedTime: Instant,  // NEW: Use focusedTime instead of now() for sync
     sx: (Int) -> Dp,  // Layout Engineer: ALWAYS sx/sy
     sy: (Int) -> Dp
 ) {
@@ -371,11 +773,15 @@ fun EpgDayItem(
     val startTime = program.startUtc.atZone(zone).format(timeFormatter)
     val endTime = program.endUtc.atZone(zone).format(timeFormatter)
 
+    // Alpha logic: focused OR currently playing (at focusedTime) = full opacity, otherwise dimmed
+    val isCurrentlyPlaying = !focusedTime.isBefore(program.startUtc) && focusedTime.isBefore(program.endUtc)
+    val alpha = if (isFocused || isCurrentlyPlaying) 1f else 0.5f
+
     // Figma: epg_1 - Column with gap 4px
     Column(
         modifier = Modifier
             .width(sx(EPG_DAY_ITEM_WIDTH))  // Figma: 908px width
-            .alpha(if (isFocused) 1f else 0.5f),  // Figma: opacity 0.5/1.0
+            .alpha(alpha),  // Full opacity for focused or currently playing, dimmed for past/future
         verticalArrangement = Arrangement.spacedBy(sy(4))  // Figma: gap 4px
     ) {
         // 1. Body - Figma: Row 908x134, gap 24px
@@ -385,8 +791,8 @@ fun EpgDayItem(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(sx(24))  // Figma: gap 24px
         ) {
-            // Cover image (only when focused) - Figma: 208x116, border 6px aqua
-            if (isFocused) {
+            // Cover image (for focused OR currently playing programs) - Figma: 208x116, border 6px aqua
+            if (isFocused || isCurrentlyPlaying) {
                 val context = LocalContext.current
                 SubcomposeAsyncImage(
                     model = ImageRequest.Builder(context)
@@ -397,10 +803,16 @@ fun EpgDayItem(
                     modifier = Modifier
                         .size(sx(EPG_DAY_COVER_WIDTH), sy(EPG_DAY_COVER_HEIGHT))  // Figma: 208x116px
                         .clip(RoundedCornerShape(sx(8)))  // Figma: radius 8px
-                        .border(
-                            width = sx(EPG_DAY_COVER_BORDER),  // Figma: 6px
-                            color = Color(0xFF5AECD3),  // Figma: #5AECD3 aqua
-                            shape = RoundedCornerShape(sx(8))
+                        .then(
+                            if (isFocused) {
+                                Modifier.border(
+                                    width = sx(EPG_DAY_COVER_BORDER),  // 6px aqua border
+                                    color = Color(0xFF5AECD3),  // Figma: #5AECD3 aqua
+                                    shape = RoundedCornerShape(sx(8))
+                                )
+                            } else {
+                                Modifier  // No border for non-focused covers
+                            }
                         ),
                     contentScale = ContentScale.Crop,
                     loading = {
@@ -483,14 +895,12 @@ fun EpgDayItem(
                     )
                 }
 
-                // Metadata row (only when focused) - Figma: Row gap 12.8px
-                if (isFocused) {
-                    MetadataRow(
-                        program = program,
-                        sx = sx,
-                        sy = sy
-                    )
-                }
+                // Metadata row - always visible (zgodnie z Figma)
+                MetadataRow(
+                    program = program,
+                    sx = sx,
+                    sy = sy
+                )
             }
         }
 
