@@ -98,6 +98,7 @@ data class MenuItem2(
     val title: String
 )
 
+
 data class VodSlideData(
     val title: String,
     val genre: String,
@@ -141,7 +142,7 @@ enum class VodFocusArea {
 // Function to load TV channels from JSON
 private fun loadTvChannelsFromAssets(context: Context): List<TvChannel> {
     return try {
-        val jsonString = context.assets.open("tv_channels.json").bufferedReader().use { it.readText() }
+        val jsonString = context.assets.open("tv_channels_with_streams.json").bufferedReader().use { it.readText() }
         val jsonArray = org.json.JSONArray(jsonString)
         val channels = mutableListOf<TvChannel>()
 
@@ -150,7 +151,7 @@ private fun loadTvChannelsFromAssets(context: Context): List<TvChannel> {
             channels.add(
                 TvChannel(
                     name = obj.getString("name"),
-                    logo = obj.getString("logo")
+                    logo = obj.getString("logoUrl")
                 )
             )
         }
@@ -311,12 +312,14 @@ private fun TextChannelHeader(
 }
 
 // MARK: - TV Channel Icon Card (for scrollable rows like APLIKACJE)
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun TvChannelIconCard(
     channel: TvChannel,
     isFocused: Boolean,
     focusRequester: FocusRequester,
     onFocusChange: () -> Unit,
+    onClick: () -> Unit = {},
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp
 ) {
@@ -327,6 +330,16 @@ private fun TvChannelIconCard(
             .focusRequester(focusRequester)
             .onFocusChanged { focusState ->
                 if (focusState.isFocused) onFocusChange()
+            }
+            .onPreviewKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown &&
+                    (event.key == Key.Enter || event.key == Key.DirectionCenter)) {
+                    android.util.Log.d("TV_CHANNEL_CLICK", "OK pressed on channel: ${channel.name}")
+                    onClick()
+                    true
+                } else {
+                    false
+                }
             }
             .focusable(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -428,6 +441,7 @@ private fun TvAppIconCard(
  * - Channel number label: 40px height, padding 8/12, border 2px, radius 4px
  * - Font: Manrope Medium 24px
  */
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun ChannelListCard(
     channel: TvChannel,
@@ -435,6 +449,7 @@ private fun ChannelListCard(
     isFocused: Boolean,
     focusRequester: FocusRequester,
     onFocusChange: () -> Unit,
+    onClick: () -> Unit = {},
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp
 ) {
@@ -451,6 +466,16 @@ private fun ChannelListCard(
             .focusRequester(focusRequester)
             .onFocusChanged { focusState ->
                 if (focusState.isFocused) onFocusChange()
+            }
+            .onPreviewKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown &&
+                    (event.key == Key.Enter || event.key == Key.DirectionCenter)) {
+                    android.util.Log.d("CHANNEL_LIST_CLICK", "OK pressed on channel: ${channel.name}")
+                    onClick()
+                    true
+                } else {
+                    false
+                }
             }
             .focusable()
             .padding(bottom = sy(20)),  // Figma: padding-bottom 20px
@@ -541,8 +566,16 @@ private fun ChannelLogosGrid(
 @Composable
 fun TopMenuScreen2(
     onBackPressed: (isMenuFocused: Boolean) -> Boolean = { false },
+    onReturnToEpgDay: () -> Unit = {},  // NEW: Return to EPG Day Test from PIP
     onShowMainMenu: () -> Unit = {},
-    onNavigateToLiveScreen: (String) -> Unit = {}
+    onNavigateToLiveScreen: (String) -> Unit = {},
+    onNavigateToEpg: () -> Unit = {},
+    onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> },
+    onFocusRestored: () -> Unit = {},
+    restoredTelewizjaFocus: FocusState? = null,
+    restoredSection: String? = null,
+    pipPlayer: com.google.android.exoplayer2.ExoPlayer? = null,  // PIP player instance
+    onClosePip: () -> Unit = {}  // Callback to close PIP
 ) {
     val configuration = LocalConfiguration.current
     val scaleX = configuration.screenWidthDp / 1920f
@@ -566,10 +599,19 @@ fun TopMenuScreen2(
     }
 
     val globalFocusState = GlobalFocusManager.rememberGlobalFocusState(
-        initialRow = 0,
-        initialPosition = MenuPositions.ODKRYWAJ,
-        initialSection = "ODKRYWAJ"
+        initialRow = if (restoredTelewizjaFocus != null && restoredSection == "TELEWIZJA") {
+            1  // Restore to content mode (actual channel/item restoration handled by ID-based logic)
+        } else {
+            0  // Default to menu
+        },
+        initialPosition = MenuPositions.getPositionForSection(restoredSection ?: "ODKRYWAJ"),  // Match position to section
+        initialSection = restoredSection ?: "ODKRYWAJ"  // Restore saved section or default to ODKRYWAJ
     )
+
+    // Track fresh PIP mode (resets automatically when pipPlayer changes)
+    var freshPipMode by remember(pipPlayer) {
+        mutableStateOf(pipPlayer != null)
+    }
 
     var isContentLoading by remember { mutableStateOf(false) }
 
@@ -618,12 +660,29 @@ fun TopMenuScreen2(
                 }
 
                 if (event.key == Key.Back) {
-                    val handled = onBackPressed(globalFocusState.value.currentRow == 0)
-                    if (!handled && globalFocusState.value.currentRow != 0) {
+                    // PIP mode: BACK from menu on ANY tab - always return to EPG
+                    if (pipPlayer != null && globalFocusState.value.currentRow == 0) {
+                        android.util.Log.d("PIP_NAVIGATION", "BACK from menu with PIP (tab: ${globalFocusState.value.sectionId}) - returning to EPG Day Test")
+                        onReturnToEpgDay()
+                        onClosePip()
+                        return@onPreviewKeyEvent true
+                    }
+
+                    // Normal BACK - from content to menu
+                    if (globalFocusState.value.currentRow != 0) {
                         globalFocusState.value = GlobalFocusManager.returnToMenu(globalFocusState.value)
                         return@onPreviewKeyEvent true
                     }
-                    return@onPreviewKeyEvent handled
+
+                    // BACK from menu without PIP - consume event (stay in app, don't exit)
+                    return@onPreviewKeyEvent true
+                }
+
+                // PIP: Handle "0" key to close PIP
+                if (event.key == Key.Zero && pipPlayer != null) {
+                    android.util.Log.d("TopMenuScreen2", "Key 0: Closing PIP")
+                    onClosePip()
+                    return@onPreviewKeyEvent true
                 }
 
                 when (globalFocusState.value.currentRow) {
@@ -706,10 +765,15 @@ fun TopMenuScreen2(
         FullPageContent(
             selectedSection = globalFocusState.value.sectionId,
             onReturnToMenu = { globalFocusState.value = GlobalFocusManager.returnToMenu(globalFocusState.value) },
+            onUserNavigated = { freshPipMode = false },  // Clear fresh PIP mode when user navigates
             shouldAutoFocus = globalFocusState.value.currentRow != 0,
             sx = { sx(it) },
             sy = { sy(it) },
-            globalFocusState = globalFocusState
+            globalFocusState = globalFocusState,
+            onNavigateToEpg = onNavigateToEpg,
+            onNavigateToEpgDay = onNavigateToEpgDay,
+            onFocusRestored = onFocusRestored,
+            restoredTelewizjaFocus = restoredTelewizjaFocus
         )
 
         // Smooth loader overlay (Netflix-style transition)
@@ -762,6 +826,35 @@ fun TopMenuScreen2(
             isInStartContent = false,
             modifier = Modifier.align(Alignment.TopCenter).zIndex(10f)
         )
+
+        // PIP (Picture-in-Picture) Overlay
+        if (pipPlayer != null) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(bottom = sy(80), end = sx(80))
+                    .size(width = sx(480), height = sy(270))  // 480×270px (16:9 aspect ratio)
+                    .zIndex(100f)  // Above all content
+            ) {
+                AndroidView(
+                    factory = { ctx ->
+                        com.google.android.exoplayer2.ui.PlayerView(ctx).apply {
+                            useController = false  // No controls, just video
+                            player = pipPlayer
+                        }
+                    },
+                    update = { playerView ->
+                        // Upewnij się że player odtwarza po przypisaniu
+                        pipPlayer?.let { player ->
+                            if (!player.isPlaying) {
+                                player.playWhenReady = true
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+        }
     }
 }
 
@@ -1046,10 +1139,15 @@ private fun MenuButton2(
 private fun FullPageContent(
     selectedSection: String,
     onReturnToMenu: () -> Unit,
+    onUserNavigated: () -> Unit = {},  // NEW: Callback when user navigates (clears fresh PIP mode)
     shouldAutoFocus: Boolean,
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
-    globalFocusState: MutableState<GlobalFocusState>
+    globalFocusState: MutableState<GlobalFocusState>,
+    onNavigateToEpg: () -> Unit = {},
+    onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> },
+    onFocusRestored: () -> Unit = {},
+    restoredTelewizjaFocus: FocusState? = null
 ) {
     when (selectedSection) {
         "SEARCH" -> {
@@ -1065,6 +1163,7 @@ private fun FullPageContent(
         "ODKRYWAJ" -> {
             OdkrywajScreenContent(
                 globalFocusState = globalFocusState,
+                onUserNavigated = onUserNavigated,  // Clear fresh PIP mode on navigation
                 sx = sx,
                 sy = sy
             )
@@ -1073,7 +1172,11 @@ private fun FullPageContent(
             TelewizjaScreenContent(
                 globalFocusState = globalFocusState,
                 sx = sx,
-                sy = sy
+                sy = sy,
+                onNavigateToEpg = onNavigateToEpg,
+                onNavigateToEpgDay = onNavigateToEpgDay,
+                onFocusRestored = onFocusRestored,
+                restoredTelewizjaFocus = restoredTelewizjaFocus
             )
         }
         "KINO_PLAY" -> {
@@ -1165,6 +1268,7 @@ private fun AplikacjeScreenContent(
 @Composable
 private fun OdkrywajScreenContent(
     globalFocusState: MutableState<GlobalFocusState>,
+    onUserNavigated: () -> Unit = {},  // NEW: Callback when user navigates content
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp
 ) {
@@ -1181,6 +1285,10 @@ private fun OdkrywajScreenContent(
         onReturnToMenu = {
             globalFocusState.value = GlobalFocusManager.returnToMenu(globalFocusState.value)
         },
+        onUserNavigated = {
+            // Clear fresh PIP mode when user navigates content
+            onUserNavigated()
+        },
         shouldAutoFocus = globalFocusState.value.sectionId == "ODKRYWAJ" && globalFocusState.value.currentRow > 0,
         sx = sx,
         sy = sy,
@@ -1192,7 +1300,11 @@ private fun OdkrywajScreenContent(
 private fun TelewizjaScreenContent(
     globalFocusState: MutableState<GlobalFocusState>,
     sx: (Int) -> androidx.compose.ui.unit.Dp,
-    sy: (Int) -> androidx.compose.ui.unit.Dp
+    sy: (Int) -> androidx.compose.ui.unit.Dp,
+    onNavigateToEpg: () -> Unit = {},
+    onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> },
+    onFocusRestored: () -> Unit = {},
+    restoredTelewizjaFocus: FocusState? = null
 ) {
     var resetTrigger by remember { mutableStateOf(0) }
 
@@ -1207,10 +1319,22 @@ private fun TelewizjaScreenContent(
         onReturnToMenu = {
             globalFocusState.value = GlobalFocusManager.returnToMenu(globalFocusState.value)
         },
-        shouldAutoFocus = globalFocusState.value.sectionId == "TELEWIZJA" && globalFocusState.value.currentRow > 0,
+        shouldAutoFocus = globalFocusState.value.sectionId == "TELEWIZJA"
+                          && globalFocusState.value.currentRow > 0
+                          && restoredTelewizjaFocus == null,  // NIE auto-focus gdy restorujemy z EPG Day Test
         sx = sx,
         sy = sy,
-        resetTrigger = resetTrigger
+        resetTrigger = resetTrigger,
+        onNavigateToEpg = onNavigateToEpg,
+        onNavigateToEpgDay = onNavigateToEpgDay,
+        onContentFocusRestored = { row ->
+            // Update globalFocusState to deactivate menu focus
+            globalFocusState.value = globalFocusState.value.copy(currentRow = row)
+            android.util.Log.d("TELEWIZJA_FOCUS", "Updated globalFocusState.currentRow = $row (menu deactivated)")
+        },
+        onFocusRestored = onFocusRestored,
+        restoredTelewizjaFocus = restoredTelewizjaFocus,
+        sectionId = globalFocusState.value.sectionId
     )
 }
 
@@ -1218,6 +1342,7 @@ private fun TelewizjaScreenContent(
 @Composable
 private fun OdkrywajChannelsScreen(
     onReturnToMenu: () -> Unit = {},
+    onUserNavigated: () -> Unit = {},  // NEW: Callback when user navigates content
     shouldAutoFocus: Boolean = false,
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
@@ -1258,11 +1383,11 @@ private fun OdkrywajChannelsScreen(
             // Group VOD by category for collections
             val vodByCategory = vodContentList.groupBy { it.category }
             val collections = listOf(
-                VodContent("Horrory", "Kolekcja horrorów na Halloween", "Horror", "https://images6.alphacoders.com/140/1400473.jpg", "", ""),
-                VodContent("Thrillery", "Ekscytujące thrillery", "Thriller", "https://images6.alphacoders.com/135/1356452.jpeg", "", ""),
-                VodContent("Komedie", "Najlepsze komedie", "Komedia", "https://images6.alphacoders.com/135/1356452.jpeg", "", ""),
-                VodContent("Dokumenty", "Fascynujące dokumenty", "Dokumentalny", "https://images6.alphacoders.com/135/1356452.jpeg", "", ""),
-                VodContent("Sci-Fi", "Fantastyka naukowa", "Sci-Fi", "https://images4.alphacoders.com/135/1353792.png", "", "")
+                VodContent("test_horrory", "Horrory", "Kolekcja horrorów na Halloween", "Horror", "https://images6.alphacoders.com/140/1400473.jpg", "", ""),
+                VodContent("test_thrillery", "Thrillery", "Ekscytujące thrillery", "Thriller", "https://images6.alphacoders.com/135/1356452.jpeg", "", ""),
+                VodContent("test_komedie", "Komedie", "Najlepsze komedie", "Komedia", "https://images6.alphacoders.com/135/1356452.jpeg", "", ""),
+                VodContent("test_dokumenty", "Dokumenty", "Fascynujące dokumenty", "Dokumentalny", "https://images6.alphacoders.com/135/1356452.jpeg", "", ""),
+                VodContent("test_scifi", "Sci-Fi", "Fantastyka naukowa", "Sci-Fi", "https://images4.alphacoders.com/135/1353792.png", "", "")
             )
 
             channels.associateWith { channelName ->
@@ -1295,6 +1420,17 @@ private fun OdkrywajChannelsScreen(
 
     var focusedRowIndex by remember { mutableStateOf(0) }
     var focusedColIndex by remember { mutableStateOf(-2) } // -2 = brak fokusa na starcie
+
+    // Track if user has navigated (for PIP mode)
+    var hasNavigated by remember { mutableStateOf(false) }
+
+    LaunchedEffect(focusedRowIndex, focusedColIndex) {
+        if (!hasNavigated && focusedColIndex != -2) {
+            hasNavigated = true
+            android.util.Log.d("PIP_NAVIGATION", "User navigated in ODKRYWAJ - clearing fresh PIP mode")
+            onUserNavigated()
+        }
+    }
 
     // Reset focus state when returning to menu
     LaunchedEffect(resetTrigger) {
@@ -1414,7 +1550,13 @@ private fun TelewizjaChannelsScreen(
     shouldAutoFocus: Boolean = false,
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
-    resetTrigger: Int = 0
+    resetTrigger: Int = 0,
+    onNavigateToEpg: () -> Unit = {},
+    onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> },
+    onContentFocusRestored: (Int) -> Unit = {},
+    onFocusRestored: () -> Unit = {},
+    restoredTelewizjaFocus: FocusState? = null,
+    sectionId: String = "TELEWIZJA"
 ) {
     android.util.Log.d("EPG_DEBUG", "=== TelewizjaChannelsScreen RENDERED ===")
 
@@ -1432,24 +1574,27 @@ private fun TelewizjaChannelsScreen(
 
     // Załadować EPG i aktualne programy
     LaunchedEffect(Unit) {
-        android.util.Log.d("EPG_DEBUG", "=== Starting EPG load ===")
+        val startTime = System.currentTimeMillis()
+        android.util.Log.d("EPG_LOADING", "⏱️ [Teraz w TV] LaunchedEffect START at $startTime")
         try {
             // Refresh EPG data (jeśli cache expired)
-            android.util.Log.d("EPG_DEBUG", "Calling startBackgroundRefresh...")
+            android.util.Log.d("EPG_LOADING", "   Calling startBackgroundRefresh...")
             epgRepository.startBackgroundRefresh()
 
             // Załadować aktualne programy
-            android.util.Log.d("EPG_DEBUG", "Loading current programs...")
+            android.util.Log.d("EPG_LOADING", "   Loading current programs...")
             terazWTvPrograms = com.uxellence.tv.v3.utils.EpgAdapter.getCurrentProgramsAsVodContent(epgRepository)
 
-            android.util.Log.d("EPG_DEBUG", "EPG loaded: ${terazWTvPrograms.size} programs")
-            terazWTvPrograms.forEachIndexed { index, program ->
-                android.util.Log.d("EPG_DEBUG", "  [$index] ${program.title} - ${program.description.take(50)}")
+            val endTime = System.currentTimeMillis()
+            val duration = endTime - startTime
+            android.util.Log.d("EPG_LOADING", "✅ [Teraz w TV] Loaded ${terazWTvPrograms.size} programs in ${duration}ms")
+            if (terazWTvPrograms.isNotEmpty()) {
+                android.util.Log.d("EPG_LOADING", "   First program: ID='${terazWTvPrograms[0].id}', title='${terazWTvPrograms[0].title}'")
             }
 
             isLoadingEpg = false
         } catch (e: Exception) {
-            android.util.Log.e("EPG_DEBUG", "Failed to load EPG", e)
+            android.util.Log.e("EPG_LOADING", "❌ [Teraz w TV] Failed to load EPG", e)
             isLoadingEpg = false
         }
     }
@@ -1498,12 +1643,18 @@ private fun TelewizjaChannelsScreen(
 
     // Załadować programy EPG dla "Kategorie EPG" - te same co "Teraz w TV"
     LaunchedEffect(Unit) {
-        android.util.Log.d("EPG_DEBUG", "=== Loading EPG category programs (same as Teraz w TV) ===")
+        val startTime = System.currentTimeMillis()
+        android.util.Log.d("EPG_LOADING", "⏱️ [Kategorie EPG] LaunchedEffect START at $startTime")
         try {
             epgCategoriesProgramsAll = com.uxellence.tv.v3.utils.EpgAdapter.getCurrentProgramsAsVodContent(epgRepository)
-            android.util.Log.d("EPG_DEBUG", "EPG categories loaded: ${epgCategoriesProgramsAll.size} (showing ${epgCategoriesVisibleCount})")
+            val endTime = System.currentTimeMillis()
+            val duration = endTime - startTime
+            android.util.Log.d("EPG_LOADING", "✅ [Kategorie EPG] Loaded ${epgCategoriesProgramsAll.size} programs in ${duration}ms (showing ${epgCategoriesVisibleCount})")
+            if (epgCategoriesProgramsAll.isNotEmpty()) {
+                android.util.Log.d("EPG_LOADING", "   First program: ID='${epgCategoriesProgramsAll[0].id}', title='${epgCategoriesProgramsAll[0].title}'")
+            }
         } catch (e: Exception) {
-            android.util.Log.e("EPG_DEBUG", "Failed to load EPG category programs", e)
+            android.util.Log.e("EPG_LOADING", "❌ [Kategorie EPG] Failed to load", e)
         }
     }
 
@@ -1572,67 +1723,41 @@ private fun TelewizjaChannelsScreen(
         val vodContentList = VodDataCache.getVodContentList()
         val kinoPlayMovies = VodDataCache.getKinoPlayMovies()
 
-        if (vodContentList.isNotEmpty() && kinoPlayMovies.isNotEmpty()) {
-            channels.associateWith { channelName ->
-                when (channelName) {
-                    "Skróty v2" -> emptyList() // No horizontal content
-                    "Kategorie EPG" -> epgCategoriesPrograms // EPG data: same as "Teraz w TV" with lazy loading
-                    "Teraz w TV" -> {
-                        android.util.Log.d("EPG_DEBUG", "GridContent: terazWTvPrograms.size = ${terazWTvPrograms.size}")
-                        if (terazWTvPrograms.isNotEmpty()) {
-                            android.util.Log.d("EPG_DEBUG", "Using EPG data!")
-                            terazWTvPrograms // EPG data z aktualnych programów
-                        } else {
-                            android.util.Log.d("EPG_DEBUG", "Using fallback VOD data")
-                            vodContentList.take(10) // Fallback jeśli EPG nie załadowany
-                        }
-                    }
-                    "FILMY, dzis były w TV" -> {
-                        android.util.Log.d("EPG_DEBUG", "GridContent: najczesciejMovies.size = ${najczesciejMovies.size}")
-                        if (najczesciejMovies.isNotEmpty()) {
-                            android.util.Log.d("EPG_DEBUG", "Using feature-length movies from last 24h!")
-                            najczesciejMovies // Filmy pełnometrażowe z ostatnich 24h
-                        } else {
-                            android.util.Log.d("EPG_DEBUG", "Using fallback VOD data")
-                            vodContentList.shuffled().take(10) // Fallback jeśli EPG nie załadowany
-                        }
-                    }
-                    "SERIALE, dzis były w TV" -> {
-                        android.util.Log.d("EPG_DEBUG", "GridContent: serialePrograms.size = ${serialePrograms.size}")
-                        if (serialePrograms.isNotEmpty()) {
-                            android.util.Log.d("EPG_DEBUG", "Using series from last 24h!")
-                            serialePrograms
-                        } else {
-                            android.util.Log.d("EPG_DEBUG", "Using fallback VOD data")
-                            vodContentList.shuffled().take(10)
-                        }
-                    }
-                    "SPORT, dzis było w TV" -> {
-                        android.util.Log.d("EPG_DEBUG", "GridContent: sportPrograms.size = ${sportPrograms.size}")
-                        if (sportPrograms.isNotEmpty()) {
-                            android.util.Log.d("EPG_DEBUG", "Using sports from last 24h!")
-                            sportPrograms
-                        } else {
-                            android.util.Log.d("EPG_DEBUG", "Using fallback VOD data")
-                            vodContentList.shuffled().take(10)
-                        }
-                    }
-                    "TELETURNIEJE, dzis były w TV" -> {
-                        android.util.Log.d("EPG_DEBUG", "GridContent: teleturniejePrograms.size = ${teleturniejePrograms.size}")
-                        if (teleturniejePrograms.isNotEmpty()) {
-                            android.util.Log.d("EPG_DEBUG", "Using game shows from last 24h!")
-                            teleturniejePrograms
-                        } else {
-                            android.util.Log.d("EPG_DEBUG", "Using fallback VOD data")
-                            vodContentList.shuffled().take(10)
-                        }
-                    }
-                    "Moja lista kanałów", "Wszystkie kanały", "Dla dzieci", "Dokumenty", "Filmy i seriale HBO", "Informacyjne" -> emptyList() // App-icons type, no VOD grid content
-                    else -> vodContentList.shuffled().take(10) // Fallback
+        // IMPORTANT: Always create gridContent with at least empty lists for each channel
+        // This ensures content verification doesn't timeout when restoring focus
+        channels.associateWith { channelName ->
+            when (channelName) {
+                "Skróty v2" -> emptyList() // No horizontal content
+                "Kategorie EPG" -> {
+                    android.util.Log.d("GRID_CONTENT", "Kategorie EPG: visible=${epgCategoriesPrograms.size}, all=${epgCategoriesProgramsAll.size}, visibleCount=$epgCategoriesVisibleCount")
+                    epgCategoriesPrograms // EPG data: same as "Teraz w TV" with lazy loading
                 }
+                "Teraz w TV" -> {
+                    android.util.Log.d("GRID_CONTENT", "Teraz w TV: ${terazWTvPrograms.size} EPG programs (NO FALLBACK)")
+                    if (terazWTvPrograms.isNotEmpty()) {
+                        android.util.Log.d("GRID_CONTENT", "   First ID: ${terazWTvPrograms[0].id}, title: ${terazWTvPrograms[0].title}")
+                    }
+                    terazWTvPrograms // ✅ Zawsze EPG data, bez fallback VOD
+                }
+                "FILMY, dzis były w TV" -> {
+                    android.util.Log.d("GRID_CONTENT", "FILMY: ${najczesciejMovies.size} EPG movies (NO FALLBACK)")
+                    najczesciejMovies // ✅ Zawsze EPG data, bez fallback VOD
+                }
+                "SERIALE, dzis były w TV" -> {
+                    android.util.Log.d("GRID_CONTENT", "SERIALE: ${serialePrograms.size} EPG series (NO FALLBACK)")
+                    serialePrograms // ✅ Zawsze EPG data, bez fallback VOD
+                }
+                "SPORT, dzis było w TV" -> {
+                    android.util.Log.d("GRID_CONTENT", "SPORT: ${sportPrograms.size} EPG sports (NO FALLBACK)")
+                    sportPrograms // ✅ Zawsze EPG data, bez fallback VOD
+                }
+                "TELETURNIEJE, dzis były w TV" -> {
+                    android.util.Log.d("GRID_CONTENT", "TELETURNIEJE: ${teleturniejePrograms.size} EPG game shows (NO FALLBACK)")
+                    teleturniejePrograms // ✅ Zawsze EPG data, bez fallback VOD
+                }
+                "Moja lista kanałów", "Wszystkie kanały", "Dla dzieci", "Dokumenty", "Filmy i seriale HBO", "Informacyjne" -> emptyList() // App-icons type, no VOD grid content
+                else -> if (vodContentList.isNotEmpty()) vodContentList.shuffled().take(10) else emptyList() // Fallback
             }
-        } else {
-            emptyMap()
         }
     }
 
@@ -1653,6 +1778,10 @@ private fun TelewizjaChannelsScreen(
 
     var focusedRowIndex by remember { mutableStateOf(0) }
     var focusedColIndex by remember { mutableStateOf(-2) } // -2 = brak fokusa na starcie
+
+    // State for showing LiveScreen
+    var showLiveScreen by remember { mutableStateOf(false) }
+    var selectedChannelName by remember { mutableStateOf<String?>(null) }
 
     // Reset focus state when returning to menu
     LaunchedEffect(resetTrigger) {
@@ -1716,13 +1845,204 @@ private fun TelewizjaChannelsScreen(
     }
 
     val coroutineScope = rememberCoroutineScope()
+
+    // Simple restoration flag to block Auto-focus during restoration
+    var restorationInProgress by remember { mutableStateOf(false) }
+    var wasRestoration by remember { mutableStateOf(false) }  // Permanent block for auto-focus after restoration
     var isInitialized by remember { mutableStateOf(false) }
 
-    // Auto-reset LazyListState for unfocused rows
-    LaunchedEffect(focusedRowIndex, focusedColIndex, isInitialized) {
-        if (isInitialized) {
-            // Reduced from 150ms to 0ms for instant tab switching
-            kotlinx.coroutines.delay(0)
+    // ✅ INITIALIZATION: ALWAYS set to true (no conditions) - enables navigation
+    LaunchedEffect(Unit) {
+        isInitialized = true
+        android.util.Log.d("TELEWIZJA_FOCUS", "✅ Initialization complete - navigation enabled")
+    }
+
+    // ✅ ID-BASED RESTORATION: Uses unique IDs instead of positions
+    LaunchedEffect(restoredTelewizjaFocus) {
+        restoredTelewizjaFocus?.let { focusState ->
+            android.util.Log.d("TELEWIZJA_FOCUS", "=== ID-BASED RESTORATION STARTED === channelId=${focusState.channelId}, itemId=${focusState.itemId}, scrollPos=${focusState.scrollPosition}")
+            restorationInProgress = true
+            wasRestoration = true  // Mark that restoration happened - blocks auto-focus permanently
+
+            // Find row index from channelId
+            val row = channels.indexOf(focusState.channelId)
+            if (row == -1) {
+                android.util.Log.e("TELEWIZJA_FOCUS", "❌ Channel not found: '${focusState.channelId}' (available: ${channels.joinToString()})")
+                restorationInProgress = false
+                return@let
+            }
+
+            android.util.Log.d("TELEWIZJA_FOCUS", "✓ Channel resolved: '${focusState.channelId}' → row=$row")
+            android.util.Log.d("TELEWIZJA_FOCUS", "⏳ Waiting for content to load for channel: ${focusState.channelId}")
+
+            // DEBUG: Log current gridContent state for this channel
+            android.util.Log.d("TELEWIZJA_FOCUS", "📊 DEBUG: gridContent keys = ${gridContent.keys}")
+            val currentContent = gridContent[focusState.channelId]
+            android.util.Log.d("TELEWIZJA_FOCUS", "📊 DEBUG: gridContent[${focusState.channelId}] = ${currentContent?.size ?: "null"} items")
+
+            // Wait for content based on what we're restoring to
+            // - itemId != null: Restoring to content item → wait for non-empty list
+            // - itemId == null: Restoring to CategoryIcon → empty list is OK
+            val needsContent = focusState.itemId != null
+            var attempts = 0
+            while (attempts < 80) {  // 80 * 50ms = 4000ms
+                // Read LIVE state variables instead of frozen gridContent
+                val content = when (focusState.channelId) {
+                    "Kategorie EPG" -> epgCategoriesProgramsAll  // Read source state directly, bypass derived .take()
+                    "Teraz w TV" -> terazWTvPrograms
+                    "FILMY, dzis były w TV" -> najczesciejMovies
+                    "SERIALE, dzis były w TV" -> serialePrograms
+                    "SPORT, dzis było w TV" -> sportPrograms
+                    "TELETURNIEJE, dzis były w TV" -> teleturniejePrograms
+                    else -> gridContent[focusState.channelId] ?: emptyList()
+                }
+                android.util.Log.d("TELEWIZJA_FOCUS", "📊 Attempt $attempts: content = ${content.size} (live state), needsContent=$needsContent")
+
+                val isReady = if (needsContent) {
+                    // Need actual content loaded
+                    content.isNotEmpty()
+                } else {
+                    // CategoryIcon - always ready (even if empty)
+                    true
+                }
+
+                if (isReady) {
+                    android.util.Log.d("TELEWIZJA_FOCUS", "✅ Channel '${focusState.channelId}' ready (${content.size} items) after ${attempts * 50}ms")
+                    break
+                }
+                kotlinx.coroutines.delay(50)
+                attempts++
+            }
+
+            // Check if we timed out
+            if (attempts >= 80) {
+                // Re-read live state for final check
+                val content = when (focusState.channelId) {
+                    "Kategorie EPG" -> epgCategoriesProgramsAll  // Read source state directly, bypass derived .take()
+                    "Teraz w TV" -> terazWTvPrograms
+                    "FILMY, dzis były w TV" -> najczesciejMovies
+                    "SERIALE, dzis były w TV" -> serialePrograms
+                    "SPORT, dzis było w TV" -> sportPrograms
+                    "TELETURNIEJE, dzis były w TV" -> teleturniejePrograms
+                    else -> gridContent[focusState.channelId] ?: emptyList()
+                }
+                val isReady = if (needsContent) {
+                    content.isNotEmpty()
+                } else {
+                    true // CategoryIcon always ready
+                }
+                if (!isReady) {
+                    android.util.Log.e("TELEWIZJA_FOCUS", "❌ TIMEOUT after ${attempts * 50}ms: content not ready (needsContent=$needsContent, size=${content.size})")
+                    restorationInProgress = false
+                    return@let
+                }
+            }
+
+            // Verify content is ready based on what we need (use live state)
+            val content = when (focusState.channelId) {
+                "Kategorie EPG" -> epgCategoriesProgramsAll  // Read source state directly, bypass derived .take()
+                "Teraz w TV" -> terazWTvPrograms
+                "FILMY, dzis były w TV" -> najczesciejMovies
+                "SERIALE, dzis były w TV" -> serialePrograms
+                "SPORT, dzis było w TV" -> sportPrograms
+                "TELETURNIEJE, dzis były w TV" -> teleturniejePrograms
+                else -> gridContent[focusState.channelId] ?: emptyList()
+            }
+            // content is List<VodContent>, never null from when expression
+
+            if (needsContent && content.isEmpty()) {
+                android.util.Log.e("TELEWIZJA_FOCUS", "❌ TIMEOUT: Channel '${focusState.channelId}' has EMPTY content after ${attempts * 50}ms (needed non-empty for item restoration)")
+                restorationInProgress = false
+                return@let
+            }
+
+            // Determine focus target: CategoryIcon or specific item
+            val col: Int
+            var targetItemIndex: Int
+            if (focusState.itemId == null) {
+                // Restore focus to CategoryIcon
+                col = -1
+                targetItemIndex = 0
+                android.util.Log.d("TELEWIZJA_FOCUS", "🎯 Target: CategoryIcon (col=-1)")
+            } else {
+                // Find item by ID
+                col = 0  // Fixed focus model
+
+                // Debug: Show all available IDs in content
+                android.util.Log.d("TELEWIZJA_FOCUS", "🔍 Looking for itemId='${focusState.itemId}' in ${content.size} items")
+                content.forEachIndexed { idx, item ->
+                    android.util.Log.d("TELEWIZJA_FOCUS", "  [$idx] id='${item.id}', title='${item.title}'")
+                }
+
+                targetItemIndex = content.indexOfFirst { it.id == focusState.itemId }
+                if (targetItemIndex == -1) {
+                    android.util.Log.w("TELEWIZJA_FOCUS", "⚠️ Item ID '${focusState.itemId}' not found in content, using scrollPosition=${focusState.scrollPosition}")
+                    // Fallback to scroll position if item not found
+                    targetItemIndex = focusState.scrollPosition.coerceIn(0, content.size - 1)
+                } else {
+                    android.util.Log.d("TELEWIZJA_FOCUS", "✅ Item found: '${focusState.itemId}' at index=$targetItemIndex")
+                }
+            }
+
+            // Set focus state
+            android.util.Log.d("TELEWIZJA_FOCUS", "📍 Setting local focus state: focusedRowIndex=$row, focusedColIndex=$col")
+            focusedRowIndex = row
+            focusedColIndex = col
+            android.util.Log.d("TELEWIZJA_FOCUS", "✓ Local focus state updated")
+
+            // Scroll LazyRow to target position (if applicable)
+            if (col == 0) {
+                lazyListStates[row]?.let { listState ->
+                    try {
+                        listState.scrollToItem(targetItemIndex)
+                        android.util.Log.d("TELEWIZJA_FOCUS", "📜 Scrolled to index $targetItemIndex")
+                    } catch (e: Exception) {
+                        android.util.Log.e("TELEWIZJA_FOCUS", "❌ Failed to scroll", e)
+                    }
+                }
+            }
+
+            // Wait for FocusRequester to exist (max 1 second)
+            android.util.Log.d("TELEWIZJA_FOCUS", "⏳ Waiting for FocusRequester at ($row, $col)")
+            var focusAttempts = 0
+            while (focusAttempts < 20) {  // 20 * 50ms = 1000ms
+                if (channelFocusRequesters[Pair(row, col)] != null) {
+                    android.util.Log.d("TELEWIZJA_FOCUS", "✓ FocusRequester found after ${focusAttempts * 50}ms")
+                    break
+                }
+                kotlinx.coroutines.delay(50)
+                focusAttempts++
+            }
+
+            // Request focus on the element
+            channelFocusRequesters[Pair(row, col)]?.let { focusRequester ->
+                try {
+                    android.util.Log.d("TELEWIZJA_FOCUS", "🎯 Requesting focus on element ($row, $col)")
+                    focusRequester.requestFocus()
+
+                    // Give UI time to stabilize before user can navigate
+                    kotlinx.coroutines.delay(100)
+
+                    android.util.Log.d("TELEWIZJA_FOCUS", "=== RESTORATION COMPLETED === channelId=${focusState.channelId}, itemId=${focusState.itemId}")
+                } catch (e: Exception) {
+                    android.util.Log.e("TELEWIZJA_FOCUS", "❌ Failed to restore focus: ${e.message}", e)
+                }
+            } ?: run {
+                android.util.Log.w("TELEWIZJA_FOCUS", "⚠️ FocusRequester not found for ($row, $col) after ${focusAttempts * 50}ms")
+            }
+
+            // Clear restoration flag after completion
+            kotlinx.coroutines.delay(2000)
+            restorationInProgress = false
+            android.util.Log.d("TELEWIZJA_FOCUS", "✓ Restoration flag cleared")
+        }
+    }
+
+    // ✅ 3. AUTO-RESET SCROLL: Only in NORMAL state
+    // NOTE: restorationState NOT in dependencies - avoids re-execution when state transitions
+    LaunchedEffect(focusedRowIndex, isInitialized) {
+        if (isInitialized && !restorationInProgress) {
+            android.util.Log.d("TELEWIZJA_FOCUS", "🔄 User changed row → resetting scroll for unfocused rows")
             repeat(channels.size) { rowIndex ->
                 if (rowIndex != focusedRowIndex) {
                     val lazyListState = lazyListStates[rowIndex]
@@ -1734,20 +2054,15 @@ private fun TelewizjaChannelsScreen(
         }
     }
 
+    // ✅ AUTO-FOCUS: Focus on (0, 0) when coming from menu, but NOT during/after restoration
     LaunchedEffect(shouldAutoFocus) {
-        if (shouldAutoFocus) {
-            // When coming from menu, focus on first slide of slider-max (0, 0)
+        if (shouldAutoFocus && !restorationInProgress && !wasRestoration) {
+            android.util.Log.d("TELEWIZJA_FOCUS", "🎯 Auto-focus from menu: Setting (0, 0)")
             focusedRowIndex = 0
-            focusedColIndex = 0 // Focus on first slide
-            // Reduced from 100ms to 0ms for instant focus
-            kotlinx.coroutines.delay(0)
-            val firstSlideFocusRequester = channelFocusRequesters[Pair(0, 0)]
-            if (firstSlideFocusRequester != null) {
-                Log.d("TELEWIZJA_DEBUG", "Auto-focus: Setting state (0, 0) and requesting focus on first slide")
-                firstSlideFocusRequester.requestFocus()
-            }
+            focusedColIndex = 0
+            kotlinx.coroutines.delay(50)
+            channelFocusRequesters[Pair(0, 0)]?.requestFocus()
         }
-        isInitialized = true
     }
 
     // Lazy loading: doładowywanie przy scrollowaniu dla "Kategorie EPG"
@@ -1762,53 +2077,72 @@ private fun TelewizjaChannelsScreen(
         }
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFF48227C))
-            .onPreviewKeyEvent { event ->
-                handleTelewizjaNavigation(
-                    event = event,
-                    focusedRowIndex = focusedRowIndex,
-                    focusedColIndex = focusedColIndex,
-                    onFocusChange = { row, col ->
-                        focusedRowIndex = row
-                        focusedColIndex = col
-                    },
-                    channelFocusRequesters = channelFocusRequesters,
-                    channels = channels,
-                    channelTypes = channelTypes,
-                    lazyListStates = lazyListStates,
-                    coroutineScope = coroutineScope,
-                    gridContent = gridContent,
-                    appIconsData = appIconsData,
-                    onReturnToMenu = onReturnToMenu
-                )
-            }
-            .focusable()
-    ) {
-        TelewizjaChannelRowsLayout(
-            channels = channels,
-            channelTypes = channelTypes,
-            gridContent = gridContent,
-            shortcuts = shortcuts,
-            kidsChannels = kidsChannels,
-            docChannels = docChannels,
-            hboChannels = hboChannels,
-            newsChannels = newsChannels,
-            appIconsData = appIconsData,
-            focusedRowIndex = focusedRowIndex,
-            focusedColIndex = focusedColIndex,
-            channelFocusRequesters = channelFocusRequesters,
-            onChannelContentFocusChange = { row, col ->
-                Log.d("TELEWIZJA_DEBUG", "Focus changed to row $row, col $col")
-                focusedRowIndex = row
-                focusedColIndex = col
+    // Show LiveScreen if a channel was clicked
+    if (showLiveScreen) {
+        LiveScreen(
+            onBackPressed = {
+                showLiveScreen = false
+                selectedChannelName = null
             },
-            lazyListStates = lazyListStates,
-            sx = sx,
-            sy = sy
+            initialChannelName = selectedChannelName
         )
+    } else {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFF48227C))
+                .onPreviewKeyEvent { event ->
+                    handleTelewizjaNavigation(
+                        event = event,
+                        focusedRowIndex = focusedRowIndex,
+                        focusedColIndex = focusedColIndex,
+                        onFocusChange = { row, col ->
+                            focusedRowIndex = row
+                            focusedColIndex = col
+                        },
+                        channelFocusRequesters = channelFocusRequesters,
+                        channels = channels,
+                        channelTypes = channelTypes,
+                        lazyListStates = lazyListStates,
+                        coroutineScope = coroutineScope,
+                        gridContent = gridContent,
+                        appIconsData = appIconsData,
+                        onReturnToMenu = onReturnToMenu
+                    )
+                }
+                .focusable()
+        ) {
+            TelewizjaChannelRowsLayout(
+                channels = channels,
+                channelTypes = channelTypes,
+                gridContent = gridContent,
+                shortcuts = shortcuts,
+                kidsChannels = kidsChannels,
+                docChannels = docChannels,
+                hboChannels = hboChannels,
+                newsChannels = newsChannels,
+                appIconsData = appIconsData,
+                focusedRowIndex = focusedRowIndex,
+                focusedColIndex = focusedColIndex,
+                channelFocusRequesters = channelFocusRequesters,
+                onChannelContentFocusChange = { row, col ->
+                    Log.d("TELEWIZJA_DEBUG", "Focus changed to row $row, col $col")
+                    focusedRowIndex = row
+                    focusedColIndex = col
+                },
+                onChannelClick = { channelName ->
+                    Log.d("TELEWIZJA_DEBUG", "Channel clicked: $channelName")
+                    selectedChannelName = channelName
+                    showLiveScreen = true
+                },
+                lazyListStates = lazyListStates,
+                sx = sx,
+                sy = sy,
+                onNavigateToEpg = onNavigateToEpg,
+                onNavigateToEpgDay = onNavigateToEpgDay,
+                sectionId = sectionId
+            )
+        }
     }
 }
 
@@ -2812,7 +3146,8 @@ private fun ShortcutCardV2(
     focusRequester: FocusRequester,
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
-    onFocusChange: (Boolean) -> Unit
+    onFocusChange: (Boolean) -> Unit,
+    onClick: () -> Unit = {}
 ) {
     val cardWidth = sx(310)
     val cardHeight = sy(179)
@@ -2831,6 +3166,7 @@ private fun ShortcutCardV2(
             .background(Color(0x3B000000)) // rgba(0, 0, 0, 0.23)
             .focusRequester(focusRequester)
             .focusable()
+            .clickable { onClick() }
             .onFocusChanged { focusState ->
                 onFocusChange(focusState.isFocused)
             }
@@ -3610,6 +3946,7 @@ fun MojeUnifiedChannelRow(
                                 sx = sx,
                                 sy = sy,
                                 lazyListState = lazyListState
+                                // No onClick for MOJE section
                             )
                         }
                     }
@@ -4423,28 +4760,63 @@ fun handleTelewizjaNavigation(
                     val lazyListState = lazyListStates[focusedRowIndex]
                     if (lazyListState != null && lazyListState.firstVisibleItemIndex > 0) {
                         coroutineScope.launch {
-                            lazyListState.animateScrollToItem(lazyListState.firstVisibleItemIndex - 1)
+                            val newIndex = lazyListState.firstVisibleItemIndex - 1
+                            lazyListState.animateScrollToItem(newIndex)
+                            // Czekaj na zakończenie animacji i ustaw fokus na nowym pierwszym widocznym elemencie
+                            delay(50)
+                            channelFocusRequesters[Pair(focusedRowIndex, newIndex)]?.requestFocus()
                         }
                     }
                     return true
                 }
                 else -> {
-                    // app-icons, horizontal: CategoryIcon + scrollable content
-                    if (focusedColIndex == -1) {
-                        // Already on CategoryIcon - do nothing
-                        return true
-                    } else if (focusedColIndex == 0) {
-                        // From content - try to scroll left first
-                        val lazyListState = lazyListStates[focusedRowIndex]
-                        if (lazyListState != null && lazyListState.firstVisibleItemIndex > 0) {
-                            // Can scroll - scroll left by 1 position
-                            coroutineScope.launch {
-                                lazyListState.animateScrollToItem(lazyListState.firstVisibleItemIndex - 1)
+                    // Check channel type to use correct navigation model
+                    val channelType = channelTypes[channelName] ?: "horizontal"
+
+                    if (channelType == "app-icons") {
+                        // app-icons: DIRECT FOCUS MODEL (focusedColIndex = 0,1,2,3...)
+                        if (focusedColIndex == -1) {
+                            // Already on CategoryIcon - do nothing
+                            return true
+                        } else if (focusedColIndex > 0) {
+                            // From content - move left to previous item
+                            val newColIndex = focusedColIndex - 1
+                            onFocusChange(focusedRowIndex, newColIndex)
+                            channelFocusRequesters[Pair(focusedRowIndex, newColIndex)]?.requestFocus()
+
+                            // Also scroll if needed
+                            val lazyListState = lazyListStates[focusedRowIndex]
+                            if (lazyListState != null) {
+                                coroutineScope.launch {
+                                    lazyListState.animateScrollToItem(newColIndex)
+                                }
                             }
-                        } else {
-                            // Can't scroll left - go to CategoryIcon
+                        } else if (focusedColIndex == 0) {
+                            // From first item - go to CategoryIcon
                             onFocusChange(focusedRowIndex, -1)
                             channelFocusRequesters[Pair(focusedRowIndex, -1)]?.requestFocus()
+                        }
+                    } else {
+                        // horizontal: SCROLLING MODEL (focusedColIndex zawsze 0)
+                        if (focusedColIndex == -1) {
+                            // Already on CategoryIcon - do nothing
+                            return true
+                        } else if (focusedColIndex == 0) {
+                            // Scroll left if possible, or go to CategoryIcon
+                            val lazyListState = lazyListStates[focusedRowIndex]
+                            if (lazyListState != null && lazyListState.firstVisibleItemIndex > 0) {
+                                coroutineScope.launch {
+                                    val newIndex = lazyListState.firstVisibleItemIndex - 1
+                                    lazyListState.animateScrollToItem(newIndex)
+                                    // Czekaj na zakończenie animacji i ustaw fokus na nowym pierwszym widocznym elemencie
+                                    delay(50)
+                                    channelFocusRequesters[Pair(focusedRowIndex, newIndex)]?.requestFocus()
+                                }
+                            } else {
+                                // From first item - go to CategoryIcon
+                                onFocusChange(focusedRowIndex, -1)
+                                channelFocusRequesters[Pair(focusedRowIndex, -1)]?.requestFocus()
+                            }
                         }
                     }
                     return true
@@ -4476,36 +4848,82 @@ fun handleTelewizjaNavigation(
 
                     if (lazyListState != null && lazyListState.firstVisibleItemIndex < maxIndex) {
                         coroutineScope.launch {
-                            lazyListState.animateScrollToItem(lazyListState.firstVisibleItemIndex + 1)
+                            val newIndex = lazyListState.firstVisibleItemIndex + 1
+                            lazyListState.animateScrollToItem(newIndex)
+                            // Czekaj na zakończenie animacji i ustaw fokus na nowym pierwszym widocznym elemencie
+                            delay(50)
+                            channelFocusRequesters[Pair(focusedRowIndex, newIndex)]?.requestFocus()
                         }
                     }
                     return true
                 }
                 else -> {
-                    // app-icons, horizontal: CategoryIcon + scrollable content
-                    if (focusedColIndex == -1) {
-                        // From CategoryIcon, go to content (col 0)
-                        onFocusChange(focusedRowIndex, 0)
-                        channelFocusRequesters[Pair(focusedRowIndex, 0)]?.requestFocus()
-                    } else if (focusedColIndex == 0) {
-                        // From content, try to scroll right
-                        val lazyListState = lazyListStates[focusedRowIndex]
+                    // Check channel type to use correct navigation model
+                    val channelType = channelTypes[channelName] ?: "horizontal"
 
-                        // Check appIconsData first (for app-icons channels), then gridContent (for VOD channels)
-                        val maxIndex = when {
-                            appIconsData.containsKey(channelName) -> {
-                                val channelList = appIconsData[channelName] ?: emptyList()
-                                channelList.size - 1
+                    if (channelType == "app-icons") {
+                        // app-icons: DIRECT FOCUS MODEL (focusedColIndex = 0,1,2,3...)
+                        if (focusedColIndex == -1) {
+                            // From CategoryIcon, go to content (col 0)
+                            onFocusChange(focusedRowIndex, 0)
+                            channelFocusRequesters[Pair(focusedRowIndex, 0)]?.requestFocus()
+                        } else if (focusedColIndex >= 0) {
+                            // From content, try to move right
+                            val lazyListState = lazyListStates[focusedRowIndex]
+
+                            val maxIndex = when {
+                                appIconsData.containsKey(channelName) -> {
+                                    val channelList = appIconsData[channelName] ?: emptyList()
+                                    channelList.size - 1
+                                }
+                                else -> {
+                                    val rowContent = gridContent[channelName] ?: emptyList()
+                                    rowContent.size - 1
+                                }
                             }
-                            else -> {
-                                val rowContent = gridContent[channelName] ?: emptyList()
-                                rowContent.size - 1
+
+                            if (focusedColIndex < maxIndex) {
+                                val newColIndex = focusedColIndex + 1
+                                onFocusChange(focusedRowIndex, newColIndex)
+                                channelFocusRequesters[Pair(focusedRowIndex, newColIndex)]?.requestFocus()
+
+                                // Also scroll if needed
+                                if (lazyListState != null && lazyListState.firstVisibleItemIndex < maxIndex) {
+                                    coroutineScope.launch {
+                                        lazyListState.animateScrollToItem(newColIndex)
+                                    }
+                                }
                             }
                         }
+                    } else {
+                        // horizontal: SCROLLING MODEL (focusedColIndex zawsze 0)
+                        if (focusedColIndex == -1) {
+                            // From CategoryIcon, go to content (col 0)
+                            onFocusChange(focusedRowIndex, 0)
+                            channelFocusRequesters[Pair(focusedRowIndex, 0)]?.requestFocus()
+                        } else if (focusedColIndex == 0) {
+                            // Scroll right if possible (scrolling model)
+                            val lazyListState = lazyListStates[focusedRowIndex]
 
-                        if (lazyListState != null && lazyListState.firstVisibleItemIndex < maxIndex) {
-                            coroutineScope.launch {
-                                lazyListState.animateScrollToItem(lazyListState.firstVisibleItemIndex + 1)
+                            val maxIndex = when {
+                                appIconsData.containsKey(channelName) -> {
+                                    val channelList = appIconsData[channelName] ?: emptyList()
+                                    channelList.size - 1
+                                }
+                                else -> {
+                                    val rowContent = gridContent[channelName] ?: emptyList()
+                                    rowContent.size - 1
+                                }
+                            }
+
+                            if (lazyListState != null && lazyListState.firstVisibleItemIndex < maxIndex) {
+                                coroutineScope.launch {
+                                    val newIndex = lazyListState.firstVisibleItemIndex + 1
+                                    lazyListState.animateScrollToItem(newIndex)
+                                    // Czekaj na zakończenie animacji i ustaw fokus na nowym pierwszym widocznym elemencie
+                                    delay(50)
+                                    channelFocusRequesters[Pair(focusedRowIndex, newIndex)]?.requestFocus()
+                                }
                             }
                         }
                     }
@@ -5351,6 +5769,7 @@ fun OdkrywajUnifiedChannelRow(
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     lazyListState: LazyListState
 ) {
+    // ODKRYWAJ section - no onClick to EPG Day needed here
     val isCurrentRow = rowIndex == focusedRowIndex
 
     var showDetailsWithDelay by remember { mutableStateOf(false) }
@@ -5581,42 +6000,78 @@ fun OdkrywajUnifiedChannelRow(
                     }
                 }
             }
+            "shortcuts-v2" -> {
+                // Shortcuts v2 row rendered separately below (if isShortcutsV2 block)
+                // This empty case prevents falling through to horizontal placeholder
+            }
             else -> {
                 // Horizontal miniatures row
-                LazyRow(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .offset(y = miniaturesYOffset),
-                    state = lazyListState,
-                    contentPadding = PaddingValues(start = sx(380), end = sx(20)),
-                    horizontalArrangement = Arrangement.spacedBy(sx(20))
-                ) {
-                    items(rowContent.size) { colIndex ->
-                        val vodContent = rowContent[colIndex]
-                        val isItemFocused = rowIndex == focusedRowIndex &&
-                                colIndex == lazyListState.firstVisibleItemIndex &&
-                                focusedColIndex == 0
-                        val focusRequester = channelFocusRequesters[Pair(rowIndex, colIndex)] ?: FocusRequester()
+                if (rowContent.isEmpty()) {
+                    // Empty content placeholder - attach FocusRequester to prevent crash
+                    val focusRequester = channelFocusRequesters[Pair(rowIndex, 0)] ?: FocusRequester()
+                    val isItemFocused = rowIndex == focusedRowIndex && focusedColIndex == 0
 
-                        ContentCard(
-                            vodContent = vodContent,
-                            channelNumber = String.format("%03d", (rowIndex * 10 + colIndex + 1)),
-                            isFocused = isItemFocused,
-                            focusRequester = focusRequester,
-                            onFocusChange = { onChannelContentFocusChange(rowIndex, colIndex) },
-                            sx = sx,
-                            sy = sy,
-                            lazyListState = lazyListState
+                    Box(
+                        modifier = Modifier
+                            .offset(x = sx(380), y = miniaturesYOffset)
+                            .width(sx(368))
+                            .height(sy(208))
+                            .clip(RoundedCornerShape(sx(12)))
+                            .background(Color(0xFF000000).copy(alpha = 0.1f))
+                            .border(
+                                width = if (isItemFocused) sx(6) else 0.dp,
+                                color = if (isItemFocused) Color(0xFF5AECD3) else Color.Transparent,
+                                shape = RoundedCornerShape(sx(12))
+                            )
+                            .focusRequester(focusRequester)
+                            .onFocusChanged { if (it.isFocused) onChannelContentFocusChange(rowIndex, 0) }
+                            .focusable(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Brak programów",
+                            color = Color(0xFFEEEEEE).copy(alpha = 0.5f),
+                            fontSize = (24 * (sy(1).value / 1.dp.value)).sp,
+                            fontWeight = FontWeight.Medium
                         )
                     }
+                } else {
+                    LazyRow(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .offset(y = miniaturesYOffset),
+                        state = lazyListState,
+                        contentPadding = PaddingValues(start = sx(380), end = sx(20)),
+                        horizontalArrangement = Arrangement.spacedBy(sx(20))
+                    ) {
+                        items(rowContent.size) { colIndex ->
+                            val vodContent = rowContent[colIndex]
+                            val isItemFocused = rowIndex == focusedRowIndex &&
+                                    colIndex == lazyListState.firstVisibleItemIndex &&
+                                    focusedColIndex == 0
+                            val focusRequester = channelFocusRequesters[Pair(rowIndex, colIndex)] ?: FocusRequester()
 
-                    // Spacer items
-                    items(8) {
-                        Spacer(
-                            modifier = Modifier
-                                .width(sx(368))
-                                .height(sy(208))
-                        )
+                            ContentCard(
+                                vodContent = vodContent,
+                                channelNumber = String.format("%03d", (rowIndex * 10 + colIndex + 1)),
+                                isFocused = isItemFocused,
+                                focusRequester = focusRequester,
+                                onFocusChange = { onChannelContentFocusChange(rowIndex, colIndex) },
+                                sx = sx,
+                                sy = sy,
+                                lazyListState = lazyListState,
+                                // No onClick for ODKRYWAJ section
+                            )
+                        }
+
+                        // Spacer items
+                        items(8) {
+                            Spacer(
+                                modifier = Modifier
+                                    .width(sx(368))
+                                    .height(sy(208))
+                            )
+                        }
                     }
                 }
             }
@@ -5752,6 +6207,7 @@ fun TelewizjaChannelRowsLayout(
     focusedColIndex: Int,
     channelFocusRequesters: Map<Pair<Int, Int>, FocusRequester>,
     onChannelContentFocusChange: (Int, Int) -> Unit,
+    onChannelClick: (String) -> Unit = {},
     lazyListStates: Map<Int, LazyListState>,
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
@@ -5765,7 +6221,10 @@ fun TelewizjaChannelRowsLayout(
     liveOnLiveTvFocusChange: (Boolean) -> Unit = {},
     liveShowPiP: Boolean = false,
     liveShowFullscreen: Boolean = false,
-    liveOnShowFullscreen: (Boolean) -> Unit = {}
+    liveOnShowFullscreen: (Boolean) -> Unit = {},
+    onNavigateToEpg: () -> Unit = {},
+    onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> },
+    sectionId: String = "TELEWIZJA"
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         channels.forEachIndexed { rowIndex, channelName ->
@@ -5802,9 +6261,13 @@ fun TelewizjaChannelRowsLayout(
                     focusedColIndex = focusedColIndex,
                     channelFocusRequesters = channelFocusRequesters,
                     onChannelContentFocusChange = onChannelContentFocusChange,
+                    onChannelClick = onChannelClick,
                     sx = sx,
                     sy = sy,
-                    lazyListState = lazyListState
+                    lazyListState = lazyListState,
+                    onNavigateToEpg = onNavigateToEpg,
+                    onNavigateToEpgDay = onNavigateToEpgDay,
+                    sectionId = sectionId
                 )
             }
         }
@@ -5824,6 +6287,7 @@ fun TelewizjaUnifiedChannelRow(
     focusedColIndex: Int,
     channelFocusRequesters: Map<Pair<Int, Int>, FocusRequester>,
     onChannelContentFocusChange: (Int, Int) -> Unit,
+    onChannelClick: (String) -> Unit = {},
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     lazyListState: LazyListState,
@@ -5836,7 +6300,10 @@ fun TelewizjaUnifiedChannelRow(
     liveOnLiveTvFocusChange: (Boolean) -> Unit = {},
     liveShowPiP: Boolean = false,
     liveShowFullscreen: Boolean = false,
-    liveOnShowFullscreen: (Boolean) -> Unit = {}
+    liveOnShowFullscreen: (Boolean) -> Unit = {},
+    onNavigateToEpg: () -> Unit = {},
+    onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> },
+    sectionId: String = "TELEWIZJA"
 ) {
     val isCurrentRow = rowIndex == focusedRowIndex
     val isShortcutsV2 = channel == "Skróty v2"
@@ -6017,6 +6484,7 @@ fun TelewizjaUnifiedChannelRow(
                             isFocused = isItemFocused,
                             focusRequester = focusRequester,
                             onFocusChange = { onChannelContentFocusChange(rowIndex, colIndex) },
+                            onClick = { onChannelClick(channel.name) },
                             sx = sx,
                             sy = sy
                         )
@@ -6026,39 +6494,70 @@ fun TelewizjaUnifiedChannelRow(
             "app-icons" -> {
                 // App-style icons (TV channels with app-icon styling, scrolling focus model like APLIKACJE)
                 // CategoryIcon in WIDEO style (text-only with black background)
-                LazyRow(
-                    modifier = Modifier
-                        .fillMaxWidth(),
-                    state = lazyListState,
-                    contentPadding = PaddingValues(start = sx(380), end = sx(20)),  // Start at 380px (space for CategoryIcon)
-                    horizontalArrangement = Arrangement.spacedBy(sx(12))  // 12px spacing like APLIKACJE app-icons
-                ) {
-                    items(tvChannelLogos.size) { colIndex ->
-                        val tvChannel = tvChannelLogos[colIndex]
-                        val isItemFocused = rowIndex == focusedRowIndex &&
-                                           colIndex == lazyListState.firstVisibleItemIndex &&
-                                           focusedColIndex == 0
-                        // ⭐ Each item gets its own FocusRequester (from map or new) - like APLIKACJE
-                        val focusRequester = channelFocusRequesters[Pair(rowIndex, colIndex)] ?: FocusRequester()
+                if (tvChannelLogos.isEmpty()) {
+                    // Empty content placeholder - attach FocusRequester to prevent crash
+                    val focusRequester = channelFocusRequesters[Pair(rowIndex, 0)] ?: FocusRequester()
+                    val isItemFocused = rowIndex == focusedRowIndex && focusedColIndex == 0
 
-                        ChannelListCard(
-                            channel = tvChannel,
-                            channelNumber = colIndex + 1,  // Channel number: 1, 2, 3, etc.
-                            isFocused = isItemFocused,
-                            focusRequester = focusRequester,
-                            onFocusChange = { onChannelContentFocusChange(rowIndex, colIndex) },
-                            sx = sx,
-                            sy = sy
+                    Box(
+                        modifier = Modifier
+                            .offset(x = sx(380), y = sy(0))
+                            .width(sx(TELEWIZJA_CHANNEL_LIST_CARD_WIDTH))
+                            .height(sy(TELEWIZJA_CHANNEL_LIST_CARD_HEIGHT))
+                            .clip(RoundedCornerShape(sx(12)))
+                            .background(Color(0xFF000000).copy(alpha = 0.1f))
+                            .border(
+                                width = if (isItemFocused) sx(4) else 0.dp,
+                                color = if (isItemFocused) Color(0xFF5AECD3) else Color.Transparent,
+                                shape = RoundedCornerShape(sx(12))
+                            )
+                            .focusRequester(focusRequester)
+                            .onFocusChanged { if (it.isFocused) onChannelContentFocusChange(rowIndex, 0) }
+                            .focusable(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Brak kanałów",
+                            color = Color(0xFFEEEEEE).copy(alpha = 0.5f),
+                            fontSize = (24 * (sy(1).value / 1.dp.value)).sp,
+                            fontWeight = FontWeight.Medium
                         )
                     }
+                } else {
+                    LazyRow(
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        state = lazyListState,
+                        contentPadding = PaddingValues(start = sx(380), end = sx(20)),  // Start at 380px (space for CategoryIcon)
+                        horizontalArrangement = Arrangement.spacedBy(sx(12))  // 12px spacing like APLIKACJE app-icons
+                    ) {
+                        items(tvChannelLogos.size) { colIndex ->
+                            val tvChannel = tvChannelLogos[colIndex]
+                            // ✅ Direct focus check: item is focused when its indices match
+                            val isItemFocused = rowIndex == focusedRowIndex && colIndex == focusedColIndex
+                            // ⭐ Each item gets its own FocusRequester (from map or new) - like APLIKACJE
+                            val focusRequester = channelFocusRequesters[Pair(rowIndex, colIndex)] ?: FocusRequester()
 
-                    // Spacer items (ensure scrollable area)
-                    items(8) {
-                        Spacer(
-                            modifier = Modifier
-                                .width(sx(TELEWIZJA_CHANNEL_LIST_CARD_WIDTH))  // Same as ChannelListCard width (208px)
-                                .height(sy(TELEWIZJA_CHANNEL_LIST_CARD_HEIGHT))  // Same as ChannelListCard height (208px)
-                        )
+                            ChannelListCard(
+                                channel = tvChannel,
+                                channelNumber = colIndex + 1,  // Channel number: 1, 2, 3, etc.
+                                isFocused = isItemFocused,
+                                focusRequester = focusRequester,
+                                onFocusChange = { onChannelContentFocusChange(rowIndex, colIndex) },
+                                onClick = { onChannelClick(tvChannel.name) },
+                                sx = sx,
+                                sy = sy
+                            )
+                        }
+
+                        // Spacer items (ensure scrollable area)
+                        items(8) {
+                            Spacer(
+                                modifier = Modifier
+                                    .width(sx(TELEWIZJA_CHANNEL_LIST_CARD_WIDTH))  // Same as ChannelListCard width (208px)
+                                    .height(sy(TELEWIZJA_CHANNEL_LIST_CARD_HEIGHT))  // Same as ChannelListCard height (208px)
+                            )
+                        }
                     }
                 }
 
@@ -6113,37 +6612,72 @@ fun TelewizjaUnifiedChannelRow(
             "collection-slider" -> {
                 // Collection slider row (977x464px cards with gradient background)
                 // Uses VodContent for all collection-slider channels (including "Kategorie EPG")
-                LazyRow(
-                    modifier = Modifier
-                        .fillMaxWidth(),
-                    state = lazyListState,
-                    contentPadding = PaddingValues(start = sx(120), end = sx(20)),
-                    horizontalArrangement = Arrangement.spacedBy(sx(20))
-                ) {
-                    items(rowContent.size) { colIndex ->
-                        val vodContent = rowContent[colIndex]
-                        val isItemFocused = rowIndex == focusedRowIndex &&
-                                colIndex == lazyListState.firstVisibleItemIndex &&
-                                focusedColIndex == 0
-                        val focusRequester = channelFocusRequesters[Pair(rowIndex, colIndex)] ?: FocusRequester()
+                if (rowContent.isEmpty()) {
+                    // ✅ Empty content placeholder - attach FocusRequester to prevent crash during restoration
+                    val focusRequester = channelFocusRequesters[Pair(rowIndex, 0)] ?: FocusRequester()
+                    val isItemFocused = rowIndex == focusedRowIndex && focusedColIndex == 0
 
-                        CollectionSliderCard(
-                            vodContent = vodContent,
-                            isFocused = isItemFocused,
-                            focusRequester = focusRequester,
-                            onFocusChange = { onChannelContentFocusChange(rowIndex, colIndex) },
-                            sx = sx,
-                            sy = sy
+                    Box(
+                        modifier = Modifier
+                            .offset(x = sx(120), y = sy(0))
+                            .width(sx(977))
+                            .height(sy(464))
+                            .clip(RoundedCornerShape(sx(12)))
+                            .background(Color(0xFF000000).copy(alpha = 0.1f))
+                            .border(
+                                width = if (isItemFocused) sx(6) else 0.dp,
+                                color = if (isItemFocused) Color(0xFF5AECD3) else Color.Transparent,
+                                shape = RoundedCornerShape(sx(12))
+                            )
+                            .focusRequester(focusRequester)
+                            .onFocusChanged { if (it.isFocused) onChannelContentFocusChange(rowIndex, 0) }
+                            .focusable(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Brak programów EPG",
+                            color = Color(0xFFEEEEEE).copy(alpha = 0.5f),
+                            fontSize = (32 * (sy(1).value / 1.dp.value)).sp,
+                            fontWeight = FontWeight.Medium
                         )
                     }
+                } else {
+                    LazyRow(
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        state = lazyListState,
+                        contentPadding = PaddingValues(start = sx(120), end = sx(20)),
+                        horizontalArrangement = Arrangement.spacedBy(sx(20))
+                    ) {
+                        items(rowContent.size) { colIndex ->
+                            val vodContent = rowContent[colIndex]
+                            val isItemFocused = rowIndex == focusedRowIndex &&
+                                    colIndex == lazyListState.firstVisibleItemIndex &&
+                                    focusedColIndex == 0
+                            val focusRequester = channelFocusRequesters[Pair(rowIndex, colIndex)] ?: FocusRequester()
 
-                    // Spacer items (ensure scrollable area)
-                    items(5) {
-                        Spacer(
-                            modifier = Modifier
-                                .width(sx(977))
-                                .height(sy(464))
-                        )
+                            CollectionSliderCard(
+                                vodContent = vodContent,
+                                isFocused = isItemFocused,
+                                focusRequester = focusRequester,
+                                onFocusChange = { onChannelContentFocusChange(rowIndex, 0) },  // Fixed focus model: always col=0
+                                onClick = {
+                                    android.util.Log.d("TELEWIZJA_CLICK", "Opening EPG Day Test from $channel: itemId=${vodContent.id}, scroll=${lazyListState.firstVisibleItemIndex}, section=$sectionId")
+                                    onNavigateToEpgDay(channel, vodContent.id, lazyListState.firstVisibleItemIndex, sectionId)  // ID-based: channelId, itemId, scrollPosition
+                                },
+                                sx = sx,
+                                sy = sy
+                            )
+                        }
+
+                        // Spacer items (ensure scrollable area)
+                        items(5) {
+                            Spacer(
+                                modifier = Modifier
+                                    .width(sx(977))
+                                    .height(sy(464))
+                            )
+                        }
                     }
                 }
             }
@@ -6238,42 +6772,81 @@ fun TelewizjaUnifiedChannelRow(
                     }
                 }
             }
+            "shortcuts-v2" -> {
+                // Shortcuts v2 row rendered separately below (if isShortcutsV2 block)
+                // This empty case prevents falling through to horizontal placeholder
+            }
             else -> {
                 // Horizontal miniatures row
-                LazyRow(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .offset(y = miniaturesYOffset),
-                    state = lazyListState,
-                    contentPadding = PaddingValues(start = sx(380), end = sx(20)),
-                    horizontalArrangement = Arrangement.spacedBy(sx(20))
-                ) {
-                    items(rowContent.size) { colIndex ->
-                        val vodContent = rowContent[colIndex]
-                        val isItemFocused = rowIndex == focusedRowIndex &&
-                                colIndex == lazyListState.firstVisibleItemIndex &&
-                                focusedColIndex == 0
-                        val focusRequester = channelFocusRequesters[Pair(rowIndex, colIndex)] ?: FocusRequester()
+                if (rowContent.isEmpty()) {
+                    // Empty content placeholder - attach FocusRequester to prevent crash
+                    val focusRequester = channelFocusRequesters[Pair(rowIndex, 0)] ?: FocusRequester()
+                    val isItemFocused = rowIndex == focusedRowIndex && focusedColIndex == 0
 
-                        ContentCard(
-                            vodContent = vodContent,
-                            channelNumber = String.format("%03d", (rowIndex * 10 + colIndex + 1)),
-                            isFocused = isItemFocused,
-                            focusRequester = focusRequester,
-                            onFocusChange = { onChannelContentFocusChange(rowIndex, colIndex) },
-                            sx = sx,
-                            sy = sy,
-                            lazyListState = lazyListState
+                    Box(
+                        modifier = Modifier
+                            .offset(x = sx(380), y = miniaturesYOffset)
+                            .width(sx(368))
+                            .height(sy(208))
+                            .clip(RoundedCornerShape(sx(12)))
+                            .background(Color(0xFF000000).copy(alpha = 0.1f))
+                            .border(
+                                width = if (isItemFocused) sx(6) else 0.dp,
+                                color = if (isItemFocused) Color(0xFF5AECD3) else Color.Transparent,
+                                shape = RoundedCornerShape(sx(12))
+                            )
+                            .focusRequester(focusRequester)
+                            .onFocusChanged { if (it.isFocused) onChannelContentFocusChange(rowIndex, 0) }
+                            .focusable(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Brak programów",
+                            color = Color(0xFFEEEEEE).copy(alpha = 0.5f),
+                            fontSize = (24 * (sy(1).value / 1.dp.value)).sp,
+                            fontWeight = FontWeight.Medium
                         )
                     }
+                } else {
+                    LazyRow(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .offset(y = miniaturesYOffset),
+                        state = lazyListState,
+                        contentPadding = PaddingValues(start = sx(380), end = sx(20)),
+                        horizontalArrangement = Arrangement.spacedBy(sx(20))
+                    ) {
+                        items(rowContent.size) { colIndex ->
+                            val vodContent = rowContent[colIndex]
+                            val isItemFocused = rowIndex == focusedRowIndex &&
+                                    colIndex == lazyListState.firstVisibleItemIndex &&
+                                    focusedColIndex == 0
+                            val focusRequester = channelFocusRequesters[Pair(rowIndex, colIndex)] ?: FocusRequester()
 
-                    // Spacer items
-                    items(8) {
-                        Spacer(
-                            modifier = Modifier
-                                .width(sx(368))
-                                .height(sy(208))
-                        )
+                            ContentCard(
+                                vodContent = vodContent,
+                                channelNumber = String.format("%03d", (rowIndex * 10 + colIndex + 1)),
+                                isFocused = isItemFocused,
+                                focusRequester = focusRequester,
+                                onFocusChange = { onChannelContentFocusChange(rowIndex, colIndex) },
+                                sx = sx,
+                                sy = sy,
+                                lazyListState = lazyListState,
+                                onClick = {
+                                    android.util.Log.d("TELEWIZJA_CLICK", "Opening EPG Day Test from $channel: itemId=${vodContent.id}, scroll=${lazyListState.firstVisibleItemIndex}, section=$sectionId")
+                                    onNavigateToEpgDay(channel, vodContent.id, lazyListState.firstVisibleItemIndex, sectionId)  // ID-based: channelId, itemId, scrollPosition
+                                }
+                            )
+                        }
+
+                        // Spacer items
+                        items(8) {
+                            Spacer(
+                                modifier = Modifier
+                                    .width(sx(368))
+                                    .height(sy(208))
+                            )
+                        }
                     }
                 }
             }
@@ -6366,6 +6939,11 @@ fun TelewizjaUnifiedChannelRow(
                         sy = sy,
                         onFocusChange = { isFocused ->
                             if (isFocused) onChannelContentFocusChange(rowIndex, colIndex)
+                        },
+                        onClick = {
+                            if (shortcut.title == "Program telewizyjny") {
+                                onNavigateToEpg()
+                            }
                         }
                     )
                 }
@@ -7155,7 +7733,8 @@ private fun ContentCard(
     onFocusChange: () -> Unit,
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
-    lazyListState: LazyListState
+    lazyListState: LazyListState,
+    onClick: () -> Unit = {}
 ) {
     val itemWidth = sx(368)
     val itemHeight = sy(208)
@@ -7174,6 +7753,15 @@ private fun ContentCard(
             )
             .focusRequester(focusRequester)
             .onFocusChanged { if (it.isFocused) onFocusChange() }
+            .onPreviewKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown &&
+                    (event.key == Key.Enter || event.key == Key.DirectionCenter)) {
+                    onClick()
+                    true
+                } else {
+                    false
+                }
+            }
             .focusable()
     ) {
         AsyncImage(
@@ -7568,6 +8156,7 @@ private fun CollectionSliderCard(
     isFocused: Boolean,
     focusRequester: FocusRequester,
     onFocusChange: () -> Unit,
+    onClick: () -> Unit = {},
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp
 ) {
@@ -7669,6 +8258,22 @@ private fun CollectionSliderCard(
             .onFocusChanged { focusState ->
                 if (focusState.isFocused) {
                     onFocusChange()
+                }
+            }
+            .onPreviewKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown &&
+                    (event.key == Key.Enter || event.key == Key.DirectionCenter)) {
+                    android.util.Log.d("COLLECTION_SLIDER_CLICK", "OK pressed on: ${vodContent.title}")
+                    // Zatrzymaj mini player jeśli jest aktywny
+                    if (isPlayingLive) {
+                        player.stop()
+                        isPlayingLive = false
+                    }
+                    // Wywołaj callback - otwórz LiveScreen
+                    onClick()
+                    true
+                } else {
+                    false
                 }
             }
             .focusable(),
@@ -8551,7 +9156,11 @@ fun handleVodNavigation(
                 val lazyListState = lazyListStates[channelIndex]
                 if (lazyListState != null && lazyListState.firstVisibleItemIndex > 0) {
                     coroutineScope.launch {
-                        lazyListState.animateScrollToItem(lazyListState.firstVisibleItemIndex - 1)
+                        val newIndex = lazyListState.firstVisibleItemIndex - 1
+                        lazyListState.animateScrollToItem(newIndex)
+                        // Czekaj na zakończenie animacji i ustaw fokus na nowym pierwszym widocznym elemencie
+                        delay(50)
+                        channelFocusRequesters[Pair(focusedRowIndex, newIndex)]?.requestFocus()
                     }
                 } else {
                     // Go to CategoryIcon
@@ -8579,7 +9188,11 @@ fun handleVodNavigation(
 
                 if (lazyListState != null && lazyListState.firstVisibleItemIndex < channelContent.size - 1) {
                     coroutineScope.launch {
-                        lazyListState.animateScrollToItem(lazyListState.firstVisibleItemIndex + 1)
+                        val newIndex = lazyListState.firstVisibleItemIndex + 1
+                        lazyListState.animateScrollToItem(newIndex)
+                        // Czekaj na zakończenie animacji i ustaw fokus na nowym pierwszym widocznym elemencie
+                        delay(50)
+                        channelFocusRequesters[Pair(focusedRowIndex, newIndex)]?.requestFocus()
                     }
                 }
             }

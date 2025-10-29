@@ -67,7 +67,7 @@ class MainActivity : ComponentActivity() {
 }
 
 enum class NavigationScreen {
-    HOME, LIVE, COMPONENT_SHOWCASE, TOP_MENU, TOP_MENU2, SHORTCUT, CHANNELE, VIDEOSLIDER, SLIDER, SLIDER_MIX, EPG, FOCUS_MINI_CARD, VOICE_TEST, SPLASH
+    HOME, LIVE, COMPONENT_SHOWCASE, TOP_MENU, TOP_MENU2, SHORTCUT, CHANNELE, VIDEOSLIDER, SLIDER, SLIDER_MIX, EPG, EPG_DAY, FOCUS_MINI_CARD, VOICE_TEST, SPLASH, WHATS_NEW, STARTUP_MODE_SELECTION
 }
 
 // Kolory z Figma dla nowego menu
@@ -273,16 +273,39 @@ fun TvRoot() {
     val context = LocalContext.current
     val repository = remember { EpgRepository.getInstance(context) }
     var currentScreen by remember { mutableStateOf(NavigationScreen.SPLASH) }
+    var previousScreen by remember { mutableStateOf(NavigationScreen.HOME) }
     var selectedChannelName by remember { mutableStateOf<String?>(null) }
+
+    // Save TELEWIZJA focus state for smart BACK navigation (ID-based)
+    var savedTelewizjaFocus by remember { mutableStateOf<FocusState?>(null) }
+
+    // Save TOP_MENU2 section for smart BACK navigation: "TELEWIZJA", "MOJE", etc.
+    var savedTelewizjaSection by remember { mutableStateOf<String?>(null) }
+
+    // PIP (Picture-in-Picture) state
+    var pipPlayer by remember { mutableStateOf<com.google.android.exoplayer2.ExoPlayer?>(null) }
+    var pipStreamUrl by remember { mutableStateOf<String?>(null) }
+    var pipMode by remember { mutableStateOf(false) }
 
     // Start background EPG loading on app start
     LaunchedEffect(Unit) {
         repository.startBackgroundRefresh()
     }
 
+    // Clear saved focus and section when leaving TOP_MENU2
+    LaunchedEffect(currentScreen) {
+        if (currentScreen != NavigationScreen.TOP_MENU2 && currentScreen != NavigationScreen.EPG_DAY) {
+            savedTelewizjaFocus = null
+            savedTelewizjaSection = null
+        }
+    }
+
     // Menu items dla wszystkich ekranów - najnowsze na górze
     val menuItems = remember {
         listOf(
+            MainMenuItem(id = "startup_mode", title = "⚙️ Tryb startowy", navigationScreen = NavigationScreen.STARTUP_MODE_SELECTION),
+            MainMenuItem(id = "whats_new", title = "What's New", navigationScreen = NavigationScreen.WHATS_NEW),
+            MainMenuItem(id = "epg_day", title = "📺 EPG Day Test", navigationScreen = NavigationScreen.EPG_DAY),
             MainMenuItem(id = "voice_test", title = "🎤 Wyszukiwanie głosowe test", navigationScreen = NavigationScreen.VOICE_TEST),
             MainMenuItem(id = "top_menu2", title = "Top Menu 2", navigationScreen = NavigationScreen.TOP_MENU2),
             MainMenuItem(id = "slider_mix", title = "Slider_mix", navigationScreen = NavigationScreen.SLIDER_MIX),
@@ -306,9 +329,27 @@ fun TvRoot() {
         when (currentScreen) {
             NavigationScreen.SPLASH -> {
                 // Splash screen with start.png logo
+                val context = LocalContext.current
+
                 LaunchedEffect(Unit) {
                     delay(2000) // 2 sekundy
-                    currentScreen = NavigationScreen.TOP_MENU2
+                    // Określ początkowy ekran na podstawie stanu aplikacji
+                    currentScreen = when {
+                        // AKTUALIZACJA (nie pierwsza instalacja): changelog NAJPIERW
+                        com.uxellence.tv.v3.utils.VersionTracker.shouldShowWhatsNew(context) &&
+                        !com.uxellence.tv.v3.utils.VersionTracker.isFirstInstall(context) ->
+                            NavigationScreen.WHATS_NEW
+
+                        // PIERWSZA INSTALACJA: wybór trybu (bez changelog)
+                        com.uxellence.tv.v3.utils.VersionTracker.isFirstInstall(context) ->
+                            NavigationScreen.STARTUP_MODE_SELECTION
+
+                        // Normalny start: użyj zapisanego trybu startowego
+                        else -> when (com.uxellence.tv.v3.utils.VersionTracker.getStartupMode(context)) {
+                            com.uxellence.tv.v3.utils.VersionTracker.MODE_EPG_DAY -> NavigationScreen.EPG_DAY
+                            else -> NavigationScreen.TOP_MENU2
+                        }
+                    }
                 }
 
                 Box(
@@ -326,6 +367,48 @@ fun TvRoot() {
                         contentScale = ContentScale.Fit
                     )
                 }
+            }
+            NavigationScreen.STARTUP_MODE_SELECTION -> {
+                val configuration = LocalConfiguration.current
+                val scaleX = configuration.screenWidthDp / 1920f
+                val scaleY = configuration.screenHeightDp / 1080f
+                fun sx(px: Int) = (px * scaleX).dp
+                fun sy(px: Int) = (px * scaleY).dp
+
+                StartupModeSelectionScreen(
+                    onModeSelected = { mode ->
+                        // ZAWSZE przejdź do wybranego trybu (nawet z menu HOME)
+                        currentScreen = when (mode) {
+                            com.uxellence.tv.v3.utils.VersionTracker.MODE_EPG_DAY -> NavigationScreen.EPG_DAY
+                            else -> NavigationScreen.TOP_MENU2
+                        }
+                    },
+                    onBackPressed = {
+                        currentScreen = if (previousScreen == NavigationScreen.HOME) {
+                            NavigationScreen.HOME
+                        } else {
+                            NavigationScreen.TOP_MENU2  // Domyślnie wróć do menu
+                        }
+                    },
+                    sx = ::sx,
+                    sy = ::sy
+                )
+            }
+            NavigationScreen.WHATS_NEW -> {
+                val configuration = LocalConfiguration.current
+                val scaleX = configuration.screenWidthDp / 1920f
+                val scaleY = configuration.screenHeightDp / 1080f
+                fun sx(px: Int) = (px * scaleX).dp
+                fun sy(px: Int) = (px * scaleY).dp
+
+                WhatsNewScreen(
+                    onContinue = {
+                        // Po changelog przejdź do wyboru trybu
+                        currentScreen = NavigationScreen.STARTUP_MODE_SELECTION
+                    },
+                    sx = ::sx,
+                    sy = ::sy
+                )
             }
             NavigationScreen.VOICE_TEST -> {
                 VoiceTestScreen(
@@ -372,10 +455,13 @@ fun TvRoot() {
                     TVMenuGrid(
                         menuItems = menuItems,
                         onItemSelected = { selectedScreen ->
+                            if (selectedScreen == NavigationScreen.EPG) {
+                                previousScreen = currentScreen
+                            }
                             currentScreen = selectedScreen
                         },
                         columns = 3,
-                        itemsPerColumn = 4,
+                        itemsPerColumn = 8,
                         initialFocusPosition = Pair(0, 0)
                     )
                 }
@@ -424,10 +510,39 @@ fun TvRoot() {
                         else -> EpgScreen(
                             guide = guide!!,
                             windowStart = windowStart,
-                            windowEnd = windowEnd
+                            windowEnd = windowEnd,
+                            onBackPressed = {
+                                currentScreen = previousScreen
+                            }
                         )
                     }
                 }
+            }
+            NavigationScreen.EPG_DAY -> {
+                // Layout Engineer: Setup sx/sy scaling functions
+                val configuration = LocalConfiguration.current
+                val scaleX = configuration.screenWidthDp / 1920f
+                val scaleY = configuration.screenHeightDp / 1080f
+                fun sx(px: Int) = (px * scaleX).dp
+                fun sy(px: Int) = (px * scaleY).dp
+
+                EpgDayScreen(
+                    onBackPressed = {
+                        // Focus Architect: callback delegation - return to previous screen
+                        currentScreen = previousScreen
+                    },
+                    onNavigateToPipMode = { player, streamUrl ->
+                        // PIP Mode: Save player state and navigate to TopMenuScreen2/START
+                        pipPlayer = player
+                        pipStreamUrl = streamUrl
+                        pipMode = true
+                        savedTelewizjaSection = "ODKRYWAJ"  // Navigate to START tab
+                        previousScreen = NavigationScreen.EPG_DAY
+                        currentScreen = NavigationScreen.TOP_MENU2
+                    },
+                    sx = ::sx,  // Layout Engineer: ALWAYS pass sx/sy
+                    sy = ::sy
+                )
             }
             NavigationScreen.SLIDER -> {
                 SliderScreen()
@@ -459,16 +574,27 @@ fun TvRoot() {
                 )
             }
             NavigationScreen.TOP_MENU2 -> {
+                // Clear saved focus after delay when returning from EPG Day Test
+                LaunchedEffect(currentScreen, savedTelewizjaFocus) {
+                    if (currentScreen == NavigationScreen.TOP_MENU2 && savedTelewizjaFocus != null) {
+                        android.util.Log.d("TELEWIZJA_FOCUS", "Returned to TOP_MENU2 with saved focus, will clear after 5000ms")
+                        kotlinx.coroutines.delay(5000) // Give restoration time (4000ms timeout + 1000ms buffer) before clearing
+                        savedTelewizjaFocus = null
+                        android.util.Log.d("TELEWIZJA_FOCUS", "Cleared savedTelewizjaFocus after delay")
+                    }
+                }
+
                 TopMenuScreen2(
                     onBackPressed = { isMenuFocused ->
-                        if (isMenuFocused) {
-                            // BACK from menu - return to HOME
-                            currentScreen = NavigationScreen.HOME
-                            true
-                        } else {
-                            // BACK from content - let TopMenuScreen2 handle (return to menu)
-                            false
-                        }
+                        // Never handle BACK from TopMenuScreen2
+                        // PIP mode: TopMenuScreen2 returns to EPG Day Test via onReturnToEpgDay
+                        // Normal mode: BACK from menu is end of path (do nothing)
+                        false
+                    },
+                    onReturnToEpgDay = {
+                        // Return to EPG Day Test from PIP mode
+                        android.util.Log.d("PIP_NAVIGATION", "Returning to EPG Day Test from PIP")
+                        currentScreen = NavigationScreen.EPG_DAY
                     },
                     onShowMainMenu = {
                         currentScreen = NavigationScreen.HOME
@@ -476,8 +602,51 @@ fun TvRoot() {
                     onNavigateToLiveScreen = { channelName ->
                         selectedChannelName = channelName
                         currentScreen = NavigationScreen.LIVE
+                    },
+                    onNavigateToEpg = {
+                        previousScreen = currentScreen
+                        currentScreen = NavigationScreen.EPG
+                    },
+                    onNavigateToEpgDay = { channelId, itemId, scrollPosition, sectionId ->
+                        // Save current focus state (ID-based) and section for smart BACK navigation
+                        savedTelewizjaFocus = FocusState(
+                            channelId = channelId,
+                            itemId = itemId,
+                            scrollPosition = scrollPosition
+                        )
+                        savedTelewizjaSection = sectionId
+                        previousScreen = currentScreen
+                        currentScreen = NavigationScreen.EPG_DAY
+                    },
+                    onFocusRestored = {
+                        // Callback no longer used - clearing handled by LaunchedEffect above
+                    },
+                    restoredTelewizjaFocus = savedTelewizjaFocus,
+                    restoredSection = savedTelewizjaSection,
+                    pipPlayer = pipPlayer,
+                    onClosePip = {
+                        // Close PIP: stop and release player
+                        pipPlayer?.stop()
+                        pipPlayer?.release()
+                        pipPlayer = null
+                        pipStreamUrl = null
+                        pipMode = false
                     }
                 )
+
+                // PIP lifecycle management: cleanup player when leaving TOP_MENU2
+                DisposableEffect(currentScreen) {
+                    onDispose {
+                        if (currentScreen != NavigationScreen.TOP_MENU2 && pipPlayer != null) {
+                            android.util.Log.d("PIP", "Leaving TOP_MENU2 - cleaning up PIP player")
+                            pipPlayer?.stop()
+                            pipPlayer?.release()
+                            pipPlayer = null
+                            pipStreamUrl = null
+                            pipMode = false
+                        }
+                    }
+                }
             }
         }
     }
