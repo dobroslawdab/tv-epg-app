@@ -35,6 +35,14 @@ import coil.request.ImageRequest
 import com.uxellence.tv.v3.channels.ChannelManager
 import com.uxellence.tv.v3.channels.TvChannelData
 import com.uxellence.tv.v3.repository.EpgRepository
+import com.uxellence.tv.v3.PlayerInterfaceManager
+import com.uxellence.tv.v3.PlayerInterfaceState
+import com.uxellence.tv.v3.ZappingBarOverlay
+import com.uxellence.tv.v3.ZappingMode
+import com.uxellence.tv.v3.epg.ZappingBarController
+import com.uxellence.tv.v3.epg.BackNavigationController
+import com.uxellence.tv.v3.epg.EpgNavigationController
+import com.uxellence.tv.v3.epg.NavigationDirection
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
@@ -46,6 +54,7 @@ import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.ui.PlayerView
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import android.view.KeyEvent
 
 /**
  * Channel EPG Row - Single channel with its programs
@@ -110,6 +119,7 @@ private const val EPG_DAY_VIEWPORT_HEIGHT_MULTI = 446   // 3 channels (3×142 + 
 @Composable
 fun EpgDayScreen(
     onBackPressed: () -> Unit,  // Focus Architect: callback delegation to MainActivity
+    onNavigateToPipMode: (ExoPlayer?, String) -> Unit = { _, _ -> },  // PIP callback
     sx: (Int) -> Dp,            // Layout Engineer: ALWAYS sx/sy parameters
     sy: (Int) -> Dp
 ) {
@@ -126,6 +136,8 @@ fun EpgDayScreen(
     var isLoading by remember { mutableStateOf(true) }
     var streamUrl by remember { mutableStateOf("") }
     var player by remember { mutableStateOf<ExoPlayer?>(null) }
+    var playerResetTrigger by remember { mutableStateOf(0) }  // Force player recreation when URL doesn't change
+    var isPipMode by remember { mutableStateOf(false) }  // Track PIP transfer - don't release player
     val rootFocus = remember { FocusRequester() }
     val columnScrollState = rememberLazyListState()  // For vertical scrolling between channels
 
@@ -133,13 +145,62 @@ fun EpgDayScreen(
     var isExpanded by remember { mutableStateOf(false) }  // false = 1 channel, true = 3+ channels
 
     // NEW: Interface visibility state (for BACK navigation)
+    // Start with GUI visible (user expects to see interface when entering EPG)
     var interfaceVisible by remember { mutableStateOf(true) }
+
+    // Track manual hide (BACK button) vs automatic hide (Zapping Bar auto-hide)
+    // This prevents GUI from re-appearing after BACK button hide
+    var wasManuallyHidden by remember { mutableStateOf(false) }
 
     // NEW: Reference time for synchronization (instead of always using now())
     var focusedTime by remember { mutableStateOf(Instant.now()) }
 
-    // NEW: Start channel for BACK navigation
-    val startChannelIndex = remember { focusedChannelIndex }
+    // NEW: Start channel for BACK navigation and channel switching
+    var startChannelIndex by remember { mutableStateOf(0) }
+
+    // ZAPPING BAR: Subscribe to PlayerInterfaceManager state
+    val interfaceState by PlayerInterfaceManager.state.collectAsState()
+
+    // ZAPPING BAR: Initialize PlayerInterfaceManager
+    LaunchedEffect(Unit) {
+        // Set EPG repository reference
+        PlayerInterfaceManager.epgRepository = repository
+    }
+
+    // ZAPPING BAR: Cleanup on dispose
+    DisposableEffect(Unit) {
+        onDispose {
+            PlayerInterfaceManager.reset()
+        }
+    }
+
+    // ZAPPING BAR: Synchronize interfaceVisible with PlayerInterfaceManager.state
+    // This ensures mutual exclusion: GUI hides when Zapping Bar shows
+    LaunchedEffect(interfaceState) {
+        when (interfaceState) {
+            is PlayerInterfaceState.ZappingBarVisible -> {
+                // Zapping Bar visible → hide GUI
+                interfaceVisible = false
+                android.util.Log.d("EpgDayScreen", "Zapping Bar visible → GUI hidden")
+            }
+            is PlayerInterfaceState.GuiVisible -> {
+                // GUI should be visible
+                interfaceVisible = true
+                android.util.Log.d("EpgDayScreen", "GUI visible → showing interface")
+            }
+            is PlayerInterfaceState.Hidden -> {
+                // After Zapping Bar auto-hide: restore focus to keep CH+/CH- working
+                // GUI stays hidden (clean player) until user presses UP/DOWN/OK
+                if (!wasManuallyHidden) {
+                    // Restore focus to keep CH+/CH- working, but DON'T show GUI automatically
+                    rootFocus.requestFocus()
+                    android.util.Log.d("EpgDayScreen", "Zapping Bar auto-hide → focus restored (GUI stays hidden)")
+                } else {
+                    android.util.Log.d("EpgDayScreen", "GUI manually hidden via BACK - staying hidden")
+                }
+            }
+        }
+    }
 
     // NEW: Dynamic Y position based on expanded state
     val currentFocusY = if (isExpanded) {
@@ -183,6 +244,9 @@ fun EpgDayScreen(
             val allChannels = ChannelManager.getAllChannels(includeUnavailable = false)
             android.util.Log.d("EpgDayScreen", "=== MULTI-CHANNEL EPG START ===")
             android.util.Log.d("EpgDayScreen", "Total channels: ${allChannels.size}")
+
+            // Debug: Log all channels in EPG database
+            repository.debugLogChannelIds()
 
             // Load channels with EPG data (skip empty channels)
             val now = Instant.now()
@@ -263,6 +327,27 @@ fun EpgDayScreen(
     LaunchedEffect(Unit) {
         rootFocus.requestFocus()
     }
+
+    // Auto-hide GUI after 10 seconds of inactivity
+    LaunchedEffect(interfaceVisible) {
+        if (interfaceVisible) {
+            delay(10000) // 10 seconds
+            interfaceVisible = false
+            android.util.Log.d("EpgDayScreen", "Auto-hide: GUI hidden after 10s inactivity")
+        }
+    }
+
+    // ZAPPING BAR: Set up channel change callback after data is loaded
+    LaunchedEffect(allChannelRows.size) {
+        if (allChannelRows.isNotEmpty()) {
+            // Initialize PlayerInterfaceManager with current channel
+            val initialChannel = allChannelRows.getOrNull(focusedChannelIndex)?.channel
+            PlayerInterfaceManager.initialize(initialChannel?.id)
+        }
+    }
+
+    // ZAPPING BAR: Set up channel change callback (needs to be able to call switchChannel)
+    // This callback is set up in the Box scope where switchChannel is defined
 
     // Synchronize X position: ALL channels scroll to their currentProgram (same X position for all)
     LaunchedEffect(allChannelRows.size) {
@@ -372,26 +457,294 @@ fun EpgDayScreen(
         }
     }
 
-    // Initialize and cleanup ExoPlayer for live TV with FULL AUDIO
-    DisposableEffect(streamUrl) {
-        val localPlayer = if (streamUrl.isNotEmpty()) {
-            ExoPlayer.Builder(context).build().apply {
-                val item = MediaItem.fromUri(streamUrl)
-                setMediaItem(item)
-                playWhenReady = true
-                // Full audio for watching TV
-                prepare()
+    // Helper function: Switch to a different channel
+    // Used by ENTER key (switch to focused LIVE program) and CH+/CH- keys
+    fun switchChannel(newChannelIndex: Int, resetToLive: Boolean) {
+        if (newChannelIndex !in allChannelRows.indices) {
+            android.util.Log.d("EpgDayScreen", "SWITCH: Invalid channel index $newChannelIndex")
+            return
+        }
+
+        android.util.Log.d("EpgDayScreen", "=== CHANNEL SWITCH: $newChannelIndex (reset to live: $resetToLive) ===")
+
+        // Update focused channel
+        focusedChannelIndex = newChannelIndex
+        val newRow = allChannelRows[newChannelIndex]
+
+        // Update UI state
+        currentChannel = newRow.channel
+        channelNumber = newRow.channelNumber
+        programs = newRow.programs
+
+        // Find program to focus
+        if (resetToLive) {
+            // Reset to current LIVE program
+            val now = Instant.now()
+            val currentProgram = programs.firstOrNull {
+                !now.isBefore(it.startUtc) && now.isBefore(it.endUtc)
             }
-        } else null
+            focusedProgramIndex = if (currentProgram != null) {
+                programs.indexOf(currentProgram)
+            } else {
+                newRow.currentProgramIndex
+            }
+            focusedTime = now
+            android.util.Log.d("EpgDayScreen", "SWITCH: Reset to LIVE program at index $focusedProgramIndex")
+        } else {
+            // Keep focus on program matching current focusedTime
+            val matchingIndex = programs.indexOfFirst { program ->
+                !focusedTime.isBefore(program.startUtc) && focusedTime.isBefore(program.endUtc)
+            }
+            focusedProgramIndex = if (matchingIndex >= 0) matchingIndex else newRow.currentProgramIndex
+            android.util.Log.d("EpgDayScreen", "SWITCH: Found program at index $focusedProgramIndex for time $focusedTime")
+        }
+
+        // Switch player stream
+        streamUrl = newRow.channel.streamUrl
+        android.util.Log.d("EpgDayScreen", "SWITCH: Stream URL: $streamUrl")
+
+        // Update startChannelIndex (for BACK navigation)
+        startChannelIndex = newChannelIndex
+        android.util.Log.d("EpgDayScreen", "SWITCH: Updated startChannelIndex to $startChannelIndex")
+
+        // Force player recreation (even if URL is the same as before)
+        playerResetTrigger++
+        android.util.Log.d("EpgDayScreen", "SWITCH: Force player reset (trigger=$playerResetTrigger)")
+
+        // Collapse to 1-row view
+        isExpanded = false
+        // NOTE: interfaceVisible is managed by LaunchedEffect(interfaceState)
+        // Don't set it here - it causes flashing when switching via CH+/CH- (Zapping Bar)
+
+        // Jump to new channel position
+        coroutineScope.launch {
+            columnScrollState.scrollToItem(newChannelIndex, 0)
+            if (resetToLive) {
+                syncAllChannelsToTime(
+                    targetTime = focusedTime,
+                    animateFocused = false,
+                    forceFocusedScroll = true
+                )
+            }
+        }
+
+        android.util.Log.d("EpgDayScreen", "=== CHANNEL SWITCH COMPLETE ===")
+    }
+
+    // Create ExoPlayer ONCE at screen startup (reused for all channel switches)
+    // This eliminates flashing when changing channels
+    DisposableEffect(Unit) {
+        android.util.Log.d("EpgDayScreen", "Creating persistent ExoPlayer instance")
+
+        val localPlayer = ExoPlayer.Builder(context).build().apply {
+            playWhenReady = true
+
+            // Debug listener to track player state
+            addListener(object : com.google.android.exoplayer2.Player.Listener {
+                override fun onPlaybackStateChanged(playbackState: Int) {
+                    val state = when (playbackState) {
+                        com.google.android.exoplayer2.Player.STATE_IDLE -> "IDLE"
+                        com.google.android.exoplayer2.Player.STATE_BUFFERING -> "BUFFERING"
+                        com.google.android.exoplayer2.Player.STATE_READY -> "READY"
+                        com.google.android.exoplayer2.Player.STATE_ENDED -> "ENDED"
+                        else -> "UNKNOWN($playbackState)"
+                    }
+                    android.util.Log.d("EpgDayScreen", "Player state changed: $state")
+                }
+
+                override fun onPlayerError(error: com.google.android.exoplayer2.PlaybackException) {
+                    android.util.Log.e("EpgDayScreen", "Player ERROR: ${error.errorCodeName} - ${error.message}")
+                    android.util.Log.e("EpgDayScreen", "  Error code: ${error.errorCode}")
+                    error.printStackTrace()
+                }
+            })
+        }
 
         player = localPlayer
+        android.util.Log.d("EpgDayScreen", "Persistent ExoPlayer created successfully")
 
         onDispose {
-            // ALWAYS stop and release player when leaving screen
-            localPlayer?.stop()
-            localPlayer?.release()
-            player = null
-            android.util.Log.d("EpgDayScreen", "Player stopped and released")
+            // Only release player if NOT in PIP transfer mode
+            if (!isPipMode) {
+                localPlayer.stop()
+                localPlayer.release()
+                player = null
+                android.util.Log.d("EpgDayScreen", "Player stopped and released")
+            } else {
+                android.util.Log.d("EpgDayScreen", "Player transferred to PIP - not releasing resources")
+            }
+        }
+    }
+
+    // Change media source when streamUrl changes (smooth transition, no recreation)
+    LaunchedEffect(streamUrl, playerResetTrigger) {
+        if (streamUrl.isNotEmpty() && player != null) {
+            android.util.Log.d("EpgDayScreen", "Changing stream source to: $streamUrl (trigger=$playerResetTrigger)")
+
+            val mediaItem = MediaItem.fromUri(streamUrl)
+            player?.apply {
+                stop()
+                setMediaItem(mediaItem)
+                prepare()
+                play()
+            }
+
+            android.util.Log.d("EpgDayScreen", "Stream source changed successfully")
+        } else if (streamUrl.isEmpty()) {
+            android.util.Log.d("EpgDayScreen", "Empty stream URL - player remains idle")
+        }
+    }
+
+    // ==================== FOCUS ARCHITECT: CONTROLLER INITIALIZATION ====================
+    // Extract monolithic key handler into specialized controllers (delegation pattern)
+
+    // Navigation handler - delegates to existing logic (defined before controllers to avoid forward reference)
+    fun handleNavigation(direction: NavigationDirection) {
+        // Show GUI interface on any navigation key
+        PlayerInterfaceManager.showGui()
+        wasManuallyHidden = false  // Reset flag when user shows GUI
+
+        when (direction) {
+            NavigationDirection.UP -> {
+                // UP: Move to previous channel (only when expanded)
+                if (!isExpanded) {
+                    // State 1 channel: UP does nothing
+                    android.util.Log.d("EpgDayScreen", "UP: Ignored (not expanded)")
+                } else {
+                    // State expanded: Normal scrolling
+                    if (focusedChannelIndex > 0 && allChannelRows.isNotEmpty()) {
+                        focusedChannelIndex--
+                        val newRow = allChannelRows[focusedChannelIndex]
+                        currentChannel = newRow.channel
+                        channelNumber = newRow.channelNumber
+                        programs = newRow.programs
+
+                        // Find program matching focusedTime on new channel
+                        val matchingIndex = programs.indexOfFirst { program ->
+                            !focusedTime.isBefore(program.startUtc) && focusedTime.isBefore(program.endUtc)
+                        }
+                        focusedProgramIndex = if (matchingIndex >= 0) matchingIndex else newRow.currentProgramIndex
+
+                        android.util.Log.d("EpgDayScreen", "UP: Channel ${newRow.channel.name}, program index $focusedProgramIndex")
+                    }
+                }
+            }
+            NavigationDirection.DOWN -> {
+                // DOWN: First press expands + moves to next channel, subsequent presses navigate
+                if (!isExpanded) {
+                    // FIRST DOWN: Expand + move to next channel
+                    isExpanded = true
+                    if (focusedChannelIndex < allChannelRows.lastIndex) {
+                        focusedChannelIndex++
+                        val newRow = allChannelRows[focusedChannelIndex]
+                        currentChannel = newRow.channel
+                        channelNumber = newRow.channelNumber
+                        programs = newRow.programs
+
+                        // Find program matching focusedTime on new channel
+                        val matchingIndex = programs.indexOfFirst { program ->
+                            !focusedTime.isBefore(program.startUtc) && focusedTime.isBefore(program.endUtc)
+                        }
+                        focusedProgramIndex = if (matchingIndex >= 0) matchingIndex else newRow.currentProgramIndex
+
+                        android.util.Log.d("EpgDayScreen", "DOWN (EXPAND): Channel ${newRow.channel.name}, program index $focusedProgramIndex")
+                    }
+                } else {
+                    // SUBSEQUENT DOWN: Normal scrolling
+                    if (focusedChannelIndex < allChannelRows.lastIndex) {
+                        focusedChannelIndex++
+                        val newRow = allChannelRows[focusedChannelIndex]
+                        currentChannel = newRow.channel
+                        channelNumber = newRow.channelNumber
+                        programs = newRow.programs
+
+                        // Find program matching focusedTime on new channel
+                        val matchingIndex = programs.indexOfFirst { program ->
+                            !focusedTime.isBefore(program.startUtc) && focusedTime.isBefore(program.endUtc)
+                        }
+                        focusedProgramIndex = if (matchingIndex >= 0) matchingIndex else newRow.currentProgramIndex
+
+                        android.util.Log.d("EpgDayScreen", "DOWN: Channel ${newRow.channel.name}, program index $focusedProgramIndex")
+                    }
+                }
+            }
+            NavigationDirection.LEFT -> {
+                // LEFT: Navigate to previous program + update focusedTime for sync
+                if (focusedProgramIndex > 0) {
+                    focusedProgramIndex--
+
+                    // Update focusedTime for synchronization across channels
+                    if (programs.isNotEmpty() && focusedProgramIndex in programs.indices) {
+                        focusedTime = programs[focusedProgramIndex].startUtc
+                    }
+
+                    android.util.Log.d("EpgDayScreen", "LEFT: Program $focusedProgramIndex, time: $focusedTime")
+                }
+            }
+            NavigationDirection.RIGHT -> {
+                // RIGHT: Navigate to next program + update focusedTime for sync
+                if (focusedProgramIndex < programs.lastIndex) {
+                    focusedProgramIndex++
+
+                    // Update focusedTime for synchronization across channels
+                    if (programs.isNotEmpty() && focusedProgramIndex in programs.indices) {
+                        focusedTime = programs[focusedProgramIndex].startUtc
+                    }
+
+                    android.util.Log.d("EpgDayScreen", "RIGHT: Program $focusedProgramIndex, time: $focusedTime")
+                }
+            }
+            NavigationDirection.SELECT -> {
+                // SELECT (OK/ENTER): Switch to the selected channel and reset to LIVE program
+                if (focusedChannelIndex in allChannelRows.indices) {
+                    val selectedChannel = allChannelRows[focusedChannelIndex].channel
+                    android.util.Log.d("EpgDayScreen", "SELECT: Switching to channel ${selectedChannel.name} (index: $focusedChannelIndex)")
+
+                    // Switch to selected channel and reset player to current LIVE program
+                    switchChannel(focusedChannelIndex, resetToLive = true)
+                }
+            }
+        }
+    }
+
+    // Controller 1: Zapping (CH+/CH-/Digits)
+    val zappingController = remember {
+        ZappingBarController(
+            onChannelSwitch = ::switchChannel,
+            onNavigateToStartWithPip = {
+                android.util.Log.d("EpgDayScreen", "Digit 0 pressed - Transferring to PIP mode and START tab")
+                isPipMode = true
+                onNavigateToPipMode(player, streamUrl)
+            }
+        )
+    }
+
+    // Controller 2: BACK navigation (simplified 2-level logic)
+    val backController = remember { BackNavigationController(onBackPressed) }
+
+    // Controller 3: EPG Grid navigation (UP/DOWN/LEFT/RIGHT/OK)
+    val navController = remember {
+        EpgNavigationController(
+            onNavigate = { direction -> handleNavigation(direction) },
+            onShowGui = {
+                interfaceVisible = true
+                PlayerInterfaceManager.showGui()
+            }
+        )
+    }
+
+    // ZAPPING BAR: Set up channel change callback (now switchChannel is available)
+    LaunchedEffect(allChannelRows.size) {
+        if (allChannelRows.isNotEmpty()) {
+            PlayerInterfaceManager.onChannelChange = { newChannel ->
+                android.util.Log.d("EpgDayScreen", "Channel switch requested: ${newChannel.name} (${newChannel.streamUrl})")
+
+                // Find channel index and trigger switch
+                val newIndex = allChannelRows.indexOfFirst { it.channel.id == newChannel.id }
+                if (newIndex >= 0) {
+                    switchChannel(newIndex, true)
+                }
+            }
         }
     }
 
@@ -403,207 +756,89 @@ fun EpgDayScreen(
             .focusRequester(rootFocus)
             .focusable()
             .onPreviewKeyEvent { event ->
-                // Multi-channel navigation: UP/DOWN for channels, LEFT/RIGHT for programs
+                // ==================== FOCUS ARCHITECT: SIMPLIFIED KEY HANDLER ====================
+                // Delegation Pattern: Route keys to specialized controllers
+                // Priority: Zapping → BACK → Navigation → Special keys
+
                 if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
 
-                // PRIORITY: If interface hidden, UP/DOWN/OK restores it (shows 1-channel view with current program)
-                if (!interfaceVisible && event.key in setOf(Key.DirectionUp, Key.DirectionDown, Key.Enter)) {
-                    interfaceVisible = true
-                    android.util.Log.d("EpgDayScreen", "Navigation restored interface (UP/DOWN/OK)")
+                // PRIORITY 1: Zapping (CH+/CH-/Digits) → ZappingBarController
+                if (zappingController.handleZappingKeys(event.nativeKeyEvent, allChannelRows, focusedChannelIndex)) {
                     return@onPreviewKeyEvent true
                 }
 
-                when (event.key) {
-                    Key.DirectionUp -> {
-                        if (!isExpanded) {
-                            // State 1 channel: UP does nothing
-                            false
-                        } else {
-                            // State expanded: Normal scrolling
-                            if (focusedChannelIndex > 0 && allChannelRows.isNotEmpty()) {
-                                focusedChannelIndex--
-                                val newRow = allChannelRows[focusedChannelIndex]
-                                currentChannel = newRow.channel
-                                channelNumber = newRow.channelNumber
-                                programs = newRow.programs
+                // PRIORITY 2: BACK → BackNavigationController (3-level: Collapse+Reset → Hide GUI → Exit)
+                if (event.key == Key.Back) {
+                    return@onPreviewKeyEvent backController.handleBackKey(
+                        interfaceState = interfaceState,
+                        isExpanded = isExpanded,
+                        onCollapseAndResetToNow = {
+                            // Level 1: Collapse viewport + Reset to currently playing channel/program
+                            isExpanded = false
 
-                                // Find program matching focusedTime on new channel
-                                val matchingIndex = programs.indexOfFirst { program ->
-                                    !focusedTime.isBefore(program.startUtc) && focusedTime.isBefore(program.endUtc)
-                                }
-                                focusedProgramIndex = if (matchingIndex >= 0) matchingIndex else newRow.currentProgramIndex
+                            // Find the channel that's currently playing (startChannelIndex)
+                            val currentlyPlayingIndex = startChannelIndex
+                            if (currentlyPlayingIndex != focusedChannelIndex && allChannelRows.isNotEmpty()) {
+                                focusedChannelIndex = currentlyPlayingIndex
+                                val currentRow = allChannelRows[currentlyPlayingIndex]
+                                currentChannel = currentRow.channel
+                                channelNumber = currentRow.channelNumber
+                                programs = currentRow.programs
 
-                                android.util.Log.d("EpgDayScreen", "UP: Channel ${newRow.channel.name}, program index $focusedProgramIndex (time: $focusedTime)")
-                                true
-                            } else false
-                        }
-                    }
-                    Key.DirectionDown -> {
-                        if (!isExpanded) {
-                            // FIRST DOWN: Expand + move to next channel
-                            isExpanded = true
-                            if (focusedChannelIndex < allChannelRows.lastIndex) {
-                                focusedChannelIndex++
-                                val newRow = allChannelRows[focusedChannelIndex]
-                                currentChannel = newRow.channel
-                                channelNumber = newRow.channelNumber
-                                programs = newRow.programs
-
-                                // Find program matching focusedTime on new channel
-                                val matchingIndex = programs.indexOfFirst { program ->
-                                    !focusedTime.isBefore(program.startUtc) && focusedTime.isBefore(program.endUtc)
-                                }
-                                focusedProgramIndex = if (matchingIndex >= 0) matchingIndex else newRow.currentProgramIndex
-
-                                android.util.Log.d("EpgDayScreen", "DOWN (EXPAND): Channel ${newRow.channel.name}, program index $focusedProgramIndex (time: $focusedTime)")
-                            }
-                            true
-                        } else {
-                            // SUBSEQUENT DOWN: Normal scrolling
-                            if (focusedChannelIndex < allChannelRows.lastIndex) {
-                                focusedChannelIndex++
-                                val newRow = allChannelRows[focusedChannelIndex]
-                                currentChannel = newRow.channel
-                                channelNumber = newRow.channelNumber
-                                programs = newRow.programs
-
-                                // Find program matching focusedTime on new channel
-                                val matchingIndex = programs.indexOfFirst { program ->
-                                    !focusedTime.isBefore(program.startUtc) && focusedTime.isBefore(program.endUtc)
-                                }
-                                focusedProgramIndex = if (matchingIndex >= 0) matchingIndex else newRow.currentProgramIndex
-
-                                android.util.Log.d("EpgDayScreen", "DOWN: Channel ${newRow.channel.name}, program index $focusedProgramIndex (time: $focusedTime)")
-                                true
-                            } else false
-                        }
-                    }
-                    Key.DirectionLeft -> {
-                        // Navigate to previous program + UPDATE focusedTime for sync
-                        if (focusedProgramIndex > 0) {
-                            focusedProgramIndex--
-
-                            // Update focusedTime for synchronization
-                            if (programs.isNotEmpty() && focusedProgramIndex in programs.indices) {
-                                focusedTime = programs[focusedProgramIndex].startUtc
+                                android.util.Log.d("EpgDayScreen", "BACK: Reset to currently playing channel: ${currentChannel?.name}")
                             }
 
-                            android.util.Log.d("EpgDayScreen", "LEFT: Program $focusedProgramIndex, time: $focusedTime")
-                            true
-                        } else false
-                    }
-                    Key.DirectionRight -> {
-                        // Navigate to next program + UPDATE focusedTime for sync
-                        if (focusedProgramIndex < programs.lastIndex) {
-                            focusedProgramIndex++
-
-                            // Update focusedTime for synchronization
-                            if (programs.isNotEmpty() && focusedProgramIndex in programs.indices) {
-                                focusedTime = programs[focusedProgramIndex].startUtc
+                            // Reset to "now" program
+                            val now = Instant.now()
+                            val currentProgram = programs.firstOrNull {
+                                !now.isBefore(it.startUtc) && now.isBefore(it.endUtc)
                             }
-
-                            android.util.Log.d("EpgDayScreen", "RIGHT: Program $focusedProgramIndex, time: $focusedTime")
-                            true
-                        } else false
-                    }
-                    Key.Back -> {
-                        when {
-                            // LEVEL 1: Expanded mode → Collapse + reset to "now"
-                            isExpanded -> {
-                                // STEP 1: Prepare data (synchronously)
-                                focusedChannelIndex = startChannelIndex
-                                val startRow = allChannelRows[startChannelIndex]
-                                currentChannel = startRow.channel
-                                channelNumber = startRow.channelNumber
-                                programs = startRow.programs
-
-                                // Find current program (now)
-                                val now = Instant.now()
-                                val currentProgram = programs.firstOrNull {
-                                    !now.isBefore(it.startUtc) && now.isBefore(it.endUtc)
-                                }
-                                focusedProgramIndex = if (currentProgram != null) {
-                                    programs.indexOf(currentProgram)
-                                } else {
-                                    startRow.currentProgramIndex
-                                }
-
-                                // STEP 2: Update focusedTime IMMEDIATELY (triggers LaunchedEffect sync)
+                            if (currentProgram != null) {
+                                focusedProgramIndex = programs.indexOf(currentProgram)
                                 focusedTime = now
-
-                                // STEP 3: Collapse viewport IMMEDIATELY (before animations)
-                                isExpanded = false
-                                interfaceVisible = true
-                                android.util.Log.d("EpgDayScreen", "BACK Level 1: Collapsed viewport, starting animations")
-
-                                // STEP 4: Jump immediately to correct position (no animations)
-                                coroutineScope.launch {
-                                    // 4a) Vertical jump to start channel (INSTANT - no animation)
-                                    columnScrollState.scrollToItem(startChannelIndex, 0)
-                                    android.util.Log.d("EpgDayScreen", "BACK: Instant vertical jump to channel $startChannelIndex")
-
-                                    // 4b) Horizontal jump using syncAllChannelsToTime (INSTANT - no animation)
-                                    // Uses same logic as LEVEL 2 - forceFocusedScroll ensures scroll even if time didn't change
-                                    syncAllChannelsToTime(
-                                        targetTime = now,
-                                        animateFocused = false,  // NO animation - instant jump
-                                        forceFocusedScroll = true
-                                    )
-                                    android.util.Log.d("EpgDayScreen", "BACK: Instant horizontal jump via syncAllChannelsToTime")
-
-                                    android.util.Log.d("EpgDayScreen", "BACK Level 1: Complete (collapse → instant jump)")
-                                }
-
-                                true
+                                android.util.Log.d("EpgDayScreen", "BACK: Reset to current program: ${currentProgram.title}")
                             }
 
-                            // LEVEL 2-4: Not expanded - check current program status
-                            !isExpanded -> {
-                                val now = Instant.now()
-                                val currentProgram = programs.firstOrNull {
-                                    !now.isBefore(it.startUtc) && now.isBefore(it.endUtc)
-                                }
-                                val isOnCurrentProgram = currentProgram != null &&
-                                    programs.getOrNull(focusedProgramIndex) == currentProgram
-
-                                when {
-                                    // LEVEL 2: Not on current program → Reset to "now"
-                                    !isOnCurrentProgram -> {
-                                        if (currentProgram != null) {
-                                            focusedProgramIndex = programs.indexOf(currentProgram)
-                                            focusedTime = now
-
-                                            // Sync ALL channels to current time
-                                            // Use forceFocusedScroll to ensure scroll even if focusedTime didn't change
-                                            syncAllChannelsToTime(
-                                                targetTime = now,
-                                                animateFocused = true,
-                                                forceFocusedScroll = true
-                                            )
-
-                                            android.util.Log.d("EpgDayScreen", "BACK Level 2: Reset to current program (NOW), synced all channels")
-                                        }
-                                        true
-                                    }
-
-                                    // LEVEL 3: On current program + interface visible → Hide interface
-                                    interfaceVisible -> {
-                                        interfaceVisible = false
-                                        android.util.Log.d("EpgDayScreen", "BACK Level 3: Hide interface")
-                                        true
-                                    }
-
-                                    // LEVEL 4: Interface hidden → Exit
-                                    else -> {
-                                        android.util.Log.d("EpgDayScreen", "BACK Level 4: Exit screen")
-                                        onBackPressed()
-                                        true
-                                    }
-                                }
-                            }
-
-                            else -> false
+                            android.util.Log.d("EpgDayScreen", "BACK: Collapsed to 1-channel view + Reset to now")
+                        },
+                        onHideInterface = {
+                            interfaceVisible = false
+                            wasManuallyHidden = true  // Mark as manually hidden via BACK
+                            android.util.Log.d("EpgDayScreen", "BACK: Hidden GUI interface")
                         }
+                    )
+                }
+
+                // PRIORITY 3: EPG Navigation (UP/DOWN/LEFT/RIGHT/OK) → EpgNavigationController
+                if (navController.handleNavigation(event, interfaceVisible)) {
+                    return@onPreviewKeyEvent true
+                }
+
+                // PRIORITY 4: Special keys (P = PIP, D = Debug)
+                when (event.key) {
+                    Key.P -> {
+                        // PIP Mode: Transfer player to TopMenuScreen2
+                        android.util.Log.d("EpgDayScreen", "P pressed - Transferring to PIP mode")
+                        isPipMode = true
+                        onNavigateToPipMode(player, streamUrl)
+                        true
+                    }
+                    Key.D -> {
+                        // Debug: Print state
+                        android.util.Log.d("EpgDayScreen", """
+                            === EPG DAY SCREEN STATE ===
+                            Channels: ${allChannelRows.size}
+                            Focused Channel: $focusedChannelIndex (${currentChannel?.name})
+                            Focused Program: $focusedProgramIndex
+                            Focused Time: $focusedTime
+                            Expanded: $isExpanded
+                            Interface Visible: $interfaceVisible
+                            Interface State: ${interfaceState.javaClass.simpleName}
+                            Stream URL: $streamUrl
+                            Player: ${if (player != null) "ACTIVE" else "NULL"}
+                            ===========================
+                        """.trimIndent())
+                        true
                     }
                     else -> false
                 }
@@ -615,8 +850,12 @@ fun EpgDayScreen(
                 factory = { ctx ->
                     PlayerView(ctx).apply {
                         useController = false
-                        this.player = player
                     }
+                },
+                update = { playerView ->
+                    // Update PlayerView with new player when it changes
+                    playerView.player = player
+                    android.util.Log.d("EpgDayScreen", "PlayerView updated with new player: ${player != null}")
                 },
                 modifier = Modifier
                     .fillMaxSize()
@@ -663,14 +902,25 @@ fun EpgDayScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
+                    .background(Color(0xFF48227C))  // Solid background during loading
                     .zIndex(2f),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = "Ładowanie EPG...",
-                    color = Color(0xFFEEEEEE),
-                    fontSize = (24 * sy(1).value / 1).sp
-                )
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(sy(16))
+                ) {
+                    Text(
+                        text = "Ładowanie kanałów...",
+                        color = Color(0xFFEEEEEE),
+                        fontSize = (32 * sy(1).value / 1).sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "⏳",
+                        fontSize = (48 * sy(1).value / 1).sp
+                    )
+                }
             }
         } else if (allChannelRows.isEmpty()) {
             Box(
@@ -686,7 +936,7 @@ fun EpgDayScreen(
                 )
             }
         } else if (interfaceVisible) {
-            // LazyColumn with LIMITED VIEWPORT (1 or 3 channels max) - visible when interface is shown
+            // LazyColumn with LIMITED VIEWPORT (1 or 3 channels max) - shows when interface is visible
             LazyColumn(
                 state = columnScrollState,
                 modifier = Modifier
@@ -746,6 +996,31 @@ fun EpgDayScreen(
                         }
                     }
                 }
+            }
+        }
+
+        // ZAPPING BAR: Conditional overlay rendering based on PlayerInterfaceManager state
+        when (val state = interfaceState) {
+            is PlayerInterfaceState.ZappingBarVisible -> {
+                // Show Zapping Bar overlay
+                ZappingBarOverlay(
+                    mode = state.mode,
+                    epgRepository = repository,
+                    onDismiss = {
+                        PlayerInterfaceManager.hide()
+                    },
+                    sx = sx,
+                    sy = sy
+                )
+            }
+            is PlayerInterfaceState.GuiVisible -> {
+                // GUI already visible (the existing EPG interface)
+                // No additional overlay needed - just let auto-hide timer run
+                android.util.Log.d("EpgDayScreen", "GUI interface visible (10s auto-hide)")
+            }
+            is PlayerInterfaceState.Hidden -> {
+                // Both interfaces hidden - clean player view
+                // No overlay rendering
             }
         }
     }
