@@ -2551,7 +2551,8 @@ private fun MojeChannelsScreen(
                     coroutineScope = coroutineScope,
                     gridContent = gridContent,
                     onReturnToMenu = onReturnToMenu,
-                    onToggleExpansion = toggleNagraniaExpansion
+                    onToggleExpansion = toggleNagraniaExpansion,
+                    isNagraniaExpanded = isNagraniaExpanded  // Faza 5
                 )
             }
             .focusable()
@@ -4695,7 +4696,7 @@ private fun calculateMojeSubChannelYPosition(
     }
 }
 
-// Faza 4: Simplified MOJE navigation handler (no sub-channel logic, standard channel-by-channel navigation)
+// Faza 4-5: MOJE navigation with auto-collapse logic
 fun handleMojeChannelsNavigation(
     event: KeyEvent,
     focusedRowIndex: Int,
@@ -4707,7 +4708,8 @@ fun handleMojeChannelsNavigation(
     coroutineScope: CoroutineScope,
     gridContent: Map<String, List<VodContent>>,
     onReturnToMenu: () -> Unit,
-    onToggleExpansion: (() -> Unit)? = null
+    onToggleExpansion: (() -> Unit)? = null,
+    isNagraniaExpanded: Boolean = false  // Faza 5: For auto-collapse detection
 ): Boolean {
     if (event.nativeKeyEvent.action != android.view.KeyEvent.ACTION_DOWN) return false
 
@@ -4726,6 +4728,21 @@ fun handleMojeChannelsNavigation(
         }
 
         Key.DirectionUp -> {
+            // Faza 5: Auto-collapse when going UP from "Pojedyncze nagrania" to "Nagrania"
+            val currentChannel = channels.getOrNull(focusedRowIndex)
+            if (isNagraniaExpanded && currentChannel == "Pojedyncze nagrania") {
+                Log.d("MOJE_DEBUG", "AUTO-COLLAPSE: UP from Pojedyncze nagrania → collapse and focus Nagrania")
+                onToggleExpansion?.invoke() // Collapse
+                // After collapse, "Nagrania" will be at row=1
+                kotlinx.coroutines.GlobalScope.launch {
+                    kotlinx.coroutines.delay(50) // Wait for channel list to update
+                    val targetColIndex = if (focusedColIndex == -1) -1 else 0
+                    onChannelContentFocusChange(1, targetColIndex)
+                    channelFocusRequesters[Pair(1, targetColIndex)]?.requestFocus()
+                }
+                return true
+            }
+
             when {
                 focusedRowIndex > 0 -> {
                     // Move up one channel
@@ -4757,6 +4774,21 @@ fun handleMojeChannelsNavigation(
         }
 
         Key.DirectionDown -> {
+            // Faza 5: Auto-collapse when going DOWN from "ZAPLANOWANE" to "Do obejrzenia"
+            val currentChannel = channels.getOrNull(focusedRowIndex)
+            if (isNagraniaExpanded && currentChannel == "ZAPLANOWANE") {
+                Log.d("MOJE_DEBUG", "AUTO-COLLAPSE: DOWN from ZAPLANOWANE → collapse and focus Do obejrzenia")
+                onToggleExpansion?.invoke() // Collapse
+                // After collapse, "Do obejrzenia" will be at row=2
+                kotlinx.coroutines.GlobalScope.launch {
+                    kotlinx.coroutines.delay(50) // Wait for channel list to update
+                    val targetColIndex = if (focusedColIndex == -1) -1 else 0
+                    onChannelContentFocusChange(2, targetColIndex)
+                    channelFocusRequesters[Pair(2, targetColIndex)]?.requestFocus()
+                }
+                return true
+            }
+
             if (focusedRowIndex < channels.size - 1) {
                 // Move down one channel
                 val newRowIndex = focusedRowIndex + 1
