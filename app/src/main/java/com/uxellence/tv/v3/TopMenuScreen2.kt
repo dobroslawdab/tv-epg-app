@@ -2410,6 +2410,9 @@ private fun MojeChannelsScreen(
     // Only tracks whether NAGRANIA is expanded (no nested data)
     var isNagraniaExpanded by remember { mutableStateOf(false) }
 
+    // Maximum number of channels when NAGRANIA is expanded (for stable FocusRequester map)
+    val MAX_MOJE_CHANNELS = 8
+
     // Faza 3: Dynamic channel list - changes based on isNagraniaExpanded
     // Collapsed: 5 channels | Expanded: 8 channels (3 sub-channels inserted after Nagrania)
     val channels = remember(isNagraniaExpanded) {
@@ -2436,7 +2439,7 @@ private fun MojeChannelsScreen(
     }
 
     // Faza 3: Toggle NAGRANIA expansion
-    val toggleNagraniaExpansion = {
+    val toggleNagraniaExpansion: () -> Unit = {
         isNagraniaExpanded = !isNagraniaExpanded
         Log.d("MOJE_DEBUG", "NAGRANIA expanded: $isNagraniaExpanded (channels: ${channels.size})")
     }
@@ -2475,9 +2478,10 @@ private fun MojeChannelsScreen(
     // Faza 1 Rollback: Pair keys (back to pre-Phase 6 structure)
     // Pair<rowIndex, colIndex>
     // colIndex: -1 = icon, 0 = content
-    val channelFocusRequesters = remember(channels.size) {
+    // FIX: Create for MAX_MOJE_CHANNELS to avoid recreation during expand/collapse
+    val channelFocusRequesters = remember {
         mutableMapOf<Pair<Int, Int>, FocusRequester>().apply {
-            repeat(channels.size) { rowIndex ->
+            repeat(MAX_MOJE_CHANNELS) { rowIndex ->
                 // CategoryIcon
                 put(Pair(rowIndex, -1), FocusRequester())
                 // Content (fixed focus position)
@@ -2486,9 +2490,10 @@ private fun MojeChannelsScreen(
         }
     }
 
-    val lazyListStates = remember(channels.size) {
+    // FIX: Create for MAX_MOJE_CHANNELS to avoid recreation during expand/collapse
+    val lazyListStates = remember {
         mutableMapOf<Int, LazyListState>().apply {
-            repeat(channels.size) { rowIndex ->
+            repeat(MAX_MOJE_CHANNELS) { rowIndex ->
                 put(rowIndex, LazyListState())
             }
         }
@@ -2824,12 +2829,12 @@ private fun StartChannelsScreen(
         }
     }
     
-    // Phase 6: Triple keys (no sub-channels in START, always use -1)
+    // Faza 1: Rollback to Pair keys (simplified from Triple)
     val channelFocusRequesters = remember(channels.size) {
-        mutableMapOf<Triple<Int, Int, Int>, FocusRequester>().apply {
+        mutableMapOf<Pair<Int, Int>, FocusRequester>().apply {
             repeat(channels.size) { rowIndex ->
-                put(Triple(rowIndex, -1, -1), FocusRequester()) // CategoryIcon (main channel)
-                put(Triple(rowIndex, 0, -1), FocusRequester()) // Content (fixed focus position, main channel)
+                put(Pair(rowIndex, -1), FocusRequester()) // CategoryIcon
+                put(Pair(rowIndex, 0), FocusRequester()) // Content (fixed focus position)
             }
         }
     }
@@ -2868,10 +2873,10 @@ private fun StartChannelsScreen(
             focusedColIndex = -1
             // Reduced from 100ms to 0ms for instant focus
             kotlinx.coroutines.delay(0)
-            // Phase 6: Triple key for main channel CategoryIcon
-            val firstCategoryFocusRequester = channelFocusRequesters[Triple(0, -1, -1)]
+            // Faza 1: Pair key for CategoryIcon
+            val firstCategoryFocusRequester = channelFocusRequesters[Pair(0, -1)]
             if (firstCategoryFocusRequester != null) {
-                Log.d("START_DEBUG", "Auto-focus: Setting state (0, -1, -1) and requesting focus")
+                Log.d("START_DEBUG", "Auto-focus: Setting state (0, -1) and requesting focus")
                 firstCategoryFocusRequester.requestFocus()
             }
         }
@@ -3133,7 +3138,7 @@ fun handleStartChannelsNavigation(
     focusedRowIndex: Int,
     focusedColIndex: Int,
     onChannelContentFocusChange: (Int, Int) -> Unit,
-    channelFocusRequesters: Map<Triple<Int, Int, Int>, FocusRequester>, // Phase 6: Triple keys (no sub-channels in START)
+    channelFocusRequesters: Map<Pair<Int, Int>, FocusRequester>, // Faza 1: Pair keys (simplified)
     channels: List<String>,
     lazyListStates: Map<Int, LazyListState>,
     coroutineScope: CoroutineScope,
@@ -3149,7 +3154,7 @@ fun handleStartChannelsNavigation(
                 // First movement from "no focus" - go to CategoryIcon of first row
                 Log.d("START_DEBUG", "UP: First movement from no focus -> row 0, col -1")
                 onChannelContentFocusChange(0, -1)
-                channelFocusRequesters[Triple(0, -1, -1)]?.requestFocus() // Phase 6: Main channel
+                channelFocusRequesters[Pair(0, -1)]?.requestFocus()
                 return true
             } else if (focusedRowIndex > 0) {
                 val newRowIndex = focusedRowIndex - 1
@@ -3157,7 +3162,7 @@ fun handleStartChannelsNavigation(
                 val targetColIndex = if (focusedColIndex == -1) -1 else 0
                 Log.d("START_DEBUG", "UP: Moving from row $focusedRowIndex to $newRowIndex, col $targetColIndex")
                 onChannelContentFocusChange(newRowIndex, targetColIndex)
-                channelFocusRequesters[Triple(newRowIndex, targetColIndex, -1)]?.requestFocus() // Phase 6: Main channel
+                channelFocusRequesters[Pair(newRowIndex, targetColIndex)]?.requestFocus()
             } else {
                 // From first row, go back to menu - reset all LazyListState positions first
                 Log.d("START_DEBUG", "UP: From first row -> returning to menu")
@@ -3178,14 +3183,14 @@ fun handleStartChannelsNavigation(
             if (focusedColIndex == -2) {
                 // First movement from "no focus" - go to CategoryIcon of first row
                 onChannelContentFocusChange(0, -1)
-                channelFocusRequesters[Triple(0, -1, -1)]?.requestFocus() // Phase 6: Main channel
+                channelFocusRequesters[Pair(0, -1)]?.requestFocus()
                 return true
             } else if (focusedRowIndex < channels.size - 1) {
                 val newRowIndex = focusedRowIndex + 1
                 // Preserve type of position (CategoryIcon vs content)
                 val targetColIndex = if (focusedColIndex == -1) -1 else 0
                 onChannelContentFocusChange(newRowIndex, targetColIndex)
-                channelFocusRequesters[Triple(newRowIndex, targetColIndex, -1)]?.requestFocus() // Phase 6: Main channel
+                channelFocusRequesters[Pair(newRowIndex, targetColIndex)]?.requestFocus()
             }
             return true
         }
@@ -3194,7 +3199,7 @@ fun handleStartChannelsNavigation(
             if (focusedColIndex == -2) {
                 // First movement from "no focus" - go to CategoryIcon of first row
                 onChannelContentFocusChange(0, -1)
-                channelFocusRequesters[Triple(0, -1, -1)]?.requestFocus() // Phase 6: Main channel
+                channelFocusRequesters[Pair(0, -1)]?.requestFocus()
                 return true
             } else if (focusedColIndex == -1) {
                 // Already on CategoryIcon - do nothing
@@ -3210,7 +3215,7 @@ fun handleStartChannelsNavigation(
                 } else {
                     // Can't scroll left - go to CategoryIcon
                     onChannelContentFocusChange(focusedRowIndex, -1)
-                    channelFocusRequesters[Triple(focusedRowIndex, -1, -1)]?.requestFocus() // Phase 6: Main channel
+                    channelFocusRequesters[Pair(focusedRowIndex, -1)]?.requestFocus()
                 }
             }
             return true
@@ -3220,11 +3225,11 @@ fun handleStartChannelsNavigation(
             if (focusedColIndex == -2) {
                 // First movement from "no focus" - go to CategoryIcon of first row
                 onChannelContentFocusChange(0, -1)
-                channelFocusRequesters[Triple(0, -1, -1)]?.requestFocus() // Phase 6: Main channel
+                channelFocusRequesters[Pair(0, -1)]?.requestFocus()
             } else if (focusedColIndex == -1) {
                 // From CategoryIcon to first visible position (focus always on 0)
                 onChannelContentFocusChange(focusedRowIndex, 0)
-                channelFocusRequesters[Triple(focusedRowIndex, 0, -1)]?.requestFocus() // Phase 6: Main channel
+                channelFocusRequesters[Pair(focusedRowIndex, 0)]?.requestFocus()
             } else if (focusedColIndex == 0) {
                 // Fixed focus on position 0 - check if we can scroll right
                 val lazyListState = lazyListStates[focusedRowIndex]
@@ -3576,12 +3581,12 @@ private fun NewStartScreenContent(
         }
     }
     val channels = listOf("Oglądaj dalej", "Nagrania", "Do obejrzenia", "Wypożyczone", "Aktywne pakiety")
-    // Phase 6: Triple keys (no sub-channels in START, always use -1)
+    // Faza 1: Rollback to Pair keys (simplified from Triple)
     val channelFocusRequesters = remember {
-        mutableMapOf<Triple<Int, Int, Int>, FocusRequester>().apply {
+        mutableMapOf<Pair<Int, Int>, FocusRequester>().apply {
             repeat(channels.size) { rowIndex -> // 5 channels from MOJE
-                put(Triple(rowIndex, -1, -1), FocusRequester()) // CategoryIcon (main channel)
-                put(Triple(rowIndex, 0, -1), FocusRequester()) // Content (fixed focus position, main channel)
+                put(Pair(rowIndex, -1), FocusRequester()) // CategoryIcon
+                put(Pair(rowIndex, 0), FocusRequester()) // Content (fixed focus position)
             }
         }
     }
@@ -3753,7 +3758,7 @@ private fun StartChannelRowsLayout(
     gridContent: Map<String, List<VodContent>>,
     focusedRowIndex: Int,
     focusedColIndex: Int,
-    channelFocusRequesters: Map<Triple<Int, Int, Int>, FocusRequester>, // Phase 6: Triple keys (no sub-channels in START)
+    channelFocusRequesters: Map<Pair<Int, Int>, FocusRequester>, // Faza 1: Pair keys (simplified)
     onChannelContentFocusChange: (Int, Int) -> Unit,
     lazyListStates: Map<Int, LazyListState>,
     currentRow: Int,
@@ -3919,7 +3924,7 @@ fun handleStartNavigation(
     onShortcutFocusChange: (Int) -> Unit,
     onChannelFocusChange: (Int, Int) -> Unit,
     shortcutFocusRequesters: Map<Int, FocusRequester>,
-    channelFocusRequesters: Map<Triple<Int, Int, Int>, FocusRequester>, // Phase 6: Triple keys (no sub-channels in START)
+    channelFocusRequesters: Map<Pair<Int, Int>, FocusRequester>, // Faza 1: Pair keys (simplified)
     channels: List<String>,
     lazyListStates: Map<Int, LazyListState>,
     coroutineScope: CoroutineScope,
@@ -3948,7 +3953,7 @@ fun handleStartNavigation(
                         val newRowIndex = channelFocusedRowIndex - 1
                         val targetColIndex = if (channelFocusedColIndex == -1) -1 else 0
                         onChannelFocusChange(newRowIndex, targetColIndex)
-                        channelFocusRequesters[Triple(newRowIndex, targetColIndex, -1)]?.requestFocus() // Phase 6: Main channel
+                        channelFocusRequesters[Pair(newRowIndex, targetColIndex)]?.requestFocus()
                     } else {
                         // From first channel to Shortcuts (Row 2)
                         onRowChange(2)
@@ -3970,7 +3975,7 @@ fun handleStartNavigation(
                     // From Shortcuts to Channels (Row 3)
                     onRowChange(3)
                     onChannelFocusChange(0, -1)
-                    channelFocusRequesters[Triple(0, -1, -1)]?.requestFocus() // Phase 6: Main channel
+                    channelFocusRequesters[Pair(0, -1)]?.requestFocus()
                 }
                 else -> {
                     // Move down within channels
@@ -3978,7 +3983,7 @@ fun handleStartNavigation(
                         val newRowIndex = channelFocusedRowIndex + 1
                         val targetColIndex = if (channelFocusedColIndex == -1) -1 else 0
                         onChannelFocusChange(newRowIndex, targetColIndex)
-                        channelFocusRequesters[Triple(newRowIndex, targetColIndex, -1)]?.requestFocus() // Phase 6: Main channel
+                        channelFocusRequesters[Pair(newRowIndex, targetColIndex)]?.requestFocus()
                     }
                 }
             }
@@ -4013,7 +4018,7 @@ fun handleStartNavigation(
                                 }
                             } else {
                                 onChannelFocusChange(channelFocusedRowIndex, -1)
-                                channelFocusRequesters[Triple(channelFocusedRowIndex, -1, -1)]?.requestFocus() // Phase 6: Main channel
+                                channelFocusRequesters[Pair(channelFocusedRowIndex, -1)]?.requestFocus()
                             }
                         }
                     }
@@ -4041,7 +4046,7 @@ fun handleStartNavigation(
                     if (currentRow >= 3) {
                         if (channelFocusedColIndex == -1) {
                             onChannelFocusChange(channelFocusedRowIndex, 0)
-                            channelFocusRequesters[Triple(channelFocusedRowIndex, 0, -1)]?.requestFocus() // Phase 6: Main channel
+                            channelFocusRequesters[Pair(channelFocusedRowIndex, 0)]?.requestFocus()
                         } else if (channelFocusedColIndex == 0) {
                             val lazyListState = lazyListStates[channelFocusedRowIndex]
                             val channelName = channels.getOrNull(channelFocusedRowIndex)
@@ -4104,11 +4109,13 @@ fun MojeChannelRowsLayout(
             val lazyListState = lazyListStates[rowIndex] ?: LazyListState()
 
             // Faza 4: Simple Y position calculation (standard Version001Screen pattern)
-            val targetY = sy(calculateMojeChannelYPosition(
+            val targetY = calculateMojeChannelYPosition(
                 rowIndex = rowIndex,
                 focusedRowIndex = focusedRowIndex,
-                focusedColIndex = focusedColIndex
-            ))
+                focusedColIndex = focusedColIndex,
+                channels = channels,
+                sy = sy
+            )
 
             val channelYOffset by animateDpAsState(
                 targetValue = targetY,
@@ -4195,8 +4202,12 @@ fun MojeUnifiedChannelRow(
                                        colIndex == lazyListState.firstVisibleItemIndex &&
                                        focusedColIndex == 0
 
-                    // Faza 4: Content uses col=0 (fixed focus position)
-                    val focusRequester = channelFocusRequesters[Pair(rowIndex, 0)] ?: FocusRequester()
+                    // FIX: Only assign FocusRequester to currently visible item (like WIDEO)
+                    val focusRequester = if (colIndex == lazyListState.firstVisibleItemIndex) {
+                        channelFocusRequesters[Pair(rowIndex, 0)] ?: FocusRequester()
+                    } else {
+                        FocusRequester()
+                    }
 
                     PackageCard(
                         packageItem = packageItem,
@@ -4214,8 +4225,12 @@ fun MojeUnifiedChannelRow(
                                        colIndex == lazyListState.firstVisibleItemIndex &&
                                        focusedColIndex == 0
 
-                    // Faza 4: Content uses col=0 (fixed focus position)
-                    val focusRequester = channelFocusRequesters[Pair(rowIndex, 0)] ?: FocusRequester()
+                    // FIX: Only assign FocusRequester to currently visible item (like WIDEO)
+                    val focusRequester = if (colIndex == lazyListState.firstVisibleItemIndex) {
+                        channelFocusRequesters[Pair(rowIndex, 0)] ?: FocusRequester()
+                    } else {
+                        FocusRequester()
+                    }
 
                     when {
                         isVertical -> {
@@ -4487,212 +4502,6 @@ private fun calculateMojeChannelYPosition(
         }
         // Fallback (nie powinno się wydarzyć)
         else -> sy(140 + rowIndex * normalRowHeight)
-    }
-}
-
-/**
- * calculateYPositionWithExpansion - Helper function for Y position with expandable channel support (Phase 5.3)
- *
- * This function calculates Y position accounting for ALL expanded channels in the list,
- * not just the focused one. This ensures channels below expanded channels are pushed down correctly.
- */
-private fun calculateYPositionWithExpansion(
-    rowIndex: Int,
-    focusedRowIndex: Int,
-    focusedColIndex: Int,
-    channels: List<String>,
-    expandableChannels: List<ExpandableChannel>
-): Int {
-    return when {
-        // Focused channel - always at fixed Y
-        rowIndex == focusedRowIndex -> MOJE_FIXED_FOCUS_Y
-
-        // Channel above focused - standard positioning (going upward)
-        rowIndex < focusedRowIndex -> {
-            val extraSpacing = if (focusedColIndex >= 0) MOJE_CONTENT_FOCUS_EXTRA_SPACING else 0
-            var cumulativeHeight = MOJE_FIXED_FOCUS_Y
-
-            for (i in rowIndex until focusedRowIndex) {
-                val betweenChannelName = channels.getOrNull(i) ?: ""
-                val betweenIsVertical = betweenChannelName == "Wypożyczone"
-                val betweenRowHeight = if (betweenIsVertical) MOJE_VERTICAL_NORMAL_ROW_HEIGHT else MOJE_HORIZONTAL_NORMAL_ROW_HEIGHT
-                cumulativeHeight -= betweenRowHeight
-            }
-
-            cumulativeHeight - extraSpacing
-        }
-
-        // Channel below focused - account for expansion (going downward)
-        rowIndex > focusedRowIndex -> {
-            var cumulativeHeight = MOJE_FIXED_FOCUS_Y
-
-            // Add focused channel height (with expansion if applicable)
-            for (i in focusedRowIndex until rowIndex) {
-                val channelName = channels.getOrNull(i) ?: ""
-                val isVertical = channelName == "Wypożyczone"
-                val expandable = expandableChannels.firstOrNull { it.title == channelName }
-
-                val channelHeight = when {
-                    // Channel is expanded - add main height + all sub-channel heights
-                    expandable != null && expandable.isExpanded -> {
-                        var totalHeight = if (i == focusedRowIndex && focusedColIndex >= 0) {
-                            if (isVertical) MOJE_VERTICAL_EXPANDED_ROW_HEIGHT else MOJE_HORIZONTAL_EXPANDED_ROW_HEIGHT
-                        } else {
-                            if (isVertical) MOJE_VERTICAL_NORMAL_ROW_HEIGHT else MOJE_HORIZONTAL_NORMAL_ROW_HEIGHT
-                        }
-                        // Add sub-channel heights
-                        expandable.subChannels.forEach { _ ->
-                            totalHeight += MOJE_SUB_CHANNEL_NORMAL_HEIGHT
-                        }
-                        totalHeight
-                    }
-                    // Not expanded - standard height
-                    i == focusedRowIndex && focusedColIndex >= 0 -> {
-                        if (isVertical) MOJE_VERTICAL_EXPANDED_ROW_HEIGHT else MOJE_HORIZONTAL_EXPANDED_ROW_HEIGHT
-                    }
-                    else -> {
-                        if (isVertical) MOJE_VERTICAL_NORMAL_ROW_HEIGHT else MOJE_HORIZONTAL_NORMAL_ROW_HEIGHT
-                    }
-                }
-
-                cumulativeHeight += channelHeight
-
-                // Add extra vertical spacing for vertical content when focused
-                if (i == focusedRowIndex && isVertical && focusedColIndex >= 0) {
-                    cumulativeHeight += 20
-                }
-            }
-
-            cumulativeHeight
-        }
-
-        else -> 140 + rowIndex * MOJE_HORIZONTAL_NORMAL_ROW_HEIGHT
-    }
-}
-
-/**
- * calculateMojeSubChannelYPosition - Extended Y position calculation for sub-channels (Phase 4)
- *
- * Obsługuje pozycjonowanie pod-kanałów w rozwiniętym kanale NAGRANIA.
- *
- * Hierarchia:
- * - CategoryIcon głównego kanału (np. "Nagrania") - zawsze widoczny
- * - SubChannelIcon[0] - pierwszy pod-kanał (ZARZĄDZAJ NAGRANIAMI)
- * - SubChannelIcon[1] - drugi pod-kanał (SERIE)
- * - SubChannelIcon[2] - trzeci pod-kanał (ZAPLANOWANE)
- *
- * @param expandableChannel Dane rozwijanego kanału (np. NAGRANIA)
- * @param mainRowIndex Indeks głównego kanału w liście channels
- * @param subChannelIndex Indeks pod-kanału (-1 = CategoryIcon, 0+ = SubChannelIcon)
- * @param focusPosition Pozycja fokusa (rowIndex, subChannelIndex, colIndex)
- * @param channels Lista wszystkich kanałów
- * @param sy Funkcja skalowania Y
- * @return Pozycja Y dla danego pod-kanału
- */
-private fun calculateMojeSubChannelYPosition(
-    expandableChannel: ExpandableChannel,
-    mainRowIndex: Int,
-    subChannelIndex: Int,
-    focusPosition: MojeFocusPosition,
-    channels: List<String>,
-    sy: (Int) -> androidx.compose.ui.unit.Dp
-): androidx.compose.ui.unit.Dp {
-    // If channel is not expanded, use standard positioning
-    if (!expandableChannel.isExpanded) {
-        return calculateMojeChannelYPosition(
-            rowIndex = mainRowIndex,
-            focusedRowIndex = focusPosition.rowIndex,
-            focusedColIndex = focusPosition.colIndex,
-            channels = channels,
-            sy = sy
-        )
-    }
-
-    // Channel is expanded - calculate sub-channel positions
-    val isMainCategoryIcon = subChannelIndex == -1
-    val isFocusedRow = mainRowIndex == focusPosition.rowIndex
-    val isFocusedSubChannel = subChannelIndex == focusPosition.subChannelIndex
-
-    return when {
-        // Main CategoryIcon of expanded channel
-        isMainCategoryIcon && isFocusedRow -> {
-            sy(MOJE_FIXED_FOCUS_Y)
-        }
-
-        // Sub-channel when its parent row is focused
-        !isMainCategoryIcon && isFocusedRow -> {
-            // Base Y = CategoryIcon position + CategoryIcon height + spacing
-            val baseY = MOJE_FIXED_FOCUS_Y + 216 + 40
-
-            // Calculate offset for this sub-channel (each sub-channel has height of 180px or 470px if expanded)
-            var offset = 0
-            for (i in 0 until subChannelIndex) {
-                val subChannelExpansion = if (i == focusPosition.subChannelIndex && focusPosition.colIndex >= 0) {
-                    MOJE_SUB_CHANNEL_EXPANDED_HEIGHT
-                } else {
-                    MOJE_SUB_CHANNEL_NORMAL_HEIGHT
-                }
-                offset += subChannelExpansion
-            }
-
-            sy(baseY + offset)
-        }
-
-        // Channels below expanded channel need extra space
-        mainRowIndex < focusPosition.rowIndex -> {
-            // Above focused row - standard positioning
-            calculateMojeChannelYPosition(
-                rowIndex = mainRowIndex,
-                focusedRowIndex = focusPosition.rowIndex,
-                focusedColIndex = focusPosition.colIndex,
-                channels = channels,
-                sy = sy
-            )
-        }
-
-        // Channels below expanded channel
-        mainRowIndex > focusPosition.rowIndex -> {
-            // Calculate total height of expanded channel
-            val expandedChannelName = channels.getOrNull(focusPosition.rowIndex) ?: ""
-            val isExpandedChannel = expandedChannelName == "Nagrania" // TODO: Make this dynamic
-
-            if (isExpandedChannel) {
-                // Total height = CategoryIcon + all sub-channels
-                var totalExpandedHeight = 216 + 40 // CategoryIcon + spacing
-
-                expandableChannel.subChannels.forEachIndexed { index, _ ->
-                    val subChannelHeight = if (index == focusPosition.subChannelIndex && focusPosition.colIndex >= 0) {
-                        MOJE_SUB_CHANNEL_EXPANDED_HEIGHT
-                    } else {
-                        MOJE_SUB_CHANNEL_NORMAL_HEIGHT
-                    }
-                    totalExpandedHeight += subChannelHeight
-                }
-
-                // Position below the entire expanded channel
-                var cumulativeHeight = MOJE_FIXED_FOCUS_Y + totalExpandedHeight
-                for (i in (focusPosition.rowIndex + 1) until mainRowIndex) {
-                    val betweenChannelName = channels.getOrNull(i) ?: ""
-                    val betweenIsVertical = betweenChannelName == "Wypożyczone"
-                    val betweenRowHeight = if (betweenIsVertical) MOJE_VERTICAL_NORMAL_ROW_HEIGHT else MOJE_HORIZONTAL_NORMAL_ROW_HEIGHT
-                    cumulativeHeight += betweenRowHeight
-                }
-
-                sy(cumulativeHeight)
-            } else {
-                // Standard positioning for non-expanded channels
-                calculateMojeChannelYPosition(
-                    rowIndex = mainRowIndex,
-                    focusedRowIndex = focusPosition.rowIndex,
-                    focusedColIndex = focusPosition.colIndex,
-                    channels = channels,
-                    sy = sy
-                )
-            }
-        }
-
-        // Fallback
-        else -> sy(140 + mainRowIndex * MOJE_HORIZONTAL_NORMAL_ROW_HEIGHT)
     }
 }
 
