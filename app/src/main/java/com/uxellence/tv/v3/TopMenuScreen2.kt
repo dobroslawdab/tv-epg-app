@@ -142,59 +142,23 @@ enum class VodFocusArea {
 
 // MARK: - MOJE Expandable Channel Data Structures
 
-/**
- * SubChannel - Pojedynczy pod-kanał w rozwijanym kanale
- *
- * @param id Unikalny identyfikator (np. "ZARZADZAJ", "SERIE", "ZAPLANOWANE")
- * @param title Wyświetlany tytuł (np. "ZARZĄDZAJ NAGRANIAMI", "SERIE", "ZAPLANOWANE")
- * @param badge Opcjonalna plakietka (np. "11" dla kanału SERIE)
- * @param content Lista zawartości VOD dla tego pod-kanału
- */
-data class SubChannel(
-    val id: String,
-    val title: String,
-    val badge: String? = null,
-    val content: List<VodContent> = emptyList()
-)
+// Faza 2: SubChannel data class deleted - sub-channels will be regular channels in dynamic list
 
 /**
- * ExpandableChannel - Kanał z możliwością rozwinięcia pod-kanałów
+ * ExpandableChannel - Simple state tracker for NAGRANIA expansion
+ * Faza 2: Simplified - only tracks isExpanded state, no nested subChannels
  *
  * @param id Unikalny identyfikator kanału (np. "NAGRANIA")
  * @param title Wyświetlany tytuł kanału
- * @param logoDrawableId ID zasobu drawable dla ikony CategoryIcon
- * @param mainContent Główna lista zawartości (10 elementów widocznych gdy zwinięty)
- * @param subChannels Lista pod-kanałów (3 elementy: ZARZĄDZAJ NAGRANIAMI, SERIE, ZAPLANOWANE)
- * @param isExpanded Stan rozwinięcia (true = rozwinięty, false = zwinięty)
+ * @param isExpanded Stan rozwinięcia (true = 8 channels, false = 5 channels)
  */
 data class ExpandableChannel(
     val id: String,
     val title: String,
-    val logoDrawableId: Int?,
-    val mainContent: List<VodContent>,
-    val subChannels: List<SubChannel> = emptyList(),
     var isExpanded: Boolean = false
 )
 
-/**
- * MojeFocusPosition - Pozycja fokusu w sekcji MOJE
- *
- * Obsługuje 3-poziomową hierarchię:
- * - Kanał (rowIndex): Numer wiersza kanału (0-based)
- * - Sub-kanał (subChannelIndex): Numer pod-kanału (-1 = główny, 0+ = pod-kanał)
- * - Kolumna (colIndex): Pozycja w LazyRow (-1 = CategoryIcon/SubChannelIcon, 0+ = zawartość)
- *
- * Przykłady:
- * - (0, -1, -1) = CategoryIcon pierwszego kanału
- * - (0, -1, 0) = Pierwsza miniaturka głównego kanału
- * - (0, 0, -1) = SubChannelIcon pierwszego pod-kanału
- * - (0, 0, 0) = Pierwsza miniaturka pierwszego pod-kanału
- */
-data class MojeFocusPosition(
-    val rowIndex: Int,
-    val subChannelIndex: Int = -1,  // -1 = main channel, 0+ = sub-channel
-    val colIndex: Int = -1          // -1 = icon, 0+ = content
-)
+// Faza 2: MojeFocusPosition deleted - using simple Pair<rowIndex, colIndex> like other sections
 
 // Function to load TV channels from JSON
 private fun loadTvChannelsFromAssets(context: Context): List<TvChannel> {
@@ -2512,38 +2476,26 @@ private fun MojeChannelsScreen(
 
     var focusedRowIndex by remember { mutableStateOf(0) }
     var focusedColIndex by remember { mutableStateOf(-2) } // -2 = brak fokusa na starcie
-    var focusedSubChannelIndex by remember { mutableStateOf(-1) } // -1 = not on sub-channel, 0+ = sub-channel index (Phase 5.5)
+    // Faza 2: focusedSubChannelIndex removed - sub-channels are now regular channels
 
     // Reset focus state when returning to menu
     LaunchedEffect(resetTrigger) {
         if (resetTrigger > 0) {
             focusedRowIndex = 0
             focusedColIndex = -2 // Reset do stanu "brak fokusa"
-            focusedSubChannelIndex = -1 // Reset sub-channel focus
         }
     }
 
-    // Phase 6: Triple keys for sub-channel support
-    // Triple<rowIndex, colIndex, subChannelIndex>
+    // Faza 1 Rollback: Pair keys (back to pre-Phase 6 structure)
+    // Pair<rowIndex, colIndex>
     // colIndex: -1 = icon, 0 = content
-    // subChannelIndex: -1 = main channel, 0-2 = sub-channel
     val channelFocusRequesters = remember(channels.size) {
-        mutableMapOf<Triple<Int, Int, Int>, FocusRequester>().apply {
+        mutableMapOf<Pair<Int, Int>, FocusRequester>().apply {
             repeat(channels.size) { rowIndex ->
-                // Main channel CategoryIcon
-                put(Triple(rowIndex, -1, -1), FocusRequester())
-                // Main channel content (fixed focus position)
-                put(Triple(rowIndex, 0, -1), FocusRequester())
-
-                // Sub-channel icons (only for NAGRANIA, but pre-allocate for all)
-                put(Triple(rowIndex, -1, 0), FocusRequester()) // SubChannel 0
-                put(Triple(rowIndex, -1, 1), FocusRequester()) // SubChannel 1
-                put(Triple(rowIndex, -1, 2), FocusRequester()) // SubChannel 2
-
-                // Sub-channel content
-                put(Triple(rowIndex, 0, 0), FocusRequester()) // SubChannel 0 content
-                put(Triple(rowIndex, 0, 1), FocusRequester()) // SubChannel 1 content
-                put(Triple(rowIndex, 0, 2), FocusRequester()) // SubChannel 2 content
+                // CategoryIcon
+                put(Pair(rowIndex, -1), FocusRequester())
+                // Content (fixed focus position)
+                put(Pair(rowIndex, 0), FocusRequester())
             }
         }
     }
@@ -2556,10 +2508,7 @@ private fun MojeChannelsScreen(
         }
     }
 
-    // Phase 5.5 Fix #4: Separate LazyListState for each sub-channel
-    val subChannelLazyListStates = remember {
-        mutableMapOf<Pair<Int, Int>, LazyListState>() // (rowIndex, subChannelIndex) -> LazyListState
-    }
+    // Faza 2: subChannelLazyListStates removed - sub-channels are now regular channels with own lazyListStates
 
     val coroutineScope = rememberCoroutineScope()
     var isInitialized by remember { mutableStateOf(false) }
@@ -2587,10 +2536,10 @@ private fun MojeChannelsScreen(
             focusedColIndex = -1
             // Reduced from 100ms to 0ms for instant focus
             kotlinx.coroutines.delay(0)
-            // Phase 6: Use Triple key for main channel CategoryIcon
-            val firstCategoryFocusRequester = channelFocusRequesters[Triple(0, -1, -1)]
+            // Faza 1 Rollback: Use Pair key for CategoryIcon
+            val firstCategoryFocusRequester = channelFocusRequesters[Pair(0, -1)]
             if (firstCategoryFocusRequester != null) {
-                Log.d("MOJE_DEBUG", "Auto-focus: Setting state (0, -1, -1) and requesting focus")
+                Log.d("MOJE_DEBUG", "Auto-focus: Setting state (0, -1) and requesting focus")
                 firstCategoryFocusRequester.requestFocus()
             }
         }
@@ -4158,257 +4107,8 @@ fun handleStartNavigation(
  * @param onFocused Callback zmiany fokusa
  * @param focusRequester FocusRequester dla zarządzania fokusem
  */
-@Composable
-private fun SubChannelIcon(
-    text: String,
-    badge: String? = null,
-    isFocused: Boolean,
-    onClick: () -> Unit,
-    onFocused: (Boolean) -> Unit,
-    focusRequester: FocusRequester,
-    sx: (Int) -> androidx.compose.ui.unit.Dp,
-    sy: (Int) -> androidx.compose.ui.unit.Dp
-) {
-    val containerWidth = sx(240)
-    val containerHeight = sy(140) // Smaller than CategoryIcon (216px)
-    val borderColor = if (isFocused) Color(0xFF5AECD3) else Color.Transparent
-    val backgroundColor = if (isFocused) Color(0x4D000000) else Color(0x1A000000) // rgba(0, 0, 0, 0.30) / rgba(0, 0, 0, 0.10)
-
-    Box(
-        modifier = Modifier
-            .width(containerWidth)
-            .height(containerHeight)
-            .then(
-                if (isFocused) {
-                    Modifier.border(
-                        width = (6 * sx(1).value / 1.dp.value).dp,
-                        color = borderColor,
-                        shape = RoundedCornerShape(sx(4))
-                    )
-                } else {
-                    Modifier
-                }
-            )
-            .clip(RoundedCornerShape(sx(4)))
-            .background(backgroundColor)
-            .focusRequester(focusRequester)
-            .onFocusChanged { focusState ->
-                onFocused(focusState.isFocused)
-            }
-            .focusable(),
-        contentAlignment = Alignment.Center
-    ) {
-        // Badge (upper right corner) if present
-        if (badge != null) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .offset(x = -sx(12), y = sy(12))
-                    .background(Color(0xFFFF4444), shape = CircleShape)
-                    .padding(horizontal = sx(8), vertical = sy(4))
-            ) {
-                Text(
-                    text = badge,
-                    color = Color.White,
-                    fontSize = (16 * sy(1).value / 1.dp.value).sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
-
-        // Text content (centered)
-        Text(
-            text = text,
-            textAlign = TextAlign.Center,
-            color = Color(0xFFEEEEEE),
-            fontSize = (20 * sy(1).value / 1.dp.value).sp, // Smaller than CategoryIcon (24sp)
-            fontWeight = FontWeight.Medium,
-            letterSpacing = (0.4 * sy(1).value / 1.dp.value).sp,
-            lineHeight = (20 * 1.33f * sy(1).value / 1.dp.value).sp,
-            maxLines = 2,
-            modifier = Modifier
-                .widthIn(max = sx(200))
-                .padding(horizontal = sx(16))
-        )
-    }
-}
-
-/**
- * SubChannelRow - Wiersz pod-kanału (SubChannelIcon + LazyRow)
- *
- * Struktura:
- * - SubChannelIcon (240x140px) - lewy wskaźnik pod-kanału
- * - LazyRow - pozioma lista zawartości (10 miniaturek 368x208px)
- *
- * @param subChannel Dane pod-kanału
- * @param isFocused Czy wiersz jest zfokusowany
- * @param focusedColIndex Zfokusowana kolumna (-1 = icon, 0+ = content)
- * @param focusRequesters Mapa FocusRequester dla icon + content
- * @param onFocusChange Callback zmiany fokusa
- * @param lazyListState Stan LazyRow dla scrollowania
- */
-@Composable
-private fun SubChannelRow(
-    subChannel: SubChannel,
-    rowIndex: Int,
-    subChannelIndex: Int,
-    isFocused: Boolean,
-    focusedColIndex: Int,
-    focusRequesters: Map<Triple<Int, Int, Int>, FocusRequester>, // Phase 6: Triple keys
-    onFocusChange: (Int, Int) -> Unit,
-    lazyListState: LazyListState,
-    sx: (Int) -> androidx.compose.ui.unit.Dp,
-    sy: (Int) -> androidx.compose.ui.unit.Dp
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(sy(208)) // Content card height
-            .offset(x = sx(80)), // Fix #1: Align with CategoryIcon X position
-        horizontalArrangement = Arrangement.spacedBy(sx(20))
-    ) {
-        // SubChannelIcon (left side)
-        SubChannelIcon(
-            text = subChannel.title,
-            badge = subChannel.badge,
-            isFocused = isFocused && focusedColIndex == -1,
-            onClick = { /* Expand/collapse logic in Phase 5 */ },
-            onFocused = { focused ->
-                if (focused) {
-                    onFocusChange(rowIndex, -1)
-                }
-            },
-            // Phase 6: Use Triple key with subChannelIndex
-            focusRequester = focusRequesters[Triple(rowIndex, -1, subChannelIndex)] ?: FocusRequester(),
-            sx = sx,
-            sy = sy
-        )
-
-        // Content LazyRow (right side)
-        LazyRow(
-            state = lazyListState,
-            horizontalArrangement = Arrangement.spacedBy(sx(20)),
-            contentPadding = PaddingValues(start = sx(0), end = sx(80)),
-            modifier = Modifier.weight(1f)
-        ) {
-            itemsIndexed(subChannel.content) { index, vodContent ->
-                // Phase 6: SubChannelRow content uses fixed focus position (col=0)
-                val isContentFocused = isFocused && focusedColIndex == 0 && index == lazyListState.firstVisibleItemIndex
-
-                // Use existing MojeContentCard (horizontal 368x208px cards)
-                Box(
-                    modifier = Modifier
-                        .width(sx(368))
-                        .height(sy(208))
-                        .then(
-                            if (isContentFocused) {
-                                Modifier.border(
-                                    width = sx(4),
-                                    color = Color(0xFF5AECD3),
-                                    shape = RoundedCornerShape(sx(8))
-                                )
-                            } else {
-                                Modifier
-                            }
-                        )
-                        .clip(RoundedCornerShape(sx(8)))
-                        // Phase 6: Content uses col=0 (fixed focus position) with subChannelIndex
-                        .focusRequester(focusRequesters[Triple(rowIndex, 0, subChannelIndex)] ?: FocusRequester())
-                        .onFocusChanged { focusState ->
-                            if (focusState.isFocused) {
-                                onFocusChange(rowIndex, 0) // Always col=0 for fixed focus position
-                            }
-                        }
-                        .focusable()
-                ) {
-                    AsyncImage(
-                        model = vodContent.imageUrl,
-                        contentDescription = vodContent.title,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
-                }
-            }
-        }
-    }
-}
-
-/**
- * LeftSideMenu - Menu po lewej stronie dla nawigacji pod-kanałów
- *
- * Pojawia się gdy użytkownik naciśnie LEFT z zawartości pod-kanału.
- * Pokazuje listę wszystkich pod-kanałów z bieżącym zfokusowanym.
- *
- * @param subChannels Lista wszystkich pod-kanałów
- * @param focusedSubChannelIndex Aktualnie zfokusowany pod-kanał
- * @param onSubChannelSelect Callback wyboru pod-kanału
- */
-@Composable
-private fun LeftSideMenu(
-    subChannels: List<SubChannel>,
-    focusedSubChannelIndex: Int,
-    onSubChannelSelect: (Int) -> Unit,
-    sx: (Int) -> androidx.compose.ui.unit.Dp,
-    sy: (Int) -> androidx.compose.ui.unit.Dp
-) {
-    Column(
-        modifier = Modifier
-            .width(sx(300))
-            .fillMaxHeight()
-            .background(Color(0xCC000000)) // rgba(0, 0, 0, 0.80) - semi-transparent
-            .padding(sx(24)),
-        verticalArrangement = Arrangement.spacedBy(sy(16))
-    ) {
-        Text(
-            text = "POD-KANAŁY",
-            color = Color(0xFFEEEEEE),
-            fontSize = (20 * sy(1).value / 1.dp.value).sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = sy(16))
-        )
-
-        subChannels.forEachIndexed { index, subChannel ->
-            val isSelected = index == focusedSubChannelIndex
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(sy(60))
-                    .background(
-                        color = if (isSelected) Color(0xFF5AECD3) else Color.Transparent,
-                        shape = RoundedCornerShape(sx(4))
-                    )
-                    .clickable { onSubChannelSelect(index) }
-                    .padding(horizontal = sx(16), vertical = sy(12)),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = subChannel.title,
-                    color = if (isSelected) Color(0xFF48227C) else Color(0xFFEEEEEE),
-                    fontSize = (18 * sy(1).value / 1.dp.value).sp,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.weight(1f)
-                )
-
-                if (subChannel.badge != null) {
-                    Box(
-                        modifier = Modifier
-                            .background(Color(0xFFFF4444), shape = CircleShape)
-                            .padding(horizontal = sx(8), vertical = sy(4))
-                    ) {
-                        Text(
-                            text = subChannel.badge,
-                            color = Color.White,
-                            fontSize = (14 * sy(1).value / 1.dp.value).sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
+// Faza 2: SubChannelIcon, SubChannelRow, and LeftSideMenu composables deleted
+// Sub-channels will be regular channel rows (no special components needed)
 
 @Composable
 fun MojeChannelRowsLayout(
