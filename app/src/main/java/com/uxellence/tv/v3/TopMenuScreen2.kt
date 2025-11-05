@@ -2375,23 +2375,7 @@ private fun MojeChannelsScreen(
     resetTrigger: Int = 0
 ) {
     val context = LocalContext.current
-    val channels = listOf("Oglądaj dalej", "Nagrania", "Do obejrzenia", "Wypożyczone", "Aktywne pakiety")
-
-    val gridContent = remember {
-        val vodContentList = VodDataCache.getVodContentList()
-        val kinoPlayMovies = VodDataCache.getKinoPlayMovies()
-        if (vodContentList.isNotEmpty() && kinoPlayMovies.isNotEmpty()) {
-            channels.associateWith { channelName ->
-                when (channelName) {
-                    "Aktywne pakiety" -> emptyList() // Pakiety uses separate data structure
-                    "Wypożyczone" -> kinoPlayMovies.shuffled().take(10) // Vertical movie posters
-                    else -> vodContentList.shuffled().take(10) // Horizontal content
-                }
-            }
-        } else {
-            emptyMap()
-        }
-    }
+    // Faza 3: Old static channel list deleted - now using dynamic list below based on isNagraniaExpanded
 
     val packages = remember {
         listOf(
@@ -2422,55 +2406,57 @@ private fun MojeChannelsScreen(
         )
     }
 
-    // MARK: - Expandable Channels Test Data (Phase 5)
-    // Test data for NAGRANIA expandable channel with 3 sub-channels
-    // Using mutableStateOf to allow expand/collapse
-    val expandableChannels = remember {
-        val vodContentList = VodDataCache.getVodContentList()
-        if (vodContentList.isNotEmpty()) {
-            mutableStateOf(
-                listOf(
-                    ExpandableChannel(
-                        id = "NAGRANIA",
-                        title = "Nagrania",
-                        logoDrawableId = R.drawable.ic_records, // Assumes this exists
-                        mainContent = vodContentList.shuffled().take(10),
-                        subChannels = listOf(
-                            SubChannel(
-                                id = "POJEDYNCZE",
-                                title = "Pojedyncze nagrania", // Fix #2
-                                content = vodContentList.shuffled().take(10)
-                            ),
-                            SubChannel(
-                                id = "SERIE",
-                                title = "SERIE",
-                                badge = "11",
-                                content = vodContentList.shuffled().take(10)
-                            ),
-                            SubChannel(
-                                id = "ZAPLANOWANE",
-                                title = "ZAPLANOWANE",
-                                content = vodContentList.shuffled().take(10)
-                            )
-                        ),
-                        isExpanded = false // Collapsed by default
-                    )
-                )
+    // MARK: - Faza 3: Simple expansion state tracker
+    // Only tracks whether NAGRANIA is expanded (no nested data)
+    var isNagraniaExpanded by remember { mutableStateOf(false) }
+
+    // Faza 3: Dynamic channel list - changes based on isNagraniaExpanded
+    // Collapsed: 5 channels | Expanded: 8 channels (3 sub-channels inserted after Nagrania)
+    val channels = remember(isNagraniaExpanded) {
+        if (isNagraniaExpanded) {
+            listOf(
+                "Oglądaj dalej",
+                "Nagrania",
+                "Pojedyncze nagrania",  // Sub-channel 1
+                "SERIE",                // Sub-channel 2
+                "ZAPLANOWANE",          // Sub-channel 3
+                "Do obejrzenia",
+                "Wypożyczone",
+                "Aktywne pakiety"
             )
         } else {
-            mutableStateOf(emptyList())
+            listOf(
+                "Oglądaj dalej",
+                "Nagrania",
+                "Do obejrzenia",
+                "Wypożyczone",
+                "Aktywne pakiety"
+            )
         }
     }
 
-    // Helper function to toggle NAGRANIA expansion (Phase 5.2)
+    // Faza 3: Toggle NAGRANIA expansion
     val toggleNagraniaExpansion = {
-        val narganiaIndex = expandableChannels.value.indexOfFirst { it.id == "NAGRANIA" }
-        if (narganiaIndex != -1) {
-            val updated = expandableChannels.value.toMutableList()
-            val nagrania = updated[narganiaIndex]
-            updated[narganiaIndex] = nagrania.copy(isExpanded = !nagrania.isExpanded)
-            expandableChannels.value = updated
-            Log.d("MOJE_DEBUG", "NAGRANIA expanded: ${updated[narganiaIndex].isExpanded}")
+        isNagraniaExpanded = !isNagraniaExpanded
+        Log.d("MOJE_DEBUG", "NAGRANIA expanded: $isNagraniaExpanded (channels: ${channels.size})")
+    }
+
+    // Faza 3: Grid content mapping - maps channel names to content
+    val gridContent = remember(isNagraniaExpanded) {
+        val vodContentList = VodDataCache.getVodContentList()
+        val kinoPlayMovies = VodDataCache.getKinoPlayMovies()
+        if (vodContentList.isNotEmpty() && kinoPlayMovies.isNotEmpty()) {
+            channels.associateWith { channelName ->
+                when (channelName) {
+                    "Aktywne pakiety" -> emptyList() // Pakiety uses separate data structure
+                    "Wypożyczone" -> kinoPlayMovies.shuffled().take(10) // Vertical movie posters
+                    // Sub-channels get their own content (same as main Nagrania for now)
+                    "Pojedyncze nagrania", "SERIE", "ZAPLANOWANE" -> vodContentList.shuffled().take(10)
+                    else -> vodContentList.shuffled().take(10) // Horizontal content
+                }
+            }
+        } else {
+            emptyMap()
         }
     }
 
