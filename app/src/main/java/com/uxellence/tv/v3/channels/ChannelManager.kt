@@ -145,24 +145,36 @@ object ChannelManager {
      *
      * Used to enrich EPG data with stream URLs
      *
-     * @param epgChannelId EPG channel identifier (e.g. "TVP1.pl", "Polsat.pl")
+     * @param epgChannelId EPG channel identifier (e.g. "TVP 1", "Polsat", "TVP1.pl@SD" from iptv-org)
      * @return Channel data or null if no match found
      */
     fun matchWithEpg(epgChannelId: String): TvChannelData? {
         // Try exact epgId match first
         channels.find { it.epgId == epgChannelId }?.let { return it }
 
-        // Try normalized name match (remove .pl, .PL suffix)
+        // Normalize: remove @SD, .pl, .PL suffixes and lowercase
         val normalizedEpgId = epgChannelId
+            .removeSuffix("@SD")
             .removeSuffix(".pl")
             .removeSuffix(".PL")
             .trim()
             .lowercase()
+            .replace(" ", "")  // Remove spaces for fuzzy matching (TVP 1 → tvp1)
 
         return channels.find { channel ->
-            channel.name.lowercase() == normalizedEpgId ||
-            channel.id.lowercase() == normalizedEpgId ||
-            channel.epgId?.removeSuffix(".pl")?.removeSuffix(".PL")?.lowercase() == normalizedEpgId
+            // Normalize channel fields the same way
+            val normalizedChannelName = channel.name.lowercase().replace(" ", "")
+            val normalizedChannelId = channel.id.lowercase().replace(" ", "")
+            val normalizedChannelEpgId = channel.epgId
+                ?.removeSuffix("@SD")
+                ?.removeSuffix(".pl")
+                ?.removeSuffix(".PL")
+                ?.lowercase()
+                ?.replace(" ", "")
+
+            normalizedChannelName == normalizedEpgId ||
+            normalizedChannelId == normalizedEpgId ||
+            normalizedChannelEpgId == normalizedEpgId
         }
     }
 
@@ -193,5 +205,79 @@ object ChannelManager {
      */
     fun getChannelCount(onlyAvailable: Boolean = false): Int {
         return getAllChannels(includeUnavailable = !onlyAvailable).size
+    }
+
+    /**
+     * Get EPG IDs for filtering
+     *
+     * Returns all non-null epgId values from the channel database.
+     * Used to filter EPG parsing to only relevant channels.
+     *
+     * Example usage:
+     * ```kotlin
+     * val filterIds = ChannelManager.getEpgIds()
+     * // Returns: ["TVP 1", "Polsat", "4FUN TV", "TV 4", "Polsat News", "TVP Sport", "TVN 24", "TVP 3", "Polsat News Polityka"]
+     * ```
+     *
+     * @return Set of EPG IDs for O(1) lookup performance
+     */
+    fun getEpgIds(): Set<String> {
+        return channels
+            .mapNotNull { it.epgId }
+            .filter { it.isNotBlank() }
+            .toSet()
+    }
+
+    // ========== ZAPPING BAR INTEGRATION ==========
+
+    /**
+     * Get channel by number
+     *
+     * Used for direct channel entry (user types "12" on remote)
+     *
+     * @param number Channel number (1, 2, 12, 123...)
+     * @return Channel data or null if not found
+     */
+    fun getChannelByNumber(number: Int): TvChannelData? {
+        // Assuming channel numbers match array index (1-based)
+        // Adjust if your channels have explicit "number" field
+        val index = number - 1
+        return if (index >= 0 && index < channels.size) {
+            channels[index]
+        } else {
+            null
+        }
+    }
+
+    /**
+     * Get next channel (for CH+ button)
+     *
+     * @param currentChannelId Current channel ID
+     * @return Next channel in list (wraps to first if at end)
+     */
+    fun getNextChannel(currentChannelId: String): TvChannelData {
+        val currentIndex = channels.indexOfFirst { it.id == currentChannelId }
+        val nextIndex = if (currentIndex >= 0) {
+            (currentIndex + 1) % channels.size
+        } else {
+            0
+        }
+        return channels[nextIndex]
+    }
+
+    /**
+     * Get previous channel (for CH- button)
+     *
+     * @param currentChannelId Current channel ID
+     * @return Previous channel in list (wraps to last if at beginning)
+     */
+    fun getPreviousChannel(currentChannelId: String): TvChannelData {
+        val currentIndex = channels.indexOfFirst { it.id == currentChannelId }
+        val prevIndex = if (currentIndex > 0) {
+            currentIndex - 1
+        } else {
+            channels.size - 1
+        }
+        return channels[prevIndex]
     }
 }

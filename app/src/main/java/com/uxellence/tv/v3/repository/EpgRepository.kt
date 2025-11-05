@@ -2,6 +2,7 @@ package com.uxellence.tv.v3.repository
 
 import android.content.Context
 import androidx.room.Room
+import com.uxellence.tv.v3.channels.ChannelManager
 import com.uxellence.tv.v3.database.*
 import com.uxellence.tv.v3.epg.*
 import kotlinx.coroutines.*
@@ -36,7 +37,7 @@ class EpgRepository private constructor(context: Context) {
         
         private const val EPG_METADATA_KEY = "main_epg"
         private const val CACHE_DURATION_HOURS = 6L
-        private const val MAX_CHANNELS_LOAD = 50
+        private const val MAX_CHANNELS_LOAD = 300  // Increased to include all Polish channels
     }
     
     // Public interface matching existing EpgGuide
@@ -368,17 +369,32 @@ class EpgRepository private constructor(context: Context) {
         maxChannels: Int
     ): EpgGuide {
         return withContext(Dispatchers.IO) {
-            // Parse fresh data from network
+            // Get EPG IDs from ChannelManager (if available) for intelligent filtering
+            val filterIds = if (ChannelManager.isInitialized()) {
+                ChannelManager.getEpgIds().also { ids ->
+                    android.util.Log.d("EpgRepository", "Intelligent filtering enabled: ${ids.size} channels")
+                    android.util.Log.d("EpgRepository", "Filter IDs: ${ids.joinToString()}")
+                }
+            } else {
+                null.also {
+                    android.util.Log.w("EpgRepository", "ChannelManager not initialized, loading first $maxChannels channels")
+                }
+            }
+
+            // Parse fresh data from network with intelligent filtering
             val freshGuide = XmlTvParser.parseUrlWindowForTopChannels(
                 url = "https://epg.ovh/pltv.gz",
                 maxChannels = maxChannels,
                 windowStart = startTime,
-                windowEnd = endTime
+                windowEnd = endTime,
+                filterChannelIds = filterIds  // Intelligent filtering parameter
             )
-            
+
+            android.util.Log.d("EpgRepository", "EPG loaded: ${freshGuide.channels.size} channels, ${freshGuide.programs.size} programs")
+
             // Save to database
             saveToCache(freshGuide)
-            
+
             // Update metadata
             metadataDao.insertMetadata(
                 EpgMetadata(
@@ -388,7 +404,7 @@ class EpgRepository private constructor(context: Context) {
                     totalPrograms = freshGuide.programs.size
                 )
             )
-            
+
             freshGuide
         }
     }
@@ -441,6 +457,22 @@ class EpgRepository private constructor(context: Context) {
         return channels.isEmpty()
     }
     
+    // Debug function to log all channels and program counts
+    suspend fun debugLogChannelIds() {
+        val channels = channelDao.getAllChannels()
+        val now = Instant.now()
+        val startOfDay = now.atZone(java.time.ZoneId.systemDefault())
+            .toLocalDate().atStartOfDay(java.time.ZoneId.systemDefault()).toInstant()
+        val endOfDay = startOfDay.plus(Duration.ofDays(1))
+
+        android.util.Log.d("EPG_DEBUG", "=== EPG DATABASE CHANNELS (${channels.size} total) ===")
+        channels.forEach { channel ->
+            val programCount = programDao.getProgramsForChannel(channel.id, startOfDay, endOfDay).size
+            android.util.Log.d("EPG_DEBUG", "  ID: '${channel.id}' | Name: '${channel.name}' | Programs today: $programCount")
+        }
+        android.util.Log.d("EPG_DEBUG", "=== END CHANNEL LIST ===")
+    }
+
     // Helper function for consistent full day time windows
     private fun getFullDayWindow(): Pair<Instant, Instant> {
         val now = Instant.now()

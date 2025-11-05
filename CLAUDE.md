@@ -710,11 +710,36 @@ SafeNavigationScope(
 - **Files**: `TopMenuScreen2.kt:201-204` (VodWithChannels handles its own navigation via `handleVodNavigation`)
 - **Documentation**: Added comprehensive Section Navigation Delegation Pattern to CLAUDE.md
 
+#### **Issue #4: EpgDayScreen Monolithic Handler Refactoring** (2025-10-31)
+- **Issue**: Monolityczny `onPreviewKeyEvent` handler (376 linii) obsługujący wszystko: CH+/CH-/Digits/UP/DOWN/LEFT/RIGHT/OK/BACK/Special keys
+- **Symptoms**:
+  1. BACK wyłącza aplikację zamiast wrócić do zakładki Telewizja
+  2. CH+/CH- przestaje działać po auto-hide Zapping Bar (utrata fokusu)
+  3. Czarny ekran na starcie zamiast live TV
+  4. Złożona 4-poziomowa logika BACK była wrażliwa i niedziałała deterministycznie
+- **Root Cause**: Antywzorzec - Single monolithic handler zamiast delegacji do kontrolerów (Focus Architect violation)
+- **Solution**: Proper Refactoring - Ekstrakcja do 3 wyspecjalizowanych kontrolerów:
+  1. **ZappingBarController** (80 linii) - CH+/CH-/Digits → Zapping Bar
+  2. **BackNavigationController** (90 linii) - BACK (uproszczony 2-poziomowy zamiast 4)
+  3. **EpgNavigationController** (95 linii) - UP/DOWN/LEFT/RIGHT/OK
+  4. **Simplified handler** (54 linie) - Delegacja w priority order: Zapping → BACK → Navigation → Special keys
+- **Result**:
+  - ✅ 86% redukcja linii kodu w main handler (376 → 54)
+  - ✅ BACK działa poprawnie (2-poziomowa logika: Hide interface → Exit)
+  - ✅ CH+/CH- działa po auto-hide (`rootFocus.requestFocus()` restore)
+  - ✅ GUI widoczne na starcie (`interfaceVisible = true`)
+  - ✅ Focus Architect compliance - delegation pattern z callbacks
+- **Files**:
+  - Created: `ZappingBarController.kt`, `BackNavigationController.kt`, `EpgNavigationController.kt`
+  - Modified: `EpgDayScreen.kt:573-694` (controller init + simplified handler)
+- **Documentation**: Full refactoring documented in this section
+
 #### **Key Learnings**
 1. **Delegation Pattern**: Sections with complex multi-row navigation (MOJE, START, APLIKACJE, VOD) should delegate ALL keys to child components
 2. **Callback Pattern**: Child components use `onReturnToMenu` callback for menu transitions instead of parent intercepting keys
 3. **Consistency**: All similar sections should follow the same pattern for maintainability
 4. **Documentation**: Critical patterns must be documented in CLAUDE.md with examples and checklists
+5. **Monolithic Handlers Are Anti-patterns**: Extract to specialized controllers (Focus Architect principle) - prevents conflicts, improves maintainability, reduces bugs
 
 ---
 
@@ -1129,3 +1154,182 @@ private const val MOJE_CONTENT_FOCUS_EXTRA_SPACING = 100 // Dodatkowe odsunięci
 - Plik: `TopMenuScreen2.kt:930` - funkcja `calculateMojeChannelYPosition`
 - Wzorowana na Version001Screen z dostosowanymi wartościami
 - Automatyczne wykrywanie fokusa: CategoryIcon (`focusedColIndex == -1`) vs treść (`focusedColIndex >= 0`)
+
+---
+
+## 🤖 AVAILABLE SKILLS & AGENTS
+
+When working on this project, Claude should reference these expert agents as needed:
+
+### 🔧 Channel Type Specialist
+**File:** `skills/channel-type-specialist/SKILL.md`
+**Use when:** 
+- Adding or modifying any of 8 channel types (horizontal, vertical, app-icons, top10, slider-max, collection-slider, shortcuts, epg-channels)
+- Working with positioning algorithms (calculateYPosition functions)
+- Troubleshooting focus management or navigation issues
+- Understanding 3-layer architecture (Component/Row/Positioning)
+- Implementing channel-specific animations or behaviors
+
+### 🎨 Layout Engineer
+**File:** `skills/layout-engineer/SKILL.md`
+**Use when:** 
+- Converting Figma designs to Compose code
+- Working with responsive scaling (sx/sy functions)
+- Positioning elements precisely on screen
+- Implementing visual design requirements from mockups
+- Calculating proper spacing and dimensions
+
+### 🎯 Focus Architect
+**File:** `skills/focus-architect/SKILL.md`
+**Use when:** 
+- Navigation problems or focus conflicts arise
+- Key event handling issues (BACK, UP, DOWN, LEFT, RIGHT)
+- Focus state management and FocusRequester coordination
+- D-pad navigation optimization for Android TV
+- Debugging callback delegation patterns
+
+### 📦 Version Control Workflow
+**File:** `skills/version-control-workflow/SKILL.md`
+**Use when:** 
+- Committing changes or creating branches
+- Version control operations needed
+- ALWAYS use instead of manual backups!
+- Git workflow guidance or best practices needed
+- Creating structured commit messages
+
+---
+
+**Note for Claude Code**: When a task relates to any of the above areas, automatically read the relevant SKILL.md file to get expert guidance before proceeding with implementation. These Skills contain specialized knowledge, patterns, and best practices specific to this project's architecture.
+
+---
+
+## 🔍 SKILL DISCOVERY & EXPANSION
+
+### Purpose
+This section tracks potential areas that might benefit from dedicated Skills/Agents as the project evolves.
+
+### Areas Under Consideration
+
+#### 🎬 VoD Content Management System
+**Status**: 🟡 Candidate for Skill
+**Complexity**: Medium-High
+**Why**: 
+- CSV parsing with multiple formats (semicolon vs comma)
+- Data transformation (VodContent model)
+- Cache management system
+- Multiple data sources (seriale_playnow, vod_data.csv)
+**Current files**: `VodAdapter.kt`, cache system
+**Decision**: Monitor - if parsing issues arise frequently, create Skill
+
+#### 📊 EPG Data System
+**Status**: 🟡 Candidate for Skill  
+**Complexity**: High
+**Why**:
+- XML-TV parsing (64MB+ files)
+- Time-based filtering (last 24h)
+- Category detection (movies, series, sports, game shows)
+- Channel aggregation logic
+**Current files**: `EpgRepository.kt`, `XmlTvParser.kt`, `EpgAdapter.kt`
+**Decision**: Monitor - complex domain logic may warrant dedicated agent
+
+#### 🎨 Animation Choreography System
+**Status**: 🟢 Low Priority
+**Complexity**: Medium
+**Why**:
+- Slide-down animations (290px)
+- Timing coordination (350ms delays)
+- Synchronization between components
+- Auto-reset behaviors
+**Current files**: `Version001Screen.kt`, `TopMenuScreen2.kt`
+**Decision**: Well-documented in existing files, create Skill only if animation bugs become frequent
+
+#### 🎨 Design System & Theming
+**Status**: 🟢 Low Priority
+**Complexity**: Low-Medium
+**Why**:
+- Color palette management (#48227C, #5AECD3, etc.)
+- Responsive scaling (sx/sy functions)
+- Component sizing standards
+**Current files**: Theme files, utility functions
+**Decision**: Layout Engineer Skill already covers this partially
+
+#### 🧪 TV Component Testing Patterns
+**Status**: 🔴 Future Consideration
+**Complexity**: Medium
+**Why**:
+- D-pad navigation testing
+- Focus state verification
+- TV-specific test utilities
+**Current status**: Not yet implemented
+**Decision**: Create Skill when test suite development begins
+
+---
+
+### When to Create a New Skill
+
+**Create a Skill when:**
+✅ System/pattern used in **3+ different places**
+✅ Complex logic with **multiple edge cases** that require deep understanding
+✅ Requires **specialized domain knowledge** (e.g., Android TV APIs, EPG standards)
+✅ Area is **frequently debugged** or causes repeated issues
+✅ New team members would benefit from **expert guidance** in this area
+✅ Logic has **evolved significantly** and needs consolidated documentation
+
+**Don't create a Skill when:**
+❌ Pattern is simple and self-explanatory
+❌ Used in only 1-2 places
+❌ Already well-covered by existing Skill
+❌ Logic is stable and rarely touched
+
+---
+
+### How to Propose a New Skill
+
+**Step 1: Analysis Request**
+```
+"Analyze [System Name] - should this become a dedicated Skill?
+- Where is it used?
+- How complex is the logic?
+- What are common issues?
+- Would a Skill provide value?"
+```
+
+**Step 2: Skill Creation** (if approved)
+```
+"Create a new Skill for [System Name]:
+1. Create skills/[system-name]/SKILL.md
+2. Document: purpose, patterns, edge cases, examples
+3. Update CLAUDE.md with new Skill reference
+4. Create ZIP package for Claude Desktop"
+```
+
+**Step 3: Testing**
+```
+"Use the new [System Name] Skill to solve [specific problem]"
+```
+
+---
+
+### Skill Maintenance Log
+
+**2025-10-20**: Initial Skills setup
+- ✅ Channel Type Specialist
+- ✅ Layout Engineer
+- ✅ Focus Architect
+- ✅ Version Control Workflow
+- 📝 Discovery system established
+
+**Future additions**: (track here when new Skills are created)
+
+---
+
+### Quick Discovery Command
+
+To scan for undocumented systems that might need Skills:
+```
+"Discovery Agent: Scan project for:
+1. Repeated patterns across multiple files
+2. Complex systems without dedicated documentation  
+3. Areas with frequent bug fixes
+4. Suggest top 3 candidates for new Skills"
+```

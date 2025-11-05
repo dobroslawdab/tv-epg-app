@@ -71,6 +71,7 @@ data class VodItem(
 
 @Serializable
 data class VodContent(
+    val id: String,  // Unique identifier for ID-based focus restoration
     val title: String,
     val description: String,
     val category: String,
@@ -117,6 +118,7 @@ fun loadVodContentFromAssets(context: Context): List<VodContent> {
         val vodItems = json.decodeFromString<List<VodItem>>(jsonString)
         vodItems.map { item ->
             VodContent(
+                id = "legacy_${item.tytul.hashCode()}_${item.link.hashCode()}",
                 title = item.tytul,
                 description = item.opis,
                 category = item.kategoria,

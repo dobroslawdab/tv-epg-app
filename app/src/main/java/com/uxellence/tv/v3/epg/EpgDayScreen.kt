@@ -120,6 +120,7 @@ private const val EPG_DAY_VIEWPORT_HEIGHT_MULTI = 446   // 3 channels (3×142 + 
 fun EpgDayScreen(
     onBackPressed: () -> Unit,  // Focus Architect: callback delegation to MainActivity
     onNavigateToPipMode: (ExoPlayer?, String) -> Unit = { _, _ -> },  // PIP callback
+    showTopMenuOverlay: Boolean = false,  // Show overlay only when launched from startup mode (MODE_EPG_DAY)
     sx: (Int) -> Dp,            // Layout Engineer: ALWAYS sx/sy parameters
     sy: (Int) -> Dp
 ) {
@@ -145,12 +146,29 @@ fun EpgDayScreen(
     var isExpanded by remember { mutableStateOf(false) }  // false = 1 channel, true = 3+ channels
 
     // NEW: Interface visibility state (for BACK navigation)
-    // Start with GUI visible (user expects to see interface when entering EPG)
-    var interfaceVisible by remember { mutableStateOf(true) }
+    // Start with GUI hidden in startup mode (showTopMenuOverlay=true)
+    // GUI visible when launched from menu (showTopMenuOverlay=false)
+    var interfaceVisible by remember { mutableStateOf(!showTopMenuOverlay) }
 
     // Track manual hide (BACK button) vs automatic hide (Zapping Bar auto-hide)
     // This prevents GUI from re-appearing after BACK button hide
     var wasManuallyHidden by remember { mutableStateOf(false) }
+
+    // TOP MENU OVERLAY: Show on startup, hide when GUI appears
+    var overlayVisible by remember { mutableStateOf(true) }
+
+    // Set initial PlayerInterfaceManager state based on launch mode
+    LaunchedEffect(showTopMenuOverlay) {
+        if (showTopMenuOverlay) {
+            // Startup mode: hide GUI initially (user sees TopMenuOverlay, GUI appears on key press)
+            PlayerInterfaceManager.hide()
+            android.util.Log.d("EpgDayScreen", "Startup mode: GUI hidden initially")
+        } else {
+            // Menu mode: show GUI immediately (expected behavior when launched from TELEWIZJA)
+            PlayerInterfaceManager.showGui()
+            android.util.Log.d("EpgDayScreen", "Menu mode: GUI visible initially")
+        }
+    }
 
     // NEW: Reference time for synchronization (instead of always using now())
     var focusedTime by remember { mutableStateOf(Instant.now()) }
@@ -603,6 +621,7 @@ fun EpgDayScreen(
         // Show GUI interface on any navigation key
         PlayerInterfaceManager.showGui()
         wasManuallyHidden = false  // Reset flag when user shows GUI
+        overlayVisible = false  // Hide TopMenuOverlay when GUI appears
 
         when (direction) {
             NavigationDirection.UP -> {
@@ -719,8 +738,13 @@ fun EpgDayScreen(
         )
     }
 
-    // Controller 2: BACK navigation (simplified 2-level logic)
-    val backController = remember { BackNavigationController(onBackPressed) }
+    // Controller 2: BACK navigation (conditional exit based on launch mode)
+    val backController = remember {
+        BackNavigationController(
+            onExit = onBackPressed,
+            isStartupMode = showTopMenuOverlay  // Startup mode = stay on screen, Menu mode = exit
+        )
+    }
 
     // Controller 3: EPG Grid navigation (UP/DOWN/LEFT/RIGHT/OK)
     val navController = remember {
@@ -729,6 +753,7 @@ fun EpgDayScreen(
             onShowGui = {
                 interfaceVisible = true
                 PlayerInterfaceManager.showGui()
+                overlayVisible = false  // Hide TopMenuOverlay when GUI appears
             }
         )
     }
@@ -746,6 +771,13 @@ fun EpgDayScreen(
                 }
             }
         }
+    }
+
+    // Auto-hide TopMenuOverlay after 10 seconds
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(10000) // 10 seconds
+        overlayVisible = false
+        android.util.Log.d("EpgDayScreen", "TopMenuOverlay auto-hidden after 10 seconds")
     }
 
     Box(
@@ -1022,6 +1054,21 @@ fun EpgDayScreen(
                 // Both interfaces hidden - clean player view
                 // No overlay rendering
             }
+        }
+
+        // TOP MENU OVERLAY: Show ONLY when launched from startup mode (MODE_EPG_DAY)
+        // NOT shown when launched from TOP_MENU2 (clicking on channel)
+        if (showTopMenuOverlay) {
+            TopMenuOverlay(
+                visible = overlayVisible,
+                onDismiss = {
+                    overlayVisible = false
+                    android.util.Log.d("EpgDayScreen", "TopMenuOverlay dismissed by user")
+                },
+                sx = sx,  // Layout Engineer: responsive horizontal scaling
+                sy = sy,  // Layout Engineer: responsive vertical scaling
+                modifier = Modifier.fillMaxSize()
+            )
         }
     }
 }

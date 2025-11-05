@@ -79,6 +79,7 @@ object VodDataCache {
             val vodItems = json.decodeFromString<List<VodItem>>(jsonString)
             vodItems.map { item ->
                 VodContent(
+                    id = "vod_${item.tytul.hashCode()}_${item.link.hashCode()}",  // Unique ID for focus restoration
                     title = item.tytul,
                     description = item.opis,
                     category = item.kategoria,
@@ -100,6 +101,7 @@ object VodDataCache {
 
             movies.map { item ->
                 VodContent(
+                    id = "kino_${item.tytul.hashCode()}_${item.link.hashCode()}",  // Unique ID for focus restoration
                     title = item.tytul,
                     description = item.opis,
                     category = item.kategoria,

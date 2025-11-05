@@ -79,6 +79,7 @@ fun SliderMixScreen(
     val channels = remember {
         listOf(
             VodContent(
+                id = "test_tvp1",
                 title = "TVP1",
                 description = "Telewizja Polska - pierwszy program",
                 category = "Live TV",
@@ -87,6 +88,7 @@ fun SliderMixScreen(
                 link = "https://ec06-krk3.cache.orange.pl/dai4/org1/vb/104/tvp1hd/index.m3u8"
             ),
             VodContent(
+                id = "test_polsat",
                 title = "Polsat",
                 description = "Telewizja Polsat",
                 category = "Live TV",
@@ -95,6 +97,7 @@ fun SliderMixScreen(
                 link = "https://lb2-e2-19.pluscdn.pl/ch/1502600/308/dash/20a18c30/live.mpd"
             ),
             VodContent(
+                id = "test_polsat_news",
                 title = "Polsat News",
                 description = "Polsat News - informacje 24h",
                 category = "Live TV",
@@ -103,6 +106,7 @@ fun SliderMixScreen(
                 link = "http://cdn-s-lb2.pluscdn.pl/lv/1517830/349/dash/81ec4c32/live.mpd"
             ),
             VodContent(
+                id = "test_polsat_news_polityka",
                 title = "Polsat News Polityka",
                 description = "Polsat News Polityka - polityka i komentarze",
                 category = "Live TV",
@@ -111,6 +115,7 @@ fun SliderMixScreen(
                 link = "https://lb2-e3-20.pluscdn.pl/lv/1511888/322/dash/52a9b70b/live.mpd"
             ),
             VodContent(
+                id = "test_polsat_viasat_nature",
                 title = "Polsat Viasat Nature",
                 description = "Polsat Viasat Nature - natura i przyroda",
                 category = "Live TV",
@@ -119,6 +124,7 @@ fun SliderMixScreen(
                 link = "https://liveovh010.cda.pl/enc104/polsatviasatnaturehdraw/polsatviasatnaturehdraw.mpd"
             ),
             VodContent(
+                id = "test_4fun_tv",
                 title = "4Fun TV",
                 description = "4Fun TV - muzyka i rozrywka",
                 category = "Live TV",
@@ -127,6 +133,7 @@ fun SliderMixScreen(
                 link = "https://stream.4fun.tv:8888/hls/4f.m3u8"
             ),
             VodContent(
+                id = "test_viasat_explore_classic",
                 title = "Viasat Explore Classic",
                 description = "Viasat Explore Classic - dokumenty i historia",
                 category = "Live TV",
@@ -135,6 +142,7 @@ fun SliderMixScreen(
                 link = "https://da9c49fa.wurl.com/master/f36d25e7e52f1ba8d7e56eb859c636563214f541/UmFrdXRlblRWLXBsX1ZpYXNhdEV4cGxvcmVfSExT/playlist.m3u8"
             ),
             VodContent(
+                id = "test_euronews",
                 title = "Euronews",
                 description = "Euronews - wiadomości z Europy i świata",
                 category = "Live TV",
@@ -143,6 +151,7 @@ fun SliderMixScreen(
                 link = "https://7060743b4b224241b86325460b14d152.mediatailor.eu-west-1.amazonaws.com/v1/master/0547f18649bd788bec7b67b746e47670f558b6b2/production-LiveChannel-6769/bitok/eyJzdGlkIjoiMTE3OTllNGEtYmU1OC00ZjQyLTkxOTYtY2VlYWQzZGU2MDJjIiwibWt0IjoicGwiLCJjaCI6Njc2OSwicHRmIjo1fQ==/26235/euronews-pl.m3u8"
             ),
             VodContent(
+                id = "test_top_movies_polska",
                 title = "Top Movies Polska",
                 description = "Top Movies Polska - najlepsze filmy",
                 category = "Live TV",
@@ -165,6 +174,7 @@ fun SliderMixScreen(
             repeat(3) { index ->
                 mixedList.add(
                     VodContent(
+                        id = "test_empty_slide_${index + 1}",
                         title = "Pusty slajd ${index + 1}",
                         description = "Miejsce na przyszłą zawartość",
                         category = "Empty",

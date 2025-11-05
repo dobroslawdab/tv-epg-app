@@ -95,6 +95,7 @@ object EpgAdapter {
 
                 currentProgram.let { program ->
                     VodContent(
+                        id = "epg_${program.channelId.replace(" ", "_")}_${program.startUtc.epochSecond}",  // Unique ID (normalized channelId)
                         title = program.title,
                         description = buildDescription(channelName, program),
                         category = buildMetadataString(program),
@@ -131,6 +132,7 @@ object EpgAdapter {
                 android.util.Log.d("EpgAdapter", "    categories: ${program.categories}")
 
                 VodContent(
+                    id = "epg_${program.channelId.replace(" ", "_")}_${program.startUtc.epochSecond}",  // Unique ID (normalized channelId)
                     title = program.title,
                     description = buildDescriptionForMovies(channelName, program),
                     category = buildMetadataString(program),
@@ -163,6 +165,7 @@ object EpgAdapter {
                 android.util.Log.d("EpgAdapter", "    categories: ${program.categories}")
 
                 VodContent(
+                    id = "epg_${program.channelId.replace(" ", "_")}_${program.startUtc.epochSecond}",  // Unique ID (normalized channelId)
                     title = program.title,
                     description = buildDescriptionForMovies(channelName, program),
                     category = buildMetadataString(program),
@@ -194,6 +197,7 @@ object EpgAdapter {
                 android.util.Log.d("EpgAdapter", "    categories: ${program.categories}")
 
                 VodContent(
+                    id = "epg_${program.channelId.replace(" ", "_")}_${program.startUtc.epochSecond}",  // Unique ID (normalized channelId)
                     title = program.title,
                     description = buildDescriptionForMovies(channelName, program),
                     category = buildMetadataString(program),
@@ -225,6 +229,7 @@ object EpgAdapter {
                 android.util.Log.d("EpgAdapter", "    categories: ${program.categories}")
 
                 VodContent(
+                    id = "epg_${program.channelId.replace(" ", "_")}_${program.startUtc.epochSecond}",  // Unique ID (normalized channelId)
                     title = program.title,
                     description = buildDescriptionForMovies(channelName, program),
                     category = buildMetadataString(program),

@@ -16,14 +16,16 @@ import com.uxellence.tv.v3.PlayerInterfaceState
  * 3-Level Logic:
  * Level 1: Expanded viewport (3 channels) → Collapse to 1 channel + Reset to currently playing program
  * Level 2: Interface visible (GUI) → Hide it
- * Level 3: All interfaces hidden → Exit screen
+ * Level 3: All interfaces hidden → Exit (menu mode) OR stay (startup mode)
  *
  * Delegation Pattern:
  * - Parent (EpgDayScreen) provides callbacks: onCollapseAndResetToNow, onHideInterface, onExit
  * - Controller handles decision logic, delegates actions via callbacks
+ * - Note: onExit callback is called only in menu mode (isStartupMode = false)
  */
 class BackNavigationController(
-    private val onExit: () -> Unit
+    private val onExit: () -> Unit,
+    private val isStartupMode: Boolean  // true = startup (no exit), false = menu (exit allowed)
 ) {
     private val TAG = "BackNavController"
 
@@ -58,11 +60,16 @@ class BackNavigationController(
                 true
             }
 
-            // LEVEL 3: Exit to TELEWIZJA tab
+            // LEVEL 3: All interfaces hidden → Exit (menu mode) OR stay (startup mode)
             else -> {
-                Log.d(TAG, "Level 3: Exit screen (return to TELEWIZJA)")
-                onExit()
-                true
+                if (isStartupMode) {
+                    Log.d(TAG, "Level 3 (Startup mode): Stay on screen")
+                    true  // Consume key but don't exit
+                } else {
+                    Log.d(TAG, "Level 3 (Menu mode): Exit screen")
+                    onExit()
+                    true
+                }
             }
         }
     }

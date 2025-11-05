@@ -69,6 +69,7 @@ fun loadKinoPlayMoviesFromAssets(context: android.content.Context): List<VodCont
         
         movies.map { item ->
             VodContent(
+                id = "channel_${item.tytul.hashCode()}_${item.link.hashCode()}",  // Unique ID for focus restoration
                 title = item.tytul,
                 description = item.opis,
                 category = item.kategoria,

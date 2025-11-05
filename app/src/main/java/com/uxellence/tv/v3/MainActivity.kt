@@ -67,7 +67,7 @@ class MainActivity : ComponentActivity() {
 }
 
 enum class NavigationScreen {
-    HOME, LIVE, COMPONENT_SHOWCASE, TOP_MENU, TOP_MENU2, SHORTCUT, CHANNELE, VIDEOSLIDER, SLIDER, SLIDER_MIX, EPG, EPG_DAY, FOCUS_MINI_CARD, VOICE_TEST, SPLASH, WHATS_NEW, STARTUP_MODE_SELECTION
+    HOME, LIVE, COMPONENT_SHOWCASE, TOP_MENU, TOP_MENU2, SHORTCUT, CHANNELE, VIDEOSLIDER, SLIDER, SLIDER_MIX, EPG, EPG_DAY, FOCUS_MINI_CARD, VOICE_TEST, SPLASH, WHATS_NEW, STARTUP_MODE_SELECTION, ZAPPING_BAR
 }
 
 // Kolory z Figma dla nowego menu
@@ -287,6 +287,9 @@ fun TvRoot() {
     var pipStreamUrl by remember { mutableStateOf<String?>(null) }
     var pipMode by remember { mutableStateOf(false) }
 
+    // Track if EPG_DAY was launched from startup (show overlay) or from TOP_MENU2 (no overlay)
+    var isEpgDayFromStartup by remember { mutableStateOf(false) }
+
     // Start background EPG loading on app start
     LaunchedEffect(Unit) {
         repository.startBackgroundRefresh()
@@ -306,6 +309,7 @@ fun TvRoot() {
             MainMenuItem(id = "startup_mode", title = "⚙️ Tryb startowy", navigationScreen = NavigationScreen.STARTUP_MODE_SELECTION),
             MainMenuItem(id = "whats_new", title = "What's New", navigationScreen = NavigationScreen.WHATS_NEW),
             MainMenuItem(id = "epg_day", title = "📺 EPG Day Test", navigationScreen = NavigationScreen.EPG_DAY),
+            MainMenuItem(id = "zapping_bar", title = "🔀 Zapping Bar", navigationScreen = NavigationScreen.ZAPPING_BAR),
             MainMenuItem(id = "voice_test", title = "🎤 Wyszukiwanie głosowe test", navigationScreen = NavigationScreen.VOICE_TEST),
             MainMenuItem(id = "top_menu2", title = "Top Menu 2", navigationScreen = NavigationScreen.TOP_MENU2),
             MainMenuItem(id = "slider_mix", title = "Slider_mix", navigationScreen = NavigationScreen.SLIDER_MIX),
@@ -346,7 +350,10 @@ fun TvRoot() {
 
                         // Normalny start: użyj zapisanego trybu startowego
                         else -> when (com.uxellence.tv.v3.utils.VersionTracker.getStartupMode(context)) {
-                            com.uxellence.tv.v3.utils.VersionTracker.MODE_EPG_DAY -> NavigationScreen.EPG_DAY
+                            com.uxellence.tv.v3.utils.VersionTracker.MODE_EPG_DAY -> {
+                                isEpgDayFromStartup = true  // Launched from startup - show overlay
+                                NavigationScreen.EPG_DAY
+                            }
                             else -> NavigationScreen.TOP_MENU2
                         }
                     }
@@ -379,7 +386,10 @@ fun TvRoot() {
                     onModeSelected = { mode ->
                         // ZAWSZE przejdź do wybranego trybu (nawet z menu HOME)
                         currentScreen = when (mode) {
-                            com.uxellence.tv.v3.utils.VersionTracker.MODE_EPG_DAY -> NavigationScreen.EPG_DAY
+                            com.uxellence.tv.v3.utils.VersionTracker.MODE_EPG_DAY -> {
+                                isEpgDayFromStartup = true  // Selected startup mode - show overlay
+                                NavigationScreen.EPG_DAY
+                            }
                             else -> NavigationScreen.TOP_MENU2
                         }
                     },
@@ -540,7 +550,25 @@ fun TvRoot() {
                         previousScreen = NavigationScreen.EPG_DAY
                         currentScreen = NavigationScreen.TOP_MENU2
                     },
+                    showTopMenuOverlay = isEpgDayFromStartup,  // Show overlay only when launched from startup
                     sx = ::sx,  // Layout Engineer: ALWAYS pass sx/sy
+                    sy = ::sy
+                )
+            }
+            NavigationScreen.ZAPPING_BAR -> {
+                // Layout Engineer: Setup sx/sy scaling functions
+                val configuration = LocalConfiguration.current
+                val scaleX = configuration.screenWidthDp / 1920f
+                val scaleY = configuration.screenHeightDp / 1080f
+                fun sx(px: Int) = (px * scaleX).dp
+                fun sy(px: Int) = (px * scaleY).dp
+
+                ZappingBarScreen(
+                    onBackPressed = {
+                        // Focus Architect: callback delegation - return to HOME
+                        currentScreen = NavigationScreen.HOME
+                    },
+                    sx = ::sx,
                     sy = ::sy
                 )
             }
@@ -616,6 +644,7 @@ fun TvRoot() {
                         )
                         savedTelewizjaSection = sectionId
                         previousScreen = currentScreen
+                        isEpgDayFromStartup = false  // Launched from TOP_MENU2 - NO overlay
                         currentScreen = NavigationScreen.EPG_DAY
                     },
                     onFocusRestored = {

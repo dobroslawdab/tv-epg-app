@@ -175,7 +175,8 @@ object XmlTvParser {
         url: String,
         maxChannels: Int,
         windowStart: Instant,
-        windowEnd: Instant
+        windowEnd: Instant,
+        filterChannelIds: Set<String>? = null  // Intelligent filtering: if provided, only parse channels in this set
     ): EpgGuide = withContext(Dispatchers.IO) {
         val conn = (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = 6000
@@ -230,9 +231,25 @@ object XmlTvParser {
                         XmlPullParser.START_TAG -> {
                             currentTag = parser.name
                             when (currentTag) {
-                                "channel" -> if (!channelsClosed && selectedIds.size < maxChannels) {
-                                    channelId = parser.getAttributeValue(null, "id")
-                                    channelName = null
+                                "channel" -> if (!channelsClosed) {
+                                    val id = parser.getAttributeValue(null, "id")
+
+                                    // Apply filtering logic
+                                    val shouldProcess = if (filterChannelIds != null) {
+                                        // Filter mode: only process if ID in filter set
+                                        filterChannelIds.contains(id) && selectedIds.size < maxChannels
+                                    } else {
+                                        // Legacy mode: process first maxChannels
+                                        selectedIds.size < maxChannels
+                                    }
+
+                                    if (shouldProcess) {
+                                        channelId = id
+                                        channelName = null
+                                    } else {
+                                        channelId = null
+                                        channelName = null
+                                    }
                                 } else {
                                     channelId = null; channelName = null
                                 }
@@ -265,9 +282,17 @@ object XmlTvParser {
                         }
                         XmlPullParser.END_TAG -> {
                             when (parser.name) {
-                                "channel" -> if (!channelsClosed && channelId != null && channelName != null && selectedIds.size < maxChannels) {
-                                    channels += EpgChannel(channelId!!, channelName!!)
-                                    selectedIds += channelId!!
+                                "channel" -> if (!channelsClosed && channelId != null && channelName != null) {
+                                    val shouldAdd = if (filterChannelIds != null) {
+                                        filterChannelIds.contains(channelId) && selectedIds.size < maxChannels
+                                    } else {
+                                        selectedIds.size < maxChannels
+                                    }
+
+                                    if (shouldAdd) {
+                                        channels += EpgChannel(channelId!!, channelName!!)
+                                        selectedIds += channelId!!
+                                    }
                                     channelId = null; channelName = null
                                 }
                                 "programme" -> if (progChannel != null) {
@@ -293,6 +318,10 @@ object XmlTvParser {
                             currentTag = null
                         }
                         }
+
+                        // Note: Early exit optimization removed - it was terminating before program parsing
+                        // Parser continues through entire time window to collect programs for filtered channels
+
                         event = parser.next()
                     } catch (e: Exception) {
                         // Skip problematic XML element and continue

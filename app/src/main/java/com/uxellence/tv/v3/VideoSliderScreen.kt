@@ -73,6 +73,7 @@ fun VideoSliderScreen() {
         listOf(
             // Hotel slide 1
             VodContent(
+                id = "test_slider_1",
                 title = "Grand Budapest Hotel",
                 description = "Odkryj magię tego wyjątkowego hotelu, gdzie każdy pokój to opowieść, a każdy gość staje się częścią legendy. Położony w sercu malowniczego miasta, oferuje niezapomniane doświadczenia i najwyższy standard obsługi.",
                 category = "Hotel",
@@ -82,6 +83,7 @@ fun VideoSliderScreen() {
             ),
             // Hotel slide 2
             VodContent(
+                id = "test_slider_2",
                 title = "Luxury Resort & Spa",
                 description = "Nowoczesny ośrodek wypoczynkowy z własną plażą i centrum SPA. Idealny na relaks i regenerację w otoczeniu przepięknej natury. Każdy dzień tutaj to niezapomniane chwile pełne luksusu i komfortu.",
                 category = "Resort",
@@ -91,6 +93,7 @@ fun VideoSliderScreen() {
             ),
             // Hotel slide 3
             VodContent(
+                id = "test_slider_3",
                 title = "Mountain Lodge Retreat",
                 description = "Przytulny górski domek z widokiem na zaśnieżone szczyty. Idealne miejsce dla miłośników przygód zimowych i ciszy natury. Atmosfera jak z bajki, gdzie czas płynie wolniej.",
                 category = "Lodge",

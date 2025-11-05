@@ -50,7 +50,8 @@ import com.google.android.exoplayer2.ui.PlayerView
 fun EpgScreen(
     guide: EpgGuide,
     windowStart: Instant? = null,
-    windowEnd: Instant? = null
+    windowEnd: Instant? = null,
+    onBackPressed: () -> Unit = {}
 ) {
     val channels = guide.channels
     val programsByChannel = remember(guide) { guide.programs.groupBy { it.channelId }.mapValues { it.value.sortedBy { p -> p.startUtc } } }
@@ -193,6 +194,10 @@ fun EpgScreen(
                             } else 0
                             scope.launch { bringSelectedIntoView() }
                         }
+                        true
+                    }
+                    android.view.KeyEvent.KEYCODE_BACK -> {
+                        onBackPressed()
                         true
                     }
                     else -> false

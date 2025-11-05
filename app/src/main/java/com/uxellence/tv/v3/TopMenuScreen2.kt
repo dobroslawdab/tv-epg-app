@@ -56,6 +56,7 @@ import androidx.compose.ui.input.key.*
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -138,6 +139,62 @@ data class ServiceLogoItem(
 enum class VodFocusArea {
     MAIN_CONTENT
 }
+
+// MARK: - MOJE Expandable Channel Data Structures
+
+/**
+ * SubChannel - Pojedynczy pod-kanał w rozwijanym kanale
+ *
+ * @param id Unikalny identyfikator (np. "ZARZADZAJ", "SERIE", "ZAPLANOWANE")
+ * @param title Wyświetlany tytuł (np. "ZARZĄDZAJ NAGRANIAMI", "SERIE", "ZAPLANOWANE")
+ * @param badge Opcjonalna plakietka (np. "11" dla kanału SERIE)
+ * @param content Lista zawartości VOD dla tego pod-kanału
+ */
+data class SubChannel(
+    val id: String,
+    val title: String,
+    val badge: String? = null,
+    val content: List<VodContent> = emptyList()
+)
+
+/**
+ * ExpandableChannel - Kanał z możliwością rozwinięcia pod-kanałów
+ *
+ * @param id Unikalny identyfikator kanału (np. "NAGRANIA")
+ * @param title Wyświetlany tytuł kanału
+ * @param logoDrawableId ID zasobu drawable dla ikony CategoryIcon
+ * @param mainContent Główna lista zawartości (10 elementów widocznych gdy zwinięty)
+ * @param subChannels Lista pod-kanałów (3 elementy: ZARZĄDZAJ NAGRANIAMI, SERIE, ZAPLANOWANE)
+ * @param isExpanded Stan rozwinięcia (true = rozwinięty, false = zwinięty)
+ */
+data class ExpandableChannel(
+    val id: String,
+    val title: String,
+    val logoDrawableId: Int?,
+    val mainContent: List<VodContent>,
+    val subChannels: List<SubChannel> = emptyList(),
+    var isExpanded: Boolean = false
+)
+
+/**
+ * MojeFocusPosition - Pozycja fokusu w sekcji MOJE
+ *
+ * Obsługuje 3-poziomową hierarchię:
+ * - Kanał (rowIndex): Numer wiersza kanału (0-based)
+ * - Sub-kanał (subChannelIndex): Numer pod-kanału (-1 = główny, 0+ = pod-kanał)
+ * - Kolumna (colIndex): Pozycja w LazyRow (-1 = CategoryIcon/SubChannelIcon, 0+ = zawartość)
+ *
+ * Przykłady:
+ * - (0, -1, -1) = CategoryIcon pierwszego kanału
+ * - (0, -1, 0) = Pierwsza miniaturka głównego kanału
+ * - (0, 0, -1) = SubChannelIcon pierwszego pod-kanału
+ * - (0, 0, 0) = Pierwsza miniaturka pierwszego pod-kanału
+ */
+data class MojeFocusPosition(
+    val rowIndex: Int,
+    val subChannelIndex: Int = -1,  // -1 = main channel, 0+ = sub-channel
+    val colIndex: Int = -1          // -1 = icon, 0+ = content
+)
 
 // Function to load TV channels from JSON
 private fun loadTvChannelsFromAssets(context: Context): List<TvChannel> {
@@ -613,6 +670,9 @@ fun TopMenuScreen2(
         mutableStateOf(pipPlayer != null)
     }
 
+    // PIP dialog state - show when PLAY/PAUSE pressed with active PIP
+    var showPipDialog by remember { mutableStateOf(false) }
+
     var isContentLoading by remember { mutableStateOf(false) }
 
     val focusRequesters = remember(menuItems.size) {
@@ -659,6 +719,13 @@ fun TopMenuScreen2(
                     return@onPreviewKeyEvent false
                 }
 
+                // PIP Dialog Guard: CRITICAL - Must be FIRST before any key handling!
+                // When dialog is open, delegate ALL keys to dialog immediately
+                if (showPipDialog) {
+                    android.util.Log.d("TopMenuScreen2", "PIP dialog open - delegating ALL keys to dialog: ${event.key}")
+                    return@onPreviewKeyEvent false
+                }
+
                 if (event.key == Key.Back) {
                     // PIP mode: BACK from menu on ANY tab - always return to EPG
                     if (pipPlayer != null && globalFocusState.value.currentRow == 0) {
@@ -682,6 +749,16 @@ fun TopMenuScreen2(
                 if (event.key == Key.Zero && pipPlayer != null) {
                     android.util.Log.d("TopMenuScreen2", "Key 0: Closing PIP")
                     onClosePip()
+                    return@onPreviewKeyEvent true
+                }
+
+                // PIP: Handle PLAY/PAUSE key - show dialog when PIP is active
+                val keyCode = event.nativeKeyEvent.keyCode
+                if ((keyCode == android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE ||
+                     keyCode == android.view.KeyEvent.KEYCODE_MEDIA_PLAY ||
+                     keyCode == android.view.KeyEvent.KEYCODE_MEDIA_PAUSE) && pipPlayer != null) {
+                    android.util.Log.d("TopMenuScreen2", "PLAY/PAUSE pressed with active PIP - showing dialog")
+                    showPipDialog = true
                     return@onPreviewKeyEvent true
                 }
 
@@ -762,19 +839,45 @@ fun TopMenuScreen2(
                 }
             }
     ) {
-        FullPageContent(
-            selectedSection = globalFocusState.value.sectionId,
-            onReturnToMenu = { globalFocusState.value = GlobalFocusManager.returnToMenu(globalFocusState.value) },
-            onUserNavigated = { freshPipMode = false },  // Clear fresh PIP mode when user navigates
-            shouldAutoFocus = globalFocusState.value.currentRow != 0,
-            sx = { sx(it) },
-            sy = { sy(it) },
-            globalFocusState = globalFocusState,
-            onNavigateToEpg = onNavigateToEpg,
-            onNavigateToEpgDay = onNavigateToEpgDay,
-            onFocusRestored = onFocusRestored,
-            restoredTelewizjaFocus = restoredTelewizjaFocus
-        )
+        // Wrap FullPageContent to block focus when dialog is open
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .then(
+                    if (showPipDialog) {
+                        // When dialog open, overlay blocks background keys but lets dialog keys through
+                        // CRITICAL: NO .focusable() here - overlay must NOT capture focus!
+                        Modifier
+                            .onPreviewKeyEvent { event ->
+                                // Let dialog handle UP/DOWN/ENTER/BACK for its own navigation
+                                when (event.key) {
+                                    Key.DirectionUp,
+                                    Key.DirectionDown,
+                                    Key.Enter,
+                                    Key.DirectionCenter,
+                                    Key.Back -> false  // Pass through to dialog
+                                    else -> true  // Block all other keys from background
+                                }
+                            }
+                    } else {
+                        Modifier  // Normal state - no blocking
+                    }
+                )
+        ) {
+            FullPageContent(
+                selectedSection = globalFocusState.value.sectionId,
+                onReturnToMenu = { globalFocusState.value = GlobalFocusManager.returnToMenu(globalFocusState.value) },
+                onUserNavigated = { freshPipMode = false },  // Clear fresh PIP mode when user navigates
+                shouldAutoFocus = globalFocusState.value.currentRow != 0,
+                sx = { sx(it) },
+                sy = { sy(it) },
+                globalFocusState = globalFocusState,
+                onNavigateToEpg = onNavigateToEpg,
+                onNavigateToEpgDay = onNavigateToEpgDay,
+                onFocusRestored = onFocusRestored,
+                restoredTelewizjaFocus = restoredTelewizjaFocus
+            )
+        }
 
         // Smooth loader overlay (Netflix-style transition)
         AnimatedVisibility(
@@ -834,7 +937,7 @@ fun TopMenuScreen2(
                     .align(Alignment.BottomEnd)
                     .padding(bottom = sy(80), end = sx(80))
                     .size(width = sx(480), height = sy(270))  // 480×270px (16:9 aspect ratio)
-                    .zIndex(100f)  // Above all content
+                    .zIndex(1000f)  // Highest - above everything including dialog
             ) {
                 AndroidView(
                     factory = { ctx ->
@@ -853,6 +956,158 @@ fun TopMenuScreen2(
                     },
                     modifier = Modifier.fillMaxSize()
                 )
+            }
+        }
+
+        // PIP Dialog - shown when PLAY/PAUSE pressed with active PIP
+        if (showPipDialog && pipPlayer != null) {
+            // Focus state - OUTSIDE of Column to prevent recomposition issues
+            var focusedOption by remember { mutableStateOf(0) }
+            val focusRequesterFullscreen = remember { FocusRequester() }
+            val focusRequesterClose = remember { FocusRequester() }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.7f))
+                    .zIndex(200f),  // Below PIP (1000f), above content
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    modifier = Modifier
+                        .width(sx(600))
+                        .background(Color(0xFF48227C), RoundedCornerShape(sx(16)))
+                        .border(sx(2), Color(0xFF5AECD3), RoundedCornerShape(sx(16)))
+                        .padding(sx(40)),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(sy(24))
+                ) {
+                    // Dialog title
+                    Text(
+                        text = "Co chcesz zrobić z odtwarzaczem?",
+                        color = Color(0xFFEEEEEE),
+                        fontSize = (24 * sx(1).value / 1).sp,
+                        fontWeight = FontWeight.Medium,
+                        textAlign = TextAlign.Center
+                    )
+
+                    Spacer(modifier = Modifier.height(sy(16)))
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(sy(60))
+                            .background(
+                                if (focusedOption == 0) Color(0xFF5AECD3) else Color(0x33EEEEEE),
+                                RoundedCornerShape(sx(8))
+                            )
+                            .focusable()
+                            .onFocusChanged {
+                                if (it.isFocused) focusedOption = 0
+                            }
+                            .focusRequester(focusRequesterFullscreen)
+                            .onPreviewKeyEvent { keyEvent ->
+                                if (keyEvent.type == KeyEventType.KeyDown) {
+                                    when (keyEvent.key) {
+                                        Key.Enter, Key.DirectionCenter -> {
+                                            android.util.Log.d("TopMenuScreen2", "Dialog: Powiększ selected")
+                                            showPipDialog = false
+                                            onReturnToEpgDay()
+                                            onClosePip()
+                                            true
+                                        }
+                                        Key.DirectionDown -> {
+                                            focusRequesterClose.requestFocus()
+                                            true
+                                        }
+                                        Key.Back -> {
+                                            showPipDialog = false
+                                            true
+                                        }
+                                        else -> false
+                                    }
+                                } else false
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Powiększ na pełny ekran",
+                            color = if (focusedOption == 0) Color(0xFF48227C) else Color(0xFFEEEEEE),
+                            fontSize = (20 * sx(1).value / 1).sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+
+                    // Option 2: Zamknij PIP
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(sy(60))
+                            .background(
+                                if (focusedOption == 1) Color(0xFF5AECD3) else Color(0x33EEEEEE),
+                                RoundedCornerShape(sx(8))
+                            )
+                            .focusable()
+                            .onFocusChanged {
+                                if (it.isFocused) focusedOption = 1
+                            }
+                            .focusRequester(focusRequesterClose)
+                            .onPreviewKeyEvent { keyEvent ->
+                                if (keyEvent.type == KeyEventType.KeyDown) {
+                                    when (keyEvent.key) {
+                                        Key.Enter, Key.DirectionCenter -> {
+                                            android.util.Log.d("TopMenuScreen2", "Dialog: Zamknij selected")
+                                            showPipDialog = false
+                                            onClosePip()
+                                            true
+                                        }
+                                        Key.DirectionUp -> {
+                                            focusRequesterFullscreen.requestFocus()
+                                            true
+                                        }
+                                        Key.Back -> {
+                                            showPipDialog = false
+                                            true
+                                        }
+                                        else -> false
+                                    }
+                                } else false
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Zamknij PIP",
+                            color = if (focusedOption == 1) Color(0xFF48227C) else Color(0xFFEEEEEE),
+                            fontSize = (20 * sx(1).value / 1).sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+
+                    // Request focus on first option when dialog appears
+                    val focusManager = LocalFocusManager.current
+                    LaunchedEffect(showPipDialog) {
+                        if (showPipDialog) {
+                            // Step 1: Clear all focus from background
+                            focusManager.clearFocus(force = true)
+                            // Step 2: Small delay for focus clearing to complete
+                            kotlinx.coroutines.delay(50)
+                            // Step 3: Request dialog focus
+                            focusRequesterFullscreen.requestFocus()
+                            android.util.Log.d("TopMenuScreen2", "Dialog focus: cleared background, requested first option")
+                        }
+                    }
+
+                    // Clean up focus when dialog closes
+                    DisposableEffect(showPipDialog) {
+                        onDispose {
+                            if (!showPipDialog) {
+                                // Dialog closed - clear any remaining dialog focus
+                                focusManager.clearFocus()
+                                android.util.Log.d("TopMenuScreen2", "Dialog closed - focus cleared")
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -2203,26 +2458,96 @@ private fun MojeChannelsScreen(
         )
     }
 
+    // MARK: - Expandable Channels Test Data (Phase 5)
+    // Test data for NAGRANIA expandable channel with 3 sub-channels
+    // Using mutableStateOf to allow expand/collapse
+    val expandableChannels = remember {
+        val vodContentList = VodDataCache.getVodContentList()
+        if (vodContentList.isNotEmpty()) {
+            mutableStateOf(
+                listOf(
+                    ExpandableChannel(
+                        id = "NAGRANIA",
+                        title = "Nagrania",
+                        logoDrawableId = R.drawable.ic_records, // Assumes this exists
+                        mainContent = vodContentList.shuffled().take(10),
+                        subChannels = listOf(
+                            SubChannel(
+                                id = "POJEDYNCZE",
+                                title = "Pojedyncze nagrania", // Fix #2
+                                content = vodContentList.shuffled().take(10)
+                            ),
+                            SubChannel(
+                                id = "SERIE",
+                                title = "SERIE",
+                                badge = "11",
+                                content = vodContentList.shuffled().take(10)
+                            ),
+                            SubChannel(
+                                id = "ZAPLANOWANE",
+                                title = "ZAPLANOWANE",
+                                content = vodContentList.shuffled().take(10)
+                            )
+                        ),
+                        isExpanded = false // Collapsed by default
+                    )
+                )
+            )
+        } else {
+            mutableStateOf(emptyList())
+        }
+    }
+
+    // Helper function to toggle NAGRANIA expansion (Phase 5.2)
+    val toggleNagraniaExpansion = {
+        val narganiaIndex = expandableChannels.value.indexOfFirst { it.id == "NAGRANIA" }
+        if (narganiaIndex != -1) {
+            val updated = expandableChannels.value.toMutableList()
+            val nagrania = updated[narganiaIndex]
+            updated[narganiaIndex] = nagrania.copy(isExpanded = !nagrania.isExpanded)
+            expandableChannels.value = updated
+            Log.d("MOJE_DEBUG", "NAGRANIA expanded: ${updated[narganiaIndex].isExpanded}")
+        }
+    }
+
     var focusedRowIndex by remember { mutableStateOf(0) }
     var focusedColIndex by remember { mutableStateOf(-2) } // -2 = brak fokusa na starcie
-    
+    var focusedSubChannelIndex by remember { mutableStateOf(-1) } // -1 = not on sub-channel, 0+ = sub-channel index (Phase 5.5)
+
     // Reset focus state when returning to menu
     LaunchedEffect(resetTrigger) {
         if (resetTrigger > 0) {
             focusedRowIndex = 0
             focusedColIndex = -2 // Reset do stanu "brak fokusa"
+            focusedSubChannelIndex = -1 // Reset sub-channel focus
         }
     }
-    
+
+    // Phase 6: Triple keys for sub-channel support
+    // Triple<rowIndex, colIndex, subChannelIndex>
+    // colIndex: -1 = icon, 0 = content
+    // subChannelIndex: -1 = main channel, 0-2 = sub-channel
     val channelFocusRequesters = remember(channels.size) {
-        mutableMapOf<Pair<Int, Int>, FocusRequester>().apply {
+        mutableMapOf<Triple<Int, Int, Int>, FocusRequester>().apply {
             repeat(channels.size) { rowIndex ->
-                put(Pair(rowIndex, -1), FocusRequester()) // CategoryIcon
-                put(Pair(rowIndex, 0), FocusRequester()) // Fixed focus position
+                // Main channel CategoryIcon
+                put(Triple(rowIndex, -1, -1), FocusRequester())
+                // Main channel content (fixed focus position)
+                put(Triple(rowIndex, 0, -1), FocusRequester())
+
+                // Sub-channel icons (only for NAGRANIA, but pre-allocate for all)
+                put(Triple(rowIndex, -1, 0), FocusRequester()) // SubChannel 0
+                put(Triple(rowIndex, -1, 1), FocusRequester()) // SubChannel 1
+                put(Triple(rowIndex, -1, 2), FocusRequester()) // SubChannel 2
+
+                // Sub-channel content
+                put(Triple(rowIndex, 0, 0), FocusRequester()) // SubChannel 0 content
+                put(Triple(rowIndex, 0, 1), FocusRequester()) // SubChannel 1 content
+                put(Triple(rowIndex, 0, 2), FocusRequester()) // SubChannel 2 content
             }
         }
     }
-    
+
     val lazyListStates = remember(channels.size) {
         mutableMapOf<Int, LazyListState>().apply {
             repeat(channels.size) { rowIndex ->
@@ -2230,7 +2555,12 @@ private fun MojeChannelsScreen(
             }
         }
     }
-    
+
+    // Phase 5.5 Fix #4: Separate LazyListState for each sub-channel
+    val subChannelLazyListStates = remember {
+        mutableMapOf<Pair<Int, Int>, LazyListState>() // (rowIndex, subChannelIndex) -> LazyListState
+    }
+
     val coroutineScope = rememberCoroutineScope()
     var isInitialized by remember { mutableStateOf(false) }
 
@@ -2257,9 +2587,10 @@ private fun MojeChannelsScreen(
             focusedColIndex = -1
             // Reduced from 100ms to 0ms for instant focus
             kotlinx.coroutines.delay(0)
-            val firstCategoryFocusRequester = channelFocusRequesters[Pair(0, -1)]
+            // Phase 6: Use Triple key for main channel CategoryIcon
+            val firstCategoryFocusRequester = channelFocusRequesters[Triple(0, -1, -1)]
             if (firstCategoryFocusRequester != null) {
-                Log.d("MOJE_DEBUG", "Auto-focus: Setting state (0, -1) and requesting focus")
+                Log.d("MOJE_DEBUG", "Auto-focus: Setting state (0, -1, -1) and requesting focus")
                 firstCategoryFocusRequester.requestFocus()
             }
         }
@@ -2275,16 +2606,28 @@ private fun MojeChannelsScreen(
                     event = event,
                     focusedRowIndex = focusedRowIndex,
                     focusedColIndex = focusedColIndex,
-                    onChannelContentFocusChange = { row, col -> 
+                    focusedSubChannelIndex = focusedSubChannelIndex, // Phase 5.5
+                    onChannelContentFocusChange = { row, col ->
                         focusedRowIndex = row
                         focusedColIndex = col
+                    },
+                    onSubChannelFocusChange = { subChannelIndex -> // Phase 5.5
+                        focusedSubChannelIndex = subChannelIndex
+                        Log.d("MOJE_DEBUG", "Sub-channel focus changed to: $subChannelIndex")
                     },
                     channelFocusRequesters = channelFocusRequesters,
                     channels = channels,
                     lazyListStates = lazyListStates,
+                    subChannelLazyListStates = subChannelLazyListStates, // Fix #4
                     coroutineScope = coroutineScope,
                     gridContent = gridContent,
-                    onReturnToMenu = onReturnToMenu
+                    onReturnToMenu = onReturnToMenu,
+                    onToggleExpansion = { channelName ->
+                        if (channelName == "Nagrania") {
+                            toggleNagraniaExpansion()
+                        }
+                    },
+                    expandableChannels = expandableChannels.value // Phase 5.5
                 )
             }
             .focusable()
@@ -2295,6 +2638,7 @@ private fun MojeChannelsScreen(
             packages = packages,
             focusedRowIndex = focusedRowIndex,
             focusedColIndex = focusedColIndex,
+            focusedSubChannelIndex = focusedSubChannelIndex, // Phase 5.5
             channelFocusRequesters = channelFocusRequesters,
             onChannelContentFocusChange = { row, col ->
                 Log.d("MOJE_DEBUG", "Focus changed to row $row, col $col")
@@ -2302,6 +2646,8 @@ private fun MojeChannelsScreen(
                 focusedColIndex = col
             },
             lazyListStates = lazyListStates,
+            subChannelLazyListStates = subChannelLazyListStates, // Fix #4
+            expandableChannels = expandableChannels.value, // Phase 5.3: Pass expandable channels
             sx = sx,
             sy = sy
         )
@@ -2556,15 +2902,16 @@ private fun StartChannelsScreen(
         }
     }
     
+    // Phase 6: Triple keys (no sub-channels in START, always use -1)
     val channelFocusRequesters = remember(channels.size) {
-        mutableMapOf<Pair<Int, Int>, FocusRequester>().apply {
+        mutableMapOf<Triple<Int, Int, Int>, FocusRequester>().apply {
             repeat(channels.size) { rowIndex ->
-                put(Pair(rowIndex, -1), FocusRequester()) // CategoryIcon
-                put(Pair(rowIndex, 0), FocusRequester()) // Fixed focus position
+                put(Triple(rowIndex, -1, -1), FocusRequester()) // CategoryIcon (main channel)
+                put(Triple(rowIndex, 0, -1), FocusRequester()) // Content (fixed focus position, main channel)
             }
         }
     }
-    
+
     val lazyListStates = remember(channels.size) {
         mutableMapOf<Int, LazyListState>().apply {
             repeat(channels.size) { rowIndex ->
@@ -2572,7 +2919,7 @@ private fun StartChannelsScreen(
             }
         }
     }
-    
+
     val coroutineScope = rememberCoroutineScope()
     var isInitialized by remember { mutableStateOf(false) }
 
@@ -2599,9 +2946,10 @@ private fun StartChannelsScreen(
             focusedColIndex = -1
             // Reduced from 100ms to 0ms for instant focus
             kotlinx.coroutines.delay(0)
-            val firstCategoryFocusRequester = channelFocusRequesters[Pair(0, -1)]
+            // Phase 6: Triple key for main channel CategoryIcon
+            val firstCategoryFocusRequester = channelFocusRequesters[Triple(0, -1, -1)]
             if (firstCategoryFocusRequester != null) {
-                Log.d("START_DEBUG", "Auto-focus: Setting state (0, -1) and requesting focus")
+                Log.d("START_DEBUG", "Auto-focus: Setting state (0, -1, -1) and requesting focus")
                 firstCategoryFocusRequester.requestFocus()
             }
         }
@@ -2863,7 +3211,7 @@ fun handleStartChannelsNavigation(
     focusedRowIndex: Int,
     focusedColIndex: Int,
     onChannelContentFocusChange: (Int, Int) -> Unit,
-    channelFocusRequesters: Map<Pair<Int, Int>, FocusRequester>,
+    channelFocusRequesters: Map<Triple<Int, Int, Int>, FocusRequester>, // Phase 6: Triple keys (no sub-channels in START)
     channels: List<String>,
     lazyListStates: Map<Int, LazyListState>,
     coroutineScope: CoroutineScope,
@@ -2879,7 +3227,7 @@ fun handleStartChannelsNavigation(
                 // First movement from "no focus" - go to CategoryIcon of first row
                 Log.d("START_DEBUG", "UP: First movement from no focus -> row 0, col -1")
                 onChannelContentFocusChange(0, -1)
-                channelFocusRequesters[Pair(0, -1)]?.requestFocus()
+                channelFocusRequesters[Triple(0, -1, -1)]?.requestFocus() // Phase 6: Main channel
                 return true
             } else if (focusedRowIndex > 0) {
                 val newRowIndex = focusedRowIndex - 1
@@ -2887,7 +3235,7 @@ fun handleStartChannelsNavigation(
                 val targetColIndex = if (focusedColIndex == -1) -1 else 0
                 Log.d("START_DEBUG", "UP: Moving from row $focusedRowIndex to $newRowIndex, col $targetColIndex")
                 onChannelContentFocusChange(newRowIndex, targetColIndex)
-                channelFocusRequesters[Pair(newRowIndex, targetColIndex)]?.requestFocus()
+                channelFocusRequesters[Triple(newRowIndex, targetColIndex, -1)]?.requestFocus() // Phase 6: Main channel
             } else {
                 // From first row, go back to menu - reset all LazyListState positions first
                 Log.d("START_DEBUG", "UP: From first row -> returning to menu")
@@ -2908,23 +3256,23 @@ fun handleStartChannelsNavigation(
             if (focusedColIndex == -2) {
                 // First movement from "no focus" - go to CategoryIcon of first row
                 onChannelContentFocusChange(0, -1)
-                channelFocusRequesters[Pair(0, -1)]?.requestFocus()
+                channelFocusRequesters[Triple(0, -1, -1)]?.requestFocus() // Phase 6: Main channel
                 return true
             } else if (focusedRowIndex < channels.size - 1) {
                 val newRowIndex = focusedRowIndex + 1
                 // Preserve type of position (CategoryIcon vs content)
                 val targetColIndex = if (focusedColIndex == -1) -1 else 0
                 onChannelContentFocusChange(newRowIndex, targetColIndex)
-                channelFocusRequesters[Pair(newRowIndex, targetColIndex)]?.requestFocus()
+                channelFocusRequesters[Triple(newRowIndex, targetColIndex, -1)]?.requestFocus() // Phase 6: Main channel
             }
             return true
         }
-        
+
         Key.DirectionLeft -> {
             if (focusedColIndex == -2) {
                 // First movement from "no focus" - go to CategoryIcon of first row
                 onChannelContentFocusChange(0, -1)
-                channelFocusRequesters[Pair(0, -1)]?.requestFocus()
+                channelFocusRequesters[Triple(0, -1, -1)]?.requestFocus() // Phase 6: Main channel
                 return true
             } else if (focusedColIndex == -1) {
                 // Already on CategoryIcon - do nothing
@@ -2940,29 +3288,29 @@ fun handleStartChannelsNavigation(
                 } else {
                     // Can't scroll left - go to CategoryIcon
                     onChannelContentFocusChange(focusedRowIndex, -1)
-                    channelFocusRequesters[Pair(focusedRowIndex, -1)]?.requestFocus()
+                    channelFocusRequesters[Triple(focusedRowIndex, -1, -1)]?.requestFocus() // Phase 6: Main channel
                 }
             }
             return true
         }
-        
+
         Key.DirectionRight -> {
             if (focusedColIndex == -2) {
                 // First movement from "no focus" - go to CategoryIcon of first row
                 onChannelContentFocusChange(0, -1)
-                channelFocusRequesters[Pair(0, -1)]?.requestFocus()
+                channelFocusRequesters[Triple(0, -1, -1)]?.requestFocus() // Phase 6: Main channel
             } else if (focusedColIndex == -1) {
                 // From CategoryIcon to first visible position (focus always on 0)
                 onChannelContentFocusChange(focusedRowIndex, 0)
-                channelFocusRequesters[Pair(focusedRowIndex, 0)]?.requestFocus()
+                channelFocusRequesters[Triple(focusedRowIndex, 0, -1)]?.requestFocus() // Phase 6: Main channel
             } else if (focusedColIndex == 0) {
                 // Fixed focus on position 0 - check if we can scroll right
                 val lazyListState = lazyListStates[focusedRowIndex]
                 val channelName = channels.getOrNull(focusedRowIndex)
                 val channelContent = gridContent[channelName] ?: emptyList()
-                
+
                 val maxScrollPosition = channelContent.size + 8 - 1 // Include spacer items
-                
+
                 if (lazyListState != null && lazyListState.firstVisibleItemIndex < maxScrollPosition) {
                     // Scroll right by 1 position
                     coroutineScope.launch {
@@ -2973,7 +3321,7 @@ fun handleStartChannelsNavigation(
             }
             return true
         }
-        
+
         else -> return false
     }
 }
@@ -3306,11 +3654,12 @@ private fun NewStartScreenContent(
         }
     }
     val channels = listOf("Oglądaj dalej", "Nagrania", "Do obejrzenia", "Wypożyczone", "Aktywne pakiety")
+    // Phase 6: Triple keys (no sub-channels in START, always use -1)
     val channelFocusRequesters = remember {
-        mutableMapOf<Pair<Int, Int>, FocusRequester>().apply {
-            repeat(channels.size) { rowIndex -> // 4 channels from MOJE
-                put(Pair(rowIndex, -1), FocusRequester()) // CategoryIcon
-                put(Pair(rowIndex, 0), FocusRequester()) // Fixed focus position
+        mutableMapOf<Triple<Int, Int, Int>, FocusRequester>().apply {
+            repeat(channels.size) { rowIndex -> // 5 channels from MOJE
+                put(Triple(rowIndex, -1, -1), FocusRequester()) // CategoryIcon (main channel)
+                put(Triple(rowIndex, 0, -1), FocusRequester()) // Content (fixed focus position, main channel)
             }
         }
     }
@@ -3482,7 +3831,7 @@ private fun StartChannelRowsLayout(
     gridContent: Map<String, List<VodContent>>,
     focusedRowIndex: Int,
     focusedColIndex: Int,
-    channelFocusRequesters: Map<Pair<Int, Int>, FocusRequester>,
+    channelFocusRequesters: Map<Triple<Int, Int, Int>, FocusRequester>, // Phase 6: Triple keys (no sub-channels in START)
     onChannelContentFocusChange: (Int, Int) -> Unit,
     lazyListStates: Map<Int, LazyListState>,
     currentRow: Int,
@@ -3648,7 +3997,7 @@ fun handleStartNavigation(
     onShortcutFocusChange: (Int) -> Unit,
     onChannelFocusChange: (Int, Int) -> Unit,
     shortcutFocusRequesters: Map<Int, FocusRequester>,
-    channelFocusRequesters: Map<Pair<Int, Int>, FocusRequester>,
+    channelFocusRequesters: Map<Triple<Int, Int, Int>, FocusRequester>, // Phase 6: Triple keys (no sub-channels in START)
     channels: List<String>,
     lazyListStates: Map<Int, LazyListState>,
     coroutineScope: CoroutineScope,
@@ -3677,7 +4026,7 @@ fun handleStartNavigation(
                         val newRowIndex = channelFocusedRowIndex - 1
                         val targetColIndex = if (channelFocusedColIndex == -1) -1 else 0
                         onChannelFocusChange(newRowIndex, targetColIndex)
-                        channelFocusRequesters[Pair(newRowIndex, targetColIndex)]?.requestFocus()
+                        channelFocusRequesters[Triple(newRowIndex, targetColIndex, -1)]?.requestFocus() // Phase 6: Main channel
                     } else {
                         // From first channel to Shortcuts (Row 2)
                         onRowChange(2)
@@ -3699,7 +4048,7 @@ fun handleStartNavigation(
                     // From Shortcuts to Channels (Row 3)
                     onRowChange(3)
                     onChannelFocusChange(0, -1)
-                    channelFocusRequesters[Pair(0, -1)]?.requestFocus()
+                    channelFocusRequesters[Triple(0, -1, -1)]?.requestFocus() // Phase 6: Main channel
                 }
                 else -> {
                     // Move down within channels
@@ -3707,13 +4056,13 @@ fun handleStartNavigation(
                         val newRowIndex = channelFocusedRowIndex + 1
                         val targetColIndex = if (channelFocusedColIndex == -1) -1 else 0
                         onChannelFocusChange(newRowIndex, targetColIndex)
-                        channelFocusRequesters[Pair(newRowIndex, targetColIndex)]?.requestFocus()
+                        channelFocusRequesters[Triple(newRowIndex, targetColIndex, -1)]?.requestFocus() // Phase 6: Main channel
                     }
                 }
             }
             return true
         }
-        
+
         Key.DirectionLeft -> {
             when (currentRow) {
                 1 -> {
@@ -3742,7 +4091,7 @@ fun handleStartNavigation(
                                 }
                             } else {
                                 onChannelFocusChange(channelFocusedRowIndex, -1)
-                                channelFocusRequesters[Pair(channelFocusedRowIndex, -1)]?.requestFocus()
+                                channelFocusRequesters[Triple(channelFocusedRowIndex, -1, -1)]?.requestFocus() // Phase 6: Main channel
                             }
                         }
                     }
@@ -3750,7 +4099,7 @@ fun handleStartNavigation(
             }
             return true
         }
-        
+
         Key.DirectionRight -> {
             when (currentRow) {
                 1 -> {
@@ -3770,7 +4119,7 @@ fun handleStartNavigation(
                     if (currentRow >= 3) {
                         if (channelFocusedColIndex == -1) {
                             onChannelFocusChange(channelFocusedRowIndex, 0)
-                            channelFocusRequesters[Pair(channelFocusedRowIndex, 0)]?.requestFocus()
+                            channelFocusRequesters[Triple(channelFocusedRowIndex, 0, -1)]?.requestFocus() // Phase 6: Main channel
                         } else if (channelFocusedColIndex == 0) {
                             val lazyListState = lazyListStates[channelFocusedRowIndex]
                             val channelName = channels.getOrNull(channelFocusedRowIndex)
@@ -3793,6 +4142,274 @@ fun handleStartNavigation(
     }
 }
 
+// MARK: - MOJE Expandable Channel Visual Components (Phase 3)
+
+/**
+ * SubChannelIcon - Ikona pod-kanału (240x140px)
+ *
+ * Podobna do CategoryIcon, ale mniejsza:
+ * - CategoryIcon: 240x216px
+ * - SubChannelIcon: 240x140px
+ *
+ * @param text Tytuł pod-kanału (np. "ZARZĄDZAJ NAGRANIAMI", "SERIE", "ZAPLANOWANE")
+ * @param badge Opcjonalna plakietka (np. "11" dla SERIE)
+ * @param isFocused Czy pod-kanał jest zfokusowany
+ * @param onClick Akcja kliknięcia
+ * @param onFocused Callback zmiany fokusa
+ * @param focusRequester FocusRequester dla zarządzania fokusem
+ */
+@Composable
+private fun SubChannelIcon(
+    text: String,
+    badge: String? = null,
+    isFocused: Boolean,
+    onClick: () -> Unit,
+    onFocused: (Boolean) -> Unit,
+    focusRequester: FocusRequester,
+    sx: (Int) -> androidx.compose.ui.unit.Dp,
+    sy: (Int) -> androidx.compose.ui.unit.Dp
+) {
+    val containerWidth = sx(240)
+    val containerHeight = sy(140) // Smaller than CategoryIcon (216px)
+    val borderColor = if (isFocused) Color(0xFF5AECD3) else Color.Transparent
+    val backgroundColor = if (isFocused) Color(0x4D000000) else Color(0x1A000000) // rgba(0, 0, 0, 0.30) / rgba(0, 0, 0, 0.10)
+
+    Box(
+        modifier = Modifier
+            .width(containerWidth)
+            .height(containerHeight)
+            .then(
+                if (isFocused) {
+                    Modifier.border(
+                        width = (6 * sx(1).value / 1.dp.value).dp,
+                        color = borderColor,
+                        shape = RoundedCornerShape(sx(4))
+                    )
+                } else {
+                    Modifier
+                }
+            )
+            .clip(RoundedCornerShape(sx(4)))
+            .background(backgroundColor)
+            .focusRequester(focusRequester)
+            .onFocusChanged { focusState ->
+                onFocused(focusState.isFocused)
+            }
+            .focusable(),
+        contentAlignment = Alignment.Center
+    ) {
+        // Badge (upper right corner) if present
+        if (badge != null) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .offset(x = -sx(12), y = sy(12))
+                    .background(Color(0xFFFF4444), shape = CircleShape)
+                    .padding(horizontal = sx(8), vertical = sy(4))
+            ) {
+                Text(
+                    text = badge,
+                    color = Color.White,
+                    fontSize = (16 * sy(1).value / 1.dp.value).sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+
+        // Text content (centered)
+        Text(
+            text = text,
+            textAlign = TextAlign.Center,
+            color = Color(0xFFEEEEEE),
+            fontSize = (20 * sy(1).value / 1.dp.value).sp, // Smaller than CategoryIcon (24sp)
+            fontWeight = FontWeight.Medium,
+            letterSpacing = (0.4 * sy(1).value / 1.dp.value).sp,
+            lineHeight = (20 * 1.33f * sy(1).value / 1.dp.value).sp,
+            maxLines = 2,
+            modifier = Modifier
+                .widthIn(max = sx(200))
+                .padding(horizontal = sx(16))
+        )
+    }
+}
+
+/**
+ * SubChannelRow - Wiersz pod-kanału (SubChannelIcon + LazyRow)
+ *
+ * Struktura:
+ * - SubChannelIcon (240x140px) - lewy wskaźnik pod-kanału
+ * - LazyRow - pozioma lista zawartości (10 miniaturek 368x208px)
+ *
+ * @param subChannel Dane pod-kanału
+ * @param isFocused Czy wiersz jest zfokusowany
+ * @param focusedColIndex Zfokusowana kolumna (-1 = icon, 0+ = content)
+ * @param focusRequesters Mapa FocusRequester dla icon + content
+ * @param onFocusChange Callback zmiany fokusa
+ * @param lazyListState Stan LazyRow dla scrollowania
+ */
+@Composable
+private fun SubChannelRow(
+    subChannel: SubChannel,
+    rowIndex: Int,
+    subChannelIndex: Int,
+    isFocused: Boolean,
+    focusedColIndex: Int,
+    focusRequesters: Map<Triple<Int, Int, Int>, FocusRequester>, // Phase 6: Triple keys
+    onFocusChange: (Int, Int) -> Unit,
+    lazyListState: LazyListState,
+    sx: (Int) -> androidx.compose.ui.unit.Dp,
+    sy: (Int) -> androidx.compose.ui.unit.Dp
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(sy(208)) // Content card height
+            .offset(x = sx(80)), // Fix #1: Align with CategoryIcon X position
+        horizontalArrangement = Arrangement.spacedBy(sx(20))
+    ) {
+        // SubChannelIcon (left side)
+        SubChannelIcon(
+            text = subChannel.title,
+            badge = subChannel.badge,
+            isFocused = isFocused && focusedColIndex == -1,
+            onClick = { /* Expand/collapse logic in Phase 5 */ },
+            onFocused = { focused ->
+                if (focused) {
+                    onFocusChange(rowIndex, -1)
+                }
+            },
+            // Phase 6: Use Triple key with subChannelIndex
+            focusRequester = focusRequesters[Triple(rowIndex, -1, subChannelIndex)] ?: FocusRequester(),
+            sx = sx,
+            sy = sy
+        )
+
+        // Content LazyRow (right side)
+        LazyRow(
+            state = lazyListState,
+            horizontalArrangement = Arrangement.spacedBy(sx(20)),
+            contentPadding = PaddingValues(start = sx(0), end = sx(80)),
+            modifier = Modifier.weight(1f)
+        ) {
+            itemsIndexed(subChannel.content) { index, vodContent ->
+                // Phase 6: SubChannelRow content uses fixed focus position (col=0)
+                val isContentFocused = isFocused && focusedColIndex == 0 && index == lazyListState.firstVisibleItemIndex
+
+                // Use existing MojeContentCard (horizontal 368x208px cards)
+                Box(
+                    modifier = Modifier
+                        .width(sx(368))
+                        .height(sy(208))
+                        .then(
+                            if (isContentFocused) {
+                                Modifier.border(
+                                    width = sx(4),
+                                    color = Color(0xFF5AECD3),
+                                    shape = RoundedCornerShape(sx(8))
+                                )
+                            } else {
+                                Modifier
+                            }
+                        )
+                        .clip(RoundedCornerShape(sx(8)))
+                        // Phase 6: Content uses col=0 (fixed focus position) with subChannelIndex
+                        .focusRequester(focusRequesters[Triple(rowIndex, 0, subChannelIndex)] ?: FocusRequester())
+                        .onFocusChanged { focusState ->
+                            if (focusState.isFocused) {
+                                onFocusChange(rowIndex, 0) // Always col=0 for fixed focus position
+                            }
+                        }
+                        .focusable()
+                ) {
+                    AsyncImage(
+                        model = vodContent.imageUrl,
+                        contentDescription = vodContent.title,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * LeftSideMenu - Menu po lewej stronie dla nawigacji pod-kanałów
+ *
+ * Pojawia się gdy użytkownik naciśnie LEFT z zawartości pod-kanału.
+ * Pokazuje listę wszystkich pod-kanałów z bieżącym zfokusowanym.
+ *
+ * @param subChannels Lista wszystkich pod-kanałów
+ * @param focusedSubChannelIndex Aktualnie zfokusowany pod-kanał
+ * @param onSubChannelSelect Callback wyboru pod-kanału
+ */
+@Composable
+private fun LeftSideMenu(
+    subChannels: List<SubChannel>,
+    focusedSubChannelIndex: Int,
+    onSubChannelSelect: (Int) -> Unit,
+    sx: (Int) -> androidx.compose.ui.unit.Dp,
+    sy: (Int) -> androidx.compose.ui.unit.Dp
+) {
+    Column(
+        modifier = Modifier
+            .width(sx(300))
+            .fillMaxHeight()
+            .background(Color(0xCC000000)) // rgba(0, 0, 0, 0.80) - semi-transparent
+            .padding(sx(24)),
+        verticalArrangement = Arrangement.spacedBy(sy(16))
+    ) {
+        Text(
+            text = "POD-KANAŁY",
+            color = Color(0xFFEEEEEE),
+            fontSize = (20 * sy(1).value / 1.dp.value).sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = sy(16))
+        )
+
+        subChannels.forEachIndexed { index, subChannel ->
+            val isSelected = index == focusedSubChannelIndex
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(sy(60))
+                    .background(
+                        color = if (isSelected) Color(0xFF5AECD3) else Color.Transparent,
+                        shape = RoundedCornerShape(sx(4))
+                    )
+                    .clickable { onSubChannelSelect(index) }
+                    .padding(horizontal = sx(16), vertical = sy(12)),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = subChannel.title,
+                    color = if (isSelected) Color(0xFF48227C) else Color(0xFFEEEEEE),
+                    fontSize = (18 * sy(1).value / 1.dp.value).sp,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.weight(1f)
+                )
+
+                if (subChannel.badge != null) {
+                    Box(
+                        modifier = Modifier
+                            .background(Color(0xFFFF4444), shape = CircleShape)
+                            .padding(horizontal = sx(8), vertical = sy(4))
+                    ) {
+                        Text(
+                            text = subChannel.badge,
+                            color = Color.White,
+                            fontSize = (14 * sy(1).value / 1.dp.value).sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 fun MojeChannelRowsLayout(
     channels: List<String>,
@@ -3800,9 +4417,12 @@ fun MojeChannelRowsLayout(
     packages: List<PackageItem>,
     focusedRowIndex: Int,
     focusedColIndex: Int,
-    channelFocusRequesters: Map<Pair<Int, Int>, FocusRequester>,
+    focusedSubChannelIndex: Int = -1, // Phase 5.5: Sub-channel focus
+    channelFocusRequesters: Map<Triple<Int, Int, Int>, FocusRequester>, // Phase 6: Triple keys
     onChannelContentFocusChange: (Int, Int) -> Unit,
     lazyListStates: Map<Int, LazyListState>,
+    subChannelLazyListStates: MutableMap<Pair<Int, Int>, LazyListState>, // Fix #4: Separate states for sub-channels
+    expandableChannels: List<ExpandableChannel> = emptyList(), // Phase 5.3: Support for expandable channels
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp
 ) {
@@ -3813,13 +4433,18 @@ fun MojeChannelRowsLayout(
 
             val lazyListState = lazyListStates[rowIndex] ?: LazyListState()
 
-            val targetY = calculateMojeChannelYPosition(
+            // Phase 5.3: Check if this is an expandable channel
+            val expandableChannel = expandableChannels.firstOrNull { it.title == channelName }
+            val isExpanded = expandableChannel?.isExpanded ?: false
+
+            // Phase 5.3: Calculate Y position accounting for ALL expanded channels (not just focused)
+            val targetY = sy(calculateYPositionWithExpansion(
                 rowIndex = rowIndex,
                 focusedRowIndex = focusedRowIndex,
                 focusedColIndex = focusedColIndex,
                 channels = channels,
-                sy = sy
-            )
+                expandableChannels = expandableChannels
+            ))
 
             val channelYOffset by animateDpAsState(
                 targetValue = targetY,
@@ -3829,6 +4454,7 @@ fun MojeChannelRowsLayout(
             Box(
                 modifier = Modifier.offset(y = channelYOffset)
             ) {
+                // Main channel row
                 MojeUnifiedChannelRow(
                     channel = channelName,
                     rowIndex = rowIndex,
@@ -3836,12 +4462,51 @@ fun MojeChannelRowsLayout(
                     packages = packages,
                     focusedRowIndex = focusedRowIndex,
                     focusedColIndex = focusedColIndex,
+                    focusedSubChannelIndex = focusedSubChannelIndex, // Fix #3
                     channelFocusRequesters = channelFocusRequesters,
                     onChannelContentFocusChange = onChannelContentFocusChange,
                     sx = sx,
                     sy = sy,
                     lazyListState = lazyListState
                 )
+
+                // Phase 5.5: Render sub-channels if expanded
+                if (isExpanded && expandableChannel != null) {
+                    Log.d("MOJE_DEBUG", "Rendering ${expandableChannel.subChannels.size} sub-channels for $channelName")
+
+                    Column(
+                        modifier = Modifier
+                            .offset(y = sy(216 + 40)) // Below CategoryIcon (216px) + spacing (40px)
+                            .fillMaxWidth()
+                    ) {
+                        expandableChannel.subChannels.forEachIndexed { subChannelIdx, subChannel ->
+                            val subChannelY = sy(subChannelIdx * MOJE_SUB_CHANNEL_NORMAL_HEIGHT)
+
+                            // Phase 5.5: Determine focus state for this sub-channel
+                            val isSubChannelFocused = rowIndex == focusedRowIndex && subChannelIdx == focusedSubChannelIndex
+                            val subChannelFocusedCol = if (isSubChannelFocused) focusedColIndex else -1
+
+                            Box(
+                                modifier = Modifier
+                                    .offset(y = subChannelY)
+                                    .fillMaxWidth()
+                            ) {
+                                SubChannelRow(
+                                    subChannel = subChannel,
+                                    rowIndex = rowIndex,
+                                    subChannelIndex = subChannelIdx,
+                                    isFocused = isSubChannelFocused,
+                                    focusedColIndex = subChannelFocusedCol,
+                                    focusRequesters = channelFocusRequesters, // Using Pair for now (rowIndex, colIndex)
+                                    onFocusChange = { _, _ -> }, // Handled by navigation controller
+                                    lazyListState = subChannelLazyListStates.getOrPut(Pair(rowIndex, subChannelIdx)) { LazyListState() }, // Fix #4
+                                    sx = sx,
+                                    sy = sy
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -3855,7 +4520,8 @@ fun MojeUnifiedChannelRow(
     packages: List<PackageItem>,
     focusedRowIndex: Int,
     focusedColIndex: Int,
-    channelFocusRequesters: Map<Pair<Int, Int>, FocusRequester>,
+    focusedSubChannelIndex: Int = -1, // Fix #3: Track if on sub-channel
+    channelFocusRequesters: Map<Triple<Int, Int, Int>, FocusRequester>, // Phase 6: Triple keys
     onChannelContentFocusChange: (Int, Int) -> Unit,
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
@@ -3869,8 +4535,9 @@ fun MojeUnifiedChannelRow(
 
     var showDetailsWithDelay by remember { mutableStateOf(false) }
 
-    LaunchedEffect(isCurrentRow, focusedColIndex) {
-        val shouldShowDetails = isCurrentRow && focusedColIndex == 0
+    // Fix #5: Add focusedSubChannelIndex to dependencies and condition
+    LaunchedEffect(isCurrentRow, focusedColIndex, focusedSubChannelIndex) {
+        val shouldShowDetails = isCurrentRow && focusedColIndex == 0 && focusedSubChannelIndex == -1
 
         if (shouldShowDetails) {
             kotlinx.coroutines.delay(350) // 350ms = animation time
@@ -3904,7 +4571,8 @@ fun MojeUnifiedChannelRow(
                                        colIndex == lazyListState.firstVisibleItemIndex &&
                                        focusedColIndex == 0
 
-                    val focusRequester = channelFocusRequesters[Pair(rowIndex, colIndex)] ?: FocusRequester()
+                    // Phase 6: Content uses col=0 (fixed focus position), main channel (-1)
+                    val focusRequester = channelFocusRequesters[Triple(rowIndex, 0, -1)] ?: FocusRequester()
 
                     PackageCard(
                         packageItem = packageItem,
@@ -3922,7 +4590,8 @@ fun MojeUnifiedChannelRow(
                                        colIndex == lazyListState.firstVisibleItemIndex &&
                                        focusedColIndex == 0
 
-                    val focusRequester = channelFocusRequesters[Pair(rowIndex, colIndex)] ?: FocusRequester()
+                    // Phase 6: Content uses col=0 (fixed focus position), main channel (-1)
+                    val focusRequester = channelFocusRequesters[Triple(rowIndex, 0, -1)] ?: FocusRequester()
 
                     when {
                         isVertical -> {
@@ -3965,9 +4634,9 @@ fun MojeUnifiedChannelRow(
                 )
             }
         }
-        
-        // Details overlay
-        if (isCurrentRow && focusedColIndex == 0 && showDetailsWithDelay) {
+
+        // Details overlay (Fix #5: Only for main channel, not sub-channels)
+        if (isCurrentRow && focusedColIndex == 0 && focusedSubChannelIndex == -1 && showDetailsWithDelay) {
             val firstVisibleContent = rowContent.getOrNull(lazyListState.firstVisibleItemIndex)
             if (firstVisibleContent != null) {
                 Box(
@@ -4021,8 +4690,10 @@ fun MojeUnifiedChannelRow(
         
         // CategoryIcon
         Box(modifier = Modifier.offset(x = sx(80), y = sy(0))) {
-            val categoryIsFocused = rowIndex == focusedRowIndex && focusedColIndex == -1
-            val categoryFocusRequester = channelFocusRequesters[Pair(rowIndex, -1)]
+            // Fix #3: Only focused if NOT on sub-channel
+            val categoryIsFocused = rowIndex == focusedRowIndex && focusedColIndex == -1 && focusedSubChannelIndex == -1
+            // Phase 6: Use Triple key for main channel CategoryIcon
+            val categoryFocusRequester = channelFocusRequesters[Triple(rowIndex, -1, -1)]
 
             // Icon mapping for different channels (PNG)
             val logoDrawableId = when (channel) {
@@ -4056,7 +4727,7 @@ fun MojeUnifiedChannelRow(
     }
 }
 
-// Helper function to calculate Y position for MOJE channels  
+// Helper function to calculate Y position for MOJE channels
 // MOJE Screen spacing constants - CategoryIcon height (216px) + spacing
 private const val MOJE_FIXED_FOCUS_Y = 340 // Focused channel always at this height
 // Horizontal miniatures (Oglądaj dalej, Nagrania, Do obejrzenia) - small spacing
@@ -4066,6 +4737,11 @@ private const val MOJE_HORIZONTAL_EXPANDED_ROW_HEIGHT = 546 // CategoryIcon (216
 private const val MOJE_VERTICAL_NORMAL_ROW_HEIGHT = 346 // CategoryIcon (216px) + spacing (130px)
 private const val MOJE_VERTICAL_EXPANDED_ROW_HEIGHT = 636 // CategoryIcon (216px) + miniatures (290px) + spacing (130px)
 private const val MOJE_CONTENT_FOCUS_EXTRA_SPACING = 100 // Extra spacing above focused content row
+
+// MOJE Sub-Channel spacing constants (Phase 4) - For expandable NAGRANIA channel
+private const val MOJE_SUB_CHANNEL_NORMAL_HEIGHT = 180 // SubChannelIcon (140px) + spacing (40px)
+private const val MOJE_SUB_CHANNEL_EXPANDED_HEIGHT = 470 // SubChannelIcon (140px) + miniatures (290px) + spacing (40px)
+private const val MOJE_EXPANDABLE_CHANNEL_EXPANDED_HEIGHT = 1200 // CategoryIcon + 3 sub-channels (approximate, will calculate dynamically)
 
 // START section spacing constants (same as MOJE)
 private const val START_FIXED_FOCUS_Y = 340 // Focused channel always at this height  
@@ -4191,126 +4867,495 @@ private fun calculateMojeChannelYPosition(
     }
 }
 
-// Navigation handler for MOJE channels
+/**
+ * calculateYPositionWithExpansion - Helper function for Y position with expandable channel support (Phase 5.3)
+ *
+ * This function calculates Y position accounting for ALL expanded channels in the list,
+ * not just the focused one. This ensures channels below expanded channels are pushed down correctly.
+ */
+private fun calculateYPositionWithExpansion(
+    rowIndex: Int,
+    focusedRowIndex: Int,
+    focusedColIndex: Int,
+    channels: List<String>,
+    expandableChannels: List<ExpandableChannel>
+): Int {
+    return when {
+        // Focused channel - always at fixed Y
+        rowIndex == focusedRowIndex -> MOJE_FIXED_FOCUS_Y
+
+        // Channel above focused - standard positioning (going upward)
+        rowIndex < focusedRowIndex -> {
+            val extraSpacing = if (focusedColIndex >= 0) MOJE_CONTENT_FOCUS_EXTRA_SPACING else 0
+            var cumulativeHeight = MOJE_FIXED_FOCUS_Y
+
+            for (i in rowIndex until focusedRowIndex) {
+                val betweenChannelName = channels.getOrNull(i) ?: ""
+                val betweenIsVertical = betweenChannelName == "Wypożyczone"
+                val betweenRowHeight = if (betweenIsVertical) MOJE_VERTICAL_NORMAL_ROW_HEIGHT else MOJE_HORIZONTAL_NORMAL_ROW_HEIGHT
+                cumulativeHeight -= betweenRowHeight
+            }
+
+            cumulativeHeight - extraSpacing
+        }
+
+        // Channel below focused - account for expansion (going downward)
+        rowIndex > focusedRowIndex -> {
+            var cumulativeHeight = MOJE_FIXED_FOCUS_Y
+
+            // Add focused channel height (with expansion if applicable)
+            for (i in focusedRowIndex until rowIndex) {
+                val channelName = channels.getOrNull(i) ?: ""
+                val isVertical = channelName == "Wypożyczone"
+                val expandable = expandableChannels.firstOrNull { it.title == channelName }
+
+                val channelHeight = when {
+                    // Channel is expanded - add main height + all sub-channel heights
+                    expandable != null && expandable.isExpanded -> {
+                        var totalHeight = if (i == focusedRowIndex && focusedColIndex >= 0) {
+                            if (isVertical) MOJE_VERTICAL_EXPANDED_ROW_HEIGHT else MOJE_HORIZONTAL_EXPANDED_ROW_HEIGHT
+                        } else {
+                            if (isVertical) MOJE_VERTICAL_NORMAL_ROW_HEIGHT else MOJE_HORIZONTAL_NORMAL_ROW_HEIGHT
+                        }
+                        // Add sub-channel heights
+                        expandable.subChannels.forEach { _ ->
+                            totalHeight += MOJE_SUB_CHANNEL_NORMAL_HEIGHT
+                        }
+                        totalHeight
+                    }
+                    // Not expanded - standard height
+                    i == focusedRowIndex && focusedColIndex >= 0 -> {
+                        if (isVertical) MOJE_VERTICAL_EXPANDED_ROW_HEIGHT else MOJE_HORIZONTAL_EXPANDED_ROW_HEIGHT
+                    }
+                    else -> {
+                        if (isVertical) MOJE_VERTICAL_NORMAL_ROW_HEIGHT else MOJE_HORIZONTAL_NORMAL_ROW_HEIGHT
+                    }
+                }
+
+                cumulativeHeight += channelHeight
+
+                // Add extra vertical spacing for vertical content when focused
+                if (i == focusedRowIndex && isVertical && focusedColIndex >= 0) {
+                    cumulativeHeight += 20
+                }
+            }
+
+            cumulativeHeight
+        }
+
+        else -> 140 + rowIndex * MOJE_HORIZONTAL_NORMAL_ROW_HEIGHT
+    }
+}
+
+/**
+ * calculateMojeSubChannelYPosition - Extended Y position calculation for sub-channels (Phase 4)
+ *
+ * Obsługuje pozycjonowanie pod-kanałów w rozwiniętym kanale NAGRANIA.
+ *
+ * Hierarchia:
+ * - CategoryIcon głównego kanału (np. "Nagrania") - zawsze widoczny
+ * - SubChannelIcon[0] - pierwszy pod-kanał (ZARZĄDZAJ NAGRANIAMI)
+ * - SubChannelIcon[1] - drugi pod-kanał (SERIE)
+ * - SubChannelIcon[2] - trzeci pod-kanał (ZAPLANOWANE)
+ *
+ * @param expandableChannel Dane rozwijanego kanału (np. NAGRANIA)
+ * @param mainRowIndex Indeks głównego kanału w liście channels
+ * @param subChannelIndex Indeks pod-kanału (-1 = CategoryIcon, 0+ = SubChannelIcon)
+ * @param focusPosition Pozycja fokusa (rowIndex, subChannelIndex, colIndex)
+ * @param channels Lista wszystkich kanałów
+ * @param sy Funkcja skalowania Y
+ * @return Pozycja Y dla danego pod-kanału
+ */
+private fun calculateMojeSubChannelYPosition(
+    expandableChannel: ExpandableChannel,
+    mainRowIndex: Int,
+    subChannelIndex: Int,
+    focusPosition: MojeFocusPosition,
+    channels: List<String>,
+    sy: (Int) -> androidx.compose.ui.unit.Dp
+): androidx.compose.ui.unit.Dp {
+    // If channel is not expanded, use standard positioning
+    if (!expandableChannel.isExpanded) {
+        return calculateMojeChannelYPosition(
+            rowIndex = mainRowIndex,
+            focusedRowIndex = focusPosition.rowIndex,
+            focusedColIndex = focusPosition.colIndex,
+            channels = channels,
+            sy = sy
+        )
+    }
+
+    // Channel is expanded - calculate sub-channel positions
+    val isMainCategoryIcon = subChannelIndex == -1
+    val isFocusedRow = mainRowIndex == focusPosition.rowIndex
+    val isFocusedSubChannel = subChannelIndex == focusPosition.subChannelIndex
+
+    return when {
+        // Main CategoryIcon of expanded channel
+        isMainCategoryIcon && isFocusedRow -> {
+            sy(MOJE_FIXED_FOCUS_Y)
+        }
+
+        // Sub-channel when its parent row is focused
+        !isMainCategoryIcon && isFocusedRow -> {
+            // Base Y = CategoryIcon position + CategoryIcon height + spacing
+            val baseY = MOJE_FIXED_FOCUS_Y + 216 + 40
+
+            // Calculate offset for this sub-channel (each sub-channel has height of 180px or 470px if expanded)
+            var offset = 0
+            for (i in 0 until subChannelIndex) {
+                val subChannelExpansion = if (i == focusPosition.subChannelIndex && focusPosition.colIndex >= 0) {
+                    MOJE_SUB_CHANNEL_EXPANDED_HEIGHT
+                } else {
+                    MOJE_SUB_CHANNEL_NORMAL_HEIGHT
+                }
+                offset += subChannelExpansion
+            }
+
+            sy(baseY + offset)
+        }
+
+        // Channels below expanded channel need extra space
+        mainRowIndex < focusPosition.rowIndex -> {
+            // Above focused row - standard positioning
+            calculateMojeChannelYPosition(
+                rowIndex = mainRowIndex,
+                focusedRowIndex = focusPosition.rowIndex,
+                focusedColIndex = focusPosition.colIndex,
+                channels = channels,
+                sy = sy
+            )
+        }
+
+        // Channels below expanded channel
+        mainRowIndex > focusPosition.rowIndex -> {
+            // Calculate total height of expanded channel
+            val expandedChannelName = channels.getOrNull(focusPosition.rowIndex) ?: ""
+            val isExpandedChannel = expandedChannelName == "Nagrania" // TODO: Make this dynamic
+
+            if (isExpandedChannel) {
+                // Total height = CategoryIcon + all sub-channels
+                var totalExpandedHeight = 216 + 40 // CategoryIcon + spacing
+
+                expandableChannel.subChannels.forEachIndexed { index, _ ->
+                    val subChannelHeight = if (index == focusPosition.subChannelIndex && focusPosition.colIndex >= 0) {
+                        MOJE_SUB_CHANNEL_EXPANDED_HEIGHT
+                    } else {
+                        MOJE_SUB_CHANNEL_NORMAL_HEIGHT
+                    }
+                    totalExpandedHeight += subChannelHeight
+                }
+
+                // Position below the entire expanded channel
+                var cumulativeHeight = MOJE_FIXED_FOCUS_Y + totalExpandedHeight
+                for (i in (focusPosition.rowIndex + 1) until mainRowIndex) {
+                    val betweenChannelName = channels.getOrNull(i) ?: ""
+                    val betweenIsVertical = betweenChannelName == "Wypożyczone"
+                    val betweenRowHeight = if (betweenIsVertical) MOJE_VERTICAL_NORMAL_ROW_HEIGHT else MOJE_HORIZONTAL_NORMAL_ROW_HEIGHT
+                    cumulativeHeight += betweenRowHeight
+                }
+
+                sy(cumulativeHeight)
+            } else {
+                // Standard positioning for non-expanded channels
+                calculateMojeChannelYPosition(
+                    rowIndex = mainRowIndex,
+                    focusedRowIndex = focusPosition.rowIndex,
+                    focusedColIndex = focusPosition.colIndex,
+                    channels = channels,
+                    sy = sy
+                )
+            }
+        }
+
+        // Fallback
+        else -> sy(140 + mainRowIndex * MOJE_HORIZONTAL_NORMAL_ROW_HEIGHT)
+    }
+}
+
+// Navigation handler for MOJE channels (Phase 5.5 - With sub-channel navigation)
 fun handleMojeChannelsNavigation(
     event: KeyEvent,
     focusedRowIndex: Int,
     focusedColIndex: Int,
+    focusedSubChannelIndex: Int = -1, // Phase 5.5: Sub-channel index (-1 = not on sub-channel)
     onChannelContentFocusChange: (Int, Int) -> Unit,
-    channelFocusRequesters: Map<Pair<Int, Int>, FocusRequester>,
+    onSubChannelFocusChange: ((Int) -> Unit)? = null, // Phase 5.5: Callback for sub-channel focus
+    channelFocusRequesters: Map<Triple<Int, Int, Int>, FocusRequester>, // Phase 6: Triple keys for sub-channels
     channels: List<String>,
     lazyListStates: Map<Int, LazyListState>,
+    subChannelLazyListStates: MutableMap<Pair<Int, Int>, LazyListState>, // Fix #4: Separate states for sub-channels
     coroutineScope: CoroutineScope,
     gridContent: Map<String, List<VodContent>>,
-    onReturnToMenu: () -> Unit
+    onReturnToMenu: () -> Unit,
+    onToggleExpansion: ((String) -> Unit)? = null, // Phase 5.2: Callback to toggle channel expansion
+    expandableChannels: List<ExpandableChannel> = emptyList() // Phase 5.5: To check if channel is expanded
 ): Boolean {
     if (event.nativeKeyEvent.action != android.view.KeyEvent.ACTION_DOWN) return false
 
     when (event.key) {
+        // Phase 5.2: OK/Enter key - Toggle expansion for NAGRANIA CategoryIcon
+        Key.Enter, Key.DirectionCenter -> {
+            if (focusedColIndex == -1) {
+                // OK pressed on CategoryIcon
+                val channelName = channels.getOrNull(focusedRowIndex)
+                if (channelName == "Nagrania") {
+                    onToggleExpansion?.invoke(channelName)
+                    Log.d("MOJE_DEBUG", "OK pressed on NAGRANIA CategoryIcon - toggling expansion")
+                    return true
+                }
+            }
+            return false
+        }
         Key.DirectionUp -> {
             if (focusedColIndex == -2) {
                 // First movement from "no focus" - go to CategoryIcon of first row
                 onChannelContentFocusChange(0, -1)
-                channelFocusRequesters[Pair(0, -1)]?.requestFocus()
+                channelFocusRequesters[Triple(0, -1, -1)]?.requestFocus() // Phase 6: Main channel CategoryIcon
                 return true
-            } else if (focusedRowIndex > 0) {
-                val newRowIndex = focusedRowIndex - 1
-                // Preserve type of position (CategoryIcon vs content)
-                val targetColIndex = if (focusedColIndex == -1) -1 else 0
-                onChannelContentFocusChange(newRowIndex, targetColIndex)
-                channelFocusRequesters[Pair(newRowIndex, targetColIndex)]?.requestFocus()
-            } else {
-                // From first row (focusedRowIndex == 0)
-                if (focusedColIndex == -1) {
-                    // From CategoryIcon of first channel - go back to menu
-                    coroutineScope.launch {
-                        channels.forEachIndexed { rowIndex, _ ->
-                            val lazyListState = lazyListStates[rowIndex]
-                            if (lazyListState != null && lazyListState.firstVisibleItemIndex > 0) {
-                                lazyListState.animateScrollToItem(index = 0, scrollOffset = 0)
+            }
+
+            // Check if current channel is expandable and expanded
+            val currentChannelName = channels.getOrNull(focusedRowIndex)
+            val currentExpandable = expandableChannels.firstOrNull { it.title == currentChannelName }
+            val isCurrentExpanded = currentExpandable?.isExpanded == true
+
+            when {
+                // Case 1: On sub-channel (not first) → go to previous sub-channel
+                focusedSubChannelIndex > 0 && isCurrentExpanded -> {
+                    val prevSubChannelIdx = focusedSubChannelIndex - 1
+                    Log.d("MOJE_DEBUG", "UP sub-channel $focusedSubChannelIndex → $prevSubChannelIdx")
+                    onSubChannelFocusChange?.invoke(prevSubChannelIdx)
+                    // Phase 6: Request focus on previous SubChannelIcon
+                    channelFocusRequesters[Triple(focusedRowIndex, -1, prevSubChannelIdx)]?.requestFocus()
+                    return true
+                }
+
+                // Case 2: On first sub-channel → go to main CategoryIcon
+                focusedSubChannelIndex == 0 && isCurrentExpanded -> {
+                    Log.d("MOJE_DEBUG", "UP from first sub-channel → CategoryIcon")
+                    onSubChannelFocusChange?.invoke(-1)
+                    // Phase 6: Request focus on main CategoryIcon
+                    channelFocusRequesters[Triple(focusedRowIndex, -1, -1)]?.requestFocus()
+                    return true
+                }
+
+                // Case 3: Standard UP navigation
+                focusedRowIndex > 0 -> {
+                    val newRowIndex = focusedRowIndex - 1
+                    // Preserve type of position (CategoryIcon vs content)
+                    val targetColIndex = if (focusedColIndex == -1) -1 else 0
+                    onChannelContentFocusChange(newRowIndex, targetColIndex)
+                    // Phase 6: Use main channel keys (no sub-channel when navigating between channels)
+                    channelFocusRequesters[Triple(newRowIndex, targetColIndex, -1)]?.requestFocus()
+                    return true
+                }
+
+                // Case 4: From first row
+                else -> {
+                    if (focusedColIndex == -1) {
+                        // From CategoryIcon of first channel - go back to menu
+                        coroutineScope.launch {
+                            channels.forEachIndexed { rowIndex, _ ->
+                                val lazyListState = lazyListStates[rowIndex]
+                                if (lazyListState != null && lazyListState.firstVisibleItemIndex > 0) {
+                                    lazyListState.animateScrollToItem(index = 0, scrollOffset = 0)
+                                }
                             }
                         }
+                        onReturnToMenu()
+                    } else {
+                        // From content of first channel - go to CategoryIcon of first channel
+                        onChannelContentFocusChange(0, -1)
+                        channelFocusRequesters[Triple(0, -1, -1)]?.requestFocus() // Phase 6: Main CategoryIcon
                     }
-                    onReturnToMenu()
-                } else {
-                    // From content of first channel - go to CategoryIcon of first channel
-                    onChannelContentFocusChange(0, -1)
-                    channelFocusRequesters[Pair(0, -1)]?.requestFocus()
+                    return true
                 }
             }
-            return true
         }
-        
+
         Key.DirectionDown -> {
             if (focusedColIndex == -2) {
                 // First movement from "no focus" - go to CategoryIcon of first row
                 onChannelContentFocusChange(0, -1)
-                channelFocusRequesters[Pair(0, -1)]?.requestFocus()
+                channelFocusRequesters[Triple(0, -1, -1)]?.requestFocus() // Phase 6: Main CategoryIcon
                 return true
-            } else if (focusedRowIndex < channels.size - 1) {
-                val newRowIndex = focusedRowIndex + 1
-                // Preserve type of position (CategoryIcon vs content)
-                val targetColIndex = if (focusedColIndex == -1) -1 else 0
-                onChannelContentFocusChange(newRowIndex, targetColIndex)
-                channelFocusRequesters[Pair(newRowIndex, targetColIndex)]?.requestFocus()
             }
-            return true
+
+            // Check if current channel is expandable and expanded
+            val currentChannelName = channels.getOrNull(focusedRowIndex)
+            val currentExpandable = expandableChannels.firstOrNull { it.title == currentChannelName }
+            val isCurrentExpanded = currentExpandable?.isExpanded == true
+
+            when {
+                // Case 1: On CategoryIcon of expanded channel → go to first sub-channel
+                focusedColIndex == -1 && isCurrentExpanded -> {
+                    Log.d("MOJE_DEBUG", "DOWN from CategoryIcon → first sub-channel")
+                    onSubChannelFocusChange?.invoke(0)
+                    // Phase 6: Focus on first SubChannelIcon
+                    channelFocusRequesters[Triple(focusedRowIndex, -1, 0)]?.requestFocus()
+                    return true
+                }
+
+                // Case 2: On sub-channel → go to next sub-channel or next main channel
+                focusedSubChannelIndex >= 0 && isCurrentExpanded -> {
+                    val totalSubChannels = currentExpandable?.subChannels?.size ?: 0
+                    if (focusedSubChannelIndex < totalSubChannels - 1) {
+                        // Go to next sub-channel
+                        val nextSubChannelIdx = focusedSubChannelIndex + 1
+                        Log.d("MOJE_DEBUG", "DOWN sub-channel $focusedSubChannelIndex → $nextSubChannelIdx")
+                        onSubChannelFocusChange?.invoke(nextSubChannelIdx)
+                        // Phase 6: Focus on next SubChannelIcon
+                        channelFocusRequesters[Triple(focusedRowIndex, -1, nextSubChannelIdx)]?.requestFocus()
+                    } else {
+                        // Last sub-channel → next main channel
+                        if (focusedRowIndex < channels.size - 1) {
+                            Log.d("MOJE_DEBUG", "DOWN from last sub-channel → next channel")
+                            onSubChannelFocusChange?.invoke(-1)
+                            val newRowIndex = focusedRowIndex + 1
+                            val targetColIndex = if (focusedColIndex == -1) -1 else 0
+                            onChannelContentFocusChange(newRowIndex, targetColIndex)
+                            // Phase 6: Use main channel keys (reset sub-channel when leaving)
+                            channelFocusRequesters[Triple(newRowIndex, targetColIndex, -1)]?.requestFocus()
+                        }
+                    }
+                    return true
+                }
+
+                // Case 3: Standard navigation (not on sub-channel)
+                focusedRowIndex < channels.size - 1 -> {
+                    val newRowIndex = focusedRowIndex + 1
+                    // Preserve type of position (CategoryIcon vs content)
+                    val targetColIndex = if (focusedColIndex == -1) -1 else 0
+                    onChannelContentFocusChange(newRowIndex, targetColIndex)
+                    // Phase 6: Use main channel keys
+                    channelFocusRequesters[Triple(newRowIndex, targetColIndex, -1)]?.requestFocus()
+                    return true
+                }
+
+                else -> return true
+            }
         }
-        
+
+
         Key.DirectionLeft -> {
             if (focusedColIndex == -2) {
                 // First movement from "no focus" - go to CategoryIcon of first row
                 onChannelContentFocusChange(0, -1)
-                channelFocusRequesters[Pair(0, -1)]?.requestFocus()
+                channelFocusRequesters[Triple(0, -1, -1)]?.requestFocus() // Phase 6: Main CategoryIcon
                 return true
-            } else if (focusedColIndex == -1) {
-                // Already on CategoryIcon - do nothing
-                return true
-            } else if (focusedColIndex == 0) {
-                // Fixed focus on position 0 - check if we can scroll left
-                val lazyListState = lazyListStates[focusedRowIndex]
-                if (lazyListState != null && lazyListState.firstVisibleItemIndex > 0) {
-                    // Scroll left by 1 position
-                    coroutineScope.launch {
-                        lazyListState.animateScrollToItem(lazyListState.firstVisibleItemIndex - 1)
-                    }
-                } else {
-                    // Can't scroll left - go to CategoryIcon
-                    onChannelContentFocusChange(focusedRowIndex, -1)
-                    channelFocusRequesters[Pair(focusedRowIndex, -1)]?.requestFocus()
-                }
             }
-            return true
+
+            // Phase 5.5: Check if on sub-channel
+            val currentChannelName = channels.getOrNull(focusedRowIndex)
+            val currentExpandable = expandableChannels.firstOrNull { it.title == currentChannelName }
+            val isOnSubChannel = focusedSubChannelIndex >= 0 && currentExpandable?.isExpanded == true
+
+            when {
+                // On SubChannelIcon or CategoryIcon - do nothing
+                focusedColIndex == -1 -> {
+                    return true
+                }
+
+                // On content (col 0) - scroll left or go to icon
+                focusedColIndex == 0 -> {
+                    // Fix #4: Use correct LazyListState (sub-channel or main channel)
+                    val lazyListState = if (isOnSubChannel) {
+                        subChannelLazyListStates[Pair(focusedRowIndex, focusedSubChannelIndex)]
+                    } else {
+                        lazyListStates[focusedRowIndex]
+                    }
+
+                    if (lazyListState != null && lazyListState.firstVisibleItemIndex > 0) {
+                        // Scroll left by 1 position
+                        coroutineScope.launch {
+                            lazyListState.animateScrollToItem(lazyListState.firstVisibleItemIndex - 1)
+                        }
+                    } else {
+                        // Can't scroll left - go to SubChannelIcon or CategoryIcon
+                        onChannelContentFocusChange(focusedRowIndex, -1)
+                        // Phase 6: Use correct icon key (SubChannelIcon or CategoryIcon)
+                        val iconKey = if (isOnSubChannel) {
+                            Triple(focusedRowIndex, -1, focusedSubChannelIndex)
+                        } else {
+                            Triple(focusedRowIndex, -1, -1)
+                        }
+                        channelFocusRequesters[iconKey]?.requestFocus()
+                        if (isOnSubChannel) {
+                            Log.d("MOJE_DEBUG", "LEFT from sub-channel content → SubChannelIcon $focusedSubChannelIndex")
+                        }
+                    }
+                    return true
+                }
+
+                else -> return true
+            }
         }
-        
+
         Key.DirectionRight -> {
             if (focusedColIndex == -2) {
                 // First movement from "no focus" - go to CategoryIcon of first row
                 onChannelContentFocusChange(0, -1)
-                channelFocusRequesters[Pair(0, -1)]?.requestFocus()
-            } else if (focusedColIndex == -1) {
-                // From CategoryIcon to first visible position (focus always on 0)
-                onChannelContentFocusChange(focusedRowIndex, 0)
-                channelFocusRequesters[Pair(focusedRowIndex, 0)]?.requestFocus()
-            } else if (focusedColIndex == 0) {
-                // Fixed focus on position 0 - check if we can scroll right
-                val lazyListState = lazyListStates[focusedRowIndex]
-                val channelName = channels.getOrNull(focusedRowIndex)
-                val channelContent = gridContent[channelName] ?: emptyList()
-                
-                val maxScrollPosition = channelContent.size + 8 - 1 // Include spacer items
-                
-                if (lazyListState != null && lazyListState.firstVisibleItemIndex < maxScrollPosition) {
-                    // Scroll right by 1 position
-                    coroutineScope.launch {
-                        lazyListState.animateScrollToItem(lazyListState.firstVisibleItemIndex + 1)
-                    }
-                }
-                // If can't scroll right - stay in place
+                channelFocusRequesters[Triple(0, -1, -1)]?.requestFocus() // Phase 6: Main CategoryIcon
+                return true
             }
-            return true
+
+            // Phase 5.5: Check if on sub-channel
+            val currentChannelName = channels.getOrNull(focusedRowIndex)
+            val currentExpandable = expandableChannels.firstOrNull { it.title == currentChannelName }
+            val isOnSubChannel = focusedSubChannelIndex >= 0 && currentExpandable?.isExpanded == true
+
+            when {
+                // On SubChannelIcon or CategoryIcon - go to content
+                focusedColIndex == -1 -> {
+                    onChannelContentFocusChange(focusedRowIndex, 0)
+                    // Phase 6 FIX: Use correct content key (sub-channel or main channel)
+                    val contentKey = if (isOnSubChannel) {
+                        Triple(focusedRowIndex, 0, focusedSubChannelIndex) // Sub-channel content
+                    } else {
+                        Triple(focusedRowIndex, 0, -1) // Main channel content
+                    }
+                    channelFocusRequesters[contentKey]?.requestFocus()
+                    if (isOnSubChannel) {
+                        Log.d("MOJE_DEBUG", "RIGHT from SubChannelIcon $focusedSubChannelIndex → sub-channel content")
+                    } else {
+                        Log.d("MOJE_DEBUG", "RIGHT from CategoryIcon → main channel content")
+                    }
+                    return true
+                }
+
+                // On content (col 0) - scroll right
+                focusedColIndex == 0 -> {
+                    // Fix #4: Use correct LazyListState (sub-channel or main channel)
+                    val lazyListState = if (isOnSubChannel) {
+                        subChannelLazyListStates[Pair(focusedRowIndex, focusedSubChannelIndex)]
+                    } else {
+                        lazyListStates[focusedRowIndex]
+                    }
+
+                    // Phase 5.5: Get content list (from sub-channel or main channel)
+                    val contentList = if (isOnSubChannel) {
+                        currentExpandable?.subChannels?.getOrNull(focusedSubChannelIndex)?.content ?: emptyList()
+                    } else {
+                        val channelName = channels.getOrNull(focusedRowIndex)
+                        gridContent[channelName] ?: emptyList()
+                    }
+
+                    val maxScrollPosition = contentList.size + 8 - 1 // Include spacer items
+
+                    if (lazyListState != null && lazyListState.firstVisibleItemIndex < maxScrollPosition) {
+                        // Scroll right by 1 position
+                        coroutineScope.launch {
+                            lazyListState.animateScrollToItem(lazyListState.firstVisibleItemIndex + 1)
+                        }
+                    }
+                    return true
+                }
+
+                else -> return true
+            }
         }
-        
+
         else -> return false
     }
 }
