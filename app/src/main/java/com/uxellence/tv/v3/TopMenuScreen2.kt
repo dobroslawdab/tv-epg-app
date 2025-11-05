@@ -2406,6 +2406,19 @@ private fun MojeChannelsScreen(
         )
     }
 
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // EXPANDABLE CHANNELS PATTERN - NAGRANIA Implementation
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // Pattern: Dynamiczne wstawianie sub-kanałów jako oddzielnych rzędów
+    // Documentation: docs/patterns/EXPANDABLE_CHANNELS_PATTERN.md
+    //
+    // Kluczowe zasady:
+    // 1. Sub-kanały = oddzielne rzędy (NIE zagnieżdżone komponenty)
+    // 2. FocusRequestery = stabilna mapa dla MAX_CHANNELS
+    // 3. Conditional assignment = focus window pattern (firstVisibleItemIndex)
+    // 4. Auto-collapse = nawigacja graniczna (UP/DOWN przy brzegach)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
     // MARK: - Faza 3: Simple expansion state tracker
     // Only tracks whether NAGRANIA is expanded (no nested data)
     var isNagraniaExpanded by remember { mutableStateOf(false) }
@@ -2474,6 +2487,20 @@ private fun MojeChannelsScreen(
             focusedColIndex = -2 // Reset do stanu "brak fokusa"
         }
     }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // STABLE FOCUSREQUESTER PATTERN (Component #2)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // CRITICAL: NO channels.size dependency - prevents race conditions!
+    //
+    // Problem: remember(channels.size) recreates map on every expand/collapse
+    // Result: Old FocusRequesters orphaned, components lose focus
+    //
+    // Solution: Create ONCE for MAX_CHANNELS, never recreate
+    // - Collapsed (5 channels): Use indices 0-4
+    // - Expanded (8 channels): Use indices 0-7
+    // - Map size constant, no recreation, zero race conditions
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     // Faza 1 Rollback: Pair keys (back to pre-Phase 6 structure)
     // Pair<rowIndex, colIndex>
@@ -4202,6 +4229,19 @@ fun MojeUnifiedChannelRow(
                                        colIndex == lazyListState.firstVisibleItemIndex &&
                                        focusedColIndex == 0
 
+                    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                    // CONDITIONAL FOCUSREQUESTER ASSIGNMENT (Component #3)
+                    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                    // PATTERN: Fixed focus window - only firstVisibleItemIndex owns FocusRequester
+                    //
+                    // Problem: LazyRow has 100+ items, all can't have same FocusRequester
+                    // Result: Focus conflicts, random jumping, crashes
+                    //
+                    // Solution: Only visible item (firstVisibleItemIndex) gets real FocusRequester
+                    // - Focus appears "fixed" at position 0
+                    // - Content scrolls underneath
+                    // - FocusRequester automatically reassigned on scroll
+                    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
                     // FIX: Only assign FocusRequester to currently visible item (like WIDEO)
                     val focusRequester = if (colIndex == lazyListState.firstVisibleItemIndex) {
                         channelFocusRequesters[Pair(rowIndex, 0)] ?: FocusRequester()
@@ -4225,6 +4265,7 @@ fun MojeUnifiedChannelRow(
                                        colIndex == lazyListState.firstVisibleItemIndex &&
                                        focusedColIndex == 0
 
+                    // Same pattern as PackageCard above - see Component #3 documentation
                     // FIX: Only assign FocusRequester to currently visible item (like WIDEO)
                     val focusRequester = if (colIndex == lazyListState.firstVisibleItemIndex) {
                         channelFocusRequesters[Pair(rowIndex, 0)] ?: FocusRequester()
@@ -4505,6 +4546,21 @@ private fun calculateMojeChannelYPosition(
     }
 }
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// NAVIGATION HANDLER with AUTO-COLLAPSE (Component #4)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Complete navigation logic for MOJE section with NAGRANIA expandable sub-channels
+//
+// Key behaviors:
+// - OK on "Nagrania" CategoryIcon: Toggle expansion (5↔8 channels)
+// - UP from first sub-channel: Auto-collapse + focus parent
+// - DOWN from last sub-channel: Auto-collapse + focus next channel
+// - BACK from any sub-channel: Auto-collapse + focus parent icon
+// - LEFT/RIGHT: Standard LazyRow scrolling with bounds checking
+//
+// CRITICAL: delay(50) before requestFocus() after collapse
+// Reason: Recomposition needs 16-50ms to update channel list
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // Faza 4-5: MOJE navigation with auto-collapse logic
 fun handleMojeChannelsNavigation(
     event: KeyEvent,

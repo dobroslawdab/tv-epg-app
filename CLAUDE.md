@@ -1127,6 +1127,51 @@ suspend fun getLast24HoursGameShows(): List<EpgProgram> {
 - **EpgRepository.kt** (lines 98-302): EPG data filtering logic
 - **EpgAdapter.kt**: EPG to VodContent conversion
 
+## Expandable Channels Pattern (NAGRANIA Implementation) 🆕
+
+**Status**: ✅ Production-ready (MOJE section)
+**Pattern Guide**: [`docs/patterns/EXPANDABLE_CHANNELS_PATTERN.md`](docs/patterns/EXPANDABLE_CHANNELS_PATTERN.md)
+**Implementation Date**: 2025-11-05
+**Git Commit**: `f0fb65a`
+
+### Quick Reference
+
+Wzorzec dynamicznego wstawiania sub-kanałów jako oddzielnych pełnowymiarowych rzędów (NIE zagnieżdżonych komponentów).
+
+**4 Kluczowe zasady:**
+1. **Sub-kanały = oddzielne rzędy** - `remember(isExpanded)` generuje listę 5→8 kanałów
+2. **FocusRequestery = stabilna mapa** - `remember { }` bez key, `repeat(MAX_CHANNELS)`
+3. **Conditional assignment = focus window** - Tylko `firstVisibleItemIndex` otrzymuje real FocusRequester
+4. **Auto-collapse = nawigacja graniczna** - UP/DOWN przy brzegach sub-kanałów → collapse + fokus na parent
+
+### Lokalizacje w kodzie
+
+**TopMenuScreen2.kt:**
+- Lines **2413-2439**: Setup (MAX_MOJE_CHANNELS, isExpanded, dynamic channel list)
+- Lines **2482-2500**: Stable FocusRequesters & LazyListStates
+- Lines **4205-4233**: Conditional FocusRequester assignment (focus window pattern)
+- Lines **4509-4665**: handleMojeChannelsNavigation (complete navigation logic)
+
+**Backup**: `TopMenuScreen2_backup_before_triple_keys_20251105_144749.kt` (zawiera failed nested approach - reference co NIE robić)
+
+### Przykładowe zastosowania
+
+- ✅ **MOJE - Nagrania**: Pojedyncze/Serie/Zaplanowane (5→8 kanałów) - **DONE**
+- 🚧 **APLIKACJE - Gry**: Gry akcji/sportowe/edukacyjne (future)
+- 🚧 **VOD - Playlisty**: Gatunki filmowe (future)
+
+### Common Pitfalls
+
+❌ **NIE używaj**: Nested SubChannel components, Triple keys, `remember(channels.size)`
+❌ **NIE przypisuj**: Tego samego FocusRequestera do wszystkich LazyRow items
+❌ **NIE zapominaj**: O `delay(50)` przed requestFocus() po collapse
+
+✅ **Zawsze używaj**: Dynamic list insertion, stable maps, conditional assignment, auto-collapse callbacks
+
+**Szczegółowa dokumentacja**: Przeczytaj `docs/patterns/EXPANDABLE_CHANNELS_PATTERN.md` przed implementacją w nowej sekcji.
+
+---
+
 ## MOJE Section Spacing System (2025-09-29)
 
 ### 📋 System Documentation
