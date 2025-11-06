@@ -17,6 +17,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.Icon
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.ui.res.painterResource
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -39,6 +41,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
@@ -607,12 +610,22 @@ fun CategoryIcon(
     logoUrl: String? = null,
     logoDrawableId: Int? = null,
     showIcon: Boolean = true,
-    showBackgroundWhenFocused: Boolean = false
+    showBackgroundWhenFocused: Boolean = false,
+    isExpanded: Boolean = false,
+    showChevron: Boolean = false,
+    onChevronClick: (() -> Unit)? = null
 ) {
     // Rozmiary z Figma
     val containerWidth = sx(240)
     val containerHeight = sy(216)
     val borderColor = if (isFocused) Color(0xFF5AECD3) else Color.Transparent
+
+    // Chevron rotation animation (350ms smooth rotation)
+    val chevronRotation by animateFloatAsState(
+        targetValue = if (isExpanded) 180f else 0f,
+        animationSpec = tween(durationMillis = 350, easing = EaseInOutCubic),
+        label = "chevron_rotation"
+    )
 
     Box(
         modifier = Modifier
@@ -701,18 +714,37 @@ fun CategoryIcon(
                     }
                 }
 
-                // Tekst kategorii
-                Text(
-                    text = text,
-                    textAlign = TextAlign.Center,
-                    color = Color(0xFFEEEEEE),
-                    fontSize = (24 * (sy(1).value / 1.dp.value)).sp, // fontSize: 24 z Figma
-                    fontWeight = FontWeight.Medium, // fontWeight: 500 z Figma
-                    letterSpacing = (0.48 * (sy(1).value / 1.dp.value)).sp, // letterSpacing: 0.48 z Figma
-                    lineHeight = (24 * 1.33f * (sy(1).value / 1.dp.value)).sp, // lineHeight: 1.33 z Figma
-                    maxLines = 2, // Umożliwia 2 linie dla dłuższych nazw EPG
-                    modifier = Modifier.widthIn(max = sx(200)) // maxWidth: 200 z Figma
-                )
+                // Tekst kategorii + chevron (dla expandable channels)
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.widthIn(max = sx(200))
+                ) {
+                    Text(
+                        text = text,
+                        textAlign = TextAlign.Center,
+                        color = Color(0xFFEEEEEE),
+                        fontSize = (24 * (sy(1).value / 1.dp.value)).sp, // fontSize: 24 z Figma
+                        fontWeight = FontWeight.Medium, // fontWeight: 500 z Figma
+                        letterSpacing = (0.48 * (sy(1).value / 1.dp.value)).sp, // letterSpacing: 0.48 z Figma
+                        lineHeight = (24 * 1.33f * (sy(1).value / 1.dp.value)).sp, // lineHeight: 1.33 z Figma
+                        maxLines = 2, // Umożliwia 2 linie dla dłuższych nazw EPG
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+
+                    // Chevron icon for expandable channels (NAGRANIA)
+                    if (showChevron) {
+                        Spacer(modifier = Modifier.width(sx(8)))
+                        Icon(
+                            imageVector = Icons.Filled.KeyboardArrowDown,
+                            contentDescription = if (isExpanded) "Collapse" else "Expand",
+                            tint = Color(0xFFEEEEEE),
+                            modifier = Modifier
+                                .size(sx(20), sy(20))
+                                .rotate(chevronRotation)
+                        )
+                    }
+                }
             }
         }
     }

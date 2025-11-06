@@ -2603,7 +2603,9 @@ private fun MojeChannelsScreen(
             },
             lazyListStates = lazyListStates,
             sx = sx,
-            sy = sy
+            sy = sy,
+            isNagraniaExpanded = isNagraniaExpanded,
+            toggleNagraniaExpansion = toggleNagraniaExpansion
         )
     }
 }
@@ -4127,9 +4129,40 @@ fun MojeChannelRowsLayout(
     onChannelContentFocusChange: (Int, Int) -> Unit,
     lazyListStates: Map<Int, LazyListState>,
     sx: (Int) -> androidx.compose.ui.unit.Dp,
-    sy: (Int) -> androidx.compose.ui.unit.Dp
+    sy: (Int) -> androidx.compose.ui.unit.Dp,
+    isNagraniaExpanded: Boolean = false,
+    toggleNagraniaExpansion: (() -> Unit)? = null
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // BACKGROUND OVERLAY - Dark background behind all expanded sub-channels
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // Shows black background (#000000, 10% opacity) under all 3 sub-channels
+        // when NAGRANIA is expanded. Spans full width, positioned behind all content.
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        if (isNagraniaExpanded) {
+            // Calculate Y position for first sub-channel ("Pojedyncze nagrania" = index 2)
+            val firstSubChannelY = calculateMojeChannelYPosition(
+                rowIndex = 2,
+                focusedRowIndex = focusedRowIndex,
+                focusedColIndex = focusedColIndex,
+                channels = channels,
+                sy = sy
+            )
+
+            // Total height: 3 sub-channels * normal row height
+            val totalSubChannelHeight = sy(MOJE_HORIZONTAL_NORMAL_ROW_HEIGHT * 3)
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(totalSubChannelHeight)
+                    .offset(y = firstSubChannelY)
+                    .background(Color(0x19000000)) // Black with 10% opacity
+                    .zIndex(-2f) // Behind all channel content
+            )
+        }
+
         repeat(channels.size) { rowIndex ->
             val channelName = channels[rowIndex]
             val contentForChannel = gridContent[channelName] ?: emptyList()
@@ -4150,7 +4183,9 @@ fun MojeChannelRowsLayout(
             )
 
             Box(
-                modifier = Modifier.offset(y = channelYOffset)
+                modifier = Modifier
+                    .offset(y = channelYOffset)
+                    .zIndex(0f) // Above background overlay
             ) {
                 MojeUnifiedChannelRow(
                     channel = channelName,
@@ -4163,7 +4198,9 @@ fun MojeChannelRowsLayout(
                     onChannelContentFocusChange = onChannelContentFocusChange,
                     sx = sx,
                     sy = sy,
-                    lazyListState = lazyListState
+                    lazyListState = lazyListState,
+                    isNagraniaExpanded = isNagraniaExpanded,
+                    toggleNagraniaExpansion = toggleNagraniaExpansion
                 )
             }
         }
@@ -4183,7 +4220,9 @@ fun MojeUnifiedChannelRow(
     onChannelContentFocusChange: (Int, Int) -> Unit,
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
-    lazyListState: LazyListState
+    lazyListState: LazyListState,
+    isNagraniaExpanded: Boolean = false,
+    toggleNagraniaExpansion: (() -> Unit)? = null
 ) {
     val isCurrentRow = rowIndex == focusedRowIndex
 
@@ -4400,7 +4439,10 @@ fun MojeUnifiedChannelRow(
                 focusRequester = categoryFocusRequester ?: FocusRequester(),
                 sx = sx,
                 sy = sy,
-                logoDrawableId = logoDrawableId
+                logoDrawableId = logoDrawableId,
+                isExpanded = (channel == "Nagrania") && isNagraniaExpanded,
+                showChevron = (channel == "Nagrania"),
+                onChevronClick = if (channel == "Nagrania") { { toggleNagraniaExpansion?.invoke() } } else null
             )
         }
     }
