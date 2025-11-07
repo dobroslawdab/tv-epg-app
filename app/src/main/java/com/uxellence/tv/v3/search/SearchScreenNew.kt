@@ -21,6 +21,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.input.key.*
@@ -817,6 +818,10 @@ fun VoiceButtonArea(
                 )
                 .clickable { onClick() }
         ) {
+        // Dynamic colors based on focus state
+        val iconColor = if (isFocused) Color(0xFF5FEDD4) else Color(0xFFEEEEEE)
+        val textColor = if (isFocused) Color(0xFF5FEDD4) else Color(0xFFEEEEEE)
+
         Row(
             modifier = Modifier.padding(
                 start = sx(40),
@@ -827,20 +832,21 @@ fun VoiceButtonArea(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(sx(8))
         ) {
-            // Microphone icon (90x65px)
+            // Microphone icon (90x65px) - color changes with focus
             Image(
                 painter = painterResource(id = R.drawable.ic_microphone),
                 contentDescription = "Microphone",
                 modifier = Modifier
                     .width(sx(90))
-                    .height(sy(65))
+                    .height(sy(65)),
+                colorFilter = ColorFilter.tint(iconColor)
             )
 
             // Text: "Powiedz" (bold) + "co chcesz obejrzeć" (medium)
             if (isRecording) {
                 Text(
                     text = "Nagrywanie...",
-                    color = Color(0xFFEEEEEE),
+                    color = textColor,
                     fontSize = sy(32).value.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 0.64.sp,
@@ -852,7 +858,7 @@ fun VoiceButtonArea(
                         withStyle(style = SpanStyle(
                             fontWeight = FontWeight.Bold,
                             fontSize = sy(32).value.sp,
-                            color = Color(0xFFEEEEEE),
+                            color = textColor,
                             letterSpacing = 0.64.sp
                         )) {
                             append("Powiedz ")
@@ -860,7 +866,7 @@ fun VoiceButtonArea(
                         withStyle(style = SpanStyle(
                             fontWeight = FontWeight.Medium,
                             fontSize = sy(32).value.sp,
-                            color = Color(0xFFEEEEEE),
+                            color = textColor,
                             letterSpacing = 0.64.sp
                         )) {
                             append("co chcesz obejrzeć")
