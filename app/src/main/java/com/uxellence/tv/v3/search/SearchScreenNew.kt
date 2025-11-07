@@ -193,8 +193,8 @@ fun SearchScreenNew(
     }
 
     // Focus state - unified system (no separate voice button area)
-    var focusedRowIndex by remember { mutableStateOf(0) } // Start at Row 0 (VoiceButton)
-    var focusedColIndex by remember { mutableStateOf(0) } // VoiceButton has col=0
+    var focusedRowIndex by remember { mutableStateOf(-1) } // Start unfocused (-1 = no focus)
+    var focusedColIndex by remember { mutableStateOf(-1) } // Auto-focus will set to (0,0) when entering section
 
     // Permission state for microphone
     var hasAudioPermission by remember {
