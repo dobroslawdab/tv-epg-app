@@ -317,6 +317,43 @@ fun SearchScreenNew(
         }
     }
 
+    /**
+     * KEY HANDLER: SearchScreenNew Navigation
+     *
+     * Scope: Handles all key navigation within the search screen using unified channels architecture
+     *
+     * Keys Handled:
+     * - UP: Navigate between rows (channels → VoiceButton → TopMenu)
+     * - DOWN: Navigate between rows (VoiceButton → channels)
+     * - LEFT/RIGHT: Navigate within row content (posters, shortcuts)
+     * - ENTER: Activate focused element (VoiceButton, posters, shortcuts)
+     *
+     * Delegation:
+     * - UP from Row 0 (VoiceButton) → TopMenuScreen via onReturnToMenu() callback
+     * - All other navigation → Handled internally using unified channels system
+     *
+     * Architecture: Unified Channels System
+     * - Row 0: VoiceButton (single element, col=0)
+     * - Row 1+: Dynamic channels:
+     *   • CONVERSATION channels: Search results with posters (col=0+, NO CategoryIcon)
+     *   • STATIC channels: History with CategoryIcon (col=-1) + content (col=0+)
+     *   • Skróty channel: Shortcuts grid (col=0+)
+     *
+     * Focus Management:
+     * - Initial state: (-1, -1) unfocused until shouldAutoFocus triggers
+     * - Auto-focus: (0, 0) on VoiceButton when entering section
+     * - Context preservation: Smart column targeting (CategoryIcon→CategoryIcon, content→content)
+     * - Clear on exit: Set (-1, -1) before onReturnToMenu() to prevent double focus
+     *
+     * Conflicts: None
+     * - Uses callback delegation pattern with TopMenuScreen
+     * - No competing key handlers in child components
+     * - Clean separation between screen-level and component-level navigation
+     *
+     * @see TopMenuScreen2 for section entry coordination (shouldAutoFocus)
+     * @see Focus Architect skill for TV navigation best practices
+     * @see CLAUDE.md Section "Key Event Management System" for architecture patterns
+     */
     Box(
         modifier = Modifier
             .fillMaxSize()
