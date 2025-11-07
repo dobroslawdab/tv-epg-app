@@ -14,6 +14,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -21,6 +25,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.input.key.*
@@ -120,7 +125,7 @@ fun SearchScreenNew(
     // Shortcuts for "Skróty" channel
     val shortcuts = remember {
         listOf(
-            ShortcutItem("1", "Historia", ShortcutIcon.MaterialIcon("history")),
+            ShortcutItem("1", "Historia wyszukiwania", ShortcutIcon.MaterialIcon("history")),
             ShortcutItem("2", "Popularne", ShortcutIcon.MaterialIcon("trending_up")),
             ShortcutItem("3", "Filmy", ShortcutIcon.MaterialIcon("movie")),
             ShortcutItem("4", "Seriale", ShortcutIcon.MaterialIcon("tv"))
@@ -193,8 +198,8 @@ fun SearchScreenNew(
     }
 
     // Focus state - unified system (no separate voice button area)
-    var focusedRowIndex by remember { mutableStateOf(0) } // Start at Row 0 (VoiceButton)
-    var focusedColIndex by remember { mutableStateOf(0) } // VoiceButton has col=0
+    var focusedRowIndex by remember { mutableStateOf(-1) } // Start unfocused (-1 = no focus)
+    var focusedColIndex by remember { mutableStateOf(-1) } // Auto-focus will set to (0,0) when entering section
 
     // Permission state for microphone
     var hasAudioPermission by remember {
@@ -312,6 +317,43 @@ fun SearchScreenNew(
         }
     }
 
+    /**
+     * KEY HANDLER: SearchScreenNew Navigation
+     *
+     * Scope: Handles all key navigation within the search screen using unified channels architecture
+     *
+     * Keys Handled:
+     * - UP: Navigate between rows (channels → VoiceButton → TopMenu)
+     * - DOWN: Navigate between rows (VoiceButton → channels)
+     * - LEFT/RIGHT: Navigate within row content (posters, shortcuts)
+     * - ENTER: Activate focused element (VoiceButton, posters, shortcuts)
+     *
+     * Delegation:
+     * - UP from Row 0 (VoiceButton) → TopMenuScreen via onReturnToMenu() callback
+     * - All other navigation → Handled internally using unified channels system
+     *
+     * Architecture: Unified Channels System
+     * - Row 0: VoiceButton (single element, col=0)
+     * - Row 1+: Dynamic channels:
+     *   • CONVERSATION channels: Search results with posters (col=0+, NO CategoryIcon)
+     *   • STATIC channels: History with CategoryIcon (col=-1) + content (col=0+)
+     *   • Skróty channel: Shortcuts grid (col=0+)
+     *
+     * Focus Management:
+     * - Initial state: (-1, -1) unfocused until shouldAutoFocus triggers
+     * - Auto-focus: (0, 0) on VoiceButton when entering section
+     * - Context preservation: Smart column targeting (CategoryIcon→CategoryIcon, content→content)
+     * - Clear on exit: Set (-1, -1) before onReturnToMenu() to prevent double focus
+     *
+     * Conflicts: None
+     * - Uses callback delegation pattern with TopMenuScreen
+     * - No competing key handlers in child components
+     * - Clean separation between screen-level and component-level navigation
+     *
+     * @see TopMenuScreen2 for section entry coordination (shouldAutoFocus)
+     * @see Focus Architect skill for TV navigation best practices
+     * @see CLAUDE.md Section "Key Event Management System" for architecture patterns
+     */
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -325,6 +367,9 @@ fun SearchScreenNew(
                             when (focusedRowIndex) {
                                 0 -> {
                                     // From VoiceButton (Row 0) → Menu
+                                    // Clear focus state before returning to prevent double focus
+                                    focusedRowIndex = -1
+                                    focusedColIndex = -1
                                     onReturnToMenu()
                                     return@onPreviewKeyEvent true
                                 }
@@ -591,6 +636,9 @@ fun SearchScreenNew(
                                 if (focused) {
                                     focusedRowIndex = 0
                                     focusedColIndex = 0
+                                } else {
+                                    // Explicit unfocus state - ensures VoiceButton clears visuals
+                                    // Border animation will trigger due to isFocused = false
                                 }
                             },
                             onClick = {
@@ -811,6 +859,10 @@ fun VoiceButtonArea(
                 )
                 .clickable { onClick() }
         ) {
+        // Dynamic colors based on focus state
+        val iconColor = if (isFocused) Color(0xFF5FEDD4) else Color(0xFFEEEEEE)
+        val textColor = if (isFocused) Color(0xFF5FEDD4) else Color(0xFFEEEEEE)
+
         Row(
             modifier = Modifier.padding(
                 start = sx(40),
@@ -821,20 +873,21 @@ fun VoiceButtonArea(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(sx(8))
         ) {
-            // Microphone icon (90x65px)
+            // Microphone icon (90x65px) - color changes with focus
             Image(
                 painter = painterResource(id = R.drawable.ic_microphone),
                 contentDescription = "Microphone",
                 modifier = Modifier
                     .width(sx(90))
-                    .height(sy(65))
+                    .height(sy(65)),
+                colorFilter = ColorFilter.tint(iconColor)
             )
 
             // Text: "Powiedz" (bold) + "co chcesz obejrzeć" (medium)
             if (isRecording) {
                 Text(
                     text = "Nagrywanie...",
-                    color = Color(0xFFEEEEEE),
+                    color = textColor,
                     fontSize = sy(32).value.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 0.64.sp,
@@ -846,7 +899,7 @@ fun VoiceButtonArea(
                         withStyle(style = SpanStyle(
                             fontWeight = FontWeight.Bold,
                             fontSize = sy(32).value.sp,
-                            color = Color(0xFFEEEEEE),
+                            color = textColor,
                             letterSpacing = 0.64.sp
                         )) {
                             append("Powiedz ")
@@ -854,7 +907,7 @@ fun VoiceButtonArea(
                         withStyle(style = SpanStyle(
                             fontWeight = FontWeight.Medium,
                             fontSize = sy(32).value.sp,
-                            color = Color(0xFFEEEEEE),
+                            color = textColor,
                             letterSpacing = 0.64.sp
                         )) {
                             append("co chcesz obejrzeć")
@@ -1187,6 +1240,20 @@ fun StaticChannelRow(
 }
 
 /**
+ * Helper function to map icon names to Material Icons
+ */
+@Composable
+private fun getMaterialIcon(iconName: String): androidx.compose.ui.graphics.vector.ImageVector? {
+    return when (iconName.lowercase()) {
+        "history" -> Icons.Filled.Search  // Placeholder for history
+        "trending_up" -> Icons.Filled.Star
+        "movie" -> Icons.Filled.Info
+        "tv" -> Icons.Filled.Settings
+        else -> null
+    }
+}
+
+/**
  * SearchShortcutCard - Simplified ShortcutCardV2 (310×179px)
  */
 @Composable
@@ -1217,6 +1284,7 @@ private fun SearchShortcutCard(
             .clickable { /* TODO */ },
         contentAlignment = Alignment.BottomStart
     ) {
+        // Title text at bottom-left
         Text(
             text = shortcut.title,
             color = Color(0xFFEEEEEE),
@@ -1224,6 +1292,22 @@ private fun SearchShortcutCard(
             fontWeight = FontWeight.W500,
             modifier = Modifier.padding(sx(20))
         )
+
+        // Icon at top-right corner
+        if (shortcut.icon is ShortcutIcon.MaterialIcon) {
+            val icon = getMaterialIcon(shortcut.icon.iconName)
+            if (icon != null) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = shortcut.title,
+                    tint = Color(0xFFEEEEEE),
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(sx(20))
+                        .size(sx(40))
+                )
+            }
+        }
     }
 }
 
