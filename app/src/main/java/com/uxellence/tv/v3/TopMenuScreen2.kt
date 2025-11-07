@@ -32,6 +32,13 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.CircularProgressIndicator
@@ -61,6 +68,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.Brush
@@ -86,6 +94,7 @@ import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.ui.PlayerView
 import android.widget.Toast
 import android.content.Context
+import com.uxellence.tv.v3.utils.VersionTracker
 
 // Data classes
 data class TopMenuState2(
@@ -592,6 +601,7 @@ fun TopMenuScreen2(
     onNavigateToLiveScreen: (String) -> Unit = {},
     onNavigateToEpg: () -> Unit = {},
     onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> },
+    onNavigateToStartupMode: () -> Unit = {},  // Navigate to startup mode selection
     onFocusRestored: () -> Unit = {},
     restoredTelewizjaFocus: FocusState? = null,
     restoredSection: String? = null,
@@ -749,9 +759,8 @@ fun TopMenuScreen2(
                             }
                             Key.DirectionDown, Key.Enter, Key.DirectionCenter -> {
                                 val currentSection = MenuPositions.getSectionForPosition(globalFocusState.value.currentPosition)
-                                if (currentSection != "ACCOUNT") {
-                                    globalFocusState.value = GlobalFocusManager.transitionToContent(globalFocusState.value, currentSection)
-                                }
+                                // Allow all sections (including ACCOUNT) to transition to content
+                                globalFocusState.value = GlobalFocusManager.transitionToContent(globalFocusState.value, currentSection)
                                 true
                             }
                             else -> false
@@ -788,6 +797,10 @@ fun TopMenuScreen2(
                             "SEARCH" -> {
                                 // SEARCH handles its own navigation entirely
                                 false // Let SearchScreenNew handle all keys
+                            }
+                            "ACCOUNT" -> {
+                                // ACCOUNT handles its own navigation entirely
+                                false // Let AccountChannelsScreen handle all keys
                             }
                             else -> {
                                 when (event.key) {
@@ -838,6 +851,7 @@ fun TopMenuScreen2(
                 globalFocusState = globalFocusState,
                 onNavigateToEpg = onNavigateToEpg,
                 onNavigateToEpgDay = onNavigateToEpgDay,
+                onNavigateToStartupMode = onNavigateToStartupMode,
                 onFocusRestored = onFocusRestored,
                 restoredTelewizjaFocus = restoredTelewizjaFocus
             )
@@ -1365,6 +1379,7 @@ private fun FullPageContent(
     globalFocusState: MutableState<GlobalFocusState>,
     onNavigateToEpg: () -> Unit = {},
     onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> },
+    onNavigateToStartupMode: () -> Unit = {},  // Navigate to startup mode selection
     onFocusRestored: () -> Unit = {},
     restoredTelewizjaFocus: FocusState? = null
 ) {
@@ -1415,6 +1430,14 @@ private fun FullPageContent(
         "APLIKACJE" -> {
             AplikacjeScreenContent(
                 globalFocusState = globalFocusState,
+                sx = sx,
+                sy = sy
+            )
+        }
+        "ACCOUNT" -> {
+            AccountScreenContent(
+                globalFocusState = globalFocusState,
+                onNavigateToStartupMode = onNavigateToStartupMode,
                 sx = sx,
                 sy = sy
             )
@@ -2457,23 +2480,10 @@ private fun MojeChannelsScreen(
         Log.d("MOJE_DEBUG", "NAGRANIA expanded: $isNagraniaExpanded (channels: ${channels.size})")
     }
 
-    // Faza 3: Grid content mapping - maps channel names to content
+    // Faza 3: Grid content mapping - uses MojeContentCache for persistent content
+    // Content is shuffled once per channel on first access and cached for app lifetime
     val gridContent = remember(isNagraniaExpanded) {
-        val vodContentList = VodDataCache.getVodContentList()
-        val kinoPlayMovies = VodDataCache.getKinoPlayMovies()
-        if (vodContentList.isNotEmpty() && kinoPlayMovies.isNotEmpty()) {
-            channels.associateWith { channelName ->
-                when (channelName) {
-                    "Aktywne pakiety" -> emptyList() // Pakiety uses separate data structure
-                    "Wypożyczone" -> kinoPlayMovies.shuffled().take(10) // Vertical movie posters
-                    // Sub-channels get their own content (same as main Nagrania for now)
-                    "Pojedyncze nagrania", "SERIE", "ZAPLANOWANE" -> vodContentList.shuffled().take(10)
-                    else -> vodContentList.shuffled().take(10) // Horizontal content
-                }
-            }
-        } else {
-            emptyMap()
-        }
+        MojeContentCache.getContent(channels)
     }
 
     var focusedRowIndex by remember { mutableStateOf(0) }
@@ -3876,10 +3886,13 @@ private fun StartUnifiedChannelRow(
         // LazyRow content - always rendered but animated
         LazyRow(
             modifier = Modifier
-                .fillMaxWidth()
-                .offset(y = miniaturesYOffset),
+                .fillMaxWidth(),
             state = lazyListState,
-            contentPadding = PaddingValues(start = sx(380), end = sx(20)),
+            contentPadding = PaddingValues(
+                start = sx(380),
+                end = sx(20),
+                top = if (isMiniaturesOnScreen) sy(290) else sy(0)
+            ),
             horizontalArrangement = Arrangement.spacedBy(sx(20))
         ) {
             items(rowContent.size) { colIndex ->
@@ -4134,35 +4147,6 @@ fun MojeChannelRowsLayout(
     toggleNagraniaExpansion: (() -> Unit)? = null
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // BACKGROUND OVERLAY - Dark background behind all expanded sub-channels
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // Shows black background (#000000, 10% opacity) under all 3 sub-channels
-        // when NAGRANIA is expanded. Spans full width, positioned behind all content.
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        if (isNagraniaExpanded) {
-            // Calculate Y position for first sub-channel ("Pojedyncze nagrania" = index 2)
-            val firstSubChannelY = calculateMojeChannelYPosition(
-                rowIndex = 2,
-                focusedRowIndex = focusedRowIndex,
-                focusedColIndex = focusedColIndex,
-                channels = channels,
-                sy = sy
-            )
-
-            // Total height: 3 sub-channels * normal row height
-            val totalSubChannelHeight = sy(MOJE_HORIZONTAL_NORMAL_ROW_HEIGHT * 3)
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(totalSubChannelHeight)
-                    .offset(y = firstSubChannelY)
-                    .background(Color(0x19000000)) // Black with 10% opacity
-                    .zIndex(-2f) // Behind all channel content
-            )
-        }
-
         repeat(channels.size) { rowIndex ->
             val channelName = channels[rowIndex]
             val contentForChannel = gridContent[channelName] ?: emptyList()
@@ -4244,7 +4228,43 @@ fun MojeUnifiedChannelRow(
         }
     }
 
-    Box(modifier = Modifier.fillMaxWidth()) {
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // NAGRANIA Group - Separate background Box with full height + content wrapper
+    // Background fills content area (216px/506px), outer Box adds 20px margin = 40px total spacing
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    val isNagraniaGroup = channel in listOf("Nagrania", "Pojedyncze nagrania", "SERIE", "ZAPLANOWANE")
+
+    Box(modifier = Modifier.fillMaxWidth().padding(vertical = sy(20))) {
+        // Background Box - animated offset + height for NAGRANIA channels
+        if (isNagraniaGroup) {
+            val isCurrentRow = rowIndex == focusedRowIndex
+
+            // Y offset: instant (no animation)
+            val backgroundYOffset = if (isCurrentRow && focusedColIndex >= 0) {
+                sy(-120)  // Expanded: 120px above CategoryIcon
+            } else {
+                sy(-20)   // Normal: 20px above CategoryIcon top
+            }
+
+            // Height: instant (no animation)
+            val animatedBackgroundHeight = if (isCurrentRow && focusedColIndex >= 0) {
+                sy(648)  // Expanded: from -120 to 528 = 648px total
+            } else {
+                sy(256)  // Normal: CategoryIcon (216px) + 20px top + 20px bottom = 256px
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .offset(y = backgroundYOffset)  // Animate position
+                    .height(animatedBackgroundHeight)  // Animate height
+                    .background(Color(0xFF3A1B63))  // Solid purple #3A1B63
+                    .zIndex(-2f)  // Behind all content
+            )
+        }
+
+        // Content wrapper Box without padding (content fills entire background)
+        Box(modifier = Modifier.fillMaxWidth()) {
         val isMiniaturesOnScreen = isCurrentRow && focusedColIndex >= 0
         val miniaturesYOffset by animateDpAsState(
             targetValue = if (isMiniaturesOnScreen) sy(290) else sy(0),
@@ -4423,6 +4443,9 @@ fun MojeUnifiedChannelRow(
                 else -> null
             }
 
+            // Sub-channels use WIDEO style (text-only, no icon)
+            val isSubChannel = channel in listOf("Pojedyncze nagrania", "SERIE", "ZAPLANOWANE")
+
             if (rowIndex < 3) { // Debug only for first 3 channels
                 Log.d("MOJE_DEBUG", "Channel '$channel' (row $rowIndex) - categoryIsFocused: $categoryIsFocused, focusRequester available: ${categoryFocusRequester != null}")
             }
@@ -4439,13 +4462,16 @@ fun MojeUnifiedChannelRow(
                 focusRequester = categoryFocusRequester ?: FocusRequester(),
                 sx = sx,
                 sy = sy,
-                logoDrawableId = logoDrawableId,
+                logoDrawableId = if (!isSubChannel) logoDrawableId else null,
+                showIcon = !isSubChannel,                      // Sub-channels: false (text-only like WIDEO)
+                showBackgroundWhenFocused = isSubChannel,      // Sub-channels: true (background on focus)
                 isExpanded = (channel == "Nagrania") && isNagraniaExpanded,
                 showChevron = (channel == "Nagrania"),
                 onChevronClick = if (channel == "Nagrania") { { toggleNagraniaExpansion?.invoke() } } else null
             )
         }
-    }
+        }  // End content wrapper Box (with padding for NAGRANIA)
+    }  // End main outer Box (with background for NAGRANIA)
 }
 
 // Helper function to calculate Y position for MOJE channels
@@ -8001,10 +8027,13 @@ private fun VodUnifiedChannelRow(
 
         LazyRow(
             modifier = Modifier
-                .fillMaxWidth()
-                .offset(y = miniaturesYOffset),
+                .fillMaxWidth(),
             state = lazyListState,
-            contentPadding = PaddingValues(start = sx(380), end = sx(20)),
+            contentPadding = PaddingValues(
+                start = sx(380),
+                end = sx(20),
+                top = if (isMiniaturesOnScreen) sy(290) else sy(0)
+            ),
             horizontalArrangement = Arrangement.spacedBy(sx(20))
         ) {
             items(rowContent.size) { colIndex ->
@@ -10689,6 +10718,854 @@ private fun calculateWideoRowYPosition(
             }
 
             sy(cumulativeHeight)
+        }
+    }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// MARK: - ACCOUNT SECTION
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+/**
+ * AccountScreenContent - Wrapper for Account section
+ *
+ * Design: Figma node 6359-11841 (Moje konto)
+ * Pattern: Similar to MojeScreenContent with reset trigger
+ */
+@Composable
+private fun AccountScreenContent(
+    globalFocusState: MutableState<GlobalFocusState>,
+    onNavigateToStartupMode: () -> Unit,
+    sx: (Int) -> Dp,
+    sy: (Int) -> Dp
+) {
+    var resetTrigger by remember { mutableStateOf(0) }
+
+    // Reset when returning to menu
+    LaunchedEffect(globalFocusState.value.currentRow) {
+        if (globalFocusState.value.currentRow == 0 && globalFocusState.value.sectionId == "ACCOUNT") {
+            resetTrigger++
+        }
+    }
+
+    AccountChannelsScreen(
+        onReturnToMenu = {
+            globalFocusState.value = GlobalFocusManager.returnToMenu(globalFocusState.value)
+        },
+        onNavigateToStartupMode = onNavigateToStartupMode,
+        shouldAutoFocus = globalFocusState.value.sectionId == "ACCOUNT" && globalFocusState.value.currentRow > 0,
+        sx = sx,
+        sy = sy,
+        resetTrigger = resetTrigger
+    )
+}
+
+/**
+ * Focus levels for Account section
+ * Level 1: Top Menu (handled by GlobalFocusManager)
+ * Level 2: Profile button ("Profil: Andrzej")
+ * Level 3: Wallet/Calendar combo button ("40 pkt" + "21 dni")
+ * Level 4: Notifications button
+ * Level 5: Settings button
+ * Level 6+: Menu List (8 menu items with auto-scroll)
+ */
+private enum class AccountFocusLevel {
+    PROFILE,           // "Profil: Andrzej"
+    WALLET_CALENDAR,   // "40 pkt" + "21 dni" jako jeden blok
+    NOTIFICATIONS,     // Powiadomienia
+    SETTINGS,          // Ustawienia
+    MENU_LIST          // Lista menu
+}
+
+/**
+ * AccountChannelsScreen - Main Account section component with 3-level focus hierarchy
+ *
+ * Design from Figma (node-id: 6359-11841):
+ * - Header Section: Profile card + Wallet (40 pkt) + Calendar (21 dni) - informational only
+ * - Action Bar: 2 focusable buttons (Notifications, Settings) - Level 2 focus
+ * - Menu List: 8 menu items (vertical list) - Level 3 focus
+ *
+ * Focus Hierarchy:
+ * 1. Top Menu → ACTION_BAR (auto-focus on entry)
+ * 2. ACTION_BAR → LEFT/RIGHT navigation between buttons
+ * 3. ACTION_BAR → DOWN → MENU_LIST (first item)
+ * 4. MENU_LIST → UP (from first) → ACTION_BAR (restore last button)
+ * 5. MENU_LIST → UP/DOWN within list
+ * 6. Any level → BACK → return to top menu
+ */
+
+/**
+ * Get current startup mode label for Account menu subtitle
+ */
+private fun getCurrentStartupModeLabel(context: Context): String {
+    return when (VersionTracker.getStartupMode(context)) {
+        VersionTracker.MODE_EPG_DAY -> "Wybrany ekran startowy: Telewizja"
+        VersionTracker.MODE_TOP_MENU -> "Wybrany ekran startowy: Telewizja i Aplikacje"
+        else -> "Wybrany ekran startowy: Telewizja i Aplikacje" // fallback
+    }
+}
+
+@Composable
+private fun AccountChannelsScreen(
+    onReturnToMenu: () -> Unit = {},
+    onNavigateToStartupMode: () -> Unit = {},
+    shouldAutoFocus: Boolean = false,
+    sx: (Int) -> Dp,
+    sy: (Int) -> Dp,
+    resetTrigger: Int = 0
+) {
+    val context = LocalContext.current
+
+    // 9 menu items from Figma design (including Ekran startowy)
+    val menuItems = remember(context) {
+        listOf(
+            AccountMenuItem(
+                id = "service_number",
+                title = "Numer usługi: 696XXXXXXXXXX",
+                subtitle = "Zaloguj się do Telewizji Play na innych urządzeniach",
+                icon = Icons.Default.Info
+            ),
+            AccountMenuItem(
+                id = "packages",
+                title = "Pakiety",
+                subtitle = "Zarządzaj pakietami telewizyjnymi i streamingowymi",
+                icon = Icons.Default.Star
+            ),
+            AccountMenuItem(
+                id = "startup_mode",
+                title = "Ekran startowy",
+                subtitle = getCurrentStartupModeLabel(context),
+                icon = Icons.Default.Settings
+            ),
+            AccountMenuItem(
+                id = "payments",
+                title = "Płatności",
+                subtitle = "Opłać bieżące faktury, sprawdź historię płatności",
+                icon = Icons.Default.AccountCircle
+            ),
+            AccountMenuItem(
+                id = "purchases",
+                title = "Zakupy",
+                subtitle = "Sprawdź m.in. historię wypożyczonych filmów",
+                icon = Icons.Default.ShoppingCart
+            ),
+            AccountMenuItem(
+                id = "pin_code",
+                title = "Kod PIN",
+                subtitle = "Ustaw kod blokady dostępu dla materiałów 18+",
+                icon = Icons.Default.Lock
+            ),
+            AccountMenuItem(
+                id = "diagnostics",
+                title = "Diagnostyka",
+                subtitle = "Sprawdź urządzenie i połączenie internetowe",
+                icon = Icons.Default.Settings
+            ),
+            AccountMenuItem(
+                id = "channel_search",
+                title = "Wyszukiwanie kanałów TV",
+                subtitle = "Podłącz kabel DVB i wyszukaj kanały naziemnej telewizji cyfrowej",
+                icon = Icons.Default.Search
+            ),
+            AccountMenuItem(
+                id = "help",
+                title = "Pomoc",
+                subtitle = "Znajdź odpowiedź na najczęstsze pytania",
+                icon = Icons.Default.Info
+            )
+        )
+    }
+
+    // 6-level focus state (Profile, WalletCalendar, Notifications, Settings, Menu)
+    var focusLevel by remember { mutableStateOf(AccountFocusLevel.PROFILE) }
+    var menuListIndex by remember { mutableStateOf(0) } // 0-8 for menu items (9 total)
+    val listState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
+
+    // FocusRequesters for all levels
+    val profileFocusRequester = remember { FocusRequester() }
+    val walletCalendarFocusRequester = remember { FocusRequester() }
+    val notificationsFocusRequester = remember { FocusRequester() }
+    val settingsFocusRequester = remember { FocusRequester() }
+
+    // FocusRequesters for Menu List (9 items)
+    val menuListFocusRequesters = remember {
+        (0 until 9).associateWith { FocusRequester() }
+    }
+
+    // Auto-focus PROFILE when entering content (follows Focus Architect pattern)
+    LaunchedEffect(shouldAutoFocus, resetTrigger) {
+        if (shouldAutoFocus) {
+            delay(100)
+            focusLevel = AccountFocusLevel.PROFILE
+            profileFocusRequester.requestFocus()
+        }
+    }
+
+    // Reset focus when resetTrigger changes
+    LaunchedEffect(resetTrigger) {
+        if (resetTrigger > 0) {
+            focusLevel = AccountFocusLevel.PROFILE
+            menuListIndex = 0
+        }
+    }
+
+    // Auto-scroll to keep focused item centered
+    // LazyColumn structure: [0] Profile, [1] Action Bar, [2-9] Menu items
+    LaunchedEffect(menuListIndex, focusLevel) {
+        coroutineScope.launch {
+            when (focusLevel) {
+                AccountFocusLevel.PROFILE -> {
+                    // Scroll to Profile (item 0)
+                    listState.animateScrollToItem(
+                        index = 0,
+                        scrollOffset = -sy(200).value.toInt()
+                    )
+                }
+                AccountFocusLevel.WALLET_CALENDAR,
+                AccountFocusLevel.NOTIFICATIONS,
+                AccountFocusLevel.SETTINGS -> {
+                    // Scroll to Action Bar (item 1)
+                    listState.animateScrollToItem(
+                        index = 1,
+                        scrollOffset = -sy(200).value.toInt()
+                    )
+                }
+                AccountFocusLevel.MENU_LIST -> {
+                    // Scroll to menu item (items 2-9, so menuListIndex + 2)
+                    listState.animateScrollToItem(
+                        index = menuListIndex + 2,
+                        scrollOffset = -sy(200).value.toInt()
+                    )
+                }
+            }
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .onPreviewKeyEvent { event ->
+                handleAccountNavigation(
+                    event = event,
+                    focusLevel = focusLevel,
+                    menuListIndex = menuListIndex,
+                    onFocusLevelChange = { newLevel -> focusLevel = newLevel },
+                    onMenuListIndexChange = { newIndex -> menuListIndex = newIndex },
+                    profileFocusRequester = profileFocusRequester,
+                    walletCalendarFocusRequester = walletCalendarFocusRequester,
+                    notificationsFocusRequester = notificationsFocusRequester,
+                    settingsFocusRequester = settingsFocusRequester,
+                    menuListFocusRequesters = menuListFocusRequesters,
+                    menuItemsCount = menuItems.size,
+                    onReturnToMenu = onReturnToMenu
+                )
+            }
+    ) {
+        // LazyColumn with all content (header + menu items scroll together)
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = sy(200)),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(sy(24)),
+            contentPadding = PaddingValues(bottom = sy(150))
+        ) {
+            // Item 1: Profile button (Level 2)
+            item {
+                ProfileButton(
+                    isFocused = shouldAutoFocus && focusLevel == AccountFocusLevel.PROFILE,
+                    focusRequester = profileFocusRequester,
+                    onFocused = { focusLevel = AccountFocusLevel.PROFILE },
+                    onClick = { Log.d("ACCOUNT", "Profile clicked") },
+                    sx = sx,
+                    sy = sy
+                )
+            }
+
+            // Item 2: Wallet/Calendar + Action Bar (horizontal row)
+            item {
+                Row(
+                    modifier = Modifier.width(sx(756)),
+                    horizontalArrangement = Arrangement.spacedBy(sx(24))
+                ) {
+                    // Wallet/Calendar combo button (Level 3)
+                    WalletCalendarButton(
+                        isFocused = shouldAutoFocus && focusLevel == AccountFocusLevel.WALLET_CALENDAR,
+                        focusRequester = walletCalendarFocusRequester,
+                        onFocused = { focusLevel = AccountFocusLevel.WALLET_CALENDAR },
+                        onClick = { Log.d("ACCOUNT", "Wallet/Calendar clicked") },
+                        sx = sx,
+                        sy = sy
+                    )
+
+                    // Notifications button (Level 4)
+                    ActionButton(
+                        icon = 0,
+                        label = "Powiadomienia",
+                        isFocused = shouldAutoFocus && focusLevel == AccountFocusLevel.NOTIFICATIONS,
+                        focusRequester = notificationsFocusRequester,
+                        onFocused = { focusLevel = AccountFocusLevel.NOTIFICATIONS },
+                        onClick = { Log.d("ACCOUNT", "Notifications clicked") },
+                        sx = sx,
+                        sy = sy
+                    )
+
+                    // Settings button (Level 5)
+                    ActionButton(
+                        icon = 0,
+                        label = "Ustawienia",
+                        isFocused = shouldAutoFocus && focusLevel == AccountFocusLevel.SETTINGS,
+                        focusRequester = settingsFocusRequester,
+                        onFocused = { focusLevel = AccountFocusLevel.SETTINGS },
+                        onClick = { Log.d("ACCOUNT", "Settings clicked") },
+                        sx = sx,
+                        sy = sy
+                    )
+                }
+            }
+
+            // Items 3+: Menu List (Level 6+)
+            itemsIndexed(menuItems) { index, item ->
+                AccountMenuItemCard(
+                    item = item,
+                    isFocused = shouldAutoFocus && focusLevel == AccountFocusLevel.MENU_LIST && menuListIndex == index,
+                    focusRequester = menuListFocusRequesters[index]!!,
+                    onFocused = {
+                        focusLevel = AccountFocusLevel.MENU_LIST
+                        menuListIndex = index
+                    },
+                    onClick = {
+                        when (item.id) {
+                            "startup_mode" -> {
+                                Log.d("ACCOUNT", "Navigate to Startup Mode Selection")
+                                onNavigateToStartupMode()
+                            }
+                            else -> {
+                                Log.d("ACCOUNT", "Clicked: ${item.title}")
+                            }
+                        }
+                    },
+                    sx = sx,
+                    sy = sy
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Data class for Account menu items
+ */
+data class AccountMenuItem(
+    val id: String,
+    val title: String,
+    val subtitle: String,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector
+)
+
+/**
+ * AccountMenuItemCard - Single menu item component
+ *
+ * Figma specs:
+ * - Size: 756×136px
+ * - Background: rgba(0,0,0,0.2)
+ * - Focus border: 8px #5AECD3
+ * - Border radius: 8px
+ * - Icon: 64×64px
+ * - Gap: 24px between icon and text
+ */
+@Composable
+private fun AccountMenuItemCard(
+    item: AccountMenuItem,
+    isFocused: Boolean,
+    focusRequester: FocusRequester,
+    onFocused: () -> Unit,
+    onClick: () -> Unit,
+    sx: (Int) -> Dp,
+    sy: (Int) -> Dp
+) {
+    val colorFocusBorder = Color(0xFF5AECD3)
+    val colorBackground = Color(0x33000000) // rgba(0,0,0,0.2)
+    val colorTextPrimary = Color(0xFFEEEEEE)
+    val colorTextSecondary = Color(0xCCEEEEEE) // 80% opacity
+
+    Box(
+        modifier = Modifier
+            .width(sx(756))
+            .height(sy(136))
+            .focusRequester(focusRequester)
+            .onFocusChanged { focusState ->
+                if (focusState.isFocused) {
+                    onFocused()
+                }
+            }
+            .focusable()
+            .clickable { onClick() }
+            .then(
+                if (isFocused) {
+                    Modifier.border(
+                        width = sx(8),
+                        color = colorFocusBorder,
+                        shape = RoundedCornerShape(sx(8))
+                    )
+                } else {
+                    Modifier
+                }
+            )
+            .clip(RoundedCornerShape(sx(8)))
+            .background(colorBackground)
+            .padding(horizontal = sx(32), vertical = sy(32))
+    ) {
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(sx(24))
+        ) {
+            // Icon (64×64px)
+            Icon(
+                imageVector = item.icon,
+                contentDescription = item.title,
+                modifier = Modifier.size(sx(64), sy(64)),
+                tint = colorTextPrimary
+            )
+
+            // Text content
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(sy(4))
+            ) {
+                // Title (32px Bold from Figma)
+                Text(
+                    text = item.title,
+                    style = TextStyle(
+                        fontSize = (32 * sy(1).value / 1).sp,
+                        fontWeight = FontWeight.Bold,
+                        color = colorTextPrimary,
+                        lineHeight = (40 * sy(1).value / 1).sp
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                // Subtitle (24px Medium from Figma)
+                Text(
+                    text = item.subtitle,
+                    style = TextStyle(
+                        fontSize = (24 * sy(1).value / 1).sp,
+                        fontWeight = FontWeight.Medium,
+                        color = colorTextSecondary,
+                        lineHeight = (32 * sy(1).value / 1).sp
+                    ),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+/**
+ * ProfileButton - Focusable "Profil: Andrzej" button (szerokość listy, wysokość jak action buttons)
+ */
+@Composable
+private fun ProfileButton(
+    isFocused: Boolean,
+    focusRequester: FocusRequester,
+    onFocused: () -> Unit,
+    onClick: () -> Unit,
+    sx: (Int) -> Dp,
+    sy: (Int) -> Dp
+) {
+    val colorFocusBorder = Color(0xFF5AECD3)
+    val colorBackground = Color(0x33EEEEEE) // rgba(238,238,238,0.2)
+    val colorTextPrimary = Color(0xFFEEEEEE)
+
+    Box(
+        modifier = Modifier
+            .width(sx(756)) // Szerokość listy menu
+            .height(sy(110)) // Wysokość jak Wallet/Calendar buttons
+            .focusRequester(focusRequester)
+            .onFocusChanged { focusState ->
+                if (focusState.isFocused) {
+                    onFocused()
+                }
+            }
+            .focusable()
+            .clickable { onClick() }
+            .then(
+                if (isFocused) {
+                    Modifier.border(
+                        width = sx(8),
+                        color = colorFocusBorder,
+                        shape = RoundedCornerShape(sx(88))
+                    )
+                } else {
+                    Modifier
+                }
+            )
+            .clip(RoundedCornerShape(sx(88)))
+            .background(colorBackground)
+            .padding(horizontal = sx(44), vertical = sy(14)),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(sx(11)),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.AccountCircle,
+                contentDescription = "Profil",
+                modifier = Modifier.size(sx(66), sy(66)),
+                tint = colorTextPrimary
+            )
+            Text(
+                text = "Profil: Andrzej",
+                style = TextStyle(
+                    fontSize = (28 * sy(1).value / 1).sp,
+                    fontWeight = FontWeight.Medium,
+                    color = colorTextPrimary
+                )
+            )
+        }
+    }
+}
+
+/**
+ * WalletCalendarButton - Combined "40 pkt" + "21 dni" button with PNG icons
+ */
+@Composable
+private fun WalletCalendarButton(
+    isFocused: Boolean,
+    focusRequester: FocusRequester,
+    onFocused: () -> Unit,
+    onClick: () -> Unit,
+    sx: (Int) -> Dp,
+    sy: (Int) -> Dp
+) {
+    val context = LocalContext.current
+    val colorFocusBorder = Color(0xFF5AECD3)
+    val colorBackground = Color(0x33EEEEEE)
+    val colorTextPrimary = Color(0xFFEEEEEE)
+
+    Box(
+        modifier = Modifier
+            .width(sx(500))
+            .height(sy(110))
+            .focusRequester(focusRequester)
+            .onFocusChanged { focusState ->
+                if (focusState.isFocused) {
+                    onFocused()
+                }
+            }
+            .focusable()
+            .clickable { onClick() }
+            .then(
+                if (isFocused) {
+                    Modifier.border(
+                        width = sx(8),
+                        color = colorFocusBorder,
+                        shape = RoundedCornerShape(sx(83))
+                    )
+                } else {
+                    Modifier
+                }
+            )
+            .clip(RoundedCornerShape(sx(83)))
+            .background(colorBackground)
+            .padding(horizontal = sx(44)),
+        contentAlignment = Alignment.Center
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(sx(11)),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Wallet icon (PNG)
+            Image(
+                painter = painterResource(id = R.drawable.ic_wallet),
+                contentDescription = "Portfel",
+                modifier = Modifier.size(sx(66), sy(66))
+            )
+            Text(
+                text = "40 pkt",
+                style = TextStyle(
+                    fontSize = (28 * sy(1).value / 1).sp,
+                    fontWeight = FontWeight.Medium,
+                    color = colorTextPrimary
+                )
+            )
+
+            Spacer(modifier = Modifier.width(sx(20)))
+
+            // Calendar icon (PNG)
+            Image(
+                painter = painterResource(id = R.drawable.ic_calendar),
+                contentDescription = "Kalendarz",
+                modifier = Modifier.size(sx(66), sy(66))
+            )
+            Text(
+                text = "21 dni",
+                style = TextStyle(
+                    fontSize = (28 * sy(1).value / 1).sp,
+                    fontWeight = FontWeight.Medium,
+                    color = colorTextPrimary
+                )
+            )
+        }
+    }
+}
+
+/**
+ * ActionButton - Generic action button for Notifications/Settings
+ */
+@Composable
+private fun ActionButton(
+    icon: Int, // Drawable resource ID
+    label: String,
+    isFocused: Boolean,
+    focusRequester: FocusRequester,
+    onFocused: () -> Unit,
+    onClick: () -> Unit,
+    sx: (Int) -> Dp,
+    sy: (Int) -> Dp
+) {
+    val colorFocusBorder = Color(0xFF5AECD3)
+    val colorBackground = Color(0x33EEEEEE)
+    val colorTextPrimary = Color(0xFFEEEEEE)
+
+    Box(
+        modifier = Modifier
+            .size(sx(110), sy(110))
+            .focusRequester(focusRequester)
+            .onFocusChanged { focusState ->
+                if (focusState.isFocused) {
+                    onFocused()
+                }
+            }
+            .focusable()
+            .clickable { onClick() }
+            .then(
+                if (isFocused) {
+                    Modifier.border(
+                        width = sx(8),
+                        color = colorFocusBorder,
+                        shape = RoundedCornerShape(sx(83))
+                    )
+                } else {
+                    Modifier
+                }
+            )
+            .clip(RoundedCornerShape(sx(83)))
+            .background(colorBackground),
+        contentAlignment = Alignment.Center
+    ) {
+        // Use Material Icon instead of PNG for now
+        Icon(
+            imageVector = when (label) {
+                "Powiadomienia" -> Icons.Default.Notifications
+                "Ustawienia" -> Icons.Default.Settings
+                else -> Icons.Default.Settings
+            },
+            contentDescription = label,
+            modifier = Modifier.size(sx(66), sy(66)),
+            tint = colorTextPrimary
+        )
+    }
+}
+/**
+ * handleAccountNavigation - Navigation logic for Account section with 6-level hierarchy
+ *
+ * Level 2 (PROFILE): "Profil: Andrzej"
+ * - DOWN: Move to WALLET_CALENDAR
+ * - UP/BACK: Return to top menu
+ *
+ * Level 3 (WALLET_CALENDAR): "40 pkt" + "21 dni"
+ * - LEFT/RIGHT: Move to NOTIFICATIONS ↔ SETTINGS
+ * - UP: Return to PROFILE
+ * - DOWN: Move to MENU_LIST (first item)
+ * - BACK: Return to top menu
+ *
+ * Level 4/5 (NOTIFICATIONS/SETTINGS):
+ * - LEFT/RIGHT: Navigate between buttons
+ * - UP: Return to WALLET_CALENDAR (on WALLET_CALENDAR's line)
+ * - DOWN: Move to MENU_LIST (first item)
+ * - BACK: Return to top menu
+ *
+ * Level 6+ (MENU_LIST):
+ * - UP: Previous item, or return to WALLET_CALENDAR if at first item
+ * - DOWN: Next item
+ * - BACK/LEFT: Return to top menu
+ */
+private fun handleAccountNavigation(
+    event: KeyEvent,
+    focusLevel: AccountFocusLevel,
+    menuListIndex: Int,
+    onFocusLevelChange: (AccountFocusLevel) -> Unit,
+    onMenuListIndexChange: (Int) -> Unit,
+    profileFocusRequester: FocusRequester,
+    walletCalendarFocusRequester: FocusRequester,
+    notificationsFocusRequester: FocusRequester,
+    settingsFocusRequester: FocusRequester,
+    menuListFocusRequesters: Map<Int, FocusRequester>,
+    menuItemsCount: Int,
+    onReturnToMenu: () -> Unit
+): Boolean {
+    if (event.type != KeyEventType.KeyDown) return false
+
+    return when (focusLevel) {
+        AccountFocusLevel.PROFILE -> {
+            when (event.key) {
+                Key.DirectionDown -> {
+                    // Move to WALLET_CALENDAR
+                    onFocusLevelChange(AccountFocusLevel.WALLET_CALENDAR)
+                    walletCalendarFocusRequester.requestFocus()
+                    true
+                }
+                Key.DirectionUp, Key.Back, Key.DirectionLeft -> {
+                    // Return to top menu
+                    onReturnToMenu()
+                    true
+                }
+                else -> false
+            }
+        }
+        AccountFocusLevel.WALLET_CALENDAR -> {
+            when (event.key) {
+                Key.DirectionLeft -> {
+                    // Can't move left from WALLET_CALENDAR (it's leftmost)
+                    false
+                }
+                Key.DirectionRight -> {
+                    // Move to NOTIFICATIONS
+                    onFocusLevelChange(AccountFocusLevel.NOTIFICATIONS)
+                    notificationsFocusRequester.requestFocus()
+                    true
+                }
+                Key.DirectionUp -> {
+                    // Return to PROFILE
+                    onFocusLevelChange(AccountFocusLevel.PROFILE)
+                    profileFocusRequester.requestFocus()
+                    true
+                }
+                Key.DirectionDown -> {
+                    // Move to MENU_LIST first item
+                    onFocusLevelChange(AccountFocusLevel.MENU_LIST)
+                    onMenuListIndexChange(0)
+                    menuListFocusRequesters[0]?.requestFocus()
+                    true
+                }
+                Key.Back -> {
+                    // Return to top menu
+                    onReturnToMenu()
+                    true
+                }
+                else -> false
+            }
+        }
+        AccountFocusLevel.NOTIFICATIONS -> {
+            when (event.key) {
+                Key.DirectionLeft -> {
+                    // Move back to WALLET_CALENDAR
+                    onFocusLevelChange(AccountFocusLevel.WALLET_CALENDAR)
+                    walletCalendarFocusRequester.requestFocus()
+                    true
+                }
+                Key.DirectionRight -> {
+                    // Move to SETTINGS
+                    onFocusLevelChange(AccountFocusLevel.SETTINGS)
+                    settingsFocusRequester.requestFocus()
+                    true
+                }
+                Key.DirectionUp -> {
+                    // Return to PROFILE (skip WALLET_CALENDAR)
+                    onFocusLevelChange(AccountFocusLevel.PROFILE)
+                    profileFocusRequester.requestFocus()
+                    true
+                }
+                Key.DirectionDown -> {
+                    // Move to MENU_LIST first item
+                    onFocusLevelChange(AccountFocusLevel.MENU_LIST)
+                    onMenuListIndexChange(0)
+                    menuListFocusRequesters[0]?.requestFocus()
+                    true
+                }
+                Key.Back -> {
+                    // Return to top menu
+                    onReturnToMenu()
+                    true
+                }
+                else -> false
+            }
+        }
+        AccountFocusLevel.SETTINGS -> {
+            when (event.key) {
+                Key.DirectionLeft -> {
+                    // Move to NOTIFICATIONS
+                    onFocusLevelChange(AccountFocusLevel.NOTIFICATIONS)
+                    notificationsFocusRequester.requestFocus()
+                    true
+                }
+                Key.DirectionRight -> {
+                    // Can't move right from SETTINGS (it's rightmost)
+                    false
+                }
+                Key.DirectionUp -> {
+                    // Return to PROFILE (skip WALLET_CALENDAR and NOTIFICATIONS)
+                    onFocusLevelChange(AccountFocusLevel.PROFILE)
+                    profileFocusRequester.requestFocus()
+                    true
+                }
+                Key.DirectionDown -> {
+                    // Move to MENU_LIST first item
+                    onFocusLevelChange(AccountFocusLevel.MENU_LIST)
+                    onMenuListIndexChange(0)
+                    menuListFocusRequesters[0]?.requestFocus()
+                    true
+                }
+                Key.Back -> {
+                    // Return to top menu
+                    onReturnToMenu()
+                    true
+                }
+                else -> false
+            }
+        }
+        AccountFocusLevel.MENU_LIST -> {
+            when (event.key) {
+                Key.DirectionUp -> {
+                    if (menuListIndex > 0) {
+                        // Move to previous menu item
+                        val newIndex = menuListIndex - 1
+                        onMenuListIndexChange(newIndex)
+                        menuListFocusRequesters[newIndex]?.requestFocus()
+                        true
+                    } else {
+                        // From first item, return to WALLET_CALENDAR
+                        onFocusLevelChange(AccountFocusLevel.WALLET_CALENDAR)
+                        walletCalendarFocusRequester.requestFocus()
+                        true
+                    }
+                }
+                Key.DirectionDown -> {
+                    if (menuListIndex < menuItemsCount - 1) {
+                        // Move to next menu item
+                        val newIndex = menuListIndex + 1
+                        onMenuListIndexChange(newIndex)
+                        menuListFocusRequesters[newIndex]?.requestFocus()
+                        true
+                    } else {
+                        // At last item, stay in place
+                        true
+                    }
+                }
+                Key.Back, Key.DirectionLeft -> {
+                    // Return to top menu
+                    onReturnToMenu()
+                    true
+                }
+                else -> false
+            }
         }
     }
 }

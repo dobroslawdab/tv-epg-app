@@ -384,20 +384,20 @@ fun TvRoot() {
 
                 StartupModeSelectionScreen(
                     onModeSelected = { mode ->
-                        // ZAWSZE przejdź do wybranego trybu (nawet z menu HOME)
+                        // ZAWSZE przejdź do wybranego trybu (nawet z ACCOUNT)
                         currentScreen = when (mode) {
                             com.uxellence.tv.v3.utils.VersionTracker.MODE_EPG_DAY -> {
-                                isEpgDayFromStartup = true  // Selected startup mode - show overlay
+                                isEpgDayFromStartup = true  // Telewizja - uruchom EPG DAY z overlay
                                 NavigationScreen.EPG_DAY
                             }
-                            else -> NavigationScreen.TOP_MENU2
+                            else -> NavigationScreen.TOP_MENU2  // Telewizja + aplikacje - zakładka START
                         }
                     },
                     onBackPressed = {
                         currentScreen = if (previousScreen == NavigationScreen.HOME) {
                             NavigationScreen.HOME
                         } else {
-                            NavigationScreen.TOP_MENU2  // Domyślnie wróć do menu
+                            NavigationScreen.TOP_MENU2  // Return to ACCOUNT or default menu
                         }
                     },
                     sx = ::sx,
@@ -646,6 +646,11 @@ fun TvRoot() {
                         previousScreen = currentScreen
                         isEpgDayFromStartup = false  // Launched from TOP_MENU2 - NO overlay
                         currentScreen = NavigationScreen.EPG_DAY
+                    },
+                    onNavigateToStartupMode = {
+                        // Navigate to startup mode selection from ACCOUNT section
+                        previousScreen = NavigationScreen.TOP_MENU2
+                        currentScreen = NavigationScreen.STARTUP_MODE_SELECTION
                     },
                     onFocusRestored = {
                         // Callback no longer used - clearing handled by LaunchedEffect above
