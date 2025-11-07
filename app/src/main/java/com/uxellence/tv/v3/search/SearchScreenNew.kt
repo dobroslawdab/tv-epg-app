@@ -14,6 +14,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -1199,6 +1203,20 @@ fun StaticChannelRow(
 }
 
 /**
+ * Helper function to map icon names to Material Icons
+ */
+@Composable
+private fun getMaterialIcon(iconName: String): androidx.compose.ui.graphics.vector.ImageVector? {
+    return when (iconName.lowercase()) {
+        "history" -> Icons.Filled.Search  // Placeholder for history
+        "trending_up" -> Icons.Filled.Star
+        "movie" -> Icons.Filled.Info
+        "tv" -> Icons.Filled.Settings
+        else -> null
+    }
+}
+
+/**
  * SearchShortcutCard - Simplified ShortcutCardV2 (310×179px)
  */
 @Composable
@@ -1229,6 +1247,7 @@ private fun SearchShortcutCard(
             .clickable { /* TODO */ },
         contentAlignment = Alignment.BottomStart
     ) {
+        // Title text at bottom-left
         Text(
             text = shortcut.title,
             color = Color(0xFFEEEEEE),
@@ -1236,6 +1255,22 @@ private fun SearchShortcutCard(
             fontWeight = FontWeight.W500,
             modifier = Modifier.padding(sx(20))
         )
+
+        // Icon at top-right corner
+        if (shortcut.icon is ShortcutIcon.MaterialIcon) {
+            val icon = getMaterialIcon(shortcut.icon.iconName)
+            if (icon != null) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = shortcut.title,
+                    tint = Color(0xFFEEEEEE),
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(sx(20))
+                        .size(sx(40))
+                )
+            }
+        }
     }
 }
 
