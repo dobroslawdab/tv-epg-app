@@ -121,7 +121,7 @@ fun SearchScreenNew(
     // Shortcuts for "Skróty" channel
     val shortcuts = remember {
         listOf(
-            ShortcutItem("1", "Historia", ShortcutIcon.MaterialIcon("history")),
+            ShortcutItem("1", "Historia wyszukiwania", ShortcutIcon.MaterialIcon("history")),
             ShortcutItem("2", "Popularne", ShortcutIcon.MaterialIcon("trending_up")),
             ShortcutItem("3", "Filmy", ShortcutIcon.MaterialIcon("movie")),
             ShortcutItem("4", "Seriale", ShortcutIcon.MaterialIcon("tv"))
