@@ -1383,9 +1383,18 @@ private fun FullPageContent(
     onFocusRestored: () -> Unit = {},
     restoredTelewizjaFocus: FocusState? = null
 ) {
+    // Track fresh entry (transition from menu Row 0 → content Row 1+)
+    // Used to auto-focus first interactive element only when user enters section, not while hovering tab
+    var previousRow by remember { mutableStateOf(0) }
+    val isFreshEntry = remember(globalFocusState.value.currentRow) {
+        val wasFreshEntry = previousRow == 0 && globalFocusState.value.currentRow > 0
+        previousRow = globalFocusState.value.currentRow
+        wasFreshEntry
+    }
+
     when (selectedSection) {
         "SEARCH" -> {
-            SearchScreenNew(onReturnToMenu = onReturnToMenu, shouldAutoFocus = shouldAutoFocus)
+            SearchScreenNew(onReturnToMenu = onReturnToMenu, shouldAutoFocus = isFreshEntry)
         }
         "MOJE" -> {
             MojeScreenContent(
