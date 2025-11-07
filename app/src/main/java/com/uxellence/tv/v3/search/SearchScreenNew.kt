@@ -594,6 +594,9 @@ fun SearchScreenNew(
                                 if (focused) {
                                     focusedRowIndex = 0
                                     focusedColIndex = 0
+                                } else {
+                                    // Explicit unfocus state - ensures VoiceButton clears visuals
+                                    // Border animation will trigger due to isFocused = false
                                 }
                             },
                             onClick = {
