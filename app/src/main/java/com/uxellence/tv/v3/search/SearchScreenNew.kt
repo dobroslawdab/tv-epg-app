@@ -325,6 +325,9 @@ fun SearchScreenNew(
                             when (focusedRowIndex) {
                                 0 -> {
                                     // From VoiceButton (Row 0) → Menu
+                                    // Clear focus state before returning to prevent double focus
+                                    focusedRowIndex = -1
+                                    focusedColIndex = -1
                                     onReturnToMenu()
                                     return@onPreviewKeyEvent true
                                 }
