@@ -96,6 +96,16 @@ import android.widget.Toast
 import android.content.Context
 import com.uxellence.tv.v3.utils.VersionTracker
 
+// PIP Dialog Constants
+private val DIALOG_ALLOWED_KEYS = setOf(
+    Key.DirectionUp,
+    Key.DirectionDown,
+    Key.DirectionCenter,
+    Key.Enter,
+    Key.Back,
+    Key.Escape
+)
+
 // Data classes
 data class TopMenuState2(
     val focusedItemId: String = "",
@@ -647,6 +657,9 @@ fun TopMenuScreen2(
     // PIP dialog state - show when PLAY/PAUSE pressed with active PIP
     var showPipDialog by remember { mutableStateOf(false) }
 
+    // Debounce state for PLAY/PAUSE to prevent rapid dialog opens (50ms minimum between opens)
+    var lastDialogOpenTime by remember { mutableLongStateOf(0L) }
+
     var isContentLoading by remember { mutableStateOf(false) }
 
     val focusRequesters = remember(menuItems.size) {
@@ -694,10 +707,16 @@ fun TopMenuScreen2(
                 }
 
                 // PIP Dialog Guard: CRITICAL - Must be FIRST before any key handling!
-                // When dialog is open, delegate ALL keys to dialog immediately
+                // When dialog is open, only allow specific keys through (whitelist pattern)
+                // Strengthened input gate prevents unexpected keys from reaching background navigation
                 if (showPipDialog) {
-                    android.util.Log.d("TopMenuScreen2", "PIP dialog open - delegating ALL keys to dialog: ${event.key}")
-                    return@onPreviewKeyEvent false
+                    if (event.key in DIALOG_ALLOWED_KEYS) {
+                        android.util.Log.d("TopMenuScreen2", "PIP dialog open - allowing key to dialog: ${event.key}")
+                        return@onPreviewKeyEvent false  // Let dialog handle allowed keys
+                    } else {
+                        android.util.Log.d("TopMenuScreen2", "PIP dialog open - blocking unexpected key: ${event.key}")
+                        return@onPreviewKeyEvent true  // Consume and block all other keys
+                    }
                 }
 
                 if (event.key == Key.Back) {
@@ -727,12 +746,19 @@ fun TopMenuScreen2(
                 }
 
                 // PIP: Handle PLAY/PAUSE key - show dialog when PIP is active
+                // Debounce: Minimum 50ms between dialog opens to prevent rapid key press issues
                 val keyCode = event.nativeKeyEvent.keyCode
                 if ((keyCode == android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE ||
                      keyCode == android.view.KeyEvent.KEYCODE_MEDIA_PLAY ||
                      keyCode == android.view.KeyEvent.KEYCODE_MEDIA_PAUSE) && pipPlayer != null) {
-                    android.util.Log.d("TopMenuScreen2", "PLAY/PAUSE pressed with active PIP - showing dialog")
-                    showPipDialog = true
+                    val currentTime = System.currentTimeMillis()
+                    if (currentTime - lastDialogOpenTime >= 50) {
+                        android.util.Log.d("TopMenuScreen2", "PLAY/PAUSE pressed with active PIP - showing dialog")
+                        showPipDialog = true
+                        lastDialogOpenTime = currentTime
+                    } else {
+                        android.util.Log.d("TopMenuScreen2", "PLAY/PAUSE debounced - ignoring rapid key press")
+                    }
                     return@onPreviewKeyEvent true
                 }
 
