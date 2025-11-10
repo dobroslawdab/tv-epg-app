@@ -974,8 +974,8 @@ fun TopMenuScreen2(
                     onClosePip()
                 },
                 onClose = { onClosePip() },
-                sx = sx,
-                sy = sy
+                sx = ::sx,
+                sy = ::sy
             )
         }
     }
