@@ -734,12 +734,47 @@ SafeNavigationScope(
   - Modified: `EpgDayScreen.kt:573-694` (controller init + simplified handler)
 - **Documentation**: Full refactoring documented in this section
 
+#### **Issue #5: PIP Dialog Focus Blocking** (2025-11-07)
+- **Issue**: PIP dialog blocks underlying navigation, buttons unresponsive when dialog open
+- **Symptoms**:
+  1. Dialog shows on PLAY/PAUSE press
+  2. START section navigation becomes unresponsive (keys don't work)
+  3. No way to close dialog reliably
+  4. Background elements still receive key events
+- **Root Cause**:
+  - Dialog guard returns `false` (delegates ALL keys without validation)
+  - Unexpected keys (media, numeric) leak to background
+  - No debounce on dialog trigger (rapid presses cause issues)
+  - Monolithic inline UI (147 lines) in TopMenuScreen2.kt
+- **Solution**: Hybrid Pattern (Strengthened Input Gate + Controller Delegation)
+  1. **Strengthened Input Gate**: Added `DIALOG_ALLOWED_KEYS` whitelist (UP/DOWN/ENTER/BACK/ESCAPE)
+  2. **Key Validation**: Dialog guard validates against whitelist - allowed keys delegate, others blocked
+  3. **Debounce**: 50ms minimum between dialog opens (`lastDialogOpenTime` state)
+  4. **Controller Extraction**: Created `PipDialogController.kt` with `handleDialogKeys()` function
+  5. **UI Extraction**: Created `PipDialogMenu.kt` composable (189 lines)
+  6. **Data Models**: Created `PipMenuOption.kt` sealed class (2 options: Fullscreen, Close)
+- **Result**:
+  - ✅ Navigation preserved: START section works when dialog closed
+  - ✅ Unexpected keys blocked: Media/numeric keys can't reach background
+  - ✅ Reliable close: BACK always dismisses dialog
+  - ✅ No rapid opens: Debounce prevents multiple dialogs
+  - ✅ Clean architecture: 147 lines → 12-line composable call
+  - ✅ Testable: Controller can be unit tested independently
+  - ✅ Reusable: PipDialogMenu can be used elsewhere
+- **Files**:
+  - Created: `pip/PipMenuOption.kt`, `pip/PipDialogController.kt`, `pip/PipDialogMenu.kt`
+  - Modified: `TopMenuScreen2.kt:100-107` (constant), `TopMenuScreen2.kt:661` (debounce state), `TopMenuScreen2.kt:709-717` (strengthened guard), `TopMenuScreen2.kt:754-762` (debounce logic), `TopMenuScreen2.kt:970-979` (composable call)
+- **Documentation**: `docs/patterns/PIP_DIALOG_PATTERN.md` (comprehensive pattern guide)
+- **Pattern Reference**: Follows tescik example (input gating) + EpgDayScreen pattern (controller extraction)
+- **Commits**: 29973a5, 96baec1, 3bf5d4d, 6194519 (4 atomic commits)
+
 #### **Key Learnings**
 1. **Delegation Pattern**: Sections with complex multi-row navigation (MOJE, START, APLIKACJE, VOD) should delegate ALL keys to child components
 2. **Callback Pattern**: Child components use `onReturnToMenu` callback for menu transitions instead of parent intercepting keys
 3. **Consistency**: All similar sections should follow the same pattern for maintainability
 4. **Documentation**: Critical patterns must be documented in CLAUDE.md with examples and checklists
 5. **Monolithic Handlers Are Anti-patterns**: Extract to specialized controllers (Focus Architect principle) - prevents conflicts, improves maintainability, reduces bugs
+6. **Modal Dialogs Require Input Gating**: Never delegate ALL keys blindly - use whitelist validation to prevent unexpected keys from leaking to background (PIP Dialog pattern)
 
 ---
 
