@@ -82,6 +82,8 @@ import com.uxellence.tv.v3.version001.Version001Screen
 import com.uxellence.tv.v3.version001.*
 import com.uxellence.tv.v3.focus.*
 import com.uxellence.tv.v3.search.SearchScreenNew
+import com.uxellence.tv.v3.pip.PipDialogController
+import com.uxellence.tv.v3.pip.PipDialogMenu
 import java.time.LocalTime
 import coil.compose.AsyncImage
 import android.util.Log
@@ -95,6 +97,16 @@ import com.google.android.exoplayer2.ui.PlayerView
 import android.widget.Toast
 import android.content.Context
 import com.uxellence.tv.v3.utils.VersionTracker
+
+// PIP Dialog Constants
+private val DIALOG_ALLOWED_KEYS = setOf(
+    Key.DirectionUp,
+    Key.DirectionDown,
+    Key.DirectionCenter,
+    Key.Enter,
+    Key.Back,
+    Key.Escape
+)
 
 // Data classes
 data class TopMenuState2(
@@ -647,6 +659,9 @@ fun TopMenuScreen2(
     // PIP dialog state - show when PLAY/PAUSE pressed with active PIP
     var showPipDialog by remember { mutableStateOf(false) }
 
+    // Debounce state for PLAY/PAUSE to prevent rapid dialog opens (50ms minimum between opens)
+    var lastDialogOpenTime by remember { mutableLongStateOf(0L) }
+
     var isContentLoading by remember { mutableStateOf(false) }
 
     val focusRequesters = remember(menuItems.size) {
@@ -694,10 +709,16 @@ fun TopMenuScreen2(
                 }
 
                 // PIP Dialog Guard: CRITICAL - Must be FIRST before any key handling!
-                // When dialog is open, delegate ALL keys to dialog immediately
+                // When dialog is open, only allow specific keys through (whitelist pattern)
+                // Strengthened input gate prevents unexpected keys from reaching background navigation
                 if (showPipDialog) {
-                    android.util.Log.d("TopMenuScreen2", "PIP dialog open - delegating ALL keys to dialog: ${event.key}")
-                    return@onPreviewKeyEvent false
+                    if (event.key in DIALOG_ALLOWED_KEYS) {
+                        android.util.Log.d("TopMenuScreen2", "PIP dialog open - allowing key to dialog: ${event.key}")
+                        return@onPreviewKeyEvent false  // Let dialog handle allowed keys
+                    } else {
+                        android.util.Log.d("TopMenuScreen2", "PIP dialog open - blocking unexpected key: ${event.key}")
+                        return@onPreviewKeyEvent true  // Consume and block all other keys
+                    }
                 }
 
                 if (event.key == Key.Back) {
@@ -727,12 +748,19 @@ fun TopMenuScreen2(
                 }
 
                 // PIP: Handle PLAY/PAUSE key - show dialog when PIP is active
+                // Debounce: Minimum 50ms between dialog opens to prevent rapid key press issues
                 val keyCode = event.nativeKeyEvent.keyCode
                 if ((keyCode == android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE ||
                      keyCode == android.view.KeyEvent.KEYCODE_MEDIA_PLAY ||
                      keyCode == android.view.KeyEvent.KEYCODE_MEDIA_PAUSE) && pipPlayer != null) {
-                    android.util.Log.d("TopMenuScreen2", "PLAY/PAUSE pressed with active PIP - showing dialog")
-                    showPipDialog = true
+                    val currentTime = System.currentTimeMillis()
+                    if (currentTime - lastDialogOpenTime >= 50) {
+                        android.util.Log.d("TopMenuScreen2", "PLAY/PAUSE pressed with active PIP - showing dialog")
+                        showPipDialog = true
+                        lastDialogOpenTime = currentTime
+                    } else {
+                        android.util.Log.d("TopMenuScreen2", "PLAY/PAUSE debounced - ignoring rapid key press")
+                    }
                     return@onPreviewKeyEvent true
                 }
 
@@ -939,154 +967,16 @@ fun TopMenuScreen2(
 
         // PIP Dialog - shown when PLAY/PAUSE pressed with active PIP
         if (showPipDialog && pipPlayer != null) {
-            // Focus state - OUTSIDE of Column to prevent recomposition issues
-            var focusedOption by remember { mutableStateOf(0) }
-            val focusRequesterFullscreen = remember { FocusRequester() }
-            val focusRequesterClose = remember { FocusRequester() }
-
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.7f))
-                    .zIndex(200f),  // Below PIP (1000f), above content
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    modifier = Modifier
-                        .width(sx(600))
-                        .background(Color(0xFF48227C), RoundedCornerShape(sx(16)))
-                        .border(sx(2), Color(0xFF5AECD3), RoundedCornerShape(sx(16)))
-                        .padding(sx(40)),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(sy(24))
-                ) {
-                    // Dialog title
-                    Text(
-                        text = "Co chcesz zrobić z odtwarzaczem?",
-                        color = Color(0xFFEEEEEE),
-                        fontSize = (24 * sx(1).value / 1).sp,
-                        fontWeight = FontWeight.Medium,
-                        textAlign = TextAlign.Center
-                    )
-
-                    Spacer(modifier = Modifier.height(sy(16)))
-
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(sy(60))
-                            .background(
-                                if (focusedOption == 0) Color(0xFF5AECD3) else Color(0x33EEEEEE),
-                                RoundedCornerShape(sx(8))
-                            )
-                            .focusable()
-                            .onFocusChanged {
-                                if (it.isFocused) focusedOption = 0
-                            }
-                            .focusRequester(focusRequesterFullscreen)
-                            .onPreviewKeyEvent { keyEvent ->
-                                if (keyEvent.type == KeyEventType.KeyDown) {
-                                    when (keyEvent.key) {
-                                        Key.Enter, Key.DirectionCenter -> {
-                                            android.util.Log.d("TopMenuScreen2", "Dialog: Powiększ selected")
-                                            showPipDialog = false
-                                            onReturnToEpgDay()
-                                            onClosePip()
-                                            true
-                                        }
-                                        Key.DirectionDown -> {
-                                            focusRequesterClose.requestFocus()
-                                            true
-                                        }
-                                        Key.Back -> {
-                                            showPipDialog = false
-                                            true
-                                        }
-                                        else -> false
-                                    }
-                                } else false
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Powiększ na pełny ekran",
-                            color = if (focusedOption == 0) Color(0xFF48227C) else Color(0xFFEEEEEE),
-                            fontSize = (20 * sx(1).value / 1).sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-
-                    // Option 2: Zamknij PIP
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(sy(60))
-                            .background(
-                                if (focusedOption == 1) Color(0xFF5AECD3) else Color(0x33EEEEEE),
-                                RoundedCornerShape(sx(8))
-                            )
-                            .focusable()
-                            .onFocusChanged {
-                                if (it.isFocused) focusedOption = 1
-                            }
-                            .focusRequester(focusRequesterClose)
-                            .onPreviewKeyEvent { keyEvent ->
-                                if (keyEvent.type == KeyEventType.KeyDown) {
-                                    when (keyEvent.key) {
-                                        Key.Enter, Key.DirectionCenter -> {
-                                            android.util.Log.d("TopMenuScreen2", "Dialog: Zamknij selected")
-                                            showPipDialog = false
-                                            onClosePip()
-                                            true
-                                        }
-                                        Key.DirectionUp -> {
-                                            focusRequesterFullscreen.requestFocus()
-                                            true
-                                        }
-                                        Key.Back -> {
-                                            showPipDialog = false
-                                            true
-                                        }
-                                        else -> false
-                                    }
-                                } else false
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Zamknij PIP",
-                            color = if (focusedOption == 1) Color(0xFF48227C) else Color(0xFFEEEEEE),
-                            fontSize = (20 * sx(1).value / 1).sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-
-                    // Request focus on first option when dialog appears
-                    val focusManager = LocalFocusManager.current
-                    LaunchedEffect(showPipDialog) {
-                        if (showPipDialog) {
-                            // Step 1: Clear all focus from background
-                            focusManager.clearFocus(force = true)
-                            // Step 2: Small delay for focus clearing to complete
-                            kotlinx.coroutines.delay(50)
-                            // Step 3: Request dialog focus
-                            focusRequesterFullscreen.requestFocus()
-                            android.util.Log.d("TopMenuScreen2", "Dialog focus: cleared background, requested first option")
-                        }
-                    }
-
-                    // Clean up focus when dialog closes
-                    DisposableEffect(showPipDialog) {
-                        onDispose {
-                            if (!showPipDialog) {
-                                // Dialog closed - clear any remaining dialog focus
-                                focusManager.clearFocus()
-                                android.util.Log.d("TopMenuScreen2", "Dialog closed - focus cleared")
-                            }
-                        }
-                    }
-                }
-            }
+            PipDialogMenu(
+                onDismiss = { showPipDialog = false },
+                onFullscreen = {
+                    onReturnToEpgDay()
+                    onClosePip()
+                },
+                onClose = { onClosePip() },
+                sx = sx,
+                sy = sy
+            )
         }
     }
 }
