@@ -82,6 +82,7 @@ import com.uxellence.tv.v3.version001.Version001Screen
 import com.uxellence.tv.v3.version001.*
 import com.uxellence.tv.v3.focus.*
 import com.uxellence.tv.v3.search.SearchScreenNew
+import com.uxellence.tv.v3.pip.PipDialogController
 import java.time.LocalTime
 import coil.compose.AsyncImage
 import android.util.Log
@@ -1011,26 +1012,24 @@ fun TopMenuScreen2(
                             }
                             .focusRequester(focusRequesterFullscreen)
                             .onPreviewKeyEvent { keyEvent ->
-                                if (keyEvent.type == KeyEventType.KeyDown) {
-                                    when (keyEvent.key) {
-                                        Key.Enter, Key.DirectionCenter -> {
-                                            android.util.Log.d("TopMenuScreen2", "Dialog: Powiększ selected")
-                                            showPipDialog = false
-                                            onReturnToEpgDay()
-                                            onClosePip()
-                                            true
-                                        }
-                                        Key.DirectionDown -> {
-                                            focusRequesterClose.requestFocus()
-                                            true
-                                        }
-                                        Key.Back -> {
-                                            showPipDialog = false
-                                            true
-                                        }
-                                        else -> false
-                                    }
-                                } else false
+                                PipDialogController.handleDialogKeys(
+                                    event = keyEvent,
+                                    focusedOption = focusedOption,
+                                    onNavigate = { newOption ->
+                                        if (newOption == 0) focusRequesterFullscreen.requestFocus()
+                                        else if (newOption == 1) focusRequesterClose.requestFocus()
+                                    },
+                                    onSelectFullscreen = {
+                                        showPipDialog = false
+                                        onReturnToEpgDay()
+                                        onClosePip()
+                                    },
+                                    onSelectClose = {
+                                        showPipDialog = false
+                                        onClosePip()
+                                    },
+                                    onDismiss = { showPipDialog = false }
+                                )
                             },
                         contentAlignment = Alignment.Center
                     ) {
@@ -1057,25 +1056,24 @@ fun TopMenuScreen2(
                             }
                             .focusRequester(focusRequesterClose)
                             .onPreviewKeyEvent { keyEvent ->
-                                if (keyEvent.type == KeyEventType.KeyDown) {
-                                    when (keyEvent.key) {
-                                        Key.Enter, Key.DirectionCenter -> {
-                                            android.util.Log.d("TopMenuScreen2", "Dialog: Zamknij selected")
-                                            showPipDialog = false
-                                            onClosePip()
-                                            true
-                                        }
-                                        Key.DirectionUp -> {
-                                            focusRequesterFullscreen.requestFocus()
-                                            true
-                                        }
-                                        Key.Back -> {
-                                            showPipDialog = false
-                                            true
-                                        }
-                                        else -> false
-                                    }
-                                } else false
+                                PipDialogController.handleDialogKeys(
+                                    event = keyEvent,
+                                    focusedOption = focusedOption,
+                                    onNavigate = { newOption ->
+                                        if (newOption == 0) focusRequesterFullscreen.requestFocus()
+                                        else if (newOption == 1) focusRequesterClose.requestFocus()
+                                    },
+                                    onSelectFullscreen = {
+                                        showPipDialog = false
+                                        onReturnToEpgDay()
+                                        onClosePip()
+                                    },
+                                    onSelectClose = {
+                                        showPipDialog = false
+                                        onClosePip()
+                                    },
+                                    onDismiss = { showPipDialog = false }
+                                )
                             },
                         contentAlignment = Alignment.Center
                     ) {
