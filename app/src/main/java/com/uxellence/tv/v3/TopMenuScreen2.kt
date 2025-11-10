@@ -83,6 +83,7 @@ import com.uxellence.tv.v3.version001.*
 import com.uxellence.tv.v3.focus.*
 import com.uxellence.tv.v3.search.SearchScreenNew
 import com.uxellence.tv.v3.pip.PipDialogController
+import com.uxellence.tv.v3.pip.PipDialogMenu
 import java.time.LocalTime
 import coil.compose.AsyncImage
 import android.util.Log
@@ -966,151 +967,16 @@ fun TopMenuScreen2(
 
         // PIP Dialog - shown when PLAY/PAUSE pressed with active PIP
         if (showPipDialog && pipPlayer != null) {
-            // Focus state - OUTSIDE of Column to prevent recomposition issues
-            var focusedOption by remember { mutableStateOf(0) }
-            val focusRequesterFullscreen = remember { FocusRequester() }
-            val focusRequesterClose = remember { FocusRequester() }
-
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.7f))
-                    .zIndex(200f),  // Below PIP (1000f), above content
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    modifier = Modifier
-                        .width(sx(600))
-                        .background(Color(0xFF48227C), RoundedCornerShape(sx(16)))
-                        .border(sx(2), Color(0xFF5AECD3), RoundedCornerShape(sx(16)))
-                        .padding(sx(40)),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(sy(24))
-                ) {
-                    // Dialog title
-                    Text(
-                        text = "Co chcesz zrobić z odtwarzaczem?",
-                        color = Color(0xFFEEEEEE),
-                        fontSize = (24 * sx(1).value / 1).sp,
-                        fontWeight = FontWeight.Medium,
-                        textAlign = TextAlign.Center
-                    )
-
-                    Spacer(modifier = Modifier.height(sy(16)))
-
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(sy(60))
-                            .background(
-                                if (focusedOption == 0) Color(0xFF5AECD3) else Color(0x33EEEEEE),
-                                RoundedCornerShape(sx(8))
-                            )
-                            .focusable()
-                            .onFocusChanged {
-                                if (it.isFocused) focusedOption = 0
-                            }
-                            .focusRequester(focusRequesterFullscreen)
-                            .onPreviewKeyEvent { keyEvent ->
-                                PipDialogController.handleDialogKeys(
-                                    event = keyEvent,
-                                    focusedOption = focusedOption,
-                                    onNavigate = { newOption ->
-                                        if (newOption == 0) focusRequesterFullscreen.requestFocus()
-                                        else if (newOption == 1) focusRequesterClose.requestFocus()
-                                    },
-                                    onSelectFullscreen = {
-                                        showPipDialog = false
-                                        onReturnToEpgDay()
-                                        onClosePip()
-                                    },
-                                    onSelectClose = {
-                                        showPipDialog = false
-                                        onClosePip()
-                                    },
-                                    onDismiss = { showPipDialog = false }
-                                )
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Powiększ na pełny ekran",
-                            color = if (focusedOption == 0) Color(0xFF48227C) else Color(0xFFEEEEEE),
-                            fontSize = (20 * sx(1).value / 1).sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-
-                    // Option 2: Zamknij PIP
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(sy(60))
-                            .background(
-                                if (focusedOption == 1) Color(0xFF5AECD3) else Color(0x33EEEEEE),
-                                RoundedCornerShape(sx(8))
-                            )
-                            .focusable()
-                            .onFocusChanged {
-                                if (it.isFocused) focusedOption = 1
-                            }
-                            .focusRequester(focusRequesterClose)
-                            .onPreviewKeyEvent { keyEvent ->
-                                PipDialogController.handleDialogKeys(
-                                    event = keyEvent,
-                                    focusedOption = focusedOption,
-                                    onNavigate = { newOption ->
-                                        if (newOption == 0) focusRequesterFullscreen.requestFocus()
-                                        else if (newOption == 1) focusRequesterClose.requestFocus()
-                                    },
-                                    onSelectFullscreen = {
-                                        showPipDialog = false
-                                        onReturnToEpgDay()
-                                        onClosePip()
-                                    },
-                                    onSelectClose = {
-                                        showPipDialog = false
-                                        onClosePip()
-                                    },
-                                    onDismiss = { showPipDialog = false }
-                                )
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Zamknij PIP",
-                            color = if (focusedOption == 1) Color(0xFF48227C) else Color(0xFFEEEEEE),
-                            fontSize = (20 * sx(1).value / 1).sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-
-                    // Request focus on first option when dialog appears
-                    val focusManager = LocalFocusManager.current
-                    LaunchedEffect(showPipDialog) {
-                        if (showPipDialog) {
-                            // Step 1: Clear all focus from background
-                            focusManager.clearFocus(force = true)
-                            // Step 2: Small delay for focus clearing to complete
-                            kotlinx.coroutines.delay(50)
-                            // Step 3: Request dialog focus
-                            focusRequesterFullscreen.requestFocus()
-                            android.util.Log.d("TopMenuScreen2", "Dialog focus: cleared background, requested first option")
-                        }
-                    }
-
-                    // Clean up focus when dialog closes
-                    DisposableEffect(showPipDialog) {
-                        onDispose {
-                            if (!showPipDialog) {
-                                // Dialog closed - clear any remaining dialog focus
-                                focusManager.clearFocus()
-                                android.util.Log.d("TopMenuScreen2", "Dialog closed - focus cleared")
-                            }
-                        }
-                    }
-                }
-            }
+            PipDialogMenu(
+                onDismiss = { showPipDialog = false },
+                onFullscreen = {
+                    onReturnToEpgDay()
+                    onClosePip()
+                },
+                onClose = { onClosePip() },
+                sx = sx,
+                sy = sy
+            )
         }
     }
 }
