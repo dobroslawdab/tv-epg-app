@@ -69,22 +69,29 @@ object EpgAdapter {
     }
 
     suspend fun getCurrentProgramsAsVodContent(
-        epgRepository: EpgRepository
+        epgRepository: EpgRepository,
+        context: android.content.Context
     ): List<VodContent> {
         android.util.Log.d("EpgAdapter", "=== Getting current programs ===")
-        val channels = listOf(
-            "TVP1", "TVP2", "Polsat", "TVN", "TVN 7",
-            "TV4", "TV Puls", "Tele 5", "TV 6", "Puls 2"
-        )
 
-        val result = channels.mapNotNull { channelName ->
-            val epgChannelId = channelMapping[channelName] ?: return@mapNotNull null
-            android.util.Log.d("EpgAdapter", "Fetching: $channelName -> $epgChannelId")
+        // Initialize ChannelManager if needed (same as EpgDayScreen)
+        if (!com.uxellence.tv.v3.channels.ChannelManager.isInitialized()) {
+            com.uxellence.tv.v3.channels.ChannelManager.initialize(context)
+        }
+
+        // Get all channels from JSON (same as EpgDayScreen)
+        val allChannels = com.uxellence.tv.v3.channels.ChannelManager.getAllChannels(includeUnavailable = false)
+        android.util.Log.d("EpgAdapter", "Found ${allChannels.size} channels from ChannelManager")
+
+        val result = allChannels.mapNotNull { channel ->
+            // Use channel.epgId directly (no manual mapping needed)
+            val epgChannelId = channel.epgId ?: channel.name
+            android.util.Log.d("EpgAdapter", "Fetching: ${channel.name} -> $epgChannelId")
 
             try {
                 val currentProgram = epgRepository.getCurrentProgram(epgChannelId)
                 if (currentProgram == null) {
-                    android.util.Log.w("EpgAdapter", "  No program for $channelName")
+                    android.util.Log.w("EpgAdapter", "  No program for ${channel.name}")
                     return@mapNotNull null
                 }
 
@@ -97,21 +104,21 @@ object EpgAdapter {
                     VodContent(
                         id = "epg_${program.channelId.replace(" ", "_")}_${program.startUtc.epochSecond}",  // Unique ID (normalized channelId)
                         title = program.title,
-                        description = buildDescription(channelName, program),
+                        description = buildDescription(channel.name, program),
                         category = buildMetadataString(program),
-                        imageUrl = program.iconUrl ?: getChannelLogo(channelName),
-                        channelLogoUrl = getChannelLogo(channelName),
-                        link = "${program.startUtc}|${program.endUtc}|${program.channelId}|${channelName}"  // Timestamps + channelId + channelName for EPG cards
+                        imageUrl = program.iconUrl ?: channel.logoUrl ?: "",
+                        channelLogoUrl = channel.logoUrl ?: "",
+                        link = "${program.startUtc}|${program.endUtc}|${program.channelId}|${channel.name}"  // Timestamps + channelId + channelName for EPG cards
                     )
                 }
             } catch (e: Exception) {
-                android.util.Log.e("EpgAdapter", "Error for $channelName", e)
+                android.util.Log.e("EpgAdapter", "Error for ${channel.name}", e)
                 null
             }
         }
 
         android.util.Log.d("EpgAdapter", "Total programs: ${result.size}")
-        return result
+        return result.take(9)  // Return up to 9 channels
     }
 
     suspend fun getLast24HoursMoviesAsVodContent(
@@ -463,5 +470,47 @@ object EpgAdapter {
         )
         val logoId = logoMap[channelName] ?: channelName.lowercase().replace(" ", "-")
         return "https://epg.ovh/logo/$logoId.png"
+    }
+
+    /**
+     * Get live TV channels from JSON asset (for "Kategorie EPG")
+     * Returns 9 live TV channels with streamUrl, independent of EPG data
+     */
+    fun getLiveChannelsAsVodContent(context: android.content.Context): List<VodContent> {
+        android.util.Log.d("EpgAdapter", "=== Loading live TV channels from JSON ===")
+        return try {
+            val jsonString = context.assets.open("tv_channels_with_streams.json").bufferedReader().use { it.readText() }
+            val jsonArray = org.json.JSONArray(jsonString)
+            val channels = mutableListOf<VodContent>()
+
+            for (i in 0 until jsonArray.length()) {
+                val obj = jsonArray.getJSONObject(i)
+                val id = obj.getString("id")
+                val name = obj.getString("name")
+                val streamUrl = obj.getString("streamUrl")
+                val logoUrl = obj.getString("logoUrl")
+                val epgId = obj.optString("epgId", "")
+
+                channels.add(
+                    VodContent(
+                        id = id,
+                        title = name,
+                        description = "Live TV • $name",
+                        category = "Live TV",  // For live playback detection
+                        imageUrl = "",  // Will use logo instead
+                        channelLogoUrl = logoUrl,
+                        link = streamUrl  // Stream URL for live playback
+                    )
+                )
+
+                android.util.Log.d("EpgAdapter", "  Added: $name (epgId: $epgId)")
+            }
+
+            android.util.Log.d("EpgAdapter", "Total live TV channels: ${channels.size}")
+            channels.take(9)  // Return first 9 channels
+        } catch (e: Exception) {
+            android.util.Log.e("EpgAdapter", "Error loading live TV channels from JSON", e)
+            emptyList()
+        }
     }
 }

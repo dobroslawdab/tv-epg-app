@@ -553,7 +553,7 @@ private fun ChannelListCard(
         // Channel number label
         Box(
             modifier = Modifier
-                .height(sy(54))  // 54px height to fit lineHeight (32px) + padding (22px) - prevents cutoff
+                .height(sy(54))  // 54px height fits 28sp lineHeight perfectly without cutoff
                 .widthIn(min = sx(52))  // Minimum width to fit 2-digit number (01, 02, etc.)
                 .clip(RoundedCornerShape(sx(4)))  // Figma: radius 4px
                 .border(
@@ -561,14 +561,14 @@ private fun ChannelListCard(
                     color = Color(0xFFEEEEEE).copy(alpha = 0.4f),  // Figma: rgba(238,238,238,0.4)
                     shape = RoundedCornerShape(sx(4))
                 )
-                .padding(vertical = sy(11), horizontal = sx(12)),  // Increased vertical padding to 11px
+                .padding(horizontal = sx(12)),  // Only horizontal padding - vertical removed to prevent cutoff
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = channelNumber.toString().padStart(2, '0'),  // Format: 01, 02, etc. (2-digit)
                 fontSize = (24 * sy(1).value / 1).sp,  // Figma: 24px
                 fontWeight = FontWeight.Medium,  // Figma: Medium (500)
-                lineHeight = (32 * sy(1).value / 1).sp,  // Figma: 32px (1.333em)
+                lineHeight = (28 * sy(1).value / 1).sp,  // Reduced from 32px to 28px - fits in 54px box without cutoff
                 letterSpacing = 0.48.sp,  // Figma: 2% of 24px = 0.48sp
                 color = Color(0xFFEEEEEE)  // Figma: #EEEEEE
             )
@@ -897,6 +897,25 @@ fun TopMenuScreen2(
                 restoredTelewizjaFocus = restoredTelewizjaFocus
             )
         }
+
+        // Gradient from top (same as EPG Day TopMenuOverlay)
+        // Solid purple at top (0-30%), fades to transparent (30-60%)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(sy(TOP_MENU_GRADIENT_HEIGHT))  // 600px height
+                .align(Alignment.TopCenter)
+                .zIndex(5f)  // Above content (0f), below menu (10f)
+                .background(
+                    brush = Brush.verticalGradient(
+                        0.0f to Color(0xFF48227C),    // 0%: Solid purple at top
+                        0.3f to Color(0xFF48227C),    // 30%: Still solid purple
+                        0.6f to Color(0x0048227C),    // 60%: Transparent purple
+                        startY = 0f,
+                        endY = sy(TOP_MENU_GRADIENT_HEIGHT).value
+                    )
+                )
+        )
 
         // Smooth loader overlay (Netflix-style transition)
         AnimatedVisibility(
@@ -1741,7 +1760,7 @@ private fun TelewizjaChannelsScreen(
 
             // Załadować aktualne programy
             android.util.Log.d("EPG_LOADING", "   Loading current programs...")
-            terazWTvPrograms = com.uxellence.tv.v3.utils.EpgAdapter.getCurrentProgramsAsVodContent(epgRepository)
+            terazWTvPrograms = com.uxellence.tv.v3.utils.EpgAdapter.getCurrentProgramsAsVodContent(epgRepository, context)
 
             val endTime = System.currentTimeMillis()
             val duration = endTime - startTime
@@ -1762,7 +1781,7 @@ private fun TelewizjaChannelsScreen(
         while (true) {
             kotlinx.coroutines.delay(30 * 60 * 1000L) // 30 minut
             try {
-                terazWTvPrograms = com.uxellence.tv.v3.utils.EpgAdapter.getCurrentProgramsAsVodContent(epgRepository)
+                terazWTvPrograms = com.uxellence.tv.v3.utils.EpgAdapter.getCurrentProgramsAsVodContent(epgRepository, context)
             } catch (e: Exception) {
                 android.util.Log.e("TELEWIZJA", "Failed to refresh EPG", e)
             }
@@ -1781,9 +1800,9 @@ private fun TelewizjaChannelsScreen(
     // State dla "Teleturnieje" - teleturnieje z ostatnich 24h
     var teleturniejePrograms by remember { mutableStateOf<List<VodContent>>(emptyList()) }
 
-    // State dla "Kategorie EPG" - te same programy co "Teraz w TV" jako VodContent
+    // State dla "Kategorie EPG" - current EPG programs
     var epgCategoriesProgramsAll by remember { mutableStateOf<List<VodContent>>(emptyList()) }
-    var epgCategoriesVisibleCount by remember { mutableStateOf(5) } // Start z 5 programami
+    var epgCategoriesVisibleCount by remember { mutableStateOf(9) } // Show 9 initially
     val epgCategoriesPrograms = remember(epgCategoriesProgramsAll, epgCategoriesVisibleCount) {
         epgCategoriesProgramsAll.take(epgCategoriesVisibleCount)
     }
@@ -1799,20 +1818,14 @@ private fun TelewizjaChannelsScreen(
         }
     }
 
-    // Załadować programy EPG dla "Kategorie EPG" - te same co "Teraz w TV"
+    // Załadować aktualne programy dla "Kategorie EPG" (using ChannelManager like EpgDayScreen)
     LaunchedEffect(Unit) {
-        val startTime = System.currentTimeMillis()
-        android.util.Log.d("EPG_LOADING", "⏱️ [Kategorie EPG] LaunchedEffect START at $startTime")
+        android.util.Log.d("EPG_DEBUG", "=== Loading current EPG programs for Kategorie EPG ===")
         try {
-            epgCategoriesProgramsAll = com.uxellence.tv.v3.utils.EpgAdapter.getCurrentProgramsAsVodContent(epgRepository)
-            val endTime = System.currentTimeMillis()
-            val duration = endTime - startTime
-            android.util.Log.d("EPG_LOADING", "✅ [Kategorie EPG] Loaded ${epgCategoriesProgramsAll.size} programs in ${duration}ms (showing ${epgCategoriesVisibleCount})")
-            if (epgCategoriesProgramsAll.isNotEmpty()) {
-                android.util.Log.d("EPG_LOADING", "   First program: ID='${epgCategoriesProgramsAll[0].id}', title='${epgCategoriesProgramsAll[0].title}'")
-            }
+            epgCategoriesProgramsAll = com.uxellence.tv.v3.utils.EpgAdapter.getCurrentProgramsAsVodContent(epgRepository, context)
+            android.util.Log.d("EPG_DEBUG", "Current programs loaded: ${epgCategoriesProgramsAll.size}")
         } catch (e: Exception) {
-            android.util.Log.e("EPG_LOADING", "❌ [Kategorie EPG] Failed to load", e)
+            android.util.Log.e("EPG_DEBUG", "Failed to load current programs", e)
         }
     }
 
@@ -1842,39 +1855,43 @@ private fun TelewizjaChannelsScreen(
     val newsChannels = remember { filterTvChannelsByCategory(tvChannelLogos, "informacyjne") }
     val mojaListaChannels = remember { filterTvChannelsByCategory(tvChannelLogos, "moja-lista") }
 
-    // Row 0: Slider Mix, Row 1: Teraz w TV, Row 2: Skróty v2, Row 3-8: nowe channele
+    // New structure: Header rows + content channels + moved rows
     val channels = listOf(
-        "Moja lista kanałów",
-        "Kategorie EPG",
-        "Skróty v2",
-        "Teraz w TV",
-        "FILMY, dzis były w TV",
-        "SERIALE, dzis były w TV",
-        "SPORT, dzis było w TV",
-        "TELETURNIEJE, dzis były w TV",
-        "Wszystkie kanały",
-        "Dla dzieci",
-        "Dokumenty",
-        "Filmy i seriale HBO",
-        "Informacyjne"
+        "[HEADER] Teraz w TV",          // Row 0 - header above EPG
+        "Kategorie EPG",                 // Row 1 - EPG thumbnails
+        "Skróty v2",                     // Row 2 - shortcuts
+        "[HEADER] Było w TV - oglądaj teraz", // Row 3 - header above movies
+        "FILMY",                         // Row 4
+        "SERIALE",                       // Row 5
+        "SPORT",                         // Row 6
+        "TELETURNIEJE",                  // Row 7
+        "Wszystkie kanały",              // Row 8
+        "Moja lista kanałów",            // Row 9 - moved from Row 0
+        "Dla dzieci",                    // Row 10
+        "Dokumenty",                     // Row 11
+        "Filmy i seriale HBO",           // Row 12
+        "Informacyjne",                  // Row 13
+        "Teraz w TV"                     // Row 14 - moved to bottom (horizontal with programs)
     )
 
     // Define channel types
     val channelTypes = remember {
         mapOf(
-            "Moja lista kanałów" to "app-icons",
+            "[HEADER] Teraz w TV" to "header",
             "Kategorie EPG" to "collection-slider",
             "Skróty v2" to "shortcuts-v2",
-            "Teraz w TV" to "horizontal",
-            "FILMY, dzis były w TV" to "horizontal",
-            "SERIALE, dzis były w TV" to "horizontal",
-            "SPORT, dzis było w TV" to "horizontal",
-            "TELETURNIEJE, dzis były w TV" to "horizontal",
+            "[HEADER] Było w TV - oglądaj teraz" to "header",
+            "FILMY" to "horizontal",
+            "SERIALE" to "horizontal",
+            "SPORT" to "horizontal",
+            "TELETURNIEJE" to "horizontal",
             "Wszystkie kanały" to "app-icons",
+            "Moja lista kanałów" to "app-icons",
             "Dla dzieci" to "app-icons",
             "Dokumenty" to "app-icons",
             "Filmy i seriale HBO" to "app-icons",
-            "Informacyjne" to "app-icons"
+            "Informacyjne" to "app-icons",
+            "Teraz w TV" to "horizontal"
         )
     }
 
@@ -1886,10 +1903,11 @@ private fun TelewizjaChannelsScreen(
         // This ensures content verification doesn't timeout when restoring focus
         channels.associateWith { channelName ->
             when (channelName) {
+                "[HEADER] Teraz w TV", "[HEADER] Było w TV - oglądaj teraz" -> emptyList() // Headers have no content
                 "Skróty v2" -> emptyList() // No horizontal content
                 "Kategorie EPG" -> {
-                    android.util.Log.d("GRID_CONTENT", "Kategorie EPG: visible=${epgCategoriesPrograms.size}, all=${epgCategoriesProgramsAll.size}, visibleCount=$epgCategoriesVisibleCount")
-                    epgCategoriesPrograms // EPG data: same as "Teraz w TV" with lazy loading
+                    android.util.Log.d("GRID_CONTENT", "Kategorie EPG: ${epgCategoriesPrograms.size} current programs")
+                    epgCategoriesPrograms // Current EPG programs
                 }
                 "Teraz w TV" -> {
                     android.util.Log.d("GRID_CONTENT", "Teraz w TV: ${terazWTvPrograms.size} EPG programs (NO FALLBACK)")
@@ -1898,19 +1916,19 @@ private fun TelewizjaChannelsScreen(
                     }
                     terazWTvPrograms // ✅ Zawsze EPG data, bez fallback VOD
                 }
-                "FILMY, dzis były w TV" -> {
+                "FILMY" -> {
                     android.util.Log.d("GRID_CONTENT", "FILMY: ${najczesciejMovies.size} EPG movies (NO FALLBACK)")
                     najczesciejMovies // ✅ Zawsze EPG data, bez fallback VOD
                 }
-                "SERIALE, dzis były w TV" -> {
+                "SERIALE" -> {
                     android.util.Log.d("GRID_CONTENT", "SERIALE: ${serialePrograms.size} EPG series (NO FALLBACK)")
                     serialePrograms // ✅ Zawsze EPG data, bez fallback VOD
                 }
-                "SPORT, dzis było w TV" -> {
+                "SPORT" -> {
                     android.util.Log.d("GRID_CONTENT", "SPORT: ${sportPrograms.size} EPG sports (NO FALLBACK)")
                     sportPrograms // ✅ Zawsze EPG data, bez fallback VOD
                 }
-                "TELETURNIEJE, dzis były w TV" -> {
+                "TELETURNIEJE" -> {
                     android.util.Log.d("GRID_CONTENT", "TELETURNIEJE: ${teleturniejePrograms.size} EPG game shows (NO FALLBACK)")
                     teleturniejePrograms // ✅ Zawsze EPG data, bez fallback VOD
                 }
@@ -1955,6 +1973,9 @@ private fun TelewizjaChannelsScreen(
             repeat(channels.size) { rowIndex ->
                 val channelName = channels.getOrNull(rowIndex) ?: ""
                 when {
+                    channelName.startsWith("[HEADER]") -> {
+                        // Headers have no focus - skip
+                    }
                     channelName == "Kategorie EPG" -> {
                         // collection-slider: NO CategoryIcon, only scrollable content
                         put(Pair(rowIndex, 0), FocusRequester()) // Only content focus
@@ -2047,12 +2068,12 @@ private fun TelewizjaChannelsScreen(
             while (attempts < 80) {  // 80 * 50ms = 4000ms
                 // Read LIVE state variables instead of frozen gridContent
                 val content = when (focusState.channelId) {
-                    "Kategorie EPG" -> epgCategoriesProgramsAll  // Read source state directly, bypass derived .take()
+                    "Kategorie EPG" -> epgCategoriesProgramsAll  // Current EPG programs (all)
                     "Teraz w TV" -> terazWTvPrograms
-                    "FILMY, dzis były w TV" -> najczesciejMovies
-                    "SERIALE, dzis były w TV" -> serialePrograms
-                    "SPORT, dzis było w TV" -> sportPrograms
-                    "TELETURNIEJE, dzis były w TV" -> teleturniejePrograms
+                    "FILMY" -> najczesciejMovies
+                    "SERIALE" -> serialePrograms
+                    "SPORT" -> sportPrograms
+                    "TELETURNIEJE" -> teleturniejePrograms
                     else -> gridContent[focusState.channelId] ?: emptyList()
                 }
                 android.util.Log.d("TELEWIZJA_FOCUS", "📊 Attempt $attempts: content = ${content.size} (live state), needsContent=$needsContent")
@@ -2077,12 +2098,12 @@ private fun TelewizjaChannelsScreen(
             if (attempts >= 80) {
                 // Re-read live state for final check
                 val content = when (focusState.channelId) {
-                    "Kategorie EPG" -> epgCategoriesProgramsAll  // Read source state directly, bypass derived .take()
+                    "Kategorie EPG" -> epgCategoriesProgramsAll  // Current EPG programs (all)
                     "Teraz w TV" -> terazWTvPrograms
-                    "FILMY, dzis były w TV" -> najczesciejMovies
-                    "SERIALE, dzis były w TV" -> serialePrograms
-                    "SPORT, dzis było w TV" -> sportPrograms
-                    "TELETURNIEJE, dzis były w TV" -> teleturniejePrograms
+                    "FILMY" -> najczesciejMovies
+                    "SERIALE" -> serialePrograms
+                    "SPORT" -> sportPrograms
+                    "TELETURNIEJE" -> teleturniejePrograms
                     else -> gridContent[focusState.channelId] ?: emptyList()
                 }
                 val isReady = if (needsContent) {
@@ -2099,12 +2120,12 @@ private fun TelewizjaChannelsScreen(
 
             // Verify content is ready based on what we need (use live state)
             val content = when (focusState.channelId) {
-                "Kategorie EPG" -> epgCategoriesProgramsAll  // Read source state directly, bypass derived .take()
+                "Kategorie EPG" -> epgCategoriesPrograms  // 9 live TV channels from JSON
                 "Teraz w TV" -> terazWTvPrograms
-                "FILMY, dzis były w TV" -> najczesciejMovies
-                "SERIALE, dzis były w TV" -> serialePrograms
-                "SPORT, dzis było w TV" -> sportPrograms
-                "TELETURNIEJE, dzis były w TV" -> teleturniejePrograms
+                "FILMY" -> najczesciejMovies
+                "SERIALE" -> serialePrograms
+                "SPORT" -> sportPrograms
+                "TELETURNIEJE" -> teleturniejePrograms
                 else -> gridContent[focusState.channelId] ?: emptyList()
             }
             // content is List<VodContent>, never null from when expression
@@ -2213,14 +2234,16 @@ private fun TelewizjaChannelsScreen(
         }
     }
 
-    // ✅ AUTO-FOCUS: Focus on (0, 0) when coming from menu, but NOT during/after restoration
+    // ✅ AUTO-FOCUS: Focus on first NON-HEADER channel when coming from menu
     LaunchedEffect(shouldAutoFocus) {
         if (shouldAutoFocus && !restorationInProgress && !wasRestoration) {
-            android.util.Log.d("TELEWIZJA_FOCUS", "🎯 Auto-focus from menu: Setting (0, 0)")
-            focusedRowIndex = 0
+            // Find first focusable (non-header) row
+            val firstFocusableRow = getNextFocusableRowIndex(-1, 1, channels) ?: 0
+            android.util.Log.d("TELEWIZJA_FOCUS", "🎯 Auto-focus from menu: Setting ($firstFocusableRow, 0)")
+            focusedRowIndex = firstFocusableRow
             focusedColIndex = 0
             kotlinx.coroutines.delay(50)
-            channelFocusRequesters[Pair(0, 0)]?.requestFocus()
+            channelFocusRequesters[Pair(firstFocusableRow, 0)]?.requestFocus()
         }
     }
 
@@ -4443,9 +4466,13 @@ private const val ODKRYWAJ_COLLECTION_SLIDER_NORMAL_ROW_HEIGHT = 544 // Collecti
 private const val ODKRYWAJ_COLLECTION_SLIDER_EXPANDED_ROW_HEIGHT = 544 // NO expansion for collection slider
 private const val ODKRYWAJ_CONTENT_FOCUS_EXTRA_SPACING = 100 // Extra spacing above focused content row
 
-// TELEWIZJA section constants (170px offset from top)
-// Note: Focused channel always at Y:170px
-private const val TELEWIZJA_FIXED_FOCUS_Y = 170 // 170px offset from top of screen
+// TELEWIZJA section constants
+// Note: Wszystkie focusable rows at Y:270px, wszystko scrolluje razem
+private const val TELEWIZJA_FIXED_FOCUS_Y = 270 // 270px offset from top of screen
+
+// Top menu gradient constants (same as EPG Day TopMenuOverlay)
+private const val TOP_MENU_GRADIENT_HEIGHT = 600 // Gradient height: 600px from top
+
 private const val TELEWIZJA_SHORTCUTS_NORMAL_ROW_HEIGHT = 406
 private const val TELEWIZJA_SHORTCUTS_EXPANDED_ROW_HEIGHT = 406
 private const val TELEWIZJA_SHORTCUTS_V2_NORMAL_ROW_HEIGHT = 239 // Skróty v2: 4 horizontal shortcuts (NO expansion)
@@ -4468,6 +4495,7 @@ private const val TELEWIZJA_APP_ICONS_EXPANDED_ROW_HEIGHT = 256 // No expansion 
 private const val TELEWIZJA_CHANNEL_LIST_CARD_WIDTH = 208 // Figma: channel_list_card width
 private const val TELEWIZJA_CHANNEL_LIST_CARD_HEIGHT = 208 // Figma: channel_list_card height (square)
 private const val TELEWIZJA_CHANNEL_LIST_CARD_LOGO_SIZE = 148 // Figma: logo size (148x148)
+private const val TELEWIZJA_HEADER_ROW_HEIGHT = 80 // Header text (32sp) + spacing
 private const val TELEWIZJA_CONTENT_FOCUS_EXTRA_SPACING = 100
 
 private fun calculateMojeChannelYPosition(
@@ -5023,10 +5051,33 @@ fun handleOdkrywajNavigation(
 // Shortcuts v2 data for TELEWIZJA section
 val telewizjaShortcutsV2 = listOf(
     ShortcutItem("1", "Program telewizyjny", ShortcutIcon.MaterialIcon("add")),
-    ShortcutItem("2", "Kanały", ShortcutIcon.MaterialIcon("star")),
+    ShortcutItem("2", "Moja lista kanałów", ShortcutIcon.MaterialIcon("search")),
     ShortcutItem("3", "Nagrania", ShortcutIcon.MaterialIcon("favorite")),
-    ShortcutItem("4", "Było w TV", ShortcutIcon.MaterialIcon("search"))
+    ShortcutItem("4", "Lista kanałów", ShortcutIcon.MaterialIcon("star"))
 )
+
+// Helper function to find next focusable row (skipping headers)
+private fun getNextFocusableRowIndex(
+    currentRowIndex: Int,
+    direction: Int, // -1 for UP, +1 for DOWN
+    channels: List<String>
+): Int? {
+    var candidateRow = currentRowIndex + direction
+
+    while (candidateRow >= 0 && candidateRow < channels.size) {
+        val channelName = channels.getOrNull(candidateRow) ?: return null
+
+        // Check if this is NOT a header
+        if (!channelName.startsWith("[HEADER]")) {
+            return candidateRow
+        }
+
+        // Continue searching in the same direction
+        candidateRow += direction
+    }
+
+    return null // No focusable row found
+}
 
 // Navigation handler for TELEWIZJA channels (copied from ODKRYWAJ)
 fun handleTelewizjaNavigation(
@@ -5050,17 +5101,22 @@ fun handleTelewizjaNavigation(
         Key.DirectionUp -> {
             android.util.Log.d("TELEWIZJA_NAV", "UP pressed: focusedRow=$focusedRowIndex, focusedCol=$focusedColIndex")
             if (focusedColIndex == -2) {
-                // First movement from "no focus" - go to first channel
-                val firstChannelName = channels.getOrNull(0) ?: ""
+                // First movement from "no focus" - go to first NON-HEADER channel
+                val firstFocusableRow = getNextFocusableRowIndex(-1, 1, channels) ?: 0
+                val firstChannelName = channels.getOrNull(firstFocusableRow) ?: ""
                 val firstChannelType = channelTypes[firstChannelName] ?: "horizontal"
                 // collection-slider has no CategoryIcon, go to content (col=0)
                 // Other types: go to CategoryIcon (col=-1) if coming from menu
                 val targetColIndex = if (firstChannelType == "collection-slider") 0 else -1
-                onFocusChange(0, targetColIndex)
-                channelFocusRequesters[Pair(0, targetColIndex)]?.requestFocus()
+                onFocusChange(firstFocusableRow, targetColIndex)
+                channelFocusRequesters[Pair(firstFocusableRow, targetColIndex)]?.requestFocus()
                 return true
-            } else if (focusedRowIndex > 0) {
-                val newRowIndex = focusedRowIndex - 1
+            }
+
+            // Try to find next focusable row above (skipping headers)
+            val newRowIndex = getNextFocusableRowIndex(focusedRowIndex, -1, channels)
+
+            if (newRowIndex != null) {
                 val newChannelName = channels.getOrNull(newRowIndex) ?: ""
                 val newChannelType = channelTypes[newChannelName] ?: "horizontal"
                 val currentChannelName = channels.getOrNull(focusedRowIndex) ?: ""
@@ -5095,17 +5151,22 @@ fun handleTelewizjaNavigation(
 
         Key.DirectionDown -> {
             if (focusedColIndex == -2) {
-                // First movement from "no focus" - go to first channel
-                val firstChannelName = channels.getOrNull(0) ?: ""
+                // First movement from "no focus" - go to first NON-HEADER channel
+                val firstFocusableRow = getNextFocusableRowIndex(-1, 1, channels) ?: 0
+                val firstChannelName = channels.getOrNull(firstFocusableRow) ?: ""
                 val firstChannelType = channelTypes[firstChannelName] ?: "horizontal"
                 // collection-slider has no CategoryIcon, go to content (col=0)
                 // Other types: go to CategoryIcon (col=-1) if coming from menu
                 val targetColIndex = if (firstChannelType == "collection-slider") 0 else -1
-                onFocusChange(0, targetColIndex)
-                channelFocusRequesters[Pair(0, targetColIndex)]?.requestFocus()
+                onFocusChange(firstFocusableRow, targetColIndex)
+                channelFocusRequesters[Pair(firstFocusableRow, targetColIndex)]?.requestFocus()
                 return true
-            } else if (focusedRowIndex < channels.size - 1) {
-                val newRowIndex = focusedRowIndex + 1
+            }
+
+            // Try to find next focusable row below (skipping headers)
+            val newRowIndex = getNextFocusableRowIndex(focusedRowIndex, 1, channels)
+
+            if (newRowIndex != null) {
                 val newChannelName = channels.getOrNull(newRowIndex) ?: ""
                 val newChannelType = channelTypes[newChannelName] ?: "horizontal"
                 val currentChannelName = channels.getOrNull(focusedRowIndex) ?: ""
@@ -5634,96 +5695,41 @@ private fun calculateTelewizjaChannelYPosition(
     val channelName = channels.getOrNull(rowIndex) ?: ""
     val channelType = channelTypes[channelName] ?: "horizontal"
 
+    // ✅ POCZĄTKOWA POZYCJA (focusedColIndex == -2, menu focused)
+    // Row 0 zaczyna się 60px pod top menu (120px menu + 60px spacing = Y:180px)
+    if (focusedColIndex == -2) {
+        var cumulativeY = 180 // Pierwszy element 60px pod menu
+        for (i in 0 until rowIndex) {
+            val prevChannelName = channels.getOrNull(i) ?: ""
+            val prevType = channelTypes[prevChannelName] ?: "horizontal"
+            cumulativeY += when (prevType) {
+                "header" -> TELEWIZJA_HEADER_ROW_HEIGHT
+                "collection-slider" -> TELEWIZJA_COLLECTION_SLIDER_NORMAL_ROW_HEIGHT
+                "shortcuts-v2" -> TELEWIZJA_SHORTCUTS_V2_NORMAL_ROW_HEIGHT
+                else -> TELEWIZJA_HORIZONTAL_NORMAL_ROW_HEIGHT
+            }
+        }
+        return sy(cumulativeY)
+    }
+
     val focusedChannelName = channels.getOrNull(focusedRowIndex) ?: ""
     val focusedChannelType = channelTypes[focusedChannelName] ?: "horizontal"
 
+    // ✅ NORMALNE SCROLLOWANIE: Wszystko scrolluje razem
+    // Wszystkie focusable rows na Y=270px
     return when {
         rowIndex == focusedRowIndex -> {
-            // All channels use 340px focus position
+            // Każdy zfokusowany row -> Y = 270px
             sy(TELEWIZJA_FIXED_FOCUS_Y)
         }
         rowIndex < focusedRowIndex -> {
-            // Apply uniform spacing for all content focus (40px)
-            val extraSpacing = if (focusedChannelType == "shortcuts-v2" && focusedColIndex >= 0) {
-                0 // Shortcuts v2: no extra spacing
-            } else if (focusedColIndex >= 0) {
-                40 // All content focus: uniform 40px spacing
-            } else 0
-
-            // Determine focus Y based on focused row
+            // Stałe odległości między rzędami (bez extraSpacing)
             var cumulativeHeight = TELEWIZJA_FIXED_FOCUS_Y
             for (i in rowIndex until focusedRowIndex) {
                 val betweenChannelName = channels.getOrNull(i) ?: ""
                 val betweenType = channelTypes[betweenChannelName] ?: "horizontal"
                 cumulativeHeight -= when (betweenType) {
-                    "app-icons" -> TELEWIZJA_APP_ICONS_NORMAL_ROW_HEIGHT
-                    "service-logos" -> TELEWIZJA_SERVICE_LOGOS_NORMAL_ROW_HEIGHT
-                    "channel-logos" -> TELEWIZJA_CHANNEL_LOGOS_NORMAL_ROW_HEIGHT
-                    "shortcuts" -> TELEWIZJA_SHORTCUTS_NORMAL_ROW_HEIGHT
-                    "shortcuts-v2" -> TELEWIZJA_SHORTCUTS_V2_NORMAL_ROW_HEIGHT
-                    "top10" -> TELEWIZJA_TOP10_NORMAL_ROW_HEIGHT
-                    "collection-slider" -> TELEWIZJA_COLLECTION_SLIDER_NORMAL_ROW_HEIGHT
-                    "vertical" -> {
-                        // Use VOD heights for Nowe filmy (VodContentCard)
-                        if (betweenChannelName == "Nowe filmy") {
-                            TELEWIZJA_VERTICAL_VOD_NORMAL_ROW_HEIGHT
-                        } else {
-                            TELEWIZJA_VERTICAL_NORMAL_ROW_HEIGHT
-                        }
-                    }
-                    else -> TELEWIZJA_HORIZONTAL_NORMAL_ROW_HEIGHT
-                }
-            }
-            sy(cumulativeHeight - extraSpacing)
-        }
-        rowIndex > focusedRowIndex -> {
-            val focusedChannelExpansion = if (focusedColIndex >= 0) {
-                when (focusedChannelType) {
-                    "app-icons" -> TELEWIZJA_APP_ICONS_EXPANDED_ROW_HEIGHT
-                    "service-logos" -> TELEWIZJA_SERVICE_LOGOS_EXPANDED_ROW_HEIGHT
-                    "channel-logos" -> TELEWIZJA_CHANNEL_LOGOS_EXPANDED_ROW_HEIGHT
-                    "shortcuts" -> TELEWIZJA_SHORTCUTS_EXPANDED_ROW_HEIGHT
-                    "shortcuts-v2" -> TELEWIZJA_SHORTCUTS_V2_NORMAL_ROW_HEIGHT
-                    "top10" -> TELEWIZJA_TOP10_EXPANDED_ROW_HEIGHT
-                    "collection-slider" -> TELEWIZJA_COLLECTION_SLIDER_EXPANDED_ROW_HEIGHT
-                    "vertical" -> {
-                        // Use VOD heights for Nowe filmy (VodContentCard)
-                        if (focusedChannelName == "Nowe filmy") {
-                            TELEWIZJA_VERTICAL_VOD_EXPANDED_ROW_HEIGHT
-                        } else {
-                            TELEWIZJA_VERTICAL_EXPANDED_ROW_HEIGHT
-                        }
-                    }
-                    else -> TELEWIZJA_HORIZONTAL_EXPANDED_ROW_HEIGHT
-                }
-            } else {
-                when (focusedChannelType) {
-                    "app-icons" -> TELEWIZJA_APP_ICONS_NORMAL_ROW_HEIGHT
-                    "service-logos" -> TELEWIZJA_SERVICE_LOGOS_NORMAL_ROW_HEIGHT
-                    "channel-logos" -> TELEWIZJA_CHANNEL_LOGOS_NORMAL_ROW_HEIGHT
-                    "shortcuts" -> TELEWIZJA_SHORTCUTS_EXPANDED_ROW_HEIGHT
-                    "shortcuts-v2" -> TELEWIZJA_SHORTCUTS_V2_NORMAL_ROW_HEIGHT
-                    "top10" -> TELEWIZJA_TOP10_NORMAL_ROW_HEIGHT
-                    "collection-slider" -> TELEWIZJA_COLLECTION_SLIDER_NORMAL_ROW_HEIGHT
-                    "vertical" -> {
-                        // Use VOD heights for Nowe filmy (VodContentCard)
-                        if (focusedChannelName == "Nowe filmy") {
-                            TELEWIZJA_VERTICAL_VOD_NORMAL_ROW_HEIGHT
-                        } else {
-                            TELEWIZJA_VERTICAL_NORMAL_ROW_HEIGHT
-                        }
-                    }
-                    else -> TELEWIZJA_HORIZONTAL_NORMAL_ROW_HEIGHT
-                }
-            }
-
-            // Determine focus Y based on focused row
-            var cumulativeHeight = TELEWIZJA_FIXED_FOCUS_Y + focusedChannelExpansion
-
-            for (i in (focusedRowIndex + 1) until rowIndex) {
-                val betweenChannelName = channels.getOrNull(i) ?: ""
-                val betweenType = channelTypes[betweenChannelName] ?: "horizontal"
-                cumulativeHeight += when (betweenType) {
+                    "header" -> TELEWIZJA_HEADER_ROW_HEIGHT
                     "app-icons" -> TELEWIZJA_APP_ICONS_NORMAL_ROW_HEIGHT
                     "service-logos" -> TELEWIZJA_SERVICE_LOGOS_NORMAL_ROW_HEIGHT
                     "channel-logos" -> TELEWIZJA_CHANNEL_LOGOS_NORMAL_ROW_HEIGHT
@@ -5744,7 +5750,82 @@ private fun calculateTelewizjaChannelYPosition(
             }
             sy(cumulativeHeight)
         }
-        else -> sy(140 + rowIndex * TELEWIZJA_HORIZONTAL_NORMAL_ROW_HEIGHT)
+        rowIndex > focusedRowIndex -> {
+            val focusedChannelExpansion = if (focusedColIndex >= 0) {
+                when (focusedChannelType) {
+                    "header" -> TELEWIZJA_HEADER_ROW_HEIGHT
+                    "app-icons" -> TELEWIZJA_APP_ICONS_EXPANDED_ROW_HEIGHT
+                    "service-logos" -> TELEWIZJA_SERVICE_LOGOS_EXPANDED_ROW_HEIGHT
+                    "channel-logos" -> TELEWIZJA_CHANNEL_LOGOS_EXPANDED_ROW_HEIGHT
+                    "shortcuts" -> TELEWIZJA_SHORTCUTS_EXPANDED_ROW_HEIGHT
+                    "shortcuts-v2" -> TELEWIZJA_SHORTCUTS_V2_NORMAL_ROW_HEIGHT
+                    "top10" -> TELEWIZJA_TOP10_EXPANDED_ROW_HEIGHT
+                    "collection-slider" -> TELEWIZJA_COLLECTION_SLIDER_EXPANDED_ROW_HEIGHT
+                    "vertical" -> {
+                        // Use VOD heights for Nowe filmy (VodContentCard)
+                        if (focusedChannelName == "Nowe filmy") {
+                            TELEWIZJA_VERTICAL_VOD_EXPANDED_ROW_HEIGHT
+                        } else {
+                            TELEWIZJA_VERTICAL_EXPANDED_ROW_HEIGHT
+                        }
+                    }
+                    else -> TELEWIZJA_HORIZONTAL_EXPANDED_ROW_HEIGHT
+                }
+            } else {
+                when (focusedChannelType) {
+                    "header" -> TELEWIZJA_HEADER_ROW_HEIGHT
+                    "app-icons" -> TELEWIZJA_APP_ICONS_NORMAL_ROW_HEIGHT
+                    "service-logos" -> TELEWIZJA_SERVICE_LOGOS_NORMAL_ROW_HEIGHT
+                    "channel-logos" -> TELEWIZJA_CHANNEL_LOGOS_NORMAL_ROW_HEIGHT
+                    "shortcuts" -> TELEWIZJA_SHORTCUTS_EXPANDED_ROW_HEIGHT
+                    "shortcuts-v2" -> TELEWIZJA_SHORTCUTS_V2_NORMAL_ROW_HEIGHT
+                    "top10" -> TELEWIZJA_TOP10_NORMAL_ROW_HEIGHT
+                    "collection-slider" -> TELEWIZJA_COLLECTION_SLIDER_NORMAL_ROW_HEIGHT
+                    "vertical" -> {
+                        // Use VOD heights for Nowe filmy (VodContentCard)
+                        if (focusedChannelName == "Nowe filmy") {
+                            TELEWIZJA_VERTICAL_VOD_NORMAL_ROW_HEIGHT
+                        } else {
+                            TELEWIZJA_VERTICAL_NORMAL_ROW_HEIGHT
+                        }
+                    }
+                    else -> TELEWIZJA_HORIZONTAL_NORMAL_ROW_HEIGHT
+                }
+            }
+
+            // Determine focus Y based on focused row (wszystkie na 270px)
+            var cumulativeHeight = TELEWIZJA_FIXED_FOCUS_Y + focusedChannelExpansion
+
+            for (i in (focusedRowIndex + 1) until rowIndex) {
+                val betweenChannelName = channels.getOrNull(i) ?: ""
+                val betweenType = channelTypes[betweenChannelName] ?: "horizontal"
+                cumulativeHeight += when (betweenType) {
+                    "header" -> TELEWIZJA_HEADER_ROW_HEIGHT
+                    "app-icons" -> TELEWIZJA_APP_ICONS_NORMAL_ROW_HEIGHT
+                    "service-logos" -> TELEWIZJA_SERVICE_LOGOS_NORMAL_ROW_HEIGHT
+                    "channel-logos" -> TELEWIZJA_CHANNEL_LOGOS_NORMAL_ROW_HEIGHT
+                    "shortcuts" -> TELEWIZJA_SHORTCUTS_NORMAL_ROW_HEIGHT
+                    "shortcuts-v2" -> TELEWIZJA_SHORTCUTS_V2_NORMAL_ROW_HEIGHT
+                    "top10" -> TELEWIZJA_TOP10_NORMAL_ROW_HEIGHT
+                    "collection-slider" -> TELEWIZJA_COLLECTION_SLIDER_NORMAL_ROW_HEIGHT
+                    "vertical" -> {
+                        // Use VOD heights for Nowe filmy (VodContentCard)
+                        if (betweenChannelName == "Nowe filmy") {
+                            TELEWIZJA_VERTICAL_VOD_NORMAL_ROW_HEIGHT
+                        } else {
+                            TELEWIZJA_VERTICAL_NORMAL_ROW_HEIGHT
+                        }
+                    }
+                    else -> TELEWIZJA_HORIZONTAL_NORMAL_ROW_HEIGHT
+                }
+            }
+            sy(cumulativeHeight)
+        }
+        else -> {
+            // Fallback: Oblicz pozycję względem pierwszego focusable
+            val firstFocusableRow = getNextFocusableRowIndex(-1, 1, channels) ?: 0
+            sy(TELEWIZJA_HEADER_ROW_HEIGHT + (rowIndex - firstFocusableRow) * TELEWIZJA_HORIZONTAL_NORMAL_ROW_HEIGHT)
+        }
     }
 }
 
@@ -6388,6 +6469,22 @@ fun OdkrywajUnifiedChannelRow(
                     }
                 }
             }
+            "header" -> {
+                // Header row - just text, no focus, no interaction
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = sx(120))
+                        .offset(y = sy(0))
+                ) {
+                    Text(
+                        text = channel.removePrefix("[HEADER] "),
+                        color = Color(0xFFEEEEEE),
+                        fontSize = (32 * (sy(1).value / 1.dp.value)).sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
             "shortcuts-v2" -> {
                 // Shortcuts v2 row rendered separately below (if isShortcutsV2 block)
                 // This empty case prevents falling through to horizontal placeholder
@@ -6655,7 +6752,7 @@ fun TelewizjaChannelRowsLayout(
                     lazyListState = lazyListState,
                     onNavigateToEpg = onNavigateToEpg,
                     onNavigateToEpgDay = onNavigateToEpgDay,
-                    sectionId = sectionId
+                    sectionId = channelName  // Pass row channel name (e.g., "Moja lista kanałów") for proper focus restoration
                 )
             }
         }
@@ -6935,8 +7032,11 @@ fun TelewizjaUnifiedChannelRow(
                                 onClick = {
                                     // Navigate to EPG Day screen (like "Teraz w TV" row)
                                     val epgId = tvChannel.epgId ?: tvChannel.name
-                                    android.util.Log.d("TELEWIZJA_CLICK", "Opening EPG Day for channel: ${tvChannel.name}, epgId: $epgId")
-                                    onNavigateToEpgDay(epgId, tvChannel.name, 0, sectionId)  // Pass channel name for proper BACK restoration
+                                    android.util.Log.d("TELEWIZJA_CLICK", "=== EPG DAY NAVIGATION ===")
+                                    android.util.Log.d("TELEWIZJA_CLICK", "Channel clicked: name='${tvChannel.name}', logo='${tvChannel.logo}', epgId='${tvChannel.epgId}'")
+                                    android.util.Log.d("TELEWIZJA_CLICK", "Row name: '$channel', Derived epgId: '$epgId'")
+                                    android.util.Log.d("TELEWIZJA_CLICK", "Passing: channelId='$channel' (row), itemId='$epgId' (epgId), scrollPos=0, sectionId='$sectionId'")
+                                    onNavigateToEpgDay(channel, epgId, 0, sectionId)  // Pass row name as channelId, epgId as itemId
                                 },
                                 sx = sx,
                                 sy = sy
@@ -7165,6 +7265,22 @@ fun TelewizjaUnifiedChannelRow(
                     }
                 }
             }
+            "header" -> {
+                // Header row - just text, no focus, no interaction
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = sx(120))
+                        .offset(y = sy(0))
+                ) {
+                    Text(
+                        text = channel.removePrefix("[HEADER] "),
+                        color = Color(0xFFEEEEEE),
+                        fontSize = (32 * (sy(1).value / 1.dp.value)).sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
             "shortcuts-v2" -> {
                 // Shortcuts v2 row rendered separately below (if isShortcutsV2 block)
                 // This empty case prevents falling through to horizontal placeholder
@@ -7349,8 +7465,8 @@ fun TelewizjaUnifiedChannelRow(
         // CategoryIcon zIndex: app-icons below LazyRow, others normal
         val categoryZIndex = if (channelType == "app-icons") -1f else 0f
 
-        // CategoryIcon (skip for slider-max/shortcuts/shortcuts-v2/collection-slider - they don't have CategoryIcon)
-        if (channelType !in listOf("slider-max", "shortcuts", "shortcuts-v2", "collection-slider")) {
+        // CategoryIcon (skip for slider-max/shortcuts/shortcuts-v2/collection-slider/header - they don't have CategoryIcon)
+        if (channelType !in listOf("slider-max", "shortcuts", "shortcuts-v2", "collection-slider", "header")) {
             Box(
                 modifier = Modifier
                     .offset(x = sx(80), y = sy(0))
@@ -7371,7 +7487,7 @@ fun TelewizjaUnifiedChannelRow(
                 }
 
                 // EPG channels (text-only, no icon)
-                val isEpgChannel = channel in listOf("Teraz w TV", "FILMY, dzis były w TV", "SERIALE, dzis były w TV", "SPORT, dzis było w TV", "TELETURNIEJE, dzis były w TV", "Kategorie EPG")
+                val isEpgChannel = channel in listOf("Teraz w TV", "FILMY", "SERIALE", "SPORT", "TELETURNIEJE", "Kategorie EPG")
 
                 CategoryIcon(
                     text = channel,
