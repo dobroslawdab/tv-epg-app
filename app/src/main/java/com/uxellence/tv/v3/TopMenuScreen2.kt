@@ -148,7 +148,8 @@ data class AppItem(
 
 data class TvChannel(
     val name: String,
-    val logo: String
+    val logo: String,
+    val epgId: String? = null  // EPG channel ID for navigation to EPG Day screen
 )
 
 data class ServiceLogoItem(
@@ -193,7 +194,8 @@ private fun loadTvChannelsFromAssets(context: Context): List<TvChannel> {
             channels.add(
                 TvChannel(
                     name = obj.getString("name"),
-                    logo = obj.getString("logoUrl")
+                    logo = obj.getString("logoUrl"),
+                    epgId = obj.optString("epgId", null)  // Extract EPG ID for navigation
                 )
             )
         }
@@ -219,6 +221,17 @@ private fun filterTvChannelsByCategory(channels: List<TvChannel>, category: Stri
         "informacyjne" -> channels.filter {
             it.name in listOf("Fokus TV HD", "Bloomberg Television")
         }
+        "moja-lista" -> listOf(
+            TvChannel("TVP", "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/8499963/images/952146681?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0", "TVP 1"),
+            TvChannel("Polsat", "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9817820/images/819859960?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0", "Polsat"),
+            TvChannel("Polsat News Polityka", "https://r.dcs.redcdn.pl/file/play/playtv/upload/live/24725756/images/937177205", "Polsat News Polityka"),
+            TvChannel("4 Fun TV", "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3452692/images/350594752?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0", "4Fun.tv"),
+            TvChannel("TV4", "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9979708/images/913218406?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0", "TV4"),
+            TvChannel("Polsat News", "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183312/images/896415049?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0", "Polsat News HD"),
+            TvChannel("TVP 3", "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/8499965/images/952041085?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0", "TVP 3 Warszawa"),
+            TvChannel("TVN24", "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/7208754/images/1032763214?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100", "TVN 24"),
+            TvChannel("TVP Sport", "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/13352686/images/831494260?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100", "TVP Sport")
+        )
         else -> emptyList()
     }
 }
@@ -1827,6 +1840,7 @@ private fun TelewizjaChannelsScreen(
     val docChannels = remember { filterTvChannelsByCategory(tvChannelLogos, "dokumenty") }
     val hboChannels = remember { filterTvChannelsByCategory(tvChannelLogos, "hbo") }
     val newsChannels = remember { filterTvChannelsByCategory(tvChannelLogos, "informacyjne") }
+    val mojaListaChannels = remember { filterTvChannelsByCategory(tvChannelLogos, "moja-lista") }
 
     // Row 0: Slider Mix, Row 1: Teraz w TV, Row 2: Skróty v2, Row 3-8: nowe channele
     val channels = listOf(
@@ -1909,7 +1923,7 @@ private fun TelewizjaChannelsScreen(
     // App-icons data for TELEWIZJA channels
     val appIconsData = remember {
         mapOf(
-            "Moja lista kanałów" to tvChannelLogos,
+            "Moja lista kanałów" to mojaListaChannels,  // 9 custom channels
             "Wszystkie kanały" to tvChannelLogos,
             "Dla dzieci" to kidsChannels,
             "Dokumenty" to docChannels,
@@ -6918,7 +6932,12 @@ fun TelewizjaUnifiedChannelRow(
                                 isFocused = isItemFocused,
                                 focusRequester = focusRequester,
                                 onFocusChange = { onChannelContentFocusChange(rowIndex, colIndex) },
-                                onClick = { onChannelClick(tvChannel.name) },
+                                onClick = {
+                                    // Navigate to EPG Day screen (like "Teraz w TV" row)
+                                    val epgId = tvChannel.epgId ?: tvChannel.name
+                                    android.util.Log.d("TELEWIZJA_CLICK", "Opening EPG Day for channel: ${tvChannel.name}, epgId: $epgId")
+                                    onNavigateToEpgDay(epgId, null, 0, sectionId)
+                                },
                                 sx = sx,
                                 sy = sy
                             )
