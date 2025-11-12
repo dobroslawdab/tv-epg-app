@@ -58,7 +58,12 @@ object PipDialogController {
         onSelectClose: () -> Unit,
         onDismiss: () -> Unit
     ): Boolean {
+        // Handle KEY_UP for ENTER to prevent propagation (tescik pattern)
         if (event.type != KeyEventType.KeyDown) {
+            if (event.key == Key.Enter || event.key == Key.DirectionCenter) {
+                Log.d(TAG, "Dialog: Consuming KEY_UP for ENTER")
+                return true
+            }
             return false
         }
 
@@ -86,7 +91,10 @@ object PipDialogController {
                         onNavigate(0)
                         true
                     }
-                    else -> false  // At top, can't go up
+                    else -> {
+                        Log.d(TAG, "Dialog: UP at top - consuming without action")
+                        true  // Consume but don't navigate (at top edge)
+                    }
                 }
             }
 
@@ -97,7 +105,10 @@ object PipDialogController {
                         onNavigate(1)
                         true
                     }
-                    else -> false  // At bottom, can't go down
+                    else -> {
+                        Log.d(TAG, "Dialog: DOWN at bottom - consuming without action")
+                        true  // Consume but don't navigate (at bottom edge)
+                    }
                 }
             }
 

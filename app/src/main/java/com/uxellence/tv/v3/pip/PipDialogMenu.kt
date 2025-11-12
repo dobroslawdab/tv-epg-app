@@ -12,9 +12,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -57,16 +56,45 @@ fun PipDialogMenu(
     sx: (Int) -> Dp,
     sy: (Int) -> Dp
 ) {
-    // Focus state - OUTSIDE of Column to prevent recomposition issues
+    // Centralized state (tescik pattern)
     var focusedOption by remember { mutableStateOf(0) }
-    val focusRequesterFullscreen = remember { FocusRequester() }
-    val focusRequesterClose = remember { FocusRequester() }
+    var menuInputEnabled by remember { mutableStateOf(false) }  // Input gating
+    val menuFocusRequester = remember { FocusRequester() }  // Single focus requester
+    val focusManager = LocalFocusManager.current
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black.copy(alpha = 0.7f))
-            .zIndex(200f),  // Below PIP (1000f), above content
+            .zIndex(200f)  // Below PIP (1000f), above content
+            .focusRequester(menuFocusRequester)  // Centralized focus
+            .focusable()
+            .onKeyEvent { keyEvent ->  // Centralized key handling
+                // Input gating - block events until menu is ready
+                if (!menuInputEnabled) {
+                    android.util.Log.d("PipDialogMenu", "Input gated - menu not ready")
+                    return@onKeyEvent true
+                }
+
+                // Delegate to controller
+                PipDialogController.handleDialogKeys(
+                    event = keyEvent,
+                    focusedOption = focusedOption,
+                    onNavigate = { newOption ->
+                        focusedOption = newOption  // State change instead of focus change
+                        android.util.Log.d("PipDialogMenu", "Navigate to option: $newOption")
+                    },
+                    onSelectFullscreen = {
+                        onDismiss()
+                        onFullscreen()
+                    },
+                    onSelectClose = {
+                        onDismiss()
+                        onClose()
+                    },
+                    onDismiss = onDismiss
+                )
+            },
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -89,7 +117,7 @@ fun PipDialogMenu(
 
             Spacer(modifier = Modifier.height(sy(16)))
 
-            // Option 1: Powiększ na pełny ekran
+            // Option 1: Powiększ na pełny ekran (state-driven styling)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -97,31 +125,7 @@ fun PipDialogMenu(
                     .background(
                         if (focusedOption == 0) Color(0xFF5AECD3) else Color(0x33EEEEEE),
                         RoundedCornerShape(sx(8))
-                    )
-                    .focusable()
-                    .onFocusChanged {
-                        if (it.isFocused) focusedOption = 0
-                    }
-                    .focusRequester(focusRequesterFullscreen)
-                    .onPreviewKeyEvent { keyEvent ->
-                        PipDialogController.handleDialogKeys(
-                            event = keyEvent,
-                            focusedOption = focusedOption,
-                            onNavigate = { newOption ->
-                                if (newOption == 0) focusRequesterFullscreen.requestFocus()
-                                else if (newOption == 1) focusRequesterClose.requestFocus()
-                            },
-                            onSelectFullscreen = {
-                                onDismiss()  // Close dialog first
-                                onFullscreen()  // Then execute action
-                            },
-                            onSelectClose = {
-                                onDismiss()  // Close dialog first
-                                onClose()  // Then execute action
-                            },
-                            onDismiss = onDismiss
-                        )
-                    },
+                    ),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -132,7 +136,7 @@ fun PipDialogMenu(
                 )
             }
 
-            // Option 2: Zamknij PIP
+            // Option 2: Zamknij PIP (state-driven styling)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -140,31 +144,7 @@ fun PipDialogMenu(
                     .background(
                         if (focusedOption == 1) Color(0xFF5AECD3) else Color(0x33EEEEEE),
                         RoundedCornerShape(sx(8))
-                    )
-                    .focusable()
-                    .onFocusChanged {
-                        if (it.isFocused) focusedOption = 1
-                    }
-                    .focusRequester(focusRequesterClose)
-                    .onPreviewKeyEvent { keyEvent ->
-                        PipDialogController.handleDialogKeys(
-                            event = keyEvent,
-                            focusedOption = focusedOption,
-                            onNavigate = { newOption ->
-                                if (newOption == 0) focusRequesterFullscreen.requestFocus()
-                                else if (newOption == 1) focusRequesterClose.requestFocus()
-                            },
-                            onSelectFullscreen = {
-                                onDismiss()  // Close dialog first
-                                onFullscreen()  // Then execute action
-                            },
-                            onSelectClose = {
-                                onDismiss()  // Close dialog first
-                                onClose()  // Then execute action
-                            },
-                            onDismiss = onDismiss
-                        )
-                    },
+                    ),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -175,22 +155,20 @@ fun PipDialogMenu(
                 )
             }
 
-            // Request focus on first option when dialog appears
-            val focusManager = LocalFocusManager.current
+            // Proper focus initialization (tescik pattern)
             LaunchedEffect(Unit) {
-                // Step 1: Clear all focus from background
+                menuInputEnabled = false  // Disable input during initialization
                 focusManager.clearFocus(force = true)
-                // Step 2: Small delay for focus clearing to complete
-                delay(50)
-                // Step 3: Request dialog focus
-                focusRequesterFullscreen.requestFocus()
-                android.util.Log.d("PipDialogMenu", "Dialog focus: cleared background, requested first option")
+                delay(250)  // Wait for KEY_UP to complete (longer delay like tescik)
+                menuFocusRequester.requestFocus()
+                delay(150)  // Additional buffer
+                menuInputEnabled = true  // Enable input only when fully ready
+                android.util.Log.d("PipDialogMenu", "Dialog focus: ready, input enabled")
             }
 
             // Clean up focus when dialog closes
             DisposableEffect(Unit) {
                 onDispose {
-                    // Dialog closed - clear any remaining dialog focus
                     focusManager.clearFocus()
                     android.util.Log.d("PipDialogMenu", "Dialog closed - focus cleared")
                 }
