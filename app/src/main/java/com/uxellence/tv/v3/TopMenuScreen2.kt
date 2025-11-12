@@ -659,9 +659,6 @@ fun TopMenuScreen2(
     // PIP dialog state - show when PLAY/PAUSE pressed with active PIP
     var showPipDialog by remember { mutableStateOf(false) }
 
-    // Focus restoration trigger - incremented when PIP dialog closes to restore focus to background
-    var pipDialogCloseTrigger by remember { mutableIntStateOf(0) }
-
     // Debounce state for PLAY/PAUSE to prevent rapid dialog opens (50ms minimum between opens)
     var lastDialogOpenTime by remember { mutableLongStateOf(0L) }
 
@@ -973,19 +970,13 @@ fun TopMenuScreen2(
             PipDialogMenu(
                 onDismiss = {
                     showPipDialog = false
-                    pipDialogCloseTrigger++  // Trigger focus restoration
-                    android.util.Log.d("TopMenuScreen2", "PIP dialog dismissed - focus restoration trigger: $pipDialogCloseTrigger")
                 },
                 onFullscreen = {
                     onReturnToEpgDay()
                     onClosePip()
-                    pipDialogCloseTrigger++  // Trigger focus restoration
-                    android.util.Log.d("TopMenuScreen2", "PIP fullscreen selected - focus restoration trigger: $pipDialogCloseTrigger")
                 },
                 onClose = {
                     onClosePip()
-                    pipDialogCloseTrigger++  // Trigger focus restoration
-                    android.util.Log.d("TopMenuScreen2", "PIP closed - focus restoration trigger: $pipDialogCloseTrigger")
                 },
                 sx = ::sx,
                 sy = ::sy
@@ -1311,8 +1302,7 @@ private fun FullPageContent(
                 globalFocusState = globalFocusState,
                 onUserNavigated = onUserNavigated,  // Clear fresh PIP mode on navigation
                 sx = sx,
-                sy = sy,
-                pipDialogCloseTrigger = pipDialogCloseTrigger  // Focus restoration trigger
+                sy = sy
             )
         }
         "TELEWIZJA" -> {
@@ -1425,8 +1415,7 @@ private fun OdkrywajScreenContent(
     globalFocusState: MutableState<GlobalFocusState>,
     onUserNavigated: () -> Unit = {},  // NEW: Callback when user navigates content
     sx: (Int) -> androidx.compose.ui.unit.Dp,
-    sy: (Int) -> androidx.compose.ui.unit.Dp,
-    pipDialogCloseTrigger: Int = 0  // Focus restoration trigger from PIP modal close
+    sy: (Int) -> androidx.compose.ui.unit.Dp
 ) {
     var resetTrigger by remember { mutableIntStateOf(0) }
 
@@ -1434,16 +1423,6 @@ private fun OdkrywajScreenContent(
     LaunchedEffect(globalFocusState.value.currentRow) {
         if (globalFocusState.value.currentRow == 0 && globalFocusState.value.sectionId == "ODKRYWAJ") {
             resetTrigger++
-        }
-    }
-
-    // Detect when PIP dialog closes and restore focus to content
-    LaunchedEffect(pipDialogCloseTrigger) {
-        if (pipDialogCloseTrigger > 0 &&
-            globalFocusState.value.sectionId == "ODKRYWAJ" &&
-            globalFocusState.value.currentRow > 0) {
-            resetTrigger++  // Trigger re-focus in NewStartScreenContent
-            android.util.Log.d("ODKRYWAJ", "PIP dialog closed - triggering focus restoration (trigger=$pipDialogCloseTrigger, resetTrigger=$resetTrigger)")
         }
     }
 
