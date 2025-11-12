@@ -884,8 +884,7 @@ fun TopMenuScreen2(
                 onNavigateToEpgDay = onNavigateToEpgDay,
                 onNavigateToStartupMode = onNavigateToStartupMode,
                 onFocusRestored = onFocusRestored,
-                restoredTelewizjaFocus = restoredTelewizjaFocus,
-                pipDialogCloseTrigger = pipDialogCloseTrigger  // Pass trigger to sections
+                restoredTelewizjaFocus = restoredTelewizjaFocus
             )
         }
 
@@ -1285,8 +1284,7 @@ private fun FullPageContent(
     onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> },
     onNavigateToStartupMode: () -> Unit = {},  // Navigate to startup mode selection
     onFocusRestored: () -> Unit = {},
-    restoredTelewizjaFocus: FocusState? = null,
-    pipDialogCloseTrigger: Int = 0  // Focus restoration trigger from PIP modal close
+    restoredTelewizjaFocus: FocusState? = null
 ) {
     // Track fresh entry (transition from menu Row 0 → content Row 1+)
     // Used to auto-focus first interactive element only when user enters section, not while hovering tab
