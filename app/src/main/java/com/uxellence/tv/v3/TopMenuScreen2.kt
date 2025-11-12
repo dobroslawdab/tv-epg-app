@@ -553,19 +553,19 @@ private fun ChannelListCard(
         // Channel number label
         Box(
             modifier = Modifier
-                .height(sy(48))  // 48px height to fit lineHeight (32px) + padding (16px)
-                .widthIn(min = sx(65))  // Minimum width to fit 3-digit number
+                .height(sy(54))  // 54px height to fit lineHeight (32px) + padding (22px) - prevents cutoff
+                .widthIn(min = sx(52))  // Minimum width to fit 2-digit number (01, 02, etc.)
                 .clip(RoundedCornerShape(sx(4)))  // Figma: radius 4px
                 .border(
                     width = sx(2),  // Figma: 2px border
                     color = Color(0xFFEEEEEE).copy(alpha = 0.4f),  // Figma: rgba(238,238,238,0.4)
                     shape = RoundedCornerShape(sx(4))
                 )
-                .padding(vertical = sy(8), horizontal = sx(12)),  // Figma: 8px/12px
+                .padding(vertical = sy(11), horizontal = sx(12)),  // Increased vertical padding to 11px
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = channelNumber.toString().padStart(3, '0'),  // Format: 001, 002, etc.
+                text = channelNumber.toString().padStart(2, '0'),  // Format: 01, 02, etc. (2-digit)
                 fontSize = (24 * sy(1).value / 1).sp,  // Figma: 24px
                 fontWeight = FontWeight.Medium,  // Figma: Medium (500)
                 lineHeight = (32 * sy(1).value / 1).sp,  // Figma: 32px (1.333em)
@@ -6936,7 +6936,7 @@ fun TelewizjaUnifiedChannelRow(
                                     // Navigate to EPG Day screen (like "Teraz w TV" row)
                                     val epgId = tvChannel.epgId ?: tvChannel.name
                                     android.util.Log.d("TELEWIZJA_CLICK", "Opening EPG Day for channel: ${tvChannel.name}, epgId: $epgId")
-                                    onNavigateToEpgDay(epgId, null, 0, sectionId)
+                                    onNavigateToEpgDay(epgId, tvChannel.name, 0, sectionId)  // Pass channel name for proper BACK restoration
                                 },
                                 sx = sx,
                                 sy = sy

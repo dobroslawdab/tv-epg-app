@@ -550,6 +550,7 @@ fun TvRoot() {
                         previousScreen = NavigationScreen.EPG_DAY
                         currentScreen = NavigationScreen.TOP_MENU2
                     },
+                    initialChannelId = savedTelewizjaFocus?.channelId,  // Start EPG on selected channel from "Moja lista kanałów"
                     showTopMenuOverlay = isEpgDayFromStartup,  // Show overlay only when launched from startup
                     sx = ::sx,  // Layout Engineer: ALWAYS pass sx/sy
                     sy = ::sy

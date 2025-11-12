@@ -120,6 +120,7 @@ private const val EPG_DAY_VIEWPORT_HEIGHT_MULTI = 446   // 3 channels (3×142 + 
 fun EpgDayScreen(
     onBackPressed: () -> Unit,  // Focus Architect: callback delegation to MainActivity
     onNavigateToPipMode: (ExoPlayer?, String) -> Unit = { _, _ -> },  // PIP callback
+    initialChannelId: String? = null,  // Optional: Start EPG on specific channel (for "Moja lista kanałów")
     showTopMenuOverlay: Boolean = false,  // Show overlay only when launched from startup mode (MODE_EPG_DAY)
     sx: (Int) -> Dp,            // Layout Engineer: ALWAYS sx/sy parameters
     sy: (Int) -> Dp
@@ -317,19 +318,35 @@ fun EpgDayScreen(
 
             allChannelRows = rows
 
-            // Set initial channel (first one) as active
+            // Set initial channel - either specified initialChannelId or first one
             if (rows.isNotEmpty()) {
-                val firstRow = rows[0]
-                currentChannel = firstRow.channel
-                channelNumber = firstRow.channelNumber
-                programs = firstRow.programs
-                focusedProgramIndex = firstRow.currentProgramIndex
-                initialChannelIndex = 0
-                initialProgramIndex = firstRow.currentProgramIndex
+                // Try to find requested channel if initialChannelId provided
+                var targetIndex = 0
+                if (initialChannelId != null) {
+                    val foundIndex = rows.indexOfFirst { row ->
+                        val epgId = row.channel.epgId ?: row.channel.id
+                        epgId.equals(initialChannelId, ignoreCase = true) ||
+                        row.channel.name.equals(initialChannelId, ignoreCase = true)
+                    }
+                    if (foundIndex >= 0) {
+                        targetIndex = foundIndex
+                        android.util.Log.d("EpgDayScreen", "Found requested channel: $initialChannelId at index $targetIndex")
+                    } else {
+                        android.util.Log.d("EpgDayScreen", "Requested channel $initialChannelId not found, using first channel")
+                    }
+                }
 
-                // Player stays on first channel
-                streamUrl = firstRow.channel.streamUrl
-                android.util.Log.d("EpgDayScreen", "Initial stream URL: $streamUrl")
+                val targetRow = rows[targetIndex]
+                currentChannel = targetRow.channel
+                channelNumber = targetRow.channelNumber
+                programs = targetRow.programs
+                focusedProgramIndex = targetRow.currentProgramIndex
+                initialChannelIndex = targetIndex  // Start on requested channel
+                initialProgramIndex = targetRow.currentProgramIndex
+
+                // Player starts on selected channel
+                streamUrl = targetRow.channel.streamUrl
+                android.util.Log.d("EpgDayScreen", "Initial channel: ${targetRow.channel.name}, stream URL: $streamUrl")
             }
 
             android.util.Log.d("EpgDayScreen", "=== MULTI-CHANNEL EPG END: ${rows.size} channels loaded ===")
