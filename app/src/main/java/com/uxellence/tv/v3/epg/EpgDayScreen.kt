@@ -323,16 +323,34 @@ fun EpgDayScreen(
                 // Try to find requested channel if initialChannelId provided
                 var targetIndex = 0
                 if (initialChannelId != null) {
-                    val foundIndex = rows.indexOfFirst { row ->
+                    android.util.Log.d("EpgDayScreen", "=== CHANNEL SEARCH DEBUG ===")
+                    android.util.Log.d("EpgDayScreen", "Searching for initialChannelId: '$initialChannelId'")
+                    android.util.Log.d("EpgDayScreen", "Available channels (${rows.size}):")
+                    rows.forEachIndexed { index, row ->
                         val epgId = row.channel.epgId ?: row.channel.id
-                        epgId.equals(initialChannelId, ignoreCase = true) ||
-                        row.channel.name.equals(initialChannelId, ignoreCase = true)
+                        android.util.Log.d("EpgDayScreen", "  [$index] name='${row.channel.name}', epgId='$epgId', id='${row.channel.id}'")
                     }
-                    if (foundIndex >= 0) {
-                        targetIndex = foundIndex
-                        android.util.Log.d("EpgDayScreen", "Found requested channel: $initialChannelId at index $targetIndex")
+
+                    // Try parsing as channel INDEX first (from "Kategorie EPG" row: 0-8)
+                    val channelIndex = initialChannelId.toIntOrNull()
+                    if (channelIndex != null && channelIndex in rows.indices) {
+                        targetIndex = channelIndex
+                        android.util.Log.d("EpgDayScreen", "✅ Using channel INDEX: $channelIndex (${rows[channelIndex].channel.name})")
                     } else {
-                        android.util.Log.d("EpgDayScreen", "Requested channel $initialChannelId not found, using first channel")
+                        // Fallback: Search by epgId/name (backwards compatibility for other rows)
+                        val foundIndex = rows.indexOfFirst { row ->
+                            val epgId = row.channel.epgId ?: row.channel.id
+                            val matchesEpgId = epgId.equals(initialChannelId, ignoreCase = true)
+                            val matchesName = row.channel.name.equals(initialChannelId, ignoreCase = true)
+                            android.util.Log.d("EpgDayScreen", "  Checking channel '${row.channel.name}': epgId='$epgId' matchesEpgId=$matchesEpgId, matchesName=$matchesName")
+                            matchesEpgId || matchesName
+                        }
+                        if (foundIndex >= 0) {
+                            targetIndex = foundIndex
+                            android.util.Log.d("EpgDayScreen", "✅ Found requested channel by epgId/name: '$initialChannelId' at index $targetIndex")
+                        } else {
+                            android.util.Log.e("EpgDayScreen", "❌ Requested channel '$initialChannelId' not found, using first channel (index 0)")
+                        }
                     }
                 }
 
