@@ -1243,8 +1243,8 @@ When working on this project, Claude should reference these expert agents as nee
 
 ### 🔧 Channel Type Specialist
 **File:** `skills/channel-type-specialist/SKILL.md`
-**Use when:** 
-- Adding or modifying any of 8 channel types (horizontal, vertical, app-icons, top10, slider-max, collection-slider, shortcuts, epg-channels)
+**Use when:**
+- Adding or modifying any of 8 channel types + variants (horizontal, vertical, app-icons, top10, slider-max, collection-slider, shortcuts, shortcuts-v3, epg-channels)
 - Working with positioning algorithms (calculateYPosition functions)
 - Troubleshooting focus management or navigation issues
 - Understanding 3-layer architecture (Component/Row/Positioning)

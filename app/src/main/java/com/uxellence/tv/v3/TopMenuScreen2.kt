@@ -4,6 +4,7 @@ import com.uxellence.tv.v3.R
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.EaseInOutCubic
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -82,6 +83,9 @@ import com.uxellence.tv.v3.version001.Version001Screen
 import com.uxellence.tv.v3.version001.*
 import com.uxellence.tv.v3.focus.*
 import com.uxellence.tv.v3.search.SearchScreenNew
+import com.uxellence.tv.v3.ShortcutItem
+import com.uxellence.tv.v3.ShortcutIcon
+import com.uxellence.tv.v3.ShortcutCard
 import com.uxellence.tv.v3.pip.PipDialogController
 import com.uxellence.tv.v3.pip.PipDialogMenu
 import java.time.LocalTime
@@ -7576,7 +7580,7 @@ private fun VodWithChannels(
     globalFocusState: MutableState<GlobalFocusState>
 ) {
     val context = LocalContext.current
-    val channels = listOf("Kino Play", "Polecane", "Top 10", "Ostatnio dodane", "Seriale", "Filmy fabularne", "Cinemax")
+    val channels = listOf("Kino Play", "Skróty v3", "Polecane", "Top 10", "Ostatnio dodane", "Seriale", "Filmy fabularne", "Cinemax")
 
     val gridContent = remember {
         val kinoPlayMovies = VodDataCache.getKinoPlayMovies()
@@ -7584,6 +7588,7 @@ private fun VodWithChannels(
         if (kinoPlayMovies.isNotEmpty() && vodContentList.isNotEmpty()) {
             channels.associateWith { channelName ->
                 when (channelName) {
+                    "Skróty v3" -> emptyList() // Shortcuts don't have grid content
                     "Kino Play", "Polecane", "Top 10", "Ostatnio dodane" ->
                         kinoPlayMovies.shuffled().take(10)
                     "Seriale", "Filmy fabularne", "Cinemax" ->
@@ -7611,11 +7616,21 @@ private fun VodWithChannels(
     val channelFocusRequesters = remember(channels.size) {
         mutableMapOf<Pair<Int, Int>, FocusRequester>().apply {
             // Row 1 = slider (no focus requesters needed)
-            // Rows 2-8 = channels (7 channels)
+            // Rows 2-9 = channels (8 channels now)
             repeat(channels.size) { rowIndex ->
                 val adjustedRowIndex = rowIndex + 2 // Channels start at row 2
-                put(Pair(adjustedRowIndex, -1), FocusRequester()) // CategoryIcon
-                put(Pair(adjustedRowIndex, 0), FocusRequester()) // Fixed focus position
+                val channelName = channels[rowIndex]
+
+                if (channelName == "Skróty v3") {
+                    // Shortcuts row: 6 horizontal items (col 0-5), NO CategoryIcon
+                    repeat(6) { colIndex ->
+                        put(Pair(adjustedRowIndex, colIndex), FocusRequester())
+                    }
+                } else {
+                    // Regular channels: CategoryIcon + content
+                    put(Pair(adjustedRowIndex, -1), FocusRequester()) // CategoryIcon
+                    put(Pair(adjustedRowIndex, 0), FocusRequester()) // Fixed focus position
+                }
             }
         }
     }
@@ -8010,18 +8025,31 @@ private fun VodChannelRows(
             Box(
                 modifier = Modifier.offset(y = channelYOffset)
             ) {
-                VodUnifiedChannelRow(
-                    channel = channelName,
-                    actualRowIndex = actualRowIndex,
-                    rowContent = rowContent,
-                    focusedRowIndex = focusedRowIndex,
-                    focusedColIndex = focusedColIndex,
-                    channelFocusRequesters = channelFocusRequesters,
-                    onChannelContentFocusChange = onChannelContentFocusChange,
-                    sx = sx,
-                    sy = sy,
-                    lazyListState = lazyListState
-                )
+                if (channelName == "Skróty v3") {
+                    // Special rendering for Skróty v3 - horizontal shortcuts row
+                    VodShortcutsV3Row(
+                        actualRowIndex = actualRowIndex,
+                        focusedRowIndex = focusedRowIndex,
+                        focusedColIndex = focusedColIndex,
+                        channelFocusRequesters = channelFocusRequesters,
+                        onChannelContentFocusChange = onChannelContentFocusChange,
+                        sx = sx,
+                        sy = sy
+                    )
+                } else {
+                    VodUnifiedChannelRow(
+                        channel = channelName,
+                        actualRowIndex = actualRowIndex,
+                        rowContent = rowContent,
+                        focusedRowIndex = focusedRowIndex,
+                        focusedColIndex = focusedColIndex,
+                        channelFocusRequesters = channelFocusRequesters,
+                        onChannelContentFocusChange = onChannelContentFocusChange,
+                        sx = sx,
+                        sy = sy,
+                        lazyListState = lazyListState
+                    )
+                }
             }
         }
     }
@@ -9250,6 +9278,58 @@ private fun VerticalContentCard(
 }
 
 @Composable
+private fun VodShortcutsV3Row(
+    actualRowIndex: Int,
+    focusedRowIndex: Int,
+    focusedColIndex: Int,
+    channelFocusRequesters: Map<Pair<Int, Int>, FocusRequester>,
+    onChannelContentFocusChange: (Int, Int) -> Unit,
+    sx: (Int) -> androidx.compose.ui.unit.Dp,
+    sy: (Int) -> androidx.compose.ui.unit.Dp
+) {
+    val configuration = LocalConfiguration.current
+
+    val shortcuts = remember {
+        listOf(
+            ShortcutItem("1", "AKCJA", ShortcutIcon.VectorIcon(R.drawable.ic_shortcut_akcja), categoryFilter = "Akcja|Action"),
+            ShortcutItem("2", "BIOGRAFICZNY", ShortcutIcon.VectorIcon(R.drawable.ic_shortcut_biograficzny), categoryFilter = "Biograficzny|Biography|Biographical"),
+            ShortcutItem("3", "DOKUMENTALNE", ShortcutIcon.VectorIcon(R.drawable.ic_shortcut_dokumentalne), categoryFilter = "Dokumentalny|Documentary"),
+            ShortcutItem("4", "PRZYGODOWE", ShortcutIcon.VectorIcon(R.drawable.ic_shortcut_przygodowe), categoryFilter = "Przygodowy|Adventure"),
+            ShortcutItem("5", "HORROR", ShortcutIcon.VectorIcon(R.drawable.ic_shortcut_horror), categoryFilter = "Horror"),
+            ShortcutItem("6", "FILMY POLSKIE", ShortcutIcon.VectorIcon(R.drawable.ic_shortcut_filmy_polskie), categoryFilter = "Polski|Polish")
+        )
+    }
+
+    val isCurrentRow = actualRowIndex == focusedRowIndex
+
+    // Skróty v3: NO expansion animation - keep constant size
+    // Horizontal LazyRow with 6 shortcuts (Figma: card width 235px + spacing 24px)
+    LazyRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(sy(208)), // Figma: 208px card height - fixed, no animation
+        contentPadding = PaddingValues(
+            start = sx(80), // Align with CategoryIcon position
+            end = sx(20)
+        ),
+        horizontalArrangement = Arrangement.spacedBy(sx(24)) // Figma: 24px spacing
+    ) {
+        itemsIndexed(shortcuts) { index, shortcut ->
+            val isFocused = isCurrentRow && focusedColIndex == index
+            val focusRequester = channelFocusRequesters[Pair(actualRowIndex, index)] ?: FocusRequester()
+
+            ShortcutCard(
+                shortcut = shortcut,
+                isFocused = isFocused,
+                focusRequester = focusRequester,
+                sx = sx,
+                sy = sy
+            )
+        }
+    }
+}
+
+@Composable
 private fun VodContentCard(
     vodContent: VodContent,
     isFocused: Boolean,
@@ -9528,10 +9608,21 @@ private fun calculateVodChannelYPosition(
     // Convert channelIndex to rowIndex (channels start at row 2)
     val rowIndex = channelIndex + 2
 
-    // Determine if channel is horizontal or vertical
+    // Determine if channel is horizontal, vertical, or Skróty v3
     val isHorizontal = channelName in listOf("Seriale", "Filmy fabularne", "Cinemax")
-    val normalRowHeight = if (isHorizontal) VOD_HORIZONTAL_NORMAL_ROW_HEIGHT else VOD_VERTICAL_NORMAL_ROW_HEIGHT
-    val expandedRowHeight = if (isHorizontal) VOD_HORIZONTAL_EXPANDED_ROW_HEIGHT else VOD_VERTICAL_EXPANDED_ROW_HEIGHT
+    val isShortcutsV3 = channelName == "Skróty v3"
+
+    val normalRowHeight = when {
+        isHorizontal -> VOD_HORIZONTAL_NORMAL_ROW_HEIGHT
+        isShortcutsV3 -> 278 // Figma: 208px card + 70px spacing
+        else -> VOD_VERTICAL_NORMAL_ROW_HEIGHT
+    }
+
+    val expandedRowHeight = when {
+        isHorizontal -> VOD_HORIZONTAL_EXPANDED_ROW_HEIGHT
+        isShortcutsV3 -> 278 // Same as normal - no expansion for Skróty v3
+        else -> VOD_VERTICAL_EXPANDED_ROW_HEIGHT
+    }
 
     return when {
         // When on menu (row 0) or slider (row 1) - channels peek 90px from bottom
@@ -9541,7 +9632,12 @@ private fun calculateVodChannelYPosition(
             for (i in 0 until channelIndex) {
                 val prevChannelName = channels.getOrNull(i) ?: ""
                 val prevIsHorizontal = prevChannelName in listOf("Seriale", "Filmy fabularne", "Cinemax")
-                cumulativeHeight += if (prevIsHorizontal) VOD_HORIZONTAL_NORMAL_ROW_HEIGHT else VOD_VERTICAL_NORMAL_ROW_HEIGHT
+                val prevIsShortcutsV3 = prevChannelName == "Skróty v3"
+                cumulativeHeight += when {
+                    prevIsHorizontal -> VOD_HORIZONTAL_NORMAL_ROW_HEIGHT
+                    prevIsShortcutsV3 -> 278
+                    else -> VOD_VERTICAL_NORMAL_ROW_HEIGHT
+                }
             }
             sy(cumulativeHeight)
         }
@@ -9558,7 +9654,12 @@ private fun calculateVodChannelYPosition(
             for (i in channelIndex until focusedRowIndex - 2) {
                 val betweenChannelName = channels.getOrNull(i + 1) ?: ""
                 val betweenIsHorizontal = betweenChannelName in listOf("Seriale", "Filmy fabularne", "Cinemax")
-                cumulativeHeight -= if (betweenIsHorizontal) VOD_HORIZONTAL_NORMAL_ROW_HEIGHT else VOD_VERTICAL_NORMAL_ROW_HEIGHT
+                val betweenIsShortcutsV3 = betweenChannelName == "Skróty v3"
+                cumulativeHeight -= when {
+                    betweenIsHorizontal -> VOD_HORIZONTAL_NORMAL_ROW_HEIGHT
+                    betweenIsShortcutsV3 -> 278
+                    else -> VOD_VERTICAL_NORMAL_ROW_HEIGHT
+                }
             }
             sy(cumulativeHeight - extraSpacing)
         }
@@ -9567,10 +9668,19 @@ private fun calculateVodChannelYPosition(
             // Check if focused channel is expanded (content focused)
             val focusedChannelName = channels.getOrNull(focusedRowIndex - 2) ?: ""
             val focusedIsHorizontal = focusedChannelName in listOf("Seriale", "Filmy fabularne", "Cinemax")
+            val focusedIsShortcutsV3 = focusedChannelName == "Skróty v3"
             val focusedChannelExpansion = if (focusedColIndex >= 0) {
-                if (focusedIsHorizontal) VOD_HORIZONTAL_EXPANDED_ROW_HEIGHT else VOD_VERTICAL_EXPANDED_ROW_HEIGHT
+                when {
+                    focusedIsHorizontal -> VOD_HORIZONTAL_EXPANDED_ROW_HEIGHT
+                    focusedIsShortcutsV3 -> 278 // Same as normal - no expansion for Skróty v3
+                    else -> VOD_VERTICAL_EXPANDED_ROW_HEIGHT
+                }
             } else {
-                if (focusedIsHorizontal) VOD_HORIZONTAL_NORMAL_ROW_HEIGHT else VOD_VERTICAL_NORMAL_ROW_HEIGHT
+                when {
+                    focusedIsHorizontal -> VOD_HORIZONTAL_NORMAL_ROW_HEIGHT
+                    focusedIsShortcutsV3 -> 278
+                    else -> VOD_VERTICAL_NORMAL_ROW_HEIGHT
+                }
             }
             // 30px extra spacing for vertical channels when content is focused
             val verticalExtraSpacing = if (!focusedIsHorizontal && focusedColIndex >= 0) 30 else 0
@@ -9579,13 +9689,24 @@ private fun calculateVodChannelYPosition(
             for (i in (focusedRowIndex - 2 + 1) until channelIndex) {
                 val betweenChannelName = channels.getOrNull(i) ?: ""
                 val betweenIsHorizontal = betweenChannelName in listOf("Seriale", "Filmy fabularne", "Cinemax")
-                cumulativeHeight += if (betweenIsHorizontal) VOD_HORIZONTAL_NORMAL_ROW_HEIGHT else VOD_VERTICAL_NORMAL_ROW_HEIGHT
+                val betweenIsShortcutsV3 = betweenChannelName == "Skróty v3"
+                cumulativeHeight += when {
+                    betweenIsHorizontal -> VOD_HORIZONTAL_NORMAL_ROW_HEIGHT
+                    betweenIsShortcutsV3 -> 278
+                    else -> VOD_VERTICAL_NORMAL_ROW_HEIGHT
+                }
             }
             sy(cumulativeHeight)
         }
         // Fallback (should not happen)
         else -> sy(140 + rowIndex * normalRowHeight)
     }
+}
+
+// Helper to detect if channel is Skróty v3 (shortcuts without CategoryIcon)
+private fun isShortcutsV3Channel(rowIndex: Int, channels: List<String>): Boolean {
+    val channelIndex = rowIndex - 2
+    return channels.getOrNull(channelIndex) == "Skróty v3"
 }
 
 fun handleVodNavigation(
@@ -9626,10 +9747,19 @@ fun handleVodNavigation(
                     }
                 }
                 focusedRowIndex > 2 -> {
-                    // Between channels - preserve CategoryIcon vs content
+                    // Between channels - smart targeting for Skróty v3
                     val newRowIndex = focusedRowIndex - 1
-                    val targetColIndex = if (focusedColIndex == -1) -1 else 0
-                    android.util.Log.d("VOD_NAV", "Going from channel row $focusedRowIndex to row $newRowIndex")
+                    val currentIsShortcutsV3 = isShortcutsV3Channel(focusedRowIndex, channels)
+                    val targetIsShortcutsV3 = isShortcutsV3Channel(newRowIndex, channels)
+
+                    val targetColIndex = when {
+                        targetIsShortcutsV3 -> 0 // Go to first shortcut (no CategoryIcon)
+                        currentIsShortcutsV3 -> -1 // Coming from shortcuts, go to CategoryIcon
+                        focusedColIndex == -1 -> -1 // Preserve CategoryIcon
+                        else -> 0 // Preserve content
+                    }
+
+                    android.util.Log.d("VOD_NAV", "Going from channel row $focusedRowIndex to row $newRowIndex, targetCol=$targetColIndex")
                     onFocusChange(newRowIndex, targetColIndex)
                     channelFocusRequesters[Pair(newRowIndex, targetColIndex)]?.requestFocus()
                 }
@@ -9645,9 +9775,18 @@ fun handleVodNavigation(
                     channelFocusRequesters[Pair(2, -1)]?.requestFocus()
                 }
                 focusedRowIndex < channels.size + 1 -> {
-                    // Between channels
+                    // Between channels - smart targeting for Skróty v3
                     val newRowIndex = focusedRowIndex + 1
-                    val targetColIndex = if (focusedColIndex == -1) -1 else 0
+                    val currentIsShortcutsV3 = isShortcutsV3Channel(focusedRowIndex, channels)
+                    val targetIsShortcutsV3 = isShortcutsV3Channel(newRowIndex, channels)
+
+                    val targetColIndex = when {
+                        targetIsShortcutsV3 -> 0 // Go to first shortcut (no CategoryIcon)
+                        currentIsShortcutsV3 -> -1 // Coming from shortcuts, go to CategoryIcon
+                        focusedColIndex == -1 -> -1 // Preserve CategoryIcon
+                        else -> 0 // Preserve content
+                    }
+
                     onFocusChange(newRowIndex, targetColIndex)
                     channelFocusRequesters[Pair(newRowIndex, targetColIndex)]?.requestFocus()
                 }
@@ -9659,25 +9798,46 @@ fun handleVodNavigation(
             if (focusedRowIndex == 1) {
                 // Slider navigation handled by VodHeroSlider
                 return false
-            } else if (focusedColIndex == -1) {
-                // Already on CategoryIcon
-                return true
-            } else if (focusedColIndex == 0) {
-                // Check if can scroll left
-                val channelIndex = focusedRowIndex - 2
-                val lazyListState = lazyListStates[channelIndex]
-                if (lazyListState != null && lazyListState.firstVisibleItemIndex > 0) {
-                    coroutineScope.launch {
-                        val newIndex = lazyListState.firstVisibleItemIndex - 1
-                        lazyListState.animateScrollToItem(newIndex)
-                        // Czekaj na zakończenie animacji i ustaw fokus na nowym pierwszym widocznym elemencie
-                        delay(50)
-                        channelFocusRequesters[Pair(focusedRowIndex, newIndex)]?.requestFocus()
+            }
+
+            // Special handling for Skróty v3
+            val isShortcutsV3 = isShortcutsV3Channel(focusedRowIndex, channels)
+
+            if (isShortcutsV3) {
+                // Shortcuts v3: move between items 0-5
+                when {
+                    focusedColIndex > 0 -> {
+                        // Move left within shortcuts
+                        onFocusChange(focusedRowIndex, focusedColIndex - 1)
+                        channelFocusRequesters[Pair(focusedRowIndex, focusedColIndex - 1)]?.requestFocus()
                     }
-                } else {
-                    // Go to CategoryIcon
-                    onFocusChange(focusedRowIndex, -1)
-                    channelFocusRequesters[Pair(focusedRowIndex, -1)]?.requestFocus()
+                    focusedColIndex == 0 -> {
+                        // At first shortcut - can't go left (no CategoryIcon)
+                        return true
+                    }
+                }
+            } else {
+                // Regular channel logic
+                if (focusedColIndex == -1) {
+                    // Already on CategoryIcon
+                    return true
+                } else if (focusedColIndex == 0) {
+                    // Check if can scroll left
+                    val channelIndex = focusedRowIndex - 2
+                    val lazyListState = lazyListStates[channelIndex]
+                    if (lazyListState != null && lazyListState.firstVisibleItemIndex > 0) {
+                        coroutineScope.launch {
+                            val newIndex = lazyListState.firstVisibleItemIndex - 1
+                            lazyListState.animateScrollToItem(newIndex)
+                            // Wait for animation and set focus
+                            delay(50)
+                            channelFocusRequesters[Pair(focusedRowIndex, newIndex)]?.requestFocus()
+                        }
+                    } else {
+                        // Go to CategoryIcon
+                        onFocusChange(focusedRowIndex, -1)
+                        channelFocusRequesters[Pair(focusedRowIndex, -1)]?.requestFocus()
+                    }
                 }
             }
             return true
@@ -9687,24 +9847,45 @@ fun handleVodNavigation(
             if (focusedRowIndex == 1) {
                 // Slider navigation handled by VodHeroSlider
                 return false
-            } else if (focusedColIndex == -1) {
-                // From CategoryIcon to content
-                onFocusChange(focusedRowIndex, 0)
-                channelFocusRequesters[Pair(focusedRowIndex, 0)]?.requestFocus()
-            } else if (focusedColIndex == 0) {
-                // Scroll right if possible
-                val channelIndex = focusedRowIndex - 2
-                val lazyListState = lazyListStates[channelIndex]
-                val channelName = channels.getOrNull(channelIndex)
-                val channelContent = gridContent[channelName] ?: emptyList()
+            }
 
-                if (lazyListState != null && lazyListState.firstVisibleItemIndex < channelContent.size - 1) {
-                    coroutineScope.launch {
-                        val newIndex = lazyListState.firstVisibleItemIndex + 1
-                        lazyListState.animateScrollToItem(newIndex)
-                        // Czekaj na zakończenie animacji i ustaw fokus na nowym pierwszym widocznym elemencie
-                        delay(50)
-                        channelFocusRequesters[Pair(focusedRowIndex, newIndex)]?.requestFocus()
+            // Special handling for Skróty v3
+            val isShortcutsV3 = isShortcutsV3Channel(focusedRowIndex, channels)
+
+            if (isShortcutsV3) {
+                // Shortcuts v3: move between items 0-5 (6 items total)
+                when {
+                    focusedColIndex < 5 -> {
+                        // Move right within shortcuts
+                        onFocusChange(focusedRowIndex, focusedColIndex + 1)
+                        channelFocusRequesters[Pair(focusedRowIndex, focusedColIndex + 1)]?.requestFocus()
+                    }
+                    focusedColIndex == 5 -> {
+                        // At last shortcut - can't go right
+                        return true
+                    }
+                }
+            } else {
+                // Regular channel logic
+                if (focusedColIndex == -1) {
+                    // From CategoryIcon to content
+                    onFocusChange(focusedRowIndex, 0)
+                    channelFocusRequesters[Pair(focusedRowIndex, 0)]?.requestFocus()
+                } else if (focusedColIndex == 0) {
+                    // Scroll right if possible
+                    val channelIndex = focusedRowIndex - 2
+                    val lazyListState = lazyListStates[channelIndex]
+                    val channelName = channels.getOrNull(channelIndex)
+                    val channelContent = gridContent[channelName] ?: emptyList()
+
+                    if (lazyListState != null && lazyListState.firstVisibleItemIndex < channelContent.size - 1) {
+                        coroutineScope.launch {
+                            val newIndex = lazyListState.firstVisibleItemIndex + 1
+                            lazyListState.animateScrollToItem(newIndex)
+                            // Wait for animation and set focus
+                            delay(50)
+                            channelFocusRequesters[Pair(focusedRowIndex, newIndex)]?.requestFocus()
+                        }
                     }
                 }
             }

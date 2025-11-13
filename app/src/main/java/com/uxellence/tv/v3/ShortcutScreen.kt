@@ -46,7 +46,8 @@ sealed class ShortcutIcon {
 data class ShortcutItem(
     val id: String,
     val title: String,
-    val icon: ShortcutIcon
+    val icon: ShortcutIcon,
+    val categoryFilter: String? = null // For filtering movies by category (e.g., "Akcja|Action")
 )
 
 @OptIn(ExperimentalComposeUiApi::class)
@@ -174,9 +175,9 @@ internal fun ShortcutCard(
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp
 ) {
-    // New dimensions: increased by 1/3 from previous size
-    val cardWidth = sx(210)  // 158 × 4/3 = 210
-    val cardHeight = sy(279) // 209 × 4/3 = 279
+    // Figma dimensions: 235×208px (nearly square, wider than tall)
+    val cardWidth = sx(235)  // Figma: 235px
+    val cardHeight = sy(208) // Figma: 208px
     val borderColor = if (isFocused) Color(0xFF5AECD3) else Color.Transparent
     
     Box(
@@ -210,9 +211,9 @@ internal fun ShortcutCard(
                         painter = painterResource(shortcut.icon.iconRes),
                         contentDescription = shortcut.title,
                         modifier = Modifier
-                            .size(sx(255)) // 3x większy: 85 * 3 = 255
+                            .size(sx(40)) // Figma: icons ~40px (range 32-48px)
                             .align(Alignment.Center)
-                            .offset(y = sy(-15)), // Obniżone o 30px: -45 + 30 = -15
+                            .offset(y = sy(-32)), // Figma: icons positioned ~70px from top, card center = 104px, offset = -32px
                         tint = Color(0xFFEEEEEE)
                     )
                 }
@@ -229,20 +230,20 @@ internal fun ShortcutCard(
                         composition = composition,
                         progress = { if (isFocused) progress else 1f }, // Show last frame when unfocused
                         modifier = Modifier
-                            .size(sx(255)) // 3x większy: 85 * 3 = 255
+                            .size(sx(40)) // Figma: icons ~40px
                             .align(Alignment.Center)
-                            .offset(y = sy(-15)) // Obniżone o 30px: -45 + 30 = -15
+                            .offset(y = sy(-32)) // Figma: positioned ~70px from top
                     )
                 }
                 is ShortcutIcon.MaterialIcon -> {
-                    // Material icons not used in this screen, but added for completeness
+                    // MaterialIcon not used - all shortcuts use VectorIcon with custom SVG from Figma
                     Icon(
                         painter = painterResource(R.drawable.netflix_logo),
                         contentDescription = shortcut.title,
                         modifier = Modifier
-                            .size(sx(255))
+                            .size(sx(40))
                             .align(Alignment.Center)
-                            .offset(y = sy(-15)),
+                            .offset(y = sy(-32)),
                         tint = Color(0xFFEEEEEE)
                     )
                 }
@@ -252,7 +253,7 @@ internal fun ShortcutCard(
             Text(
                 text = shortcut.title,
                 color = Color(0xFFEEEEEE),
-                fontSize = sy(18).value.sp, // Increased from 16 to 18 for larger card
+                fontSize = sy(20).value.sp, // Figma: 20px Roboto SemiBold
                 fontWeight = FontWeight.W500,
                 textAlign = TextAlign.Center,
                 lineHeight = sy(24).value.sp, // Increased line height (20 × 1.2 = 24)

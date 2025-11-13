@@ -378,6 +378,118 @@ LazyRow(
 
 ---
 
+### 7b. **shortcuts-v3** - ShortcutCardV3 (Variant)
+
+**Visual**: Horizontal filter shortcuts (6 fixed items)
+**Component**: `ShortcutCardV3`
+**Used in**: VOD section only (Row 3: "Skróty v3")
+
+#### Dimensions
+```kotlin
+Container: 235x208px (square-ish design)
+Icon: 40x40px at Y=71px from top
+Text: 20sp SemiBold at Y=127px from top
+Spacing: 20px horizontal gap
+Border: 6px aqua (#5AECD3) when focused
+```
+
+#### Layout
+```
+┌────────────────────────────────────────────────────┐
+│  NO CategoryIcon (shortcuts row has no col -1)    │
+│                                                     │
+│  ┌─────┐  ┌─────┐  ┌─────┐  ┌─────┐  ┌─────┐    │
+│  │ ⭐  │  │ 😂  │  │ 🎭  │  │ 👻  │  │ 📖  │    │
+│  │Akcja│  │Kom..│  │Dram│  │Horr│  │Biog│  │Dok│ │
+│  └─────┘  └─────┘  └─────┘  └─────┘  └─────┘  └──┘ │
+│  X=100   (20px spacing between)                     │
+└────────────────────────────────────────────────────┘
+```
+
+#### Key Differences from Standard Shortcuts
+- ❌ **NO CategoryIcon**: Shortcuts row has NO col -1
+- ✅ **Fixed 6 items**: Uses `Row` instead of `LazyRow`
+- ✅ **Horizontal layout**: Left-to-right arrangement (not vertical)
+- ✅ **Filtering function**: onClick toggles category filters
+- ✅ **Square-ish cards**: 235×208px (1.13:1) vs standard 210×279px (0.75:1 portrait)
+
+#### Row Heights
+- **Normal**: 256px (same as horizontal)
+- **Expanded**: 546px (same as horizontal)
+
+**Why horizontal-like heights?**
+- Card height is 208px (similar to horizontal 208px, not shortcuts 279px)
+- Uses horizontal spacing (40px) because card height ≤ 300px
+- Follows pattern: "Horizontal-like (card ≤ 300px tall) → 40px spacing"
+
+#### Expansion Behavior
+- ✅ **Expands on focus**: Miniatures slide down 290px when focused
+- ✅ **Slide-down animation**: 350ms EaseInOutCubic animation
+- ✅ **Uses miniaturesYOffset**: Same as other expandable channels
+
+#### Row Configuration
+```kotlin
+// Uses Row (NOT LazyRow) for 6 fixed items
+Row(
+    modifier = Modifier
+        .fillMaxWidth()
+        .offset(y = miniaturesYOffset)
+        .padding(start = sx(100)), // Left padding (no CategoryIcon offset)
+    horizontalArrangement = Arrangement.spacedBy(sx(20))
+)
+```
+
+#### Navigation
+- **LEFT**: Navigate left between shortcuts (col N → col N-1), stop at col 0
+- **RIGHT**: Navigate right between shortcuts (col N → col N+1), stop at col 5
+- **UP**: From shortcuts (row 3) → previous channel CategoryIcon (col -1)
+- **DOWN**: From shortcuts (row 3) → next channel CategoryIcon (col -1)
+- **NO CategoryIcon navigation**: Shortcuts row has NO col -1 FocusRequester
+
+#### Focus Management
+```kotlin
+// FocusRequesters for shortcuts row (6 horizontal items, NO CategoryIcon)
+if (channelName == "Skróty v3") {
+    repeat(6) { colIndex ->
+        put(Pair(adjustedRowIndex, colIndex), FocusRequester())
+    }
+} else {
+    // Normal channels: CategoryIcon (-1) + content (0)
+    put(Pair(adjustedRowIndex, -1), FocusRequester())
+    put(Pair(adjustedRowIndex, 0), FocusRequester())
+}
+```
+
+#### Data Model
+```kotlin
+data class ShortcutItem(
+    val id: String,
+    val title: String,
+    val icon: ShortcutIcon,
+    val categoryFilter: String = "" // Pipe-separated filters (e.g., "Akcja|Action")
+)
+```
+
+#### Functionality
+- **onClick**: Toggles movie category filter
+- **Toggle logic**: Same filter clicked → clear filter, different filter → apply new filter
+- **Visual feedback**: Background color darkens when filter is active
+- **Filter scope**: Applies to all VOD channels (Kino Play, Polecane, Top 10, etc.)
+
+#### Constants
+```kotlin
+private const val VOD_SHORTCUTS_NORMAL_ROW_HEIGHT = 256
+private const val VOD_SHORTCUTS_EXPANDED_ROW_HEIGHT = 546
+```
+
+#### Implementation Notes
+- **Location**: `TopMenuScreen2.kt` lines 7576-7681 (ShortcutCardV3 component)
+- **Positioning**: `calculateVodChannelYPosition` recognizes shortcuts via `isShortcuts` flag
+- **Section-specific**: Only used in VOD section, not in APLIKACJE or other sections
+- **Design source**: Figma specifications (node-id=6059-105609)
+
+---
+
 ### 8. **epg-channels** - EpgChannelCard
 
 **Visual**: TV channel cards with logos and current program info

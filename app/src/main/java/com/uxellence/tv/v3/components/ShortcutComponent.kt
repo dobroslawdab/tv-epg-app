@@ -39,12 +39,14 @@ import kotlinx.coroutines.launch
 sealed class ShortcutIcon {
     data class VectorIcon(val iconRes: Int) : ShortcutIcon()
     data class LottieIcon(val fileName: String) : ShortcutIcon()
+    data class MaterialIcon(val iconName: String) : ShortcutIcon()
 }
 
 data class ShortcutItem(
     val id: String,
     val title: String,
-    val icon: ShortcutIcon
+    val icon: ShortcutIcon,
+    val categoryFilter: String = ""
 )
 
 /**
@@ -210,6 +212,14 @@ private fun ShortcutCard(
                             composition = composition,
                             progress = { progress },
                             modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                    is ShortcutIcon.MaterialIcon -> {
+                        // MaterialIcon support - not used in this component but required for exhaustive when
+                        Text(
+                            text = "?",
+                            modifier = Modifier.fillMaxSize(),
+                            color = if (isFocused) Color(0xFF48227C) else Color(0xFFEEEEEE)
                         )
                     }
                 }
