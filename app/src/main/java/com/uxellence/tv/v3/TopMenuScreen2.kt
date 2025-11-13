@@ -4107,6 +4107,10 @@ fun MojeChannelRowsLayout(
 
             val channelYOffset by animateDpAsState(
                 targetValue = targetY,
+                animationSpec = tween(
+                    durationMillis = 350, // Sync z miniatures (match VOD timing)
+                    easing = androidx.compose.animation.core.EaseInOutCubic
+                ),
                 label = "moje_channel_y_offset_$rowIndex"
             )
 
@@ -7569,6 +7573,18 @@ private fun WideoScreenContent(
     )
 }
 
+/**
+ * Filter movies by category supporting multiple category names (e.g., "Akcja|Action")
+ */
+private fun filterMoviesByCategory(movies: List<VodContent>, categoryFilter: String): List<VodContent> {
+    val categories = categoryFilter.split("|").map { it.lowercase().trim() }
+    return movies.filter { movie ->
+        categories.any { category ->
+            movie.category.lowercase().contains(category)
+        }
+    }.take(10) // Limit to 10 items per channel
+}
+
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun VodWithChannels(
@@ -7580,19 +7596,20 @@ private fun VodWithChannels(
     globalFocusState: MutableState<GlobalFocusState>
 ) {
     val context = LocalContext.current
-    val channels = listOf("Kino Play", "Skróty v3", "Polecane", "Top 10", "Ostatnio dodane", "Seriale", "Filmy fabularne", "Cinemax")
+    val channels = listOf("Kino Play", "Skróty v3", "Polecane", "Top 10", "Ostatnio dodane", "Akcja", "Komedie", "Horror", "Biograficzne")
 
     val gridContent = remember {
         val kinoPlayMovies = VodDataCache.getKinoPlayMovies()
-        val vodContentList = VodDataCache.getVodContentList()
-        if (kinoPlayMovies.isNotEmpty() && vodContentList.isNotEmpty()) {
+        if (kinoPlayMovies.isNotEmpty()) {
             channels.associateWith { channelName ->
                 when (channelName) {
                     "Skróty v3" -> emptyList() // Shortcuts don't have grid content
                     "Kino Play", "Polecane", "Top 10", "Ostatnio dodane" ->
                         kinoPlayMovies.shuffled().take(10)
-                    "Seriale", "Filmy fabularne", "Cinemax" ->
-                        vodContentList.shuffled().take(10)
+                    "Akcja" -> filterMoviesByCategory(kinoPlayMovies, "Akcja|Action")
+                    "Komedie" -> filterMoviesByCategory(kinoPlayMovies, "Komedia|Comedy")
+                    "Horror" -> filterMoviesByCategory(kinoPlayMovies, "Horror")
+                    "Biograficzne" -> filterMoviesByCategory(kinoPlayMovies, "Biograficzny|Biography|Biographical")
                     else -> emptyList()
                 }
             }
@@ -8018,7 +8035,10 @@ private fun VodChannelRows(
 
             val channelYOffset by animateDpAsState(
                 targetValue = targetY,
-                animationSpec = tween(durationMillis = 500),
+                animationSpec = tween(
+                    durationMillis = 350, // Sync z miniatures (było 500ms)
+                    easing = androidx.compose.animation.core.EaseInOutCubic // Match miniatures easing
+                ),
                 label = "vod_channel_y_offset_$channelIndex"
             )
 
@@ -8093,12 +8113,13 @@ private fun VodUnifiedChannelRow(
 
         LazyRow(
             modifier = Modifier
-                .fillMaxWidth(),
+                .fillMaxWidth()
+                .offset(y = miniaturesYOffset), // Animacja 350ms - sync z channel offset
             state = lazyListState,
             contentPadding = PaddingValues(
                 start = sx(380),
-                end = sx(20),
-                top = if (isMiniaturesOnScreen) sy(290) else sy(0)
+                end = sx(20)
+                // top usunięte - pozycjonowanie przez .offset() dla smooth animation
             ),
             horizontalArrangement = Arrangement.spacedBy(sx(20))
         ) {
@@ -8111,7 +8132,7 @@ private fun VodUnifiedChannelRow(
                 val focusRequester = channelFocusRequesters[Pair(actualRowIndex, colIndex)] ?: FocusRequester()
 
                 // Detect content type based on channel name
-                val isHorizontal = channel in listOf("Seriale", "Filmy fabularne", "Cinemax")
+                val isHorizontal = false // No horizontal channels anymore - all use vertical posters
 
                 when {
                     isHorizontal -> {
@@ -8150,21 +8171,18 @@ private fun VodUnifiedChannelRow(
                 }
             }
 
-            // Spacer items - different sizes for horizontal vs vertical vs Top 10
+            // Spacer items - different sizes for Top 10 vs vertical posters
             items(8) {
-                val isHorizontal = channel in listOf("Seriale", "Filmy fabularne", "Cinemax")
                 val isTop10 = channel == "Top 10"
 
                 val spacerWidth = when {
-                    isHorizontal -> sx(368)
                     isTop10 -> sx(261)
-                    else -> sx(220)
+                    else -> sx(220) // Vertical poster width (all new channels)
                 }
 
                 val spacerHeight = when {
-                    isHorizontal -> sy(208)
                     isTop10 -> sy(324)
-                    else -> sy(380)
+                    else -> sy(380) // Vertical poster height (all new channels)
                 }
 
                 Spacer(
@@ -8244,6 +8262,9 @@ private fun VodUnifiedChannelRow(
                 else -> null
             }
 
+            // VOD channels that should be text-only (like WIDEO style)
+            val isVodCategoryChannel = channel in listOf("Akcja", "Komedie", "Horror", "Biograficzne")
+
             CategoryIcon(
                 text = channel,
                 isFocused = categoryIsFocused,
@@ -8257,8 +8278,10 @@ private fun VodUnifiedChannelRow(
                 focusRequester = categoryFocusRequester ?: FocusRequester(),
                 sx = sx,
                 sy = sy,
-                logoUrl = logoUrl,
-                logoDrawableId = logoDrawableId
+                logoUrl = if (!isVodCategoryChannel) logoUrl else null,
+                logoDrawableId = if (!isVodCategoryChannel) logoDrawableId else null,
+                showIcon = !isVodCategoryChannel,                    // text-only dla kategorii VOD
+                showBackgroundWhenFocused = isVodCategoryChannel     // czarne tło dla kategorii VOD
             )
         }
     }
@@ -9609,7 +9632,7 @@ private fun calculateVodChannelYPosition(
     val rowIndex = channelIndex + 2
 
     // Determine if channel is horizontal, vertical, or Skróty v3
-    val isHorizontal = channelName in listOf("Seriale", "Filmy fabularne", "Cinemax")
+    val isHorizontal = channelName in emptyList<String>() // No horizontal channels anymore - all use vertical posters
     val isShortcutsV3 = channelName == "Skróty v3"
 
     val normalRowHeight = when {
@@ -9631,7 +9654,7 @@ private fun calculateVodChannelYPosition(
             var cumulativeHeight = 990
             for (i in 0 until channelIndex) {
                 val prevChannelName = channels.getOrNull(i) ?: ""
-                val prevIsHorizontal = prevChannelName in listOf("Seriale", "Filmy fabularne", "Cinemax")
+                val prevIsHorizontal = prevChannelName in emptyList<String>() // No horizontal channels anymore - all use vertical posters
                 val prevIsShortcutsV3 = prevChannelName == "Skróty v3"
                 cumulativeHeight += when {
                     prevIsHorizontal -> VOD_HORIZONTAL_NORMAL_ROW_HEIGHT
@@ -9653,7 +9676,7 @@ private fun calculateVodChannelYPosition(
             var cumulativeHeight = VOD_FIXED_FOCUS_Y
             for (i in channelIndex until focusedRowIndex - 2) {
                 val betweenChannelName = channels.getOrNull(i + 1) ?: ""
-                val betweenIsHorizontal = betweenChannelName in listOf("Seriale", "Filmy fabularne", "Cinemax")
+                val betweenIsHorizontal = betweenChannelName in emptyList<String>() // No horizontal channels anymore - all use vertical posters
                 val betweenIsShortcutsV3 = betweenChannelName == "Skróty v3"
                 cumulativeHeight -= when {
                     betweenIsHorizontal -> VOD_HORIZONTAL_NORMAL_ROW_HEIGHT
@@ -9667,7 +9690,7 @@ private fun calculateVodChannelYPosition(
         rowIndex > focusedRowIndex -> {
             // Check if focused channel is expanded (content focused)
             val focusedChannelName = channels.getOrNull(focusedRowIndex - 2) ?: ""
-            val focusedIsHorizontal = focusedChannelName in listOf("Seriale", "Filmy fabularne", "Cinemax")
+            val focusedIsHorizontal = focusedChannelName in emptyList<String>() // No horizontal channels anymore - all use vertical posters
             val focusedIsShortcutsV3 = focusedChannelName == "Skróty v3"
             val focusedChannelExpansion = if (focusedColIndex >= 0) {
                 when {
@@ -9688,7 +9711,7 @@ private fun calculateVodChannelYPosition(
             var cumulativeHeight = VOD_FIXED_FOCUS_Y + focusedChannelExpansion + verticalExtraSpacing
             for (i in (focusedRowIndex - 2 + 1) until channelIndex) {
                 val betweenChannelName = channels.getOrNull(i) ?: ""
-                val betweenIsHorizontal = betweenChannelName in listOf("Seriale", "Filmy fabularne", "Cinemax")
+                val betweenIsHorizontal = betweenChannelName in emptyList<String>() // No horizontal channels anymore - all use vertical posters
                 val betweenIsShortcutsV3 = betweenChannelName == "Skróty v3"
                 cumulativeHeight += when {
                     betweenIsHorizontal -> VOD_HORIZONTAL_NORMAL_ROW_HEIGHT
