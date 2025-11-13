@@ -1,0 +1,638 @@
+[
+  {
+    "name": "Polsat Sport 1",
+    "id": "20183318",
+    "link": "https://playnow.pl/kanalytv/20183318",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183318/images/957927030?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport 2",
+    "id": "20183319",
+    "link": "https://playnow.pl/kanalytv/20183319",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183319/images/957927032?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport 3",
+    "id": "20183321",
+    "link": "https://playnow.pl/kanalytv/20183321",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183321/images/957927042?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT Sport Fight",
+    "id": "20183320",
+    "link": "https://playnow.pl/kanalytv/20183320",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183320/images/896415064?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Sport 5",
+    "id": "13544730",
+    "link": "https://playnow.pl/kanalytv/13544730",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/13544730/images/845882159?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Gametoon",
+    "id": "11063641",
+    "link": "https://playnow.pl/kanalytv/11063641",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/11063641/images/1025055475?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT Games",
+    "id": "20183310",
+    "link": "https://playnow.pl/kanalytv/20183310",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183310/images/896415047?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Motowizja",
+    "id": "23",
+    "link": "https://playnow.pl/kanalytv/23",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23/images/880295911?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Extreme Channel",
+    "id": "1",
+    "link": "https://playnow.pl/kanalytv/1",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/1/images/1025055478?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "FightBox",
+    "id": "23940453",
+    "link": "https://playnow.pl/kanalytv/23940453",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23940453/images/1025055433?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Eleven Sports 1",
+    "id": "1312486",
+    "link": "https://playnow.pl/kanalytv/1312486",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/1312486/images/284054649?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Eleven Sports 2",
+    "id": "1312488",
+    "link": "https://playnow.pl/kanalytv/1312488",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/1312488/images/284054651?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Eleven Sports 3",
+    "id": "1312487",
+    "link": "https://playnow.pl/kanalytv/1312487",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/1312487/images/284054653?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport 1",
+    "id": "20183318",
+    "link": "https://playnow.pl/kanalytv/20183318",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183318/images/957927030?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport 2",
+    "id": "20183319",
+    "link": "https://playnow.pl/kanalytv/20183319",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183319/images/957927032?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport 3",
+    "id": "20183321",
+    "link": "https://playnow.pl/kanalytv/20183321",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183321/images/957927042?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT Sport Fight",
+    "id": "20183320",
+    "link": "https://playnow.pl/kanalytv/20183320",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183320/images/896415064?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Sport 5",
+    "id": "13544730",
+    "link": "https://playnow.pl/kanalytv/13544730",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/13544730/images/845882159?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Gametoon",
+    "id": "11063641",
+    "link": "https://playnow.pl/kanalytv/11063641",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/11063641/images/1025055475?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT Games",
+    "id": "20183310",
+    "link": "https://playnow.pl/kanalytv/20183310",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183310/images/896415047?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Motowizja",
+    "id": "23",
+    "link": "https://playnow.pl/kanalytv/23",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23/images/880295911?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Extreme Channel",
+    "id": "1",
+    "link": "https://playnow.pl/kanalytv/1",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/1/images/1025055478?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "FightBox",
+    "id": "23940453",
+    "link": "https://playnow.pl/kanalytv/23940453",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23940453/images/1025055433?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Eleven Sports 1",
+    "id": "1312486",
+    "link": "https://playnow.pl/kanalytv/1312486",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/1312486/images/284054649?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Eleven Sports 2",
+    "id": "1312488",
+    "link": "https://playnow.pl/kanalytv/1312488",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/1312488/images/284054651?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Eleven Sports 3",
+    "id": "1312487",
+    "link": "https://playnow.pl/kanalytv/1312487",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/1312487/images/284054653?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Eleven Sports 4",
+    "id": "2409430",
+    "link": "https://playnow.pl/kanalytv/2409430",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2409430/images/284054571?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Sport HD",
+    "id": "14171257",
+    "link": "https://playnow.pl/kanalytv/14171257",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171257/images/838982879?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Sport 2 HD",
+    "id": "14171256",
+    "link": "https://playnow.pl/kanalytv/14171256",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171256/images/838982881?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Sport 3 HD",
+    "id": "14171255",
+    "link": "https://playnow.pl/kanalytv/14171255",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171255/images/838982883?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Sport 4 HD",
+    "id": "14171254",
+    "link": "https://playnow.pl/kanalytv/14171254",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171254/images/838982885?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Premium 1",
+    "id": "16643345",
+    "link": "https://playnow.pl/kanalytv/16643345",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643345/images/862701355?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Premium 2",
+    "id": "16643346",
+    "link": "https://playnow.pl/kanalytv/16643346",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643346/images/862701353?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Extra 1",
+    "id": "16643347",
+    "link": "https://playnow.pl/kanalytv/16643347",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643347/images/1050525828?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Extra 2",
+    "id": "16643348",
+    "link": "https://playnow.pl/kanalytv/16643348",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643348/images/1050525830?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Extra 3",
+    "id": "16643349",
+    "link": "https://playnow.pl/kanalytv/16643349",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643349/images/1050525831?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Extra 4",
+    "id": "16643350",
+    "link": "https://playnow.pl/kanalytv/16643350",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643350/images/1050525832?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport 1",
+    "id": "20183318",
+    "link": "https://playnow.pl/kanalytv/20183318",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183318/images/957927030?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport 2",
+    "id": "20183319",
+    "link": "https://playnow.pl/kanalytv/20183319",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183319/images/957927032?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport 3",
+    "id": "20183321",
+    "link": "https://playnow.pl/kanalytv/20183321",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183321/images/957927042?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT Sport Fight",
+    "id": "20183320",
+    "link": "https://playnow.pl/kanalytv/20183320",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183320/images/896415064?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Sport 5",
+    "id": "13544730",
+    "link": "https://playnow.pl/kanalytv/13544730",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/13544730/images/845882159?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Gametoon",
+    "id": "11063641",
+    "link": "https://playnow.pl/kanalytv/11063641",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/11063641/images/1025055475?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT Games",
+    "id": "20183310",
+    "link": "https://playnow.pl/kanalytv/20183310",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183310/images/896415047?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Motowizja",
+    "id": "23",
+    "link": "https://playnow.pl/kanalytv/23",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23/images/880295911?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Extreme Channel",
+    "id": "1",
+    "link": "https://playnow.pl/kanalytv/1",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/1/images/1025055478?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "FightBox",
+    "id": "23940453",
+    "link": "https://playnow.pl/kanalytv/23940453",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23940453/images/1025055433?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Eleven Sports 1",
+    "id": "1312486",
+    "link": "https://playnow.pl/kanalytv/1312486",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/1312486/images/284054649?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Eleven Sports 2",
+    "id": "1312488",
+    "link": "https://playnow.pl/kanalytv/1312488",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/1312488/images/284054651?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Eleven Sports 3",
+    "id": "1312487",
+    "link": "https://playnow.pl/kanalytv/1312487",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/1312487/images/284054653?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Eleven Sports 4",
+    "id": "2409430",
+    "link": "https://playnow.pl/kanalytv/2409430",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2409430/images/284054571?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Sport HD",
+    "id": "14171257",
+    "link": "https://playnow.pl/kanalytv/14171257",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171257/images/838982879?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Sport 2 HD",
+    "id": "14171256",
+    "link": "https://playnow.pl/kanalytv/14171256",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171256/images/838982881?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Sport 3 HD",
+    "id": "14171255",
+    "link": "https://playnow.pl/kanalytv/14171255",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171255/images/838982883?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Sport 4 HD",
+    "id": "14171254",
+    "link": "https://playnow.pl/kanalytv/14171254",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171254/images/838982885?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Premium 1",
+    "id": "16643345",
+    "link": "https://playnow.pl/kanalytv/16643345",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643345/images/862701355?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Premium 2",
+    "id": "16643346",
+    "link": "https://playnow.pl/kanalytv/16643346",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643346/images/862701353?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Extra 1",
+    "id": "16643347",
+    "link": "https://playnow.pl/kanalytv/16643347",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643347/images/1050525828?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Extra 2",
+    "id": "16643348",
+    "link": "https://playnow.pl/kanalytv/16643348",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643348/images/1050525830?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Extra 3",
+    "id": "16643349",
+    "link": "https://playnow.pl/kanalytv/16643349",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643349/images/1050525831?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Extra 4",
+    "id": "16643350",
+    "link": "https://playnow.pl/kanalytv/16643350",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643350/images/1050525832?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Eleven Sports 2",
+    "id": "1312488",
+    "link": "https://playnow.pl/kanalytv/1312488",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/1312488/images/284054651?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Eleven Sports 3",
+    "id": "1312487",
+    "link": "https://playnow.pl/kanalytv/1312487",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/1312487/images/284054653?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Eleven Sports 4",
+    "id": "2409430",
+    "link": "https://playnow.pl/kanalytv/2409430",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2409430/images/284054571?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Sport HD",
+    "id": "14171257",
+    "link": "https://playnow.pl/kanalytv/14171257",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171257/images/838982879?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Sport 2 HD",
+    "id": "14171256",
+    "link": "https://playnow.pl/kanalytv/14171256",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171256/images/838982881?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Sport 3 HD",
+    "id": "14171255",
+    "link": "https://playnow.pl/kanalytv/14171255",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171255/images/838982883?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Sport 4 HD",
+    "id": "14171254",
+    "link": "https://playnow.pl/kanalytv/14171254",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171254/images/838982885?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Premium 1",
+    "id": "16643345",
+    "link": "https://playnow.pl/kanalytv/16643345",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643345/images/862701355?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Premium 2",
+    "id": "16643346",
+    "link": "https://playnow.pl/kanalytv/16643346",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643346/images/862701353?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Extra 1",
+    "id": "16643347",
+    "link": "https://playnow.pl/kanalytv/16643347",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643347/images/1050525828?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Extra 2",
+    "id": "16643348",
+    "link": "https://playnow.pl/kanalytv/16643348",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643348/images/1050525830?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Extra 3",
+    "id": "16643349",
+    "link": "https://playnow.pl/kanalytv/16643349",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643349/images/1050525831?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Extra 4",
+    "id": "16643350",
+    "link": "https://playnow.pl/kanalytv/16643350",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643350/images/1050525832?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Extra 3",
+    "id": "16643349",
+    "link": "https://playnow.pl/kanalytv/16643349",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643349/images/1050525831?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Extra 4",
+    "id": "16643350",
+    "link": "https://playnow.pl/kanalytv/16643350",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643350/images/1050525832?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Extra 3",
+    "id": "16643349",
+    "link": "https://playnow.pl/kanalytv/16643349",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643349/images/1050525831?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Extra 4",
+    "id": "16643350",
+    "link": "https://playnow.pl/kanalytv/16643350",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643350/images/1050525832?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Extra 3",
+    "id": "16643349",
+    "link": "https://playnow.pl/kanalytv/16643349",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643349/images/1050525831?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Extra 4",
+    "id": "16643350",
+    "link": "https://playnow.pl/kanalytv/16643350",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643350/images/1050525832?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Extra 3",
+    "id": "16643349",
+    "link": "https://playnow.pl/kanalytv/16643349",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643349/images/1050525831?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Extra 4",
+    "id": "16643350",
+    "link": "https://playnow.pl/kanalytv/16643350",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643350/images/1050525832?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Extra 3",
+    "id": "16643349",
+    "link": "https://playnow.pl/kanalytv/16643349",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643349/images/1050525831?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Extra 4",
+    "id": "16643350",
+    "link": "https://playnow.pl/kanalytv/16643350",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643350/images/1050525832?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Extra 3",
+    "id": "16643349",
+    "link": "https://playnow.pl/kanalytv/16643349",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643349/images/1050525831?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Extra 4",
+    "id": "16643350",
+    "link": "https://playnow.pl/kanalytv/16643350",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643350/images/1050525832?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Extra 3",
+    "id": "16643349",
+    "link": "https://playnow.pl/kanalytv/16643349",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643349/images/1050525831?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Extra 4",
+    "id": "16643350",
+    "link": "https://playnow.pl/kanalytv/16643350",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643350/images/1050525832?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Extra 3",
+    "id": "16643349",
+    "link": "https://playnow.pl/kanalytv/16643349",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643349/images/1050525831?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Extra 4",
+    "id": "16643350",
+    "link": "https://playnow.pl/kanalytv/16643350",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643350/images/1050525832?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Extra 3",
+    "id": "16643349",
+    "link": "https://playnow.pl/kanalytv/16643349",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643349/images/1050525831?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Extra 4",
+    "id": "16643350",
+    "link": "https://playnow.pl/kanalytv/16643350",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643350/images/1050525832?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Extra 3",
+    "id": "16643349",
+    "link": "https://playnow.pl/kanalytv/16643349",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643349/images/1050525831?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Extra 4",
+    "id": "16643350",
+    "link": "https://playnow.pl/kanalytv/16643350",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643350/images/1050525832?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Extra 3",
+    "id": "16643349",
+    "link": "https://playnow.pl/kanalytv/16643349",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643349/images/1050525831?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Extra 4",
+    "id": "16643350",
+    "link": "https://playnow.pl/kanalytv/16643350",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643350/images/1050525832?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Extra 3",
+    "id": "16643349",
+    "link": "https://playnow.pl/kanalytv/16643349",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643349/images/1050525831?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Extra 4",
+    "id": "16643350",
+    "link": "https://playnow.pl/kanalytv/16643350",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643350/images/1050525832?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Extra 3",
+    "id": "16643349",
+    "link": "https://playnow.pl/kanalytv/16643349",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643349/images/1050525831?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Extra 4",
+    "id": "16643350",
+    "link": "https://playnow.pl/kanalytv/16643350",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643350/images/1050525832?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Extra 3",
+    "id": "16643349",
+    "link": "https://playnow.pl/kanalytv/16643349",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643349/images/1050525831?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Extra 4",
+    "id": "16643350",
+    "link": "https://playnow.pl/kanalytv/16643350",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643350/images/1050525832?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Extra 3",
+    "id": "16643349",
+    "link": "https://playnow.pl/kanalytv/16643349",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643349/images/1050525831?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Extra 4",
+    "id": "16643350",
+    "link": "https://playnow.pl/kanalytv/16643350",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643350/images/1050525832?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Extra 3",
+    "id": "16643349",
+    "link": "https://playnow.pl/kanalytv/16643349",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643349/images/1050525831?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Sport Extra 4",
+    "id": "16643350",
+    "link": "https://playnow.pl/kanalytv/16643350",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16643350/images/1050525832?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  }
+]

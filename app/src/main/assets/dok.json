@@ -1,0 +1,2930 @@
+[
+  {
+    "name": "Viasat True Crime",
+    "id": "27353030",
+    "link": "https://playnow.pl/kanalytv/27353030",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/27353030/images/964128078?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT Doku",
+    "id": "20288610",
+    "link": "https://playnow.pl/kanalytv/20288610",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20288610/images/896415041?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "ID HD",
+    "id": "20183299",
+    "link": "https://playnow.pl/kanalytv/20183299",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183299/images/896415016?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CBS Reality",
+    "id": "16204512",
+    "link": "https://playnow.pl/kanalytv/16204512",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16204512/images/859175346?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "DocuBox",
+    "id": "23941564",
+    "link": "https://playnow.pl/kanalytv/23941564",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23941564/images/1025055472?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC Player",
+    "id": "19378515",
+    "link": "https://playnow.pl/kanalytv/19378515",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/19378515/images/887484578?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Dokument HD",
+    "id": "14171258",
+    "link": "https://playnow.pl/kanalytv/14171258",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171258/images/838982877?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "STUDIOMED TV",
+    "id": "15660407",
+    "link": "https://playnow.pl/kanalytv/15660407",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/15660407/images/1028917029?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HOME TV HD",
+    "id": "11984843",
+    "link": "https://playnow.pl/kanalytv/11984843",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/11984843/images/819430264?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "National Geographic",
+    "id": "3239192",
+    "link": "https://playnow.pl/kanalytv/3239192",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3239192/images/1025055457?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nat Geo Wild",
+    "id": "3289737",
+    "link": "https://playnow.pl/kanalytv/3289737",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3289737/images/1028903477?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nat Geo People HD",
+    "id": "3293837",
+    "link": "https://playnow.pl/kanalytv/3293837",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3293837/images/1025055460?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Crime+Investigation Polsat",
+    "id": "5511368",
+    "link": "https://playnow.pl/kanalytv/5511368",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/5511368/images/1025055463?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Viasat True Crime",
+    "id": "27353030",
+    "link": "https://playnow.pl/kanalytv/27353030",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/27353030/images/964128078?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT Doku",
+    "id": "20288610",
+    "link": "https://playnow.pl/kanalytv/20288610",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20288610/images/896415041?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "ID HD",
+    "id": "20183299",
+    "link": "https://playnow.pl/kanalytv/20183299",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183299/images/896415016?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CBS Reality",
+    "id": "16204512",
+    "link": "https://playnow.pl/kanalytv/16204512",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16204512/images/859175346?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "DocuBox",
+    "id": "23941564",
+    "link": "https://playnow.pl/kanalytv/23941564",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23941564/images/1025055472?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC Player",
+    "id": "19378515",
+    "link": "https://playnow.pl/kanalytv/19378515",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/19378515/images/887484578?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Dokument HD",
+    "id": "14171258",
+    "link": "https://playnow.pl/kanalytv/14171258",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171258/images/838982877?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "STUDIOMED TV",
+    "id": "15660407",
+    "link": "https://playnow.pl/kanalytv/15660407",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/15660407/images/1028917029?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HOME TV HD",
+    "id": "11984843",
+    "link": "https://playnow.pl/kanalytv/11984843",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/11984843/images/819430264?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "National Geographic",
+    "id": "3239192",
+    "link": "https://playnow.pl/kanalytv/3239192",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3239192/images/1025055457?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nat Geo Wild",
+    "id": "3289737",
+    "link": "https://playnow.pl/kanalytv/3289737",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3289737/images/1028903477?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nat Geo People HD",
+    "id": "3293837",
+    "link": "https://playnow.pl/kanalytv/3293837",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3293837/images/1025055460?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Crime+Investigation Polsat",
+    "id": "5511368",
+    "link": "https://playnow.pl/kanalytv/5511368",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/5511368/images/1025055463?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Channel HD",
+    "id": "20183289",
+    "link": "https://playnow.pl/kanalytv/20183289",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183289/images/1025055466?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Science HD",
+    "id": "20183292",
+    "link": "https://playnow.pl/kanalytv/20183292",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183292/images/896415022?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "DTX HD",
+    "id": "20183294",
+    "link": "https://playnow.pl/kanalytv/20183294",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183294/images/896415109?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Animal Planet HD",
+    "id": "20183288",
+    "link": "https://playnow.pl/kanalytv/20183288",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183288/images/1025055469?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HISTORY",
+    "id": "9",
+    "link": "https://playnow.pl/kanalytv/9",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9/images/1025055487?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HISTORY2",
+    "id": "8",
+    "link": "https://playnow.pl/kanalytv/8",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/8/images/1028899355?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat Explore",
+    "id": "2060266",
+    "link": "https://playnow.pl/kanalytv/2060266",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2060266/images/913218415?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Planete+",
+    "id": "13537091",
+    "link": "https://playnow.pl/kanalytv/13537091",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/13537091/images/833526686?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat History",
+    "id": "38024",
+    "link": "https://playnow.pl/kanalytv/38024",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38024/images/913218411?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat Nature",
+    "id": "2060265",
+    "link": "https://playnow.pl/kanalytv/2060265",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2060265/images/913218413?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC Earth",
+    "id": "38018",
+    "link": "https://playnow.pl/kanalytv/38018",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38018/images/1029135642?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Historia",
+    "id": "20183290",
+    "link": "https://playnow.pl/kanalytv/20183290",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183290/images/1025055493?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Viasat True Crime",
+    "id": "27353030",
+    "link": "https://playnow.pl/kanalytv/27353030",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/27353030/images/964128078?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT Doku",
+    "id": "20288610",
+    "link": "https://playnow.pl/kanalytv/20288610",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20288610/images/896415041?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "ID HD",
+    "id": "20183299",
+    "link": "https://playnow.pl/kanalytv/20183299",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183299/images/896415016?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CBS Reality",
+    "id": "16204512",
+    "link": "https://playnow.pl/kanalytv/16204512",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16204512/images/859175346?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "DocuBox",
+    "id": "23941564",
+    "link": "https://playnow.pl/kanalytv/23941564",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23941564/images/1025055472?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC Player",
+    "id": "19378515",
+    "link": "https://playnow.pl/kanalytv/19378515",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/19378515/images/887484578?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Dokument HD",
+    "id": "14171258",
+    "link": "https://playnow.pl/kanalytv/14171258",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171258/images/838982877?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "STUDIOMED TV",
+    "id": "15660407",
+    "link": "https://playnow.pl/kanalytv/15660407",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/15660407/images/1028917029?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HOME TV HD",
+    "id": "11984843",
+    "link": "https://playnow.pl/kanalytv/11984843",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/11984843/images/819430264?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "National Geographic",
+    "id": "3239192",
+    "link": "https://playnow.pl/kanalytv/3239192",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3239192/images/1025055457?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nat Geo Wild",
+    "id": "3289737",
+    "link": "https://playnow.pl/kanalytv/3289737",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3289737/images/1028903477?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nat Geo People HD",
+    "id": "3293837",
+    "link": "https://playnow.pl/kanalytv/3293837",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3293837/images/1025055460?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Crime+Investigation Polsat",
+    "id": "5511368",
+    "link": "https://playnow.pl/kanalytv/5511368",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/5511368/images/1025055463?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Channel HD",
+    "id": "20183289",
+    "link": "https://playnow.pl/kanalytv/20183289",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183289/images/1025055466?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Science HD",
+    "id": "20183292",
+    "link": "https://playnow.pl/kanalytv/20183292",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183292/images/896415022?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "DTX HD",
+    "id": "20183294",
+    "link": "https://playnow.pl/kanalytv/20183294",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183294/images/896415109?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Animal Planet HD",
+    "id": "20183288",
+    "link": "https://playnow.pl/kanalytv/20183288",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183288/images/1025055469?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HISTORY",
+    "id": "9",
+    "link": "https://playnow.pl/kanalytv/9",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9/images/1025055487?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HISTORY2",
+    "id": "8",
+    "link": "https://playnow.pl/kanalytv/8",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/8/images/1028899355?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat Explore",
+    "id": "2060266",
+    "link": "https://playnow.pl/kanalytv/2060266",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2060266/images/913218415?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Planete+",
+    "id": "13537091",
+    "link": "https://playnow.pl/kanalytv/13537091",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/13537091/images/833526686?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat History",
+    "id": "38024",
+    "link": "https://playnow.pl/kanalytv/38024",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38024/images/913218411?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat Nature",
+    "id": "2060265",
+    "link": "https://playnow.pl/kanalytv/2060265",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2060265/images/913218413?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC Earth",
+    "id": "38018",
+    "link": "https://playnow.pl/kanalytv/38018",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38018/images/1029135642?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Historia",
+    "id": "20183290",
+    "link": "https://playnow.pl/kanalytv/20183290",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183290/images/1025055493?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nat Geo People HD",
+    "id": "3293837",
+    "link": "https://playnow.pl/kanalytv/3293837",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3293837/images/1025055460?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Crime+Investigation Polsat",
+    "id": "5511368",
+    "link": "https://playnow.pl/kanalytv/5511368",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/5511368/images/1025055463?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Channel HD",
+    "id": "20183289",
+    "link": "https://playnow.pl/kanalytv/20183289",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183289/images/1025055466?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Science HD",
+    "id": "20183292",
+    "link": "https://playnow.pl/kanalytv/20183292",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183292/images/896415022?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "DTX HD",
+    "id": "20183294",
+    "link": "https://playnow.pl/kanalytv/20183294",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183294/images/896415109?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Animal Planet HD",
+    "id": "20183288",
+    "link": "https://playnow.pl/kanalytv/20183288",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183288/images/1025055469?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HISTORY",
+    "id": "9",
+    "link": "https://playnow.pl/kanalytv/9",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9/images/1025055487?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HISTORY2",
+    "id": "8",
+    "link": "https://playnow.pl/kanalytv/8",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/8/images/1028899355?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat Explore",
+    "id": "2060266",
+    "link": "https://playnow.pl/kanalytv/2060266",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2060266/images/913218415?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Planete+",
+    "id": "13537091",
+    "link": "https://playnow.pl/kanalytv/13537091",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/13537091/images/833526686?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat History",
+    "id": "38024",
+    "link": "https://playnow.pl/kanalytv/38024",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38024/images/913218411?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat Nature",
+    "id": "2060265",
+    "link": "https://playnow.pl/kanalytv/2060265",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2060265/images/913218413?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC Earth",
+    "id": "38018",
+    "link": "https://playnow.pl/kanalytv/38018",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38018/images/1029135642?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Historia",
+    "id": "20183290",
+    "link": "https://playnow.pl/kanalytv/20183290",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183290/images/1025055493?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Travel Channel HD",
+    "id": "20183304",
+    "link": "https://playnow.pl/kanalytv/20183304",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183304/images/896415010?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Viasat True Crime",
+    "id": "27353030",
+    "link": "https://playnow.pl/kanalytv/27353030",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/27353030/images/964128078?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT Doku",
+    "id": "20288610",
+    "link": "https://playnow.pl/kanalytv/20288610",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20288610/images/896415041?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "ID HD",
+    "id": "20183299",
+    "link": "https://playnow.pl/kanalytv/20183299",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183299/images/896415016?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CBS Reality",
+    "id": "16204512",
+    "link": "https://playnow.pl/kanalytv/16204512",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16204512/images/859175346?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "DocuBox",
+    "id": "23941564",
+    "link": "https://playnow.pl/kanalytv/23941564",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23941564/images/1025055472?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC Player",
+    "id": "19378515",
+    "link": "https://playnow.pl/kanalytv/19378515",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/19378515/images/887484578?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Dokument HD",
+    "id": "14171258",
+    "link": "https://playnow.pl/kanalytv/14171258",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171258/images/838982877?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "STUDIOMED TV",
+    "id": "15660407",
+    "link": "https://playnow.pl/kanalytv/15660407",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/15660407/images/1028917029?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HOME TV HD",
+    "id": "11984843",
+    "link": "https://playnow.pl/kanalytv/11984843",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/11984843/images/819430264?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "National Geographic",
+    "id": "3239192",
+    "link": "https://playnow.pl/kanalytv/3239192",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3239192/images/1025055457?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nat Geo People HD",
+    "id": "3293837",
+    "link": "https://playnow.pl/kanalytv/3293837",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3293837/images/1025055460?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Crime+Investigation Polsat",
+    "id": "5511368",
+    "link": "https://playnow.pl/kanalytv/5511368",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/5511368/images/1025055463?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Channel HD",
+    "id": "20183289",
+    "link": "https://playnow.pl/kanalytv/20183289",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183289/images/1025055466?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Science HD",
+    "id": "20183292",
+    "link": "https://playnow.pl/kanalytv/20183292",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183292/images/896415022?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "DTX HD",
+    "id": "20183294",
+    "link": "https://playnow.pl/kanalytv/20183294",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183294/images/896415109?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Animal Planet HD",
+    "id": "20183288",
+    "link": "https://playnow.pl/kanalytv/20183288",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183288/images/1025055469?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HISTORY",
+    "id": "9",
+    "link": "https://playnow.pl/kanalytv/9",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9/images/1025055487?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HISTORY2",
+    "id": "8",
+    "link": "https://playnow.pl/kanalytv/8",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/8/images/1028899355?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat Explore",
+    "id": "2060266",
+    "link": "https://playnow.pl/kanalytv/2060266",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2060266/images/913218415?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Planete+",
+    "id": "13537091",
+    "link": "https://playnow.pl/kanalytv/13537091",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/13537091/images/833526686?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat History",
+    "id": "38024",
+    "link": "https://playnow.pl/kanalytv/38024",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38024/images/913218411?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat Nature",
+    "id": "2060265",
+    "link": "https://playnow.pl/kanalytv/2060265",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2060265/images/913218413?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC Earth",
+    "id": "38018",
+    "link": "https://playnow.pl/kanalytv/38018",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38018/images/1029135642?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Historia",
+    "id": "20183290",
+    "link": "https://playnow.pl/kanalytv/20183290",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183290/images/1025055493?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Travel Channel HD",
+    "id": "20183304",
+    "link": "https://playnow.pl/kanalytv/20183304",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183304/images/896415010?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Viasat True Crime",
+    "id": "27353030",
+    "link": "https://playnow.pl/kanalytv/27353030",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/27353030/images/964128078?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT Doku",
+    "id": "20288610",
+    "link": "https://playnow.pl/kanalytv/20288610",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20288610/images/896415041?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "ID HD",
+    "id": "20183299",
+    "link": "https://playnow.pl/kanalytv/20183299",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183299/images/896415016?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CBS Reality",
+    "id": "16204512",
+    "link": "https://playnow.pl/kanalytv/16204512",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16204512/images/859175346?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "DocuBox",
+    "id": "23941564",
+    "link": "https://playnow.pl/kanalytv/23941564",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23941564/images/1025055472?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC Player",
+    "id": "19378515",
+    "link": "https://playnow.pl/kanalytv/19378515",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/19378515/images/887484578?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Dokument HD",
+    "id": "14171258",
+    "link": "https://playnow.pl/kanalytv/14171258",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171258/images/838982877?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "STUDIOMED TV",
+    "id": "15660407",
+    "link": "https://playnow.pl/kanalytv/15660407",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/15660407/images/1028917029?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HOME TV HD",
+    "id": "11984843",
+    "link": "https://playnow.pl/kanalytv/11984843",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/11984843/images/819430264?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "National Geographic",
+    "id": "3239192",
+    "link": "https://playnow.pl/kanalytv/3239192",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3239192/images/1025055457?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC Earth",
+    "id": "38018",
+    "link": "https://playnow.pl/kanalytv/38018",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38018/images/1029135642?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Historia",
+    "id": "20183290",
+    "link": "https://playnow.pl/kanalytv/20183290",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183290/images/1025055493?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Travel Channel HD",
+    "id": "20183304",
+    "link": "https://playnow.pl/kanalytv/20183304",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183304/images/896415010?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Viasat True Crime",
+    "id": "27353030",
+    "link": "https://playnow.pl/kanalytv/27353030",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/27353030/images/964128078?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT Doku",
+    "id": "20288610",
+    "link": "https://playnow.pl/kanalytv/20288610",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20288610/images/896415041?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "ID HD",
+    "id": "20183299",
+    "link": "https://playnow.pl/kanalytv/20183299",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183299/images/896415016?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CBS Reality",
+    "id": "16204512",
+    "link": "https://playnow.pl/kanalytv/16204512",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16204512/images/859175346?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "DocuBox",
+    "id": "23941564",
+    "link": "https://playnow.pl/kanalytv/23941564",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23941564/images/1025055472?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC Player",
+    "id": "19378515",
+    "link": "https://playnow.pl/kanalytv/19378515",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/19378515/images/887484578?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Dokument HD",
+    "id": "14171258",
+    "link": "https://playnow.pl/kanalytv/14171258",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171258/images/838982877?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "STUDIOMED TV",
+    "id": "15660407",
+    "link": "https://playnow.pl/kanalytv/15660407",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/15660407/images/1028917029?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HOME TV HD",
+    "id": "11984843",
+    "link": "https://playnow.pl/kanalytv/11984843",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/11984843/images/819430264?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "National Geographic",
+    "id": "3239192",
+    "link": "https://playnow.pl/kanalytv/3239192",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3239192/images/1025055457?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nat Geo Wild",
+    "id": "3289737",
+    "link": "https://playnow.pl/kanalytv/3289737",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3289737/images/1028903477?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nat Geo People HD",
+    "id": "3293837",
+    "link": "https://playnow.pl/kanalytv/3293837",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3293837/images/1025055460?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Crime+Investigation Polsat",
+    "id": "5511368",
+    "link": "https://playnow.pl/kanalytv/5511368",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/5511368/images/1025055463?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Channel HD",
+    "id": "20183289",
+    "link": "https://playnow.pl/kanalytv/20183289",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183289/images/1025055466?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Science HD",
+    "id": "20183292",
+    "link": "https://playnow.pl/kanalytv/20183292",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183292/images/896415022?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "DTX HD",
+    "id": "20183294",
+    "link": "https://playnow.pl/kanalytv/20183294",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183294/images/896415109?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Animal Planet HD",
+    "id": "20183288",
+    "link": "https://playnow.pl/kanalytv/20183288",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183288/images/1025055469?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HISTORY",
+    "id": "9",
+    "link": "https://playnow.pl/kanalytv/9",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9/images/1025055487?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HISTORY2",
+    "id": "8",
+    "link": "https://playnow.pl/kanalytv/8",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/8/images/1028899355?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat Explore",
+    "id": "2060266",
+    "link": "https://playnow.pl/kanalytv/2060266",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2060266/images/913218415?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Planete+",
+    "id": "13537091",
+    "link": "https://playnow.pl/kanalytv/13537091",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/13537091/images/833526686?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat History",
+    "id": "38024",
+    "link": "https://playnow.pl/kanalytv/38024",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38024/images/913218411?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC Earth",
+    "id": "38018",
+    "link": "https://playnow.pl/kanalytv/38018",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38018/images/1029135642?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Historia",
+    "id": "20183290",
+    "link": "https://playnow.pl/kanalytv/20183290",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183290/images/1025055493?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Travel Channel HD",
+    "id": "20183304",
+    "link": "https://playnow.pl/kanalytv/20183304",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183304/images/896415010?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Viasat True Crime",
+    "id": "27353030",
+    "link": "https://playnow.pl/kanalytv/27353030",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/27353030/images/964128078?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT Doku",
+    "id": "20288610",
+    "link": "https://playnow.pl/kanalytv/20288610",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20288610/images/896415041?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "ID HD",
+    "id": "20183299",
+    "link": "https://playnow.pl/kanalytv/20183299",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183299/images/896415016?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CBS Reality",
+    "id": "16204512",
+    "link": "https://playnow.pl/kanalytv/16204512",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16204512/images/859175346?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "DocuBox",
+    "id": "23941564",
+    "link": "https://playnow.pl/kanalytv/23941564",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23941564/images/1025055472?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC Player",
+    "id": "19378515",
+    "link": "https://playnow.pl/kanalytv/19378515",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/19378515/images/887484578?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Dokument HD",
+    "id": "14171258",
+    "link": "https://playnow.pl/kanalytv/14171258",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171258/images/838982877?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "STUDIOMED TV",
+    "id": "15660407",
+    "link": "https://playnow.pl/kanalytv/15660407",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/15660407/images/1028917029?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HOME TV HD",
+    "id": "11984843",
+    "link": "https://playnow.pl/kanalytv/11984843",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/11984843/images/819430264?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "National Geographic",
+    "id": "3239192",
+    "link": "https://playnow.pl/kanalytv/3239192",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3239192/images/1025055457?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nat Geo Wild",
+    "id": "3289737",
+    "link": "https://playnow.pl/kanalytv/3289737",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3289737/images/1028903477?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nat Geo People HD",
+    "id": "3293837",
+    "link": "https://playnow.pl/kanalytv/3293837",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3293837/images/1025055460?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Crime+Investigation Polsat",
+    "id": "5511368",
+    "link": "https://playnow.pl/kanalytv/5511368",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/5511368/images/1025055463?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Channel HD",
+    "id": "20183289",
+    "link": "https://playnow.pl/kanalytv/20183289",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183289/images/1025055466?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Science HD",
+    "id": "20183292",
+    "link": "https://playnow.pl/kanalytv/20183292",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183292/images/896415022?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "DTX HD",
+    "id": "20183294",
+    "link": "https://playnow.pl/kanalytv/20183294",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183294/images/896415109?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Animal Planet HD",
+    "id": "20183288",
+    "link": "https://playnow.pl/kanalytv/20183288",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183288/images/1025055469?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HISTORY",
+    "id": "9",
+    "link": "https://playnow.pl/kanalytv/9",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9/images/1025055487?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HISTORY2",
+    "id": "8",
+    "link": "https://playnow.pl/kanalytv/8",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/8/images/1028899355?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat Explore",
+    "id": "2060266",
+    "link": "https://playnow.pl/kanalytv/2060266",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2060266/images/913218415?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Planete+",
+    "id": "13537091",
+    "link": "https://playnow.pl/kanalytv/13537091",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/13537091/images/833526686?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat History",
+    "id": "38024",
+    "link": "https://playnow.pl/kanalytv/38024",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38024/images/913218411?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HOME TV HD",
+    "id": "11984843",
+    "link": "https://playnow.pl/kanalytv/11984843",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/11984843/images/819430264?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "National Geographic",
+    "id": "3239192",
+    "link": "https://playnow.pl/kanalytv/3239192",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3239192/images/1025055457?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nat Geo Wild",
+    "id": "3289737",
+    "link": "https://playnow.pl/kanalytv/3289737",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3289737/images/1028903477?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nat Geo People HD",
+    "id": "3293837",
+    "link": "https://playnow.pl/kanalytv/3293837",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3293837/images/1025055460?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Crime+Investigation Polsat",
+    "id": "5511368",
+    "link": "https://playnow.pl/kanalytv/5511368",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/5511368/images/1025055463?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Channel HD",
+    "id": "20183289",
+    "link": "https://playnow.pl/kanalytv/20183289",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183289/images/1025055466?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Science HD",
+    "id": "20183292",
+    "link": "https://playnow.pl/kanalytv/20183292",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183292/images/896415022?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "DTX HD",
+    "id": "20183294",
+    "link": "https://playnow.pl/kanalytv/20183294",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183294/images/896415109?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Animal Planet HD",
+    "id": "20183288",
+    "link": "https://playnow.pl/kanalytv/20183288",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183288/images/1025055469?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HISTORY",
+    "id": "9",
+    "link": "https://playnow.pl/kanalytv/9",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9/images/1025055487?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HISTORY2",
+    "id": "8",
+    "link": "https://playnow.pl/kanalytv/8",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/8/images/1028899355?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat Explore",
+    "id": "2060266",
+    "link": "https://playnow.pl/kanalytv/2060266",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2060266/images/913218415?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Planete+",
+    "id": "13537091",
+    "link": "https://playnow.pl/kanalytv/13537091",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/13537091/images/833526686?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat History",
+    "id": "38024",
+    "link": "https://playnow.pl/kanalytv/38024",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38024/images/913218411?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat Nature",
+    "id": "2060265",
+    "link": "https://playnow.pl/kanalytv/2060265",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2060265/images/913218413?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC Earth",
+    "id": "38018",
+    "link": "https://playnow.pl/kanalytv/38018",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38018/images/1029135642?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Historia",
+    "id": "20183290",
+    "link": "https://playnow.pl/kanalytv/20183290",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183290/images/1025055493?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Travel Channel HD",
+    "id": "20183304",
+    "link": "https://playnow.pl/kanalytv/20183304",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183304/images/896415010?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Viasat True Crime",
+    "id": "27353030",
+    "link": "https://playnow.pl/kanalytv/27353030",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/27353030/images/964128078?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT Doku",
+    "id": "20288610",
+    "link": "https://playnow.pl/kanalytv/20288610",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20288610/images/896415041?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "ID HD",
+    "id": "20183299",
+    "link": "https://playnow.pl/kanalytv/20183299",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183299/images/896415016?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CBS Reality",
+    "id": "16204512",
+    "link": "https://playnow.pl/kanalytv/16204512",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16204512/images/859175346?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "DocuBox",
+    "id": "23941564",
+    "link": "https://playnow.pl/kanalytv/23941564",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23941564/images/1025055472?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC Player",
+    "id": "19378515",
+    "link": "https://playnow.pl/kanalytv/19378515",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/19378515/images/887484578?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Dokument HD",
+    "id": "14171258",
+    "link": "https://playnow.pl/kanalytv/14171258",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171258/images/838982877?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HOME TV HD",
+    "id": "11984843",
+    "link": "https://playnow.pl/kanalytv/11984843",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/11984843/images/819430264?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "National Geographic",
+    "id": "3239192",
+    "link": "https://playnow.pl/kanalytv/3239192",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3239192/images/1025055457?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nat Geo Wild",
+    "id": "3289737",
+    "link": "https://playnow.pl/kanalytv/3289737",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3289737/images/1028903477?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nat Geo People HD",
+    "id": "3293837",
+    "link": "https://playnow.pl/kanalytv/3293837",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3293837/images/1025055460?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Crime+Investigation Polsat",
+    "id": "5511368",
+    "link": "https://playnow.pl/kanalytv/5511368",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/5511368/images/1025055463?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Channel HD",
+    "id": "20183289",
+    "link": "https://playnow.pl/kanalytv/20183289",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183289/images/1025055466?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Science HD",
+    "id": "20183292",
+    "link": "https://playnow.pl/kanalytv/20183292",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183292/images/896415022?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "DTX HD",
+    "id": "20183294",
+    "link": "https://playnow.pl/kanalytv/20183294",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183294/images/896415109?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Animal Planet HD",
+    "id": "20183288",
+    "link": "https://playnow.pl/kanalytv/20183288",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183288/images/1025055469?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HISTORY",
+    "id": "9",
+    "link": "https://playnow.pl/kanalytv/9",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9/images/1025055487?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HISTORY2",
+    "id": "8",
+    "link": "https://playnow.pl/kanalytv/8",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/8/images/1028899355?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat Explore",
+    "id": "2060266",
+    "link": "https://playnow.pl/kanalytv/2060266",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2060266/images/913218415?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Planete+",
+    "id": "13537091",
+    "link": "https://playnow.pl/kanalytv/13537091",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/13537091/images/833526686?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat History",
+    "id": "38024",
+    "link": "https://playnow.pl/kanalytv/38024",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38024/images/913218411?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat Nature",
+    "id": "2060265",
+    "link": "https://playnow.pl/kanalytv/2060265",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2060265/images/913218413?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC Earth",
+    "id": "38018",
+    "link": "https://playnow.pl/kanalytv/38018",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38018/images/1029135642?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Historia",
+    "id": "20183290",
+    "link": "https://playnow.pl/kanalytv/20183290",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183290/images/1025055493?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Travel Channel HD",
+    "id": "20183304",
+    "link": "https://playnow.pl/kanalytv/20183304",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183304/images/896415010?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Viasat True Crime",
+    "id": "27353030",
+    "link": "https://playnow.pl/kanalytv/27353030",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/27353030/images/964128078?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT Doku",
+    "id": "20288610",
+    "link": "https://playnow.pl/kanalytv/20288610",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20288610/images/896415041?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "ID HD",
+    "id": "20183299",
+    "link": "https://playnow.pl/kanalytv/20183299",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183299/images/896415016?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CBS Reality",
+    "id": "16204512",
+    "link": "https://playnow.pl/kanalytv/16204512",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16204512/images/859175346?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "DocuBox",
+    "id": "23941564",
+    "link": "https://playnow.pl/kanalytv/23941564",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23941564/images/1025055472?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC Player",
+    "id": "19378515",
+    "link": "https://playnow.pl/kanalytv/19378515",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/19378515/images/887484578?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Dokument HD",
+    "id": "14171258",
+    "link": "https://playnow.pl/kanalytv/14171258",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171258/images/838982877?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Planete+",
+    "id": "13537091",
+    "link": "https://playnow.pl/kanalytv/13537091",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/13537091/images/833526686?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat History",
+    "id": "38024",
+    "link": "https://playnow.pl/kanalytv/38024",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38024/images/913218411?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat Nature",
+    "id": "2060265",
+    "link": "https://playnow.pl/kanalytv/2060265",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2060265/images/913218413?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC Earth",
+    "id": "38018",
+    "link": "https://playnow.pl/kanalytv/38018",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38018/images/1029135642?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Historia",
+    "id": "20183290",
+    "link": "https://playnow.pl/kanalytv/20183290",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183290/images/1025055493?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Travel Channel HD",
+    "id": "20183304",
+    "link": "https://playnow.pl/kanalytv/20183304",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183304/images/896415010?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Viasat True Crime",
+    "id": "27353030",
+    "link": "https://playnow.pl/kanalytv/27353030",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/27353030/images/964128078?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT Doku",
+    "id": "20288610",
+    "link": "https://playnow.pl/kanalytv/20288610",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20288610/images/896415041?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "ID HD",
+    "id": "20183299",
+    "link": "https://playnow.pl/kanalytv/20183299",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183299/images/896415016?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CBS Reality",
+    "id": "16204512",
+    "link": "https://playnow.pl/kanalytv/16204512",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16204512/images/859175346?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "DocuBox",
+    "id": "23941564",
+    "link": "https://playnow.pl/kanalytv/23941564",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23941564/images/1025055472?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC Player",
+    "id": "19378515",
+    "link": "https://playnow.pl/kanalytv/19378515",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/19378515/images/887484578?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Dokument HD",
+    "id": "14171258",
+    "link": "https://playnow.pl/kanalytv/14171258",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171258/images/838982877?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "STUDIOMED TV",
+    "id": "15660407",
+    "link": "https://playnow.pl/kanalytv/15660407",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/15660407/images/1028917029?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HOME TV HD",
+    "id": "11984843",
+    "link": "https://playnow.pl/kanalytv/11984843",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/11984843/images/819430264?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "National Geographic",
+    "id": "3239192",
+    "link": "https://playnow.pl/kanalytv/3239192",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3239192/images/1025055457?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nat Geo Wild",
+    "id": "3289737",
+    "link": "https://playnow.pl/kanalytv/3289737",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3289737/images/1028903477?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nat Geo People HD",
+    "id": "3293837",
+    "link": "https://playnow.pl/kanalytv/3293837",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3293837/images/1025055460?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Crime+Investigation Polsat",
+    "id": "5511368",
+    "link": "https://playnow.pl/kanalytv/5511368",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/5511368/images/1025055463?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Channel HD",
+    "id": "20183289",
+    "link": "https://playnow.pl/kanalytv/20183289",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183289/images/1025055466?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Science HD",
+    "id": "20183292",
+    "link": "https://playnow.pl/kanalytv/20183292",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183292/images/896415022?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "DTX HD",
+    "id": "20183294",
+    "link": "https://playnow.pl/kanalytv/20183294",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183294/images/896415109?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Animal Planet HD",
+    "id": "20183288",
+    "link": "https://playnow.pl/kanalytv/20183288",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183288/images/1025055469?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HISTORY",
+    "id": "9",
+    "link": "https://playnow.pl/kanalytv/9",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9/images/1025055487?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HISTORY2",
+    "id": "8",
+    "link": "https://playnow.pl/kanalytv/8",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/8/images/1028899355?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Planete+",
+    "id": "13537091",
+    "link": "https://playnow.pl/kanalytv/13537091",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/13537091/images/833526686?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat History",
+    "id": "38024",
+    "link": "https://playnow.pl/kanalytv/38024",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38024/images/913218411?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat Nature",
+    "id": "2060265",
+    "link": "https://playnow.pl/kanalytv/2060265",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2060265/images/913218413?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC Earth",
+    "id": "38018",
+    "link": "https://playnow.pl/kanalytv/38018",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38018/images/1029135642?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Historia",
+    "id": "20183290",
+    "link": "https://playnow.pl/kanalytv/20183290",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183290/images/1025055493?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Travel Channel HD",
+    "id": "20183304",
+    "link": "https://playnow.pl/kanalytv/20183304",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183304/images/896415010?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Viasat True Crime",
+    "id": "27353030",
+    "link": "https://playnow.pl/kanalytv/27353030",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/27353030/images/964128078?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT Doku",
+    "id": "20288610",
+    "link": "https://playnow.pl/kanalytv/20288610",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20288610/images/896415041?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "ID HD",
+    "id": "20183299",
+    "link": "https://playnow.pl/kanalytv/20183299",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183299/images/896415016?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CBS Reality",
+    "id": "16204512",
+    "link": "https://playnow.pl/kanalytv/16204512",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16204512/images/859175346?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "DocuBox",
+    "id": "23941564",
+    "link": "https://playnow.pl/kanalytv/23941564",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23941564/images/1025055472?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC Player",
+    "id": "19378515",
+    "link": "https://playnow.pl/kanalytv/19378515",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/19378515/images/887484578?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Dokument HD",
+    "id": "14171258",
+    "link": "https://playnow.pl/kanalytv/14171258",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171258/images/838982877?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "STUDIOMED TV",
+    "id": "15660407",
+    "link": "https://playnow.pl/kanalytv/15660407",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/15660407/images/1028917029?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HOME TV HD",
+    "id": "11984843",
+    "link": "https://playnow.pl/kanalytv/11984843",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/11984843/images/819430264?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "National Geographic",
+    "id": "3239192",
+    "link": "https://playnow.pl/kanalytv/3239192",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3239192/images/1025055457?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nat Geo Wild",
+    "id": "3289737",
+    "link": "https://playnow.pl/kanalytv/3289737",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3289737/images/1028903477?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nat Geo People HD",
+    "id": "3293837",
+    "link": "https://playnow.pl/kanalytv/3293837",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3293837/images/1025055460?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Crime+Investigation Polsat",
+    "id": "5511368",
+    "link": "https://playnow.pl/kanalytv/5511368",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/5511368/images/1025055463?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Channel HD",
+    "id": "20183289",
+    "link": "https://playnow.pl/kanalytv/20183289",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183289/images/1025055466?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Science HD",
+    "id": "20183292",
+    "link": "https://playnow.pl/kanalytv/20183292",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183292/images/896415022?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "DTX HD",
+    "id": "20183294",
+    "link": "https://playnow.pl/kanalytv/20183294",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183294/images/896415109?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Animal Planet HD",
+    "id": "20183288",
+    "link": "https://playnow.pl/kanalytv/20183288",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183288/images/1025055469?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HISTORY",
+    "id": "9",
+    "link": "https://playnow.pl/kanalytv/9",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9/images/1025055487?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HISTORY2",
+    "id": "8",
+    "link": "https://playnow.pl/kanalytv/8",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/8/images/1028899355?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Dokument HD",
+    "id": "14171258",
+    "link": "https://playnow.pl/kanalytv/14171258",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171258/images/838982877?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "STUDIOMED TV",
+    "id": "15660407",
+    "link": "https://playnow.pl/kanalytv/15660407",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/15660407/images/1028917029?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HOME TV HD",
+    "id": "11984843",
+    "link": "https://playnow.pl/kanalytv/11984843",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/11984843/images/819430264?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "National Geographic",
+    "id": "3239192",
+    "link": "https://playnow.pl/kanalytv/3239192",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3239192/images/1025055457?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nat Geo Wild",
+    "id": "3289737",
+    "link": "https://playnow.pl/kanalytv/3289737",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3289737/images/1028903477?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nat Geo People HD",
+    "id": "3293837",
+    "link": "https://playnow.pl/kanalytv/3293837",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3293837/images/1025055460?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Crime+Investigation Polsat",
+    "id": "5511368",
+    "link": "https://playnow.pl/kanalytv/5511368",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/5511368/images/1025055463?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Channel HD",
+    "id": "20183289",
+    "link": "https://playnow.pl/kanalytv/20183289",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183289/images/1025055466?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Science HD",
+    "id": "20183292",
+    "link": "https://playnow.pl/kanalytv/20183292",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183292/images/896415022?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "DTX HD",
+    "id": "20183294",
+    "link": "https://playnow.pl/kanalytv/20183294",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183294/images/896415109?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Animal Planet HD",
+    "id": "20183288",
+    "link": "https://playnow.pl/kanalytv/20183288",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183288/images/1025055469?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HISTORY",
+    "id": "9",
+    "link": "https://playnow.pl/kanalytv/9",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9/images/1025055487?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HISTORY2",
+    "id": "8",
+    "link": "https://playnow.pl/kanalytv/8",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/8/images/1028899355?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat Explore",
+    "id": "2060266",
+    "link": "https://playnow.pl/kanalytv/2060266",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2060266/images/913218415?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Planete+",
+    "id": "13537091",
+    "link": "https://playnow.pl/kanalytv/13537091",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/13537091/images/833526686?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat History",
+    "id": "38024",
+    "link": "https://playnow.pl/kanalytv/38024",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38024/images/913218411?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat Nature",
+    "id": "2060265",
+    "link": "https://playnow.pl/kanalytv/2060265",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2060265/images/913218413?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC Earth",
+    "id": "38018",
+    "link": "https://playnow.pl/kanalytv/38018",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38018/images/1029135642?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Historia",
+    "id": "20183290",
+    "link": "https://playnow.pl/kanalytv/20183290",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183290/images/1025055493?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Travel Channel HD",
+    "id": "20183304",
+    "link": "https://playnow.pl/kanalytv/20183304",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183304/images/896415010?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Viasat True Crime",
+    "id": "27353030",
+    "link": "https://playnow.pl/kanalytv/27353030",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/27353030/images/964128078?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT Doku",
+    "id": "20288610",
+    "link": "https://playnow.pl/kanalytv/20288610",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20288610/images/896415041?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "ID HD",
+    "id": "20183299",
+    "link": "https://playnow.pl/kanalytv/20183299",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183299/images/896415016?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CBS Reality",
+    "id": "16204512",
+    "link": "https://playnow.pl/kanalytv/16204512",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16204512/images/859175346?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "DocuBox",
+    "id": "23941564",
+    "link": "https://playnow.pl/kanalytv/23941564",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23941564/images/1025055472?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Dokument HD",
+    "id": "14171258",
+    "link": "https://playnow.pl/kanalytv/14171258",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171258/images/838982877?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "STUDIOMED TV",
+    "id": "15660407",
+    "link": "https://playnow.pl/kanalytv/15660407",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/15660407/images/1028917029?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HOME TV HD",
+    "id": "11984843",
+    "link": "https://playnow.pl/kanalytv/11984843",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/11984843/images/819430264?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "National Geographic",
+    "id": "3239192",
+    "link": "https://playnow.pl/kanalytv/3239192",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3239192/images/1025055457?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nat Geo Wild",
+    "id": "3289737",
+    "link": "https://playnow.pl/kanalytv/3289737",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3289737/images/1028903477?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nat Geo People HD",
+    "id": "3293837",
+    "link": "https://playnow.pl/kanalytv/3293837",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3293837/images/1025055460?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Crime+Investigation Polsat",
+    "id": "5511368",
+    "link": "https://playnow.pl/kanalytv/5511368",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/5511368/images/1025055463?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Channel HD",
+    "id": "20183289",
+    "link": "https://playnow.pl/kanalytv/20183289",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183289/images/1025055466?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Science HD",
+    "id": "20183292",
+    "link": "https://playnow.pl/kanalytv/20183292",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183292/images/896415022?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "DTX HD",
+    "id": "20183294",
+    "link": "https://playnow.pl/kanalytv/20183294",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183294/images/896415109?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Animal Planet HD",
+    "id": "20183288",
+    "link": "https://playnow.pl/kanalytv/20183288",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183288/images/1025055469?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HISTORY",
+    "id": "9",
+    "link": "https://playnow.pl/kanalytv/9",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9/images/1025055487?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HISTORY2",
+    "id": "8",
+    "link": "https://playnow.pl/kanalytv/8",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/8/images/1028899355?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat Explore",
+    "id": "2060266",
+    "link": "https://playnow.pl/kanalytv/2060266",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2060266/images/913218415?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Planete+",
+    "id": "13537091",
+    "link": "https://playnow.pl/kanalytv/13537091",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/13537091/images/833526686?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat History",
+    "id": "38024",
+    "link": "https://playnow.pl/kanalytv/38024",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38024/images/913218411?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat Nature",
+    "id": "2060265",
+    "link": "https://playnow.pl/kanalytv/2060265",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2060265/images/913218413?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC Earth",
+    "id": "38018",
+    "link": "https://playnow.pl/kanalytv/38018",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38018/images/1029135642?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Historia",
+    "id": "20183290",
+    "link": "https://playnow.pl/kanalytv/20183290",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183290/images/1025055493?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Travel Channel HD",
+    "id": "20183304",
+    "link": "https://playnow.pl/kanalytv/20183304",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183304/images/896415010?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Viasat True Crime",
+    "id": "27353030",
+    "link": "https://playnow.pl/kanalytv/27353030",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/27353030/images/964128078?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT Doku",
+    "id": "20288610",
+    "link": "https://playnow.pl/kanalytv/20288610",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20288610/images/896415041?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "ID HD",
+    "id": "20183299",
+    "link": "https://playnow.pl/kanalytv/20183299",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183299/images/896415016?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CBS Reality",
+    "id": "16204512",
+    "link": "https://playnow.pl/kanalytv/16204512",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16204512/images/859175346?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "DocuBox",
+    "id": "23941564",
+    "link": "https://playnow.pl/kanalytv/23941564",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23941564/images/1025055472?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HISTORY",
+    "id": "9",
+    "link": "https://playnow.pl/kanalytv/9",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9/images/1025055487?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HISTORY2",
+    "id": "8",
+    "link": "https://playnow.pl/kanalytv/8",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/8/images/1028899355?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat Explore",
+    "id": "2060266",
+    "link": "https://playnow.pl/kanalytv/2060266",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2060266/images/913218415?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Planete+",
+    "id": "13537091",
+    "link": "https://playnow.pl/kanalytv/13537091",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/13537091/images/833526686?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat History",
+    "id": "38024",
+    "link": "https://playnow.pl/kanalytv/38024",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38024/images/913218411?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat Nature",
+    "id": "2060265",
+    "link": "https://playnow.pl/kanalytv/2060265",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2060265/images/913218413?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC Earth",
+    "id": "38018",
+    "link": "https://playnow.pl/kanalytv/38018",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38018/images/1029135642?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Historia",
+    "id": "20183290",
+    "link": "https://playnow.pl/kanalytv/20183290",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183290/images/1025055493?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Travel Channel HD",
+    "id": "20183304",
+    "link": "https://playnow.pl/kanalytv/20183304",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183304/images/896415010?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Viasat True Crime",
+    "id": "27353030",
+    "link": "https://playnow.pl/kanalytv/27353030",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/27353030/images/964128078?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT Doku",
+    "id": "20288610",
+    "link": "https://playnow.pl/kanalytv/20288610",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20288610/images/896415041?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "ID HD",
+    "id": "20183299",
+    "link": "https://playnow.pl/kanalytv/20183299",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183299/images/896415016?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CBS Reality",
+    "id": "16204512",
+    "link": "https://playnow.pl/kanalytv/16204512",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16204512/images/859175346?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "DocuBox",
+    "id": "23941564",
+    "link": "https://playnow.pl/kanalytv/23941564",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23941564/images/1025055472?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC Player",
+    "id": "19378515",
+    "link": "https://playnow.pl/kanalytv/19378515",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/19378515/images/887484578?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Dokument HD",
+    "id": "14171258",
+    "link": "https://playnow.pl/kanalytv/14171258",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171258/images/838982877?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "STUDIOMED TV",
+    "id": "15660407",
+    "link": "https://playnow.pl/kanalytv/15660407",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/15660407/images/1028917029?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HOME TV HD",
+    "id": "11984843",
+    "link": "https://playnow.pl/kanalytv/11984843",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/11984843/images/819430264?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "National Geographic",
+    "id": "3239192",
+    "link": "https://playnow.pl/kanalytv/3239192",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3239192/images/1025055457?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nat Geo Wild",
+    "id": "3289737",
+    "link": "https://playnow.pl/kanalytv/3289737",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3289737/images/1028903477?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nat Geo People HD",
+    "id": "3293837",
+    "link": "https://playnow.pl/kanalytv/3293837",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3293837/images/1025055460?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Crime+Investigation Polsat",
+    "id": "5511368",
+    "link": "https://playnow.pl/kanalytv/5511368",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/5511368/images/1025055463?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Channel HD",
+    "id": "20183289",
+    "link": "https://playnow.pl/kanalytv/20183289",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183289/images/1025055466?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Science HD",
+    "id": "20183292",
+    "link": "https://playnow.pl/kanalytv/20183292",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183292/images/896415022?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "DTX HD",
+    "id": "20183294",
+    "link": "https://playnow.pl/kanalytv/20183294",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183294/images/896415109?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HISTORY",
+    "id": "9",
+    "link": "https://playnow.pl/kanalytv/9",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9/images/1025055487?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HISTORY2",
+    "id": "8",
+    "link": "https://playnow.pl/kanalytv/8",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/8/images/1028899355?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat Explore",
+    "id": "2060266",
+    "link": "https://playnow.pl/kanalytv/2060266",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2060266/images/913218415?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Planete+",
+    "id": "13537091",
+    "link": "https://playnow.pl/kanalytv/13537091",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/13537091/images/833526686?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat History",
+    "id": "38024",
+    "link": "https://playnow.pl/kanalytv/38024",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38024/images/913218411?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat Nature",
+    "id": "2060265",
+    "link": "https://playnow.pl/kanalytv/2060265",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2060265/images/913218413?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC Earth",
+    "id": "38018",
+    "link": "https://playnow.pl/kanalytv/38018",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38018/images/1029135642?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Historia",
+    "id": "20183290",
+    "link": "https://playnow.pl/kanalytv/20183290",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183290/images/1025055493?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Travel Channel HD",
+    "id": "20183304",
+    "link": "https://playnow.pl/kanalytv/20183304",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183304/images/896415010?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Viasat True Crime",
+    "id": "27353030",
+    "link": "https://playnow.pl/kanalytv/27353030",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/27353030/images/964128078?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT Doku",
+    "id": "20288610",
+    "link": "https://playnow.pl/kanalytv/20288610",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20288610/images/896415041?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "ID HD",
+    "id": "20183299",
+    "link": "https://playnow.pl/kanalytv/20183299",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183299/images/896415016?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CBS Reality",
+    "id": "16204512",
+    "link": "https://playnow.pl/kanalytv/16204512",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16204512/images/859175346?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "DocuBox",
+    "id": "23941564",
+    "link": "https://playnow.pl/kanalytv/23941564",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23941564/images/1025055472?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC Player",
+    "id": "19378515",
+    "link": "https://playnow.pl/kanalytv/19378515",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/19378515/images/887484578?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Dokument HD",
+    "id": "14171258",
+    "link": "https://playnow.pl/kanalytv/14171258",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171258/images/838982877?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "STUDIOMED TV",
+    "id": "15660407",
+    "link": "https://playnow.pl/kanalytv/15660407",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/15660407/images/1028917029?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HOME TV HD",
+    "id": "11984843",
+    "link": "https://playnow.pl/kanalytv/11984843",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/11984843/images/819430264?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "National Geographic",
+    "id": "3239192",
+    "link": "https://playnow.pl/kanalytv/3239192",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3239192/images/1025055457?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nat Geo Wild",
+    "id": "3289737",
+    "link": "https://playnow.pl/kanalytv/3289737",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3289737/images/1028903477?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nat Geo People HD",
+    "id": "3293837",
+    "link": "https://playnow.pl/kanalytv/3293837",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3293837/images/1025055460?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Crime+Investigation Polsat",
+    "id": "5511368",
+    "link": "https://playnow.pl/kanalytv/5511368",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/5511368/images/1025055463?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Channel HD",
+    "id": "20183289",
+    "link": "https://playnow.pl/kanalytv/20183289",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183289/images/1025055466?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Science HD",
+    "id": "20183292",
+    "link": "https://playnow.pl/kanalytv/20183292",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183292/images/896415022?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "DTX HD",
+    "id": "20183294",
+    "link": "https://playnow.pl/kanalytv/20183294",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183294/images/896415109?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CBS Reality",
+    "id": "16204512",
+    "link": "https://playnow.pl/kanalytv/16204512",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16204512/images/859175346?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "DocuBox",
+    "id": "23941564",
+    "link": "https://playnow.pl/kanalytv/23941564",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23941564/images/1025055472?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC Player",
+    "id": "19378515",
+    "link": "https://playnow.pl/kanalytv/19378515",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/19378515/images/887484578?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Dokument HD",
+    "id": "14171258",
+    "link": "https://playnow.pl/kanalytv/14171258",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171258/images/838982877?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "STUDIOMED TV",
+    "id": "15660407",
+    "link": "https://playnow.pl/kanalytv/15660407",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/15660407/images/1028917029?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HOME TV HD",
+    "id": "11984843",
+    "link": "https://playnow.pl/kanalytv/11984843",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/11984843/images/819430264?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "National Geographic",
+    "id": "3239192",
+    "link": "https://playnow.pl/kanalytv/3239192",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3239192/images/1025055457?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nat Geo Wild",
+    "id": "3289737",
+    "link": "https://playnow.pl/kanalytv/3289737",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3289737/images/1028903477?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nat Geo People HD",
+    "id": "3293837",
+    "link": "https://playnow.pl/kanalytv/3293837",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3293837/images/1025055460?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Crime+Investigation Polsat",
+    "id": "5511368",
+    "link": "https://playnow.pl/kanalytv/5511368",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/5511368/images/1025055463?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Channel HD",
+    "id": "20183289",
+    "link": "https://playnow.pl/kanalytv/20183289",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183289/images/1025055466?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Science HD",
+    "id": "20183292",
+    "link": "https://playnow.pl/kanalytv/20183292",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183292/images/896415022?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "DTX HD",
+    "id": "20183294",
+    "link": "https://playnow.pl/kanalytv/20183294",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183294/images/896415109?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Animal Planet HD",
+    "id": "20183288",
+    "link": "https://playnow.pl/kanalytv/20183288",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183288/images/1025055469?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HISTORY",
+    "id": "9",
+    "link": "https://playnow.pl/kanalytv/9",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9/images/1025055487?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HISTORY2",
+    "id": "8",
+    "link": "https://playnow.pl/kanalytv/8",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/8/images/1028899355?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat Explore",
+    "id": "2060266",
+    "link": "https://playnow.pl/kanalytv/2060266",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2060266/images/913218415?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Planete+",
+    "id": "13537091",
+    "link": "https://playnow.pl/kanalytv/13537091",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/13537091/images/833526686?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat History",
+    "id": "38024",
+    "link": "https://playnow.pl/kanalytv/38024",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38024/images/913218411?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat Nature",
+    "id": "2060265",
+    "link": "https://playnow.pl/kanalytv/2060265",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2060265/images/913218413?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC Earth",
+    "id": "38018",
+    "link": "https://playnow.pl/kanalytv/38018",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38018/images/1029135642?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Historia",
+    "id": "20183290",
+    "link": "https://playnow.pl/kanalytv/20183290",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183290/images/1025055493?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Travel Channel HD",
+    "id": "20183304",
+    "link": "https://playnow.pl/kanalytv/20183304",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183304/images/896415010?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Viasat True Crime",
+    "id": "27353030",
+    "link": "https://playnow.pl/kanalytv/27353030",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/27353030/images/964128078?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT Doku",
+    "id": "20288610",
+    "link": "https://playnow.pl/kanalytv/20288610",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20288610/images/896415041?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CBS Reality",
+    "id": "16204512",
+    "link": "https://playnow.pl/kanalytv/16204512",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16204512/images/859175346?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "DocuBox",
+    "id": "23941564",
+    "link": "https://playnow.pl/kanalytv/23941564",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23941564/images/1025055472?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC Player",
+    "id": "19378515",
+    "link": "https://playnow.pl/kanalytv/19378515",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/19378515/images/887484578?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Dokument HD",
+    "id": "14171258",
+    "link": "https://playnow.pl/kanalytv/14171258",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171258/images/838982877?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "STUDIOMED TV",
+    "id": "15660407",
+    "link": "https://playnow.pl/kanalytv/15660407",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/15660407/images/1028917029?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HOME TV HD",
+    "id": "11984843",
+    "link": "https://playnow.pl/kanalytv/11984843",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/11984843/images/819430264?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "National Geographic",
+    "id": "3239192",
+    "link": "https://playnow.pl/kanalytv/3239192",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3239192/images/1025055457?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nat Geo Wild",
+    "id": "3289737",
+    "link": "https://playnow.pl/kanalytv/3289737",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3289737/images/1028903477?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nat Geo People HD",
+    "id": "3293837",
+    "link": "https://playnow.pl/kanalytv/3293837",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3293837/images/1025055460?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Crime+Investigation Polsat",
+    "id": "5511368",
+    "link": "https://playnow.pl/kanalytv/5511368",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/5511368/images/1025055463?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Channel HD",
+    "id": "20183289",
+    "link": "https://playnow.pl/kanalytv/20183289",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183289/images/1025055466?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Science HD",
+    "id": "20183292",
+    "link": "https://playnow.pl/kanalytv/20183292",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183292/images/896415022?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "DTX HD",
+    "id": "20183294",
+    "link": "https://playnow.pl/kanalytv/20183294",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183294/images/896415109?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Animal Planet HD",
+    "id": "20183288",
+    "link": "https://playnow.pl/kanalytv/20183288",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183288/images/1025055469?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HISTORY",
+    "id": "9",
+    "link": "https://playnow.pl/kanalytv/9",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9/images/1025055487?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HISTORY2",
+    "id": "8",
+    "link": "https://playnow.pl/kanalytv/8",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/8/images/1028899355?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat Explore",
+    "id": "2060266",
+    "link": "https://playnow.pl/kanalytv/2060266",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2060266/images/913218415?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Planete+",
+    "id": "13537091",
+    "link": "https://playnow.pl/kanalytv/13537091",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/13537091/images/833526686?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat History",
+    "id": "38024",
+    "link": "https://playnow.pl/kanalytv/38024",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38024/images/913218411?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat Nature",
+    "id": "2060265",
+    "link": "https://playnow.pl/kanalytv/2060265",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2060265/images/913218413?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC Earth",
+    "id": "38018",
+    "link": "https://playnow.pl/kanalytv/38018",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38018/images/1029135642?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Historia",
+    "id": "20183290",
+    "link": "https://playnow.pl/kanalytv/20183290",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183290/images/1025055493?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Travel Channel HD",
+    "id": "20183304",
+    "link": "https://playnow.pl/kanalytv/20183304",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183304/images/896415010?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Viasat True Crime",
+    "id": "27353030",
+    "link": "https://playnow.pl/kanalytv/27353030",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/27353030/images/964128078?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT Doku",
+    "id": "20288610",
+    "link": "https://playnow.pl/kanalytv/20288610",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20288610/images/896415041?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Science HD",
+    "id": "20183292",
+    "link": "https://playnow.pl/kanalytv/20183292",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183292/images/896415022?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "DTX HD",
+    "id": "20183294",
+    "link": "https://playnow.pl/kanalytv/20183294",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183294/images/896415109?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Animal Planet HD",
+    "id": "20183288",
+    "link": "https://playnow.pl/kanalytv/20183288",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183288/images/1025055469?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HISTORY",
+    "id": "9",
+    "link": "https://playnow.pl/kanalytv/9",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9/images/1025055487?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HISTORY2",
+    "id": "8",
+    "link": "https://playnow.pl/kanalytv/8",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/8/images/1028899355?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat Explore",
+    "id": "2060266",
+    "link": "https://playnow.pl/kanalytv/2060266",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2060266/images/913218415?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Planete+",
+    "id": "13537091",
+    "link": "https://playnow.pl/kanalytv/13537091",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/13537091/images/833526686?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat History",
+    "id": "38024",
+    "link": "https://playnow.pl/kanalytv/38024",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38024/images/913218411?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat Nature",
+    "id": "2060265",
+    "link": "https://playnow.pl/kanalytv/2060265",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2060265/images/913218413?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC Earth",
+    "id": "38018",
+    "link": "https://playnow.pl/kanalytv/38018",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38018/images/1029135642?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Historia",
+    "id": "20183290",
+    "link": "https://playnow.pl/kanalytv/20183290",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183290/images/1025055493?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Travel Channel HD",
+    "id": "20183304",
+    "link": "https://playnow.pl/kanalytv/20183304",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183304/images/896415010?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Viasat True Crime",
+    "id": "27353030",
+    "link": "https://playnow.pl/kanalytv/27353030",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/27353030/images/964128078?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT Doku",
+    "id": "20288610",
+    "link": "https://playnow.pl/kanalytv/20288610",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20288610/images/896415041?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "ID HD",
+    "id": "20183299",
+    "link": "https://playnow.pl/kanalytv/20183299",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183299/images/896415016?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CBS Reality",
+    "id": "16204512",
+    "link": "https://playnow.pl/kanalytv/16204512",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16204512/images/859175346?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "DocuBox",
+    "id": "23941564",
+    "link": "https://playnow.pl/kanalytv/23941564",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23941564/images/1025055472?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC Player",
+    "id": "19378515",
+    "link": "https://playnow.pl/kanalytv/19378515",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/19378515/images/887484578?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Dokument HD",
+    "id": "14171258",
+    "link": "https://playnow.pl/kanalytv/14171258",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171258/images/838982877?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "STUDIOMED TV",
+    "id": "15660407",
+    "link": "https://playnow.pl/kanalytv/15660407",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/15660407/images/1028917029?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HOME TV HD",
+    "id": "11984843",
+    "link": "https://playnow.pl/kanalytv/11984843",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/11984843/images/819430264?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "National Geographic",
+    "id": "3239192",
+    "link": "https://playnow.pl/kanalytv/3239192",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3239192/images/1025055457?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nat Geo Wild",
+    "id": "3289737",
+    "link": "https://playnow.pl/kanalytv/3289737",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3289737/images/1028903477?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nat Geo People HD",
+    "id": "3293837",
+    "link": "https://playnow.pl/kanalytv/3293837",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3293837/images/1025055460?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Crime+Investigation Polsat",
+    "id": "5511368",
+    "link": "https://playnow.pl/kanalytv/5511368",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/5511368/images/1025055463?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Science HD",
+    "id": "20183292",
+    "link": "https://playnow.pl/kanalytv/20183292",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183292/images/896415022?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "DTX HD",
+    "id": "20183294",
+    "link": "https://playnow.pl/kanalytv/20183294",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183294/images/896415109?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Animal Planet HD",
+    "id": "20183288",
+    "link": "https://playnow.pl/kanalytv/20183288",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183288/images/1025055469?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HISTORY",
+    "id": "9",
+    "link": "https://playnow.pl/kanalytv/9",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9/images/1025055487?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HISTORY2",
+    "id": "8",
+    "link": "https://playnow.pl/kanalytv/8",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/8/images/1028899355?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat Explore",
+    "id": "2060266",
+    "link": "https://playnow.pl/kanalytv/2060266",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2060266/images/913218415?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Planete+",
+    "id": "13537091",
+    "link": "https://playnow.pl/kanalytv/13537091",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/13537091/images/833526686?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat History",
+    "id": "38024",
+    "link": "https://playnow.pl/kanalytv/38024",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38024/images/913218411?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat Nature",
+    "id": "2060265",
+    "link": "https://playnow.pl/kanalytv/2060265",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2060265/images/913218413?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC Earth",
+    "id": "38018",
+    "link": "https://playnow.pl/kanalytv/38018",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38018/images/1029135642?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Historia",
+    "id": "20183290",
+    "link": "https://playnow.pl/kanalytv/20183290",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183290/images/1025055493?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Travel Channel HD",
+    "id": "20183304",
+    "link": "https://playnow.pl/kanalytv/20183304",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183304/images/896415010?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Viasat True Crime",
+    "id": "27353030",
+    "link": "https://playnow.pl/kanalytv/27353030",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/27353030/images/964128078?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT Doku",
+    "id": "20288610",
+    "link": "https://playnow.pl/kanalytv/20288610",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20288610/images/896415041?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "ID HD",
+    "id": "20183299",
+    "link": "https://playnow.pl/kanalytv/20183299",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183299/images/896415016?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CBS Reality",
+    "id": "16204512",
+    "link": "https://playnow.pl/kanalytv/16204512",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16204512/images/859175346?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "DocuBox",
+    "id": "23941564",
+    "link": "https://playnow.pl/kanalytv/23941564",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23941564/images/1025055472?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC Player",
+    "id": "19378515",
+    "link": "https://playnow.pl/kanalytv/19378515",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/19378515/images/887484578?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Dokument HD",
+    "id": "14171258",
+    "link": "https://playnow.pl/kanalytv/14171258",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171258/images/838982877?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "STUDIOMED TV",
+    "id": "15660407",
+    "link": "https://playnow.pl/kanalytv/15660407",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/15660407/images/1028917029?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HOME TV HD",
+    "id": "11984843",
+    "link": "https://playnow.pl/kanalytv/11984843",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/11984843/images/819430264?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "National Geographic",
+    "id": "3239192",
+    "link": "https://playnow.pl/kanalytv/3239192",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3239192/images/1025055457?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nat Geo Wild",
+    "id": "3289737",
+    "link": "https://playnow.pl/kanalytv/3289737",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3289737/images/1028903477?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nat Geo People HD",
+    "id": "3293837",
+    "link": "https://playnow.pl/kanalytv/3293837",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3293837/images/1025055460?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Crime+Investigation Polsat",
+    "id": "5511368",
+    "link": "https://playnow.pl/kanalytv/5511368",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/5511368/images/1025055463?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Viasat True Crime",
+    "id": "27353030",
+    "link": "https://playnow.pl/kanalytv/27353030",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/27353030/images/964128078?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT Doku",
+    "id": "20288610",
+    "link": "https://playnow.pl/kanalytv/20288610",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20288610/images/896415041?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "ID HD",
+    "id": "20183299",
+    "link": "https://playnow.pl/kanalytv/20183299",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183299/images/896415016?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CBS Reality",
+    "id": "16204512",
+    "link": "https://playnow.pl/kanalytv/16204512",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16204512/images/859175346?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "DocuBox",
+    "id": "23941564",
+    "link": "https://playnow.pl/kanalytv/23941564",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23941564/images/1025055472?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC Player",
+    "id": "19378515",
+    "link": "https://playnow.pl/kanalytv/19378515",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/19378515/images/887484578?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Dokument HD",
+    "id": "14171258",
+    "link": "https://playnow.pl/kanalytv/14171258",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171258/images/838982877?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "STUDIOMED TV",
+    "id": "15660407",
+    "link": "https://playnow.pl/kanalytv/15660407",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/15660407/images/1028917029?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HOME TV HD",
+    "id": "11984843",
+    "link": "https://playnow.pl/kanalytv/11984843",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/11984843/images/819430264?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "National Geographic",
+    "id": "3239192",
+    "link": "https://playnow.pl/kanalytv/3239192",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3239192/images/1025055457?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nat Geo Wild",
+    "id": "3289737",
+    "link": "https://playnow.pl/kanalytv/3289737",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3289737/images/1028903477?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nat Geo People HD",
+    "id": "3293837",
+    "link": "https://playnow.pl/kanalytv/3293837",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3293837/images/1025055460?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Crime+Investigation Polsat",
+    "id": "5511368",
+    "link": "https://playnow.pl/kanalytv/5511368",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/5511368/images/1025055463?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Channel HD",
+    "id": "20183289",
+    "link": "https://playnow.pl/kanalytv/20183289",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183289/images/1025055466?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Science HD",
+    "id": "20183292",
+    "link": "https://playnow.pl/kanalytv/20183292",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183292/images/896415022?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "DTX HD",
+    "id": "20183294",
+    "link": "https://playnow.pl/kanalytv/20183294",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183294/images/896415109?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Animal Planet HD",
+    "id": "20183288",
+    "link": "https://playnow.pl/kanalytv/20183288",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183288/images/1025055469?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HISTORY",
+    "id": "9",
+    "link": "https://playnow.pl/kanalytv/9",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9/images/1025055487?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HISTORY2",
+    "id": "8",
+    "link": "https://playnow.pl/kanalytv/8",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/8/images/1028899355?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat Explore",
+    "id": "2060266",
+    "link": "https://playnow.pl/kanalytv/2060266",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2060266/images/913218415?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Planete+",
+    "id": "13537091",
+    "link": "https://playnow.pl/kanalytv/13537091",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/13537091/images/833526686?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat History",
+    "id": "38024",
+    "link": "https://playnow.pl/kanalytv/38024",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38024/images/913218411?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Viasat Nature",
+    "id": "2060265",
+    "link": "https://playnow.pl/kanalytv/2060265",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2060265/images/913218413?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC Earth",
+    "id": "38018",
+    "link": "https://playnow.pl/kanalytv/38018",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38018/images/1029135642?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Historia",
+    "id": "20183290",
+    "link": "https://playnow.pl/kanalytv/20183290",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183290/images/1025055493?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  }
+]

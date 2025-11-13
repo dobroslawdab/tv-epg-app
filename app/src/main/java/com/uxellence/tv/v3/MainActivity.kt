@@ -67,7 +67,7 @@ class MainActivity : ComponentActivity() {
 }
 
 enum class NavigationScreen {
-    HOME, LIVE, COMPONENT_SHOWCASE, TOP_MENU, TOP_MENU2, SHORTCUT, CHANNELE, VIDEOSLIDER, SLIDER, SLIDER_MIX, EPG, EPG_DAY, FOCUS_MINI_CARD, VOICE_TEST, SPLASH, WHATS_NEW, STARTUP_MODE_SELECTION, ZAPPING_BAR
+    HOME, LIVE, COMPONENT_SHOWCASE, TOP_MENU, TOP_MENU2, SHORTCUT, CHANNELE, VIDEOSLIDER, SLIDER, SLIDER_MIX, EPG, EPG_DAY, FOCUS_MINI_CARD, VOICE_TEST, SPLASH, WHATS_NEW, STARTUP_MODE_SELECTION, ZAPPING_BAR, CHANNEL_GRID
 }
 
 // Kolory z Figma dla nowego menu
@@ -276,6 +276,16 @@ fun TvRoot() {
     var previousScreen by remember { mutableStateOf(NavigationScreen.HOME) }
     var selectedChannelName by remember { mutableStateOf<String?>(null) }
 
+    // ChannelGridScreen navigation parameters
+    var channelGridTitle by remember { mutableStateOf("Lista kanałów TV") }
+    var channelGridCategory by remember { mutableStateOf("Wszystkie") }
+    var channelGridFilter by remember { mutableStateOf<((TvChannel) -> Boolean)?>(null) }
+    var channelGridChannelList by remember { mutableStateOf<List<TvChannel>?>(null) }
+
+    // Track where ChannelGridScreen was launched from (for BACK navigation)
+    var channelGridSourceScreen by remember { mutableStateOf<NavigationScreen?>(null) }
+    var channelGridSourceSection by remember { mutableStateOf<String?>(null) }
+
     // Save TELEWIZJA focus state for smart BACK navigation (ID-based)
     var savedTelewizjaFocus by remember { mutableStateOf<FocusState?>(null) }
 
@@ -306,6 +316,7 @@ fun TvRoot() {
     // Menu items dla wszystkich ekranów - najnowsze na górze
     val menuItems = remember {
         listOf(
+            MainMenuItem(id = "channel_grid", title = "📺 Lista kanałów TV", navigationScreen = NavigationScreen.CHANNEL_GRID),
             MainMenuItem(id = "startup_mode", title = "⚙️ Tryb startowy", navigationScreen = NavigationScreen.STARTUP_MODE_SELECTION),
             MainMenuItem(id = "whats_new", title = "What's New", navigationScreen = NavigationScreen.WHATS_NEW),
             MainMenuItem(id = "epg_day", title = "📺 EPG Day Test", navigationScreen = NavigationScreen.EPG_DAY),
@@ -573,6 +584,29 @@ fun TvRoot() {
                     sy = ::sy
                 )
             }
+            NavigationScreen.CHANNEL_GRID -> {
+                ChannelGridScreen(
+                    onBackPressed = {
+                        // Focus Architect: callback delegation - return to source screen
+                        if (channelGridSourceScreen == NavigationScreen.TOP_MENU2 && channelGridSourceSection != null) {
+                            // Restore TELEWIZJA section in TopMenuScreen2
+                            savedTelewizjaSection = channelGridSourceSection
+                            currentScreen = NavigationScreen.TOP_MENU2
+                        } else {
+                            // Fallback: return to HOME if source unknown
+                            currentScreen = NavigationScreen.HOME
+                        }
+
+                        // Clear source tracking
+                        channelGridSourceScreen = null
+                        channelGridSourceSection = null
+                    },
+                    screenTitle = channelGridTitle,
+                    initialCategory = channelGridCategory,
+                    channelFilter = channelGridFilter,
+                    preloadedChannels = channelGridChannelList
+                )
+            }
             NavigationScreen.SLIDER -> {
                 SliderScreen()
             }
@@ -666,6 +700,18 @@ fun TvRoot() {
                         pipPlayer = null
                         pipStreamUrl = null
                         pipMode = false
+                    },
+                    onNavigateToChannelGrid = { title, category, filter, channelList ->
+                        // Save current screen and section before navigation (for BACK button)
+                        channelGridSourceScreen = NavigationScreen.TOP_MENU2
+                        channelGridSourceSection = savedTelewizjaSection ?: "TELEWIZJA"  // Default to TELEWIZJA if null
+
+                        // Navigate to ChannelGridScreen with dynamic parameters
+                        channelGridTitle = title
+                        channelGridCategory = category
+                        channelGridFilter = filter
+                        channelGridChannelList = channelList
+                        currentScreen = NavigationScreen.CHANNEL_GRID
                     }
                 )
 

@@ -1,0 +1,2864 @@
+[
+  {
+    "name": "Sky News",
+    "id": "23340432",
+    "link": "https://playnow.pl/kanalytv/23340432",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23340432/images/924358658?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP World",
+    "id": "24957638",
+    "link": "https://playnow.pl/kanalytv/24957638",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/24957638/images/940226067?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Arirang TV",
+    "id": "34592249",
+    "link": "https://playnow.pl/kanalytv/34592249",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/34592249/images/1028588518?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC Player",
+    "id": "19378515",
+    "link": "https://playnow.pl/kanalytv/19378515",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/19378515/images/887484578?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP1",
+    "id": "8499963",
+    "link": "https://playnow.pl/kanalytv/8499963",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/8499963/images/952146681?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP2",
+    "id": "8499964",
+    "link": "https://playnow.pl/kanalytv/8499964",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/8499964/images/952146683?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVN",
+    "id": "8529876",
+    "link": "https://playnow.pl/kanalytv/8529876",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/8529876/images/947513401?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat",
+    "id": "9817820",
+    "link": "https://playnow.pl/kanalytv/9817820",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9817820/images/819859961?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TV4",
+    "id": "9979708",
+    "link": "https://playnow.pl/kanalytv/9979708",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9979708/images/913218407?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "KINO PLAY",
+    "id": "27128851",
+    "link": "https://playnow.pl/kanalytv/27128851",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/27128851/images/1033972888?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TV Puls",
+    "id": "7033022",
+    "link": "https://playnow.pl/kanalytv/7033022",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/7033022/images/908106457?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Warszawa",
+    "id": "8499965",
+    "link": "https://playnow.pl/kanalytv/8499965",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/8499965/images/952041085?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "KINO PLAY",
+    "id": "27128851",
+    "link": "https://playnow.pl/kanalytv/27128851",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/27128851/images/1033972888?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Sky News",
+    "id": "23340432",
+    "link": "https://playnow.pl/kanalytv/23340432",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23340432/images/924358658?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP World",
+    "id": "24957638",
+    "link": "https://playnow.pl/kanalytv/24957638",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/24957638/images/940226067?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Arirang TV",
+    "id": "34592249",
+    "link": "https://playnow.pl/kanalytv/34592249",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/34592249/images/1028588518?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC Player",
+    "id": "19378515",
+    "link": "https://playnow.pl/kanalytv/19378515",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/19378515/images/887484578?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP1",
+    "id": "8499963",
+    "link": "https://playnow.pl/kanalytv/8499963",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/8499963/images/952146681?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP2",
+    "id": "8499964",
+    "link": "https://playnow.pl/kanalytv/8499964",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/8499964/images/952146683?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVN",
+    "id": "8529876",
+    "link": "https://playnow.pl/kanalytv/8529876",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/8529876/images/947513401?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat",
+    "id": "9817820",
+    "link": "https://playnow.pl/kanalytv/9817820",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9817820/images/819859961?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TV4",
+    "id": "9979708",
+    "link": "https://playnow.pl/kanalytv/9979708",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9979708/images/913218407?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "KINO PLAY",
+    "id": "27128851",
+    "link": "https://playnow.pl/kanalytv/27128851",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/27128851/images/1033972888?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TV Puls",
+    "id": "7033022",
+    "link": "https://playnow.pl/kanalytv/7033022",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/7033022/images/908106457?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Warszawa",
+    "id": "8499965",
+    "link": "https://playnow.pl/kanalytv/8499965",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/8499965/images/952041085?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "KINO PLAY",
+    "id": "27128851",
+    "link": "https://playnow.pl/kanalytv/27128851",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/27128851/images/1033972888?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Kabaret TV",
+    "id": "25980529",
+    "link": "https://playnow.pl/kanalytv/25980529",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/25980529/images/951366634?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HBO Max",
+    "id": "16522901",
+    "link": "https://playnow.pl/kanalytv/16522901",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16522901/images/1037037478?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TTV HD",
+    "id": "20183305",
+    "link": "https://playnow.pl/kanalytv/20183305",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183305/images/896415008?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "METRO HD",
+    "id": "20183300",
+    "link": "https://playnow.pl/kanalytv/20183300",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183300/images/896415014?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Puls 2",
+    "id": "7033023",
+    "link": "https://playnow.pl/kanalytv/7033023",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/7033023/images/908106455?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TV 6",
+    "id": "20183324",
+    "link": "https://playnow.pl/kanalytv/20183324",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183324/images/913218409?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Fokus TV",
+    "id": "20286725",
+    "link": "https://playnow.pl/kanalytv/20286725",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20286725/images/895753805?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nowa TV",
+    "id": "20287484",
+    "link": "https://playnow.pl/kanalytv/20287484",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20287484/images/895763873?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Super POLSAT",
+    "id": "20183322",
+    "link": "https://playnow.pl/kanalytv/20183322",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183322/images/896414998?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "WP HD",
+    "id": "1337234",
+    "link": "https://playnow.pl/kanalytv/1337234",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/1337234/images/843501126?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Sky News",
+    "id": "23340432",
+    "link": "https://playnow.pl/kanalytv/23340432",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23340432/images/924358658?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP World",
+    "id": "24957638",
+    "link": "https://playnow.pl/kanalytv/24957638",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/24957638/images/940226067?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Arirang TV",
+    "id": "34592249",
+    "link": "https://playnow.pl/kanalytv/34592249",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/34592249/images/1028588518?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC Player",
+    "id": "19378515",
+    "link": "https://playnow.pl/kanalytv/19378515",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/19378515/images/887484578?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP1",
+    "id": "8499963",
+    "link": "https://playnow.pl/kanalytv/8499963",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/8499963/images/952146681?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP2",
+    "id": "8499964",
+    "link": "https://playnow.pl/kanalytv/8499964",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/8499964/images/952146683?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVN",
+    "id": "8529876",
+    "link": "https://playnow.pl/kanalytv/8529876",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/8529876/images/947513401?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat",
+    "id": "9817820",
+    "link": "https://playnow.pl/kanalytv/9817820",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9817820/images/819859961?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TV4",
+    "id": "9979708",
+    "link": "https://playnow.pl/kanalytv/9979708",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9979708/images/913218407?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "KINO PLAY",
+    "id": "27128851",
+    "link": "https://playnow.pl/kanalytv/27128851",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/27128851/images/1033972888?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TV Puls",
+    "id": "7033022",
+    "link": "https://playnow.pl/kanalytv/7033022",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/7033022/images/908106457?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Warszawa",
+    "id": "8499965",
+    "link": "https://playnow.pl/kanalytv/8499965",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/8499965/images/952041085?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "KINO PLAY",
+    "id": "27128851",
+    "link": "https://playnow.pl/kanalytv/27128851",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/27128851/images/1033972888?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Kabaret TV",
+    "id": "25980529",
+    "link": "https://playnow.pl/kanalytv/25980529",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/25980529/images/951366634?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HBO Max",
+    "id": "16522901",
+    "link": "https://playnow.pl/kanalytv/16522901",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16522901/images/1037037478?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TTV HD",
+    "id": "20183305",
+    "link": "https://playnow.pl/kanalytv/20183305",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183305/images/896415008?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "METRO HD",
+    "id": "20183300",
+    "link": "https://playnow.pl/kanalytv/20183300",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183300/images/896415014?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Puls 2",
+    "id": "7033023",
+    "link": "https://playnow.pl/kanalytv/7033023",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/7033023/images/908106455?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TV 6",
+    "id": "20183324",
+    "link": "https://playnow.pl/kanalytv/20183324",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183324/images/913218409?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Fokus TV",
+    "id": "20286725",
+    "link": "https://playnow.pl/kanalytv/20286725",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20286725/images/895753805?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nowa TV",
+    "id": "20287484",
+    "link": "https://playnow.pl/kanalytv/20287484",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20287484/images/895763873?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Super POLSAT",
+    "id": "20183322",
+    "link": "https://playnow.pl/kanalytv/20183322",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183322/images/896414998?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "WP HD",
+    "id": "1337234",
+    "link": "https://playnow.pl/kanalytv/1337234",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/1337234/images/843501126?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Warszawa",
+    "id": "8499965",
+    "link": "https://playnow.pl/kanalytv/8499965",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/8499965/images/952041085?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "KINO PLAY",
+    "id": "27128851",
+    "link": "https://playnow.pl/kanalytv/27128851",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/27128851/images/1033972888?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Kabaret TV",
+    "id": "25980529",
+    "link": "https://playnow.pl/kanalytv/25980529",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/25980529/images/951366634?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HBO Max",
+    "id": "16522901",
+    "link": "https://playnow.pl/kanalytv/16522901",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16522901/images/1037037478?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TTV HD",
+    "id": "20183305",
+    "link": "https://playnow.pl/kanalytv/20183305",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183305/images/896415008?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "METRO HD",
+    "id": "20183300",
+    "link": "https://playnow.pl/kanalytv/20183300",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183300/images/896415014?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Puls 2",
+    "id": "7033023",
+    "link": "https://playnow.pl/kanalytv/7033023",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/7033023/images/908106455?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TV 6",
+    "id": "20183324",
+    "link": "https://playnow.pl/kanalytv/20183324",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183324/images/913218409?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Fokus TV",
+    "id": "20286725",
+    "link": "https://playnow.pl/kanalytv/20286725",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20286725/images/895753805?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nowa TV",
+    "id": "20287484",
+    "link": "https://playnow.pl/kanalytv/20287484",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20287484/images/895763873?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Super POLSAT",
+    "id": "20183322",
+    "link": "https://playnow.pl/kanalytv/20183322",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183322/images/896414998?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "WP HD",
+    "id": "1337234",
+    "link": "https://playnow.pl/kanalytv/1337234",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/1337234/images/843501126?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Antena HD",
+    "id": "11984847",
+    "link": "https://playnow.pl/kanalytv/11984847",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/11984847/images/819430223?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TV Trwam",
+    "id": "23940448",
+    "link": "https://playnow.pl/kanalytv/23940448",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23940448/images/930307516?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVN24",
+    "id": "7208754",
+    "link": "https://playnow.pl/kanalytv/7208754",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/7208754/images/1032763214?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Channel HD",
+    "id": "20183289",
+    "link": "https://playnow.pl/kanalytv/20183289",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183289/images/1025055466?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HISTORY",
+    "id": "9",
+    "link": "https://playnow.pl/kanalytv/9",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9/images/1025055487?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC First",
+    "id": "38019",
+    "link": "https://playnow.pl/kanalytv/38019",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38019/images/908106502?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Viasat True Crime",
+    "id": "27353030",
+    "link": "https://playnow.pl/kanalytv/27353030",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/27353030/images/964128078?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "AXN",
+    "id": "33",
+    "link": "https://playnow.pl/kanalytv/33",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/33/images/940247207?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "AXN Black",
+    "id": "9234615",
+    "link": "https://playnow.pl/kanalytv/9234615",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9234615/images/798182816?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nowość! Stargaze TV",
+    "id": "37867243",
+    "link": "https://playnow.pl/kanalytv/37867243",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/37867243/images/1061622926?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "wPolsce24",
+    "id": "23030282",
+    "link": "https://playnow.pl/kanalytv/23030282",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23030282/images/981472197?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Warszawa",
+    "id": "8499965",
+    "link": "https://playnow.pl/kanalytv/8499965",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/8499965/images/952041085?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "KINO PLAY",
+    "id": "27128851",
+    "link": "https://playnow.pl/kanalytv/27128851",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/27128851/images/1033972888?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Kabaret TV",
+    "id": "25980529",
+    "link": "https://playnow.pl/kanalytv/25980529",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/25980529/images/951366634?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HBO Max",
+    "id": "16522901",
+    "link": "https://playnow.pl/kanalytv/16522901",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16522901/images/1037037478?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TTV HD",
+    "id": "20183305",
+    "link": "https://playnow.pl/kanalytv/20183305",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183305/images/896415008?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "METRO HD",
+    "id": "20183300",
+    "link": "https://playnow.pl/kanalytv/20183300",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183300/images/896415014?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Puls 2",
+    "id": "7033023",
+    "link": "https://playnow.pl/kanalytv/7033023",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/7033023/images/908106455?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TV 6",
+    "id": "20183324",
+    "link": "https://playnow.pl/kanalytv/20183324",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183324/images/913218409?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Fokus TV",
+    "id": "20286725",
+    "link": "https://playnow.pl/kanalytv/20286725",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20286725/images/895753805?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nowa TV",
+    "id": "20287484",
+    "link": "https://playnow.pl/kanalytv/20287484",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20287484/images/895763873?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Super POLSAT",
+    "id": "20183322",
+    "link": "https://playnow.pl/kanalytv/20183322",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183322/images/896414998?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "WP HD",
+    "id": "1337234",
+    "link": "https://playnow.pl/kanalytv/1337234",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/1337234/images/843501126?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Antena HD",
+    "id": "11984847",
+    "link": "https://playnow.pl/kanalytv/11984847",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/11984847/images/819430223?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TV Trwam",
+    "id": "23940448",
+    "link": "https://playnow.pl/kanalytv/23940448",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23940448/images/930307516?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVN24",
+    "id": "7208754",
+    "link": "https://playnow.pl/kanalytv/7208754",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/7208754/images/1032763214?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Channel HD",
+    "id": "20183289",
+    "link": "https://playnow.pl/kanalytv/20183289",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183289/images/1025055466?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HISTORY",
+    "id": "9",
+    "link": "https://playnow.pl/kanalytv/9",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9/images/1025055487?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC First",
+    "id": "38019",
+    "link": "https://playnow.pl/kanalytv/38019",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38019/images/908106502?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Viasat True Crime",
+    "id": "27353030",
+    "link": "https://playnow.pl/kanalytv/27353030",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/27353030/images/964128078?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "AXN",
+    "id": "33",
+    "link": "https://playnow.pl/kanalytv/33",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/33/images/940247207?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "AXN Black",
+    "id": "9234615",
+    "link": "https://playnow.pl/kanalytv/9234615",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9234615/images/798182816?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nowość! Stargaze TV",
+    "id": "37867243",
+    "link": "https://playnow.pl/kanalytv/37867243",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/37867243/images/1061622926?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "wPolsce24",
+    "id": "23030282",
+    "link": "https://playnow.pl/kanalytv/23030282",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23030282/images/981472197?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Super POLSAT",
+    "id": "20183322",
+    "link": "https://playnow.pl/kanalytv/20183322",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183322/images/896414998?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "WP HD",
+    "id": "1337234",
+    "link": "https://playnow.pl/kanalytv/1337234",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/1337234/images/843501126?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Antena HD",
+    "id": "11984847",
+    "link": "https://playnow.pl/kanalytv/11984847",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/11984847/images/819430223?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TV Trwam",
+    "id": "23940448",
+    "link": "https://playnow.pl/kanalytv/23940448",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23940448/images/930307516?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVN24",
+    "id": "7208754",
+    "link": "https://playnow.pl/kanalytv/7208754",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/7208754/images/1032763214?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Channel HD",
+    "id": "20183289",
+    "link": "https://playnow.pl/kanalytv/20183289",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183289/images/1025055466?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HISTORY",
+    "id": "9",
+    "link": "https://playnow.pl/kanalytv/9",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9/images/1025055487?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC First",
+    "id": "38019",
+    "link": "https://playnow.pl/kanalytv/38019",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38019/images/908106502?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Viasat True Crime",
+    "id": "27353030",
+    "link": "https://playnow.pl/kanalytv/27353030",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/27353030/images/964128078?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "AXN",
+    "id": "33",
+    "link": "https://playnow.pl/kanalytv/33",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/33/images/940247207?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "AXN Black",
+    "id": "9234615",
+    "link": "https://playnow.pl/kanalytv/9234615",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9234615/images/798182816?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nowość! Stargaze TV",
+    "id": "37867243",
+    "link": "https://playnow.pl/kanalytv/37867243",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/37867243/images/1061622926?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "wPolsce24",
+    "id": "23030282",
+    "link": "https://playnow.pl/kanalytv/23030282",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23030282/images/981472197?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Stopklatka TV",
+    "id": "2476979",
+    "link": "https://playnow.pl/kanalytv/2476979",
+    "logo": "https://r.dcs.redcdn.pl/scale/o2/portal/dev/upload/live/2476979/images/918740851?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Jurassic World: Odrodzenie ...",
+    "id": "27128851",
+    "link": "https://playnow.pl/kanalytv/27128851",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/27128851/images/1033972888?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "FX HD",
+    "id": "3239191",
+    "link": "https://playnow.pl/kanalytv/3239191",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3239191/images/926573304?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "FX Comedy HD",
+    "id": "3294207",
+    "link": "https://playnow.pl/kanalytv/3294207",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3294207/images/926573290?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Paramount Network",
+    "id": "38023",
+    "link": "https://playnow.pl/kanalytv/38023",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38023/images/284054679?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Ale Kino+",
+    "id": "13532285",
+    "link": "https://playnow.pl/kanalytv/13532285",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/13532285/images/833526680?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Comedy Central",
+    "id": "22",
+    "link": "https://playnow.pl/kanalytv/22",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/22/images/908106480?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Comedy Central Extra",
+    "id": "2919191",
+    "link": "https://playnow.pl/kanalytv/2919191",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2919191/images/908106478?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "AMC",
+    "id": "2",
+    "link": "https://playnow.pl/kanalytv/2",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2/images/812596796?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Warner TV",
+    "id": "36017",
+    "link": "https://playnow.pl/kanalytv/36017",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/36017/images/1023143723?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVN Fabuła HD",
+    "id": "20183307",
+    "link": "https://playnow.pl/kanalytv/20183307",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183307/images/896415004?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Epic Drama",
+    "id": "2060267",
+    "link": "https://playnow.pl/kanalytv/2060267",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2060267/images/908106482?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Super POLSAT",
+    "id": "20183322",
+    "link": "https://playnow.pl/kanalytv/20183322",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183322/images/896414998?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "WP HD",
+    "id": "1337234",
+    "link": "https://playnow.pl/kanalytv/1337234",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/1337234/images/843501126?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Antena HD",
+    "id": "11984847",
+    "link": "https://playnow.pl/kanalytv/11984847",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/11984847/images/819430223?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TV Trwam",
+    "id": "23940448",
+    "link": "https://playnow.pl/kanalytv/23940448",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23940448/images/930307516?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVN24",
+    "id": "7208754",
+    "link": "https://playnow.pl/kanalytv/7208754",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/7208754/images/1032763214?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Discovery Channel HD",
+    "id": "20183289",
+    "link": "https://playnow.pl/kanalytv/20183289",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183289/images/1025055466?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HISTORY",
+    "id": "9",
+    "link": "https://playnow.pl/kanalytv/9",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9/images/1025055487?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC First",
+    "id": "38019",
+    "link": "https://playnow.pl/kanalytv/38019",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38019/images/908106502?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Viasat True Crime",
+    "id": "27353030",
+    "link": "https://playnow.pl/kanalytv/27353030",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/27353030/images/964128078?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "AXN",
+    "id": "33",
+    "link": "https://playnow.pl/kanalytv/33",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/33/images/940247207?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "AXN Black",
+    "id": "9234615",
+    "link": "https://playnow.pl/kanalytv/9234615",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9234615/images/798182816?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nowość! Stargaze TV",
+    "id": "37867243",
+    "link": "https://playnow.pl/kanalytv/37867243",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/37867243/images/1061622926?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "wPolsce24",
+    "id": "23030282",
+    "link": "https://playnow.pl/kanalytv/23030282",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23030282/images/981472197?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Stopklatka TV",
+    "id": "2476979",
+    "link": "https://playnow.pl/kanalytv/2476979",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/o2/portal/dev/upload/live/2476979/images/918740851?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Jurassic World: Odrodzenie ...",
+    "id": "27128851",
+    "link": "https://playnow.pl/kanalytv/27128851",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/27128851/images/1033972888?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "FX HD",
+    "id": "3239191",
+    "link": "https://playnow.pl/kanalytv/3239191",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3239191/images/926573304?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "FX Comedy HD",
+    "id": "3294207",
+    "link": "https://playnow.pl/kanalytv/3294207",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3294207/images/926573290?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Paramount Network",
+    "id": "38023",
+    "link": "https://playnow.pl/kanalytv/38023",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38023/images/284054679?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Ale Kino+",
+    "id": "13532285",
+    "link": "https://playnow.pl/kanalytv/13532285",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/13532285/images/833526680?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Comedy Central",
+    "id": "22",
+    "link": "https://playnow.pl/kanalytv/22",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/22/images/908106480?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Comedy Central Extra",
+    "id": "2919191",
+    "link": "https://playnow.pl/kanalytv/2919191",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2919191/images/908106478?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "AMC",
+    "id": "2",
+    "link": "https://playnow.pl/kanalytv/2",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2/images/812596796?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Warner TV",
+    "id": "36017",
+    "link": "https://playnow.pl/kanalytv/36017",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/36017/images/1023143723?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVN Fabuła HD",
+    "id": "20183307",
+    "link": "https://playnow.pl/kanalytv/20183307",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183307/images/896415004?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Epic Drama",
+    "id": "2060267",
+    "link": "https://playnow.pl/kanalytv/2060267",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2060267/images/908106482?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nowość! Stargaze TV",
+    "id": "37867243",
+    "link": "https://playnow.pl/kanalytv/37867243",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/37867243/images/1061622926?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "wPolsce24",
+    "id": "23030282",
+    "link": "https://playnow.pl/kanalytv/23030282",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23030282/images/981472197?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Stopklatka TV",
+    "id": "2476979",
+    "link": "https://playnow.pl/kanalytv/2476979",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/o2/portal/dev/upload/live/2476979/images/918740851?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Jurassic World: Odrodzenie ...",
+    "id": "27128851",
+    "link": "https://playnow.pl/kanalytv/27128851",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/27128851/images/1033972888?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "FX HD",
+    "id": "3239191",
+    "link": "https://playnow.pl/kanalytv/3239191",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3239191/images/926573304?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "FX Comedy HD",
+    "id": "3294207",
+    "link": "https://playnow.pl/kanalytv/3294207",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3294207/images/926573290?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Paramount Network",
+    "id": "38023",
+    "link": "https://playnow.pl/kanalytv/38023",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38023/images/284054679?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Ale Kino+",
+    "id": "13532285",
+    "link": "https://playnow.pl/kanalytv/13532285",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/13532285/images/833526680?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Comedy Central",
+    "id": "22",
+    "link": "https://playnow.pl/kanalytv/22",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/22/images/908106480?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Comedy Central Extra",
+    "id": "2919191",
+    "link": "https://playnow.pl/kanalytv/2919191",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2919191/images/908106478?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "AMC",
+    "id": "2",
+    "link": "https://playnow.pl/kanalytv/2",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2/images/812596796?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Warner TV",
+    "id": "36017",
+    "link": "https://playnow.pl/kanalytv/36017",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/36017/images/1023143723?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVN Fabuła HD",
+    "id": "20183307",
+    "link": "https://playnow.pl/kanalytv/20183307",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183307/images/896415004?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Epic Drama",
+    "id": "2060267",
+    "link": "https://playnow.pl/kanalytv/2060267",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2060267/images/908106482?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Stopklatka TV",
+    "id": "2476979",
+    "link": "https://playnow.pl/kanalytv/2476979",
+    "logo": "https://r.dcs.redcdn.pl/scale/o2/portal/dev/upload/live/2476979/images/918740851?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "AXN",
+    "id": "33",
+    "link": "https://playnow.pl/kanalytv/33",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/33/images/940247207?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "AXN Black",
+    "id": "9234615",
+    "link": "https://playnow.pl/kanalytv/9234615",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9234615/images/798182816?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "AXN Spin",
+    "id": "24942507",
+    "link": "https://playnow.pl/kanalytv/24942507",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/24942507/images/940247203?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "AXN White",
+    "id": "9234614",
+    "link": "https://playnow.pl/kanalytv/9234614",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9234614/images/798185418?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Kino TV",
+    "id": "23942342",
+    "link": "https://playnow.pl/kanalytv/23942342",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23942342/images/931923694?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT 2",
+    "id": "20288608",
+    "link": "https://playnow.pl/kanalytv/20288608",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20288608/images/896415045?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT Film",
+    "id": "20288611",
+    "link": "https://playnow.pl/kanalytv/20288611",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20288611/images/896415039?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT Seriale",
+    "id": "20183316",
+    "link": "https://playnow.pl/kanalytv/20183316",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183316/images/896415058?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Kino Polska",
+    "id": "28",
+    "link": "https://playnow.pl/kanalytv/28",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/28/images/962917569?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Film Cafe",
+    "id": "16204511",
+    "link": "https://playnow.pl/kanalytv/16204511",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16204511/images/859175344?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Sundance TV",
+    "id": "16204510",
+    "link": "https://playnow.pl/kanalytv/16204510",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16204510/images/859175349?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nowość! Stargaze TV",
+    "id": "37867243",
+    "link": "https://playnow.pl/kanalytv/37867243",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/37867243/images/1061622926?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "wPolsce24",
+    "id": "23030282",
+    "link": "https://playnow.pl/kanalytv/23030282",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23030282/images/981472197?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Stopklatka TV",
+    "id": "2476979",
+    "link": "https://playnow.pl/kanalytv/2476979",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/o2/portal/dev/upload/live/2476979/images/918740851?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Jurassic World: Odrodzenie ...",
+    "id": "27128851",
+    "link": "https://playnow.pl/kanalytv/27128851",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/27128851/images/1033972888?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "FX HD",
+    "id": "3239191",
+    "link": "https://playnow.pl/kanalytv/3239191",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3239191/images/926573304?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "FX Comedy HD",
+    "id": "3294207",
+    "link": "https://playnow.pl/kanalytv/3294207",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3294207/images/926573290?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Paramount Network",
+    "id": "38023",
+    "link": "https://playnow.pl/kanalytv/38023",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38023/images/284054679?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Ale Kino+",
+    "id": "13532285",
+    "link": "https://playnow.pl/kanalytv/13532285",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/13532285/images/833526680?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Comedy Central",
+    "id": "22",
+    "link": "https://playnow.pl/kanalytv/22",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/22/images/908106480?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat Comedy Central Extra",
+    "id": "2919191",
+    "link": "https://playnow.pl/kanalytv/2919191",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2919191/images/908106478?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "AMC",
+    "id": "2",
+    "link": "https://playnow.pl/kanalytv/2",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2/images/812596796?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Warner TV",
+    "id": "36017",
+    "link": "https://playnow.pl/kanalytv/36017",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/36017/images/1023143723?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVN Fabuła HD",
+    "id": "20183307",
+    "link": "https://playnow.pl/kanalytv/20183307",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183307/images/896415004?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Epic Drama",
+    "id": "2060267",
+    "link": "https://playnow.pl/kanalytv/2060267",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2060267/images/908106482?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Stopklatka TV",
+    "id": "2476979",
+    "link": "https://playnow.pl/kanalytv/2476979",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/o2/portal/dev/upload/live/2476979/images/918740851?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "AXN",
+    "id": "33",
+    "link": "https://playnow.pl/kanalytv/33",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/33/images/940247207?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "AXN Black",
+    "id": "9234615",
+    "link": "https://playnow.pl/kanalytv/9234615",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9234615/images/798182816?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "AXN Spin",
+    "id": "24942507",
+    "link": "https://playnow.pl/kanalytv/24942507",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/24942507/images/940247203?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "AXN White",
+    "id": "9234614",
+    "link": "https://playnow.pl/kanalytv/9234614",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9234614/images/798185418?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Kino TV",
+    "id": "23942342",
+    "link": "https://playnow.pl/kanalytv/23942342",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23942342/images/931923694?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT 2",
+    "id": "20288608",
+    "link": "https://playnow.pl/kanalytv/20288608",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20288608/images/896415045?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT Film",
+    "id": "20288611",
+    "link": "https://playnow.pl/kanalytv/20288611",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20288611/images/896415039?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT Seriale",
+    "id": "20183316",
+    "link": "https://playnow.pl/kanalytv/20183316",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183316/images/896415058?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Kino Polska",
+    "id": "28",
+    "link": "https://playnow.pl/kanalytv/28",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/28/images/962917569?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Film Cafe",
+    "id": "16204511",
+    "link": "https://playnow.pl/kanalytv/16204511",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16204511/images/859175344?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Sundance TV",
+    "id": "16204510",
+    "link": "https://playnow.pl/kanalytv/16204510",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16204510/images/859175349?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVN Fabuła HD",
+    "id": "20183307",
+    "link": "https://playnow.pl/kanalytv/20183307",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183307/images/896415004?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Epic Drama",
+    "id": "2060267",
+    "link": "https://playnow.pl/kanalytv/2060267",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2060267/images/908106482?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Stopklatka TV",
+    "id": "2476979",
+    "link": "https://playnow.pl/kanalytv/2476979",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/o2/portal/dev/upload/live/2476979/images/918740851?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "AXN",
+    "id": "33",
+    "link": "https://playnow.pl/kanalytv/33",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/33/images/940247207?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "AXN Black",
+    "id": "9234615",
+    "link": "https://playnow.pl/kanalytv/9234615",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9234615/images/798182816?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "AXN Spin",
+    "id": "24942507",
+    "link": "https://playnow.pl/kanalytv/24942507",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/24942507/images/940247203?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "AXN White",
+    "id": "9234614",
+    "link": "https://playnow.pl/kanalytv/9234614",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9234614/images/798185418?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Kino TV",
+    "id": "23942342",
+    "link": "https://playnow.pl/kanalytv/23942342",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23942342/images/931923694?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT 2",
+    "id": "20288608",
+    "link": "https://playnow.pl/kanalytv/20288608",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20288608/images/896415045?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT Film",
+    "id": "20288611",
+    "link": "https://playnow.pl/kanalytv/20288611",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20288611/images/896415039?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT Seriale",
+    "id": "20183316",
+    "link": "https://playnow.pl/kanalytv/20183316",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183316/images/896415058?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Kino Polska",
+    "id": "28",
+    "link": "https://playnow.pl/kanalytv/28",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/28/images/962917569?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Film Cafe",
+    "id": "16204511",
+    "link": "https://playnow.pl/kanalytv/16204511",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16204511/images/859175344?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Sundance TV",
+    "id": "16204510",
+    "link": "https://playnow.pl/kanalytv/16204510",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16204510/images/859175349?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC First",
+    "id": "38019",
+    "link": "https://playnow.pl/kanalytv/38019",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38019/images/908106502?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "13 Ulica",
+    "id": "4387166",
+    "link": "https://playnow.pl/kanalytv/4387166",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/4387166/images/908106484?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "SCI FI",
+    "id": "4342434",
+    "link": "https://playnow.pl/kanalytv/4342434",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/4342434/images/284054819?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "ViDoc TV",
+    "id": "26750226",
+    "link": "https://playnow.pl/kanalytv/26750226",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/26750226/images/958690243?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TeenNick",
+    "id": "12231642",
+    "link": "https://playnow.pl/kanalytv/12231642",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/12231642/images/961447357?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Romance.TV",
+    "id": "24",
+    "link": "https://playnow.pl/kanalytv/24",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/24/images/874819431?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CTV Dla Ciebie ",
+    "id": "36229579",
+    "link": "https://playnow.pl/kanalytv/36229579",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/36229579/images/1042685237?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "NOVELAS+",
+    "id": "13544131",
+    "link": "https://playnow.pl/kanalytv/13544131",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/13544131/images/1023143823?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP Seriale",
+    "id": "25517405",
+    "link": "https://playnow.pl/kanalytv/25517405",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/25517405/images/946932382?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Kabaret TV",
+    "id": "25980529",
+    "link": "https://playnow.pl/kanalytv/25980529",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/25980529/images/951366634?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVN Fabuła HD",
+    "id": "20183307",
+    "link": "https://playnow.pl/kanalytv/20183307",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183307/images/896415004?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Epic Drama",
+    "id": "2060267",
+    "link": "https://playnow.pl/kanalytv/2060267",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2060267/images/908106482?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Stopklatka TV",
+    "id": "2476979",
+    "link": "https://playnow.pl/kanalytv/2476979",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/o2/portal/dev/upload/live/2476979/images/918740851?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "AXN",
+    "id": "33",
+    "link": "https://playnow.pl/kanalytv/33",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/33/images/940247207?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "AXN Black",
+    "id": "9234615",
+    "link": "https://playnow.pl/kanalytv/9234615",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9234615/images/798182816?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "AXN Spin",
+    "id": "24942507",
+    "link": "https://playnow.pl/kanalytv/24942507",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/24942507/images/940247203?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "AXN White",
+    "id": "9234614",
+    "link": "https://playnow.pl/kanalytv/9234614",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9234614/images/798185418?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Kino TV",
+    "id": "23942342",
+    "link": "https://playnow.pl/kanalytv/23942342",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23942342/images/931923694?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT 2",
+    "id": "20288608",
+    "link": "https://playnow.pl/kanalytv/20288608",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20288608/images/896415045?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT Film",
+    "id": "20288611",
+    "link": "https://playnow.pl/kanalytv/20288611",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20288611/images/896415039?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT Seriale",
+    "id": "20183316",
+    "link": "https://playnow.pl/kanalytv/20183316",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183316/images/896415058?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Kino Polska",
+    "id": "28",
+    "link": "https://playnow.pl/kanalytv/28",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/28/images/962917569?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Film Cafe",
+    "id": "16204511",
+    "link": "https://playnow.pl/kanalytv/16204511",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16204511/images/859175344?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Sundance TV",
+    "id": "16204510",
+    "link": "https://playnow.pl/kanalytv/16204510",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16204510/images/859175349?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC First",
+    "id": "38019",
+    "link": "https://playnow.pl/kanalytv/38019",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38019/images/908106502?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "13 Ulica",
+    "id": "4387166",
+    "link": "https://playnow.pl/kanalytv/4387166",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/4387166/images/908106484?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "SCI FI",
+    "id": "4342434",
+    "link": "https://playnow.pl/kanalytv/4342434",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/4342434/images/284054819?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "ViDoc TV",
+    "id": "26750226",
+    "link": "https://playnow.pl/kanalytv/26750226",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/26750226/images/958690243?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TeenNick",
+    "id": "12231642",
+    "link": "https://playnow.pl/kanalytv/12231642",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/12231642/images/961447357?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Romance.TV",
+    "id": "24",
+    "link": "https://playnow.pl/kanalytv/24",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/24/images/874819431?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CTV Dla Ciebie ",
+    "id": "36229579",
+    "link": "https://playnow.pl/kanalytv/36229579",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/36229579/images/1042685237?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "NOVELAS+",
+    "id": "13544131",
+    "link": "https://playnow.pl/kanalytv/13544131",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/13544131/images/1023143823?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP Seriale",
+    "id": "25517405",
+    "link": "https://playnow.pl/kanalytv/25517405",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/25517405/images/946932382?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Kabaret TV",
+    "id": "25980529",
+    "link": "https://playnow.pl/kanalytv/25980529",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/25980529/images/951366634?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Film Cafe",
+    "id": "16204511",
+    "link": "https://playnow.pl/kanalytv/16204511",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16204511/images/859175344?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Sundance TV",
+    "id": "16204510",
+    "link": "https://playnow.pl/kanalytv/16204510",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16204510/images/859175349?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC First",
+    "id": "38019",
+    "link": "https://playnow.pl/kanalytv/38019",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38019/images/908106502?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "13 Ulica",
+    "id": "4387166",
+    "link": "https://playnow.pl/kanalytv/4387166",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/4387166/images/908106484?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "SCI FI",
+    "id": "4342434",
+    "link": "https://playnow.pl/kanalytv/4342434",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/4342434/images/284054819?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "ViDoc TV",
+    "id": "26750226",
+    "link": "https://playnow.pl/kanalytv/26750226",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/26750226/images/958690243?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TeenNick",
+    "id": "12231642",
+    "link": "https://playnow.pl/kanalytv/12231642",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/12231642/images/961447357?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Romance.TV",
+    "id": "24",
+    "link": "https://playnow.pl/kanalytv/24",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/24/images/874819431?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CTV Dla Ciebie ",
+    "id": "36229579",
+    "link": "https://playnow.pl/kanalytv/36229579",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/36229579/images/1042685237?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "NOVELAS+",
+    "id": "13544131",
+    "link": "https://playnow.pl/kanalytv/13544131",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/13544131/images/1023143823?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP Seriale",
+    "id": "25517405",
+    "link": "https://playnow.pl/kanalytv/25517405",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/25517405/images/946932382?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Kabaret TV",
+    "id": "25980529",
+    "link": "https://playnow.pl/kanalytv/25980529",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/25980529/images/951366634?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Cinemax HD",
+    "id": "19195238",
+    "link": "https://playnow.pl/kanalytv/19195238",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/19195238/images/1050844145?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Cinemax2 HD",
+    "id": "19195239",
+    "link": "https://playnow.pl/kanalytv/19195239",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/19195239/images/1050844143?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "SkyShowtime 1",
+    "id": "28841472",
+    "link": "https://playnow.pl/kanalytv/28841472",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/28841472/images/975741951?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "SkyShowtime 2",
+    "id": "28842056",
+    "link": "https://playnow.pl/kanalytv/28842056",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/28842056/images/975745454?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Premium ",
+    "id": "14171253",
+    "link": "https://playnow.pl/kanalytv/14171253",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171253/images/838982887?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ 1 HD",
+    "id": "14171259",
+    "link": "https://playnow.pl/kanalytv/14171259",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171259/images/838982875?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Film HD",
+    "id": "14171260",
+    "link": "https://playnow.pl/kanalytv/14171260",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171260/images/838982873?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Seriale HD",
+    "id": "14171261",
+    "link": "https://playnow.pl/kanalytv/14171261",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171261/images/838982871?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ 360",
+    "id": "14171262",
+    "link": "https://playnow.pl/kanalytv/14171262",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171262/images/981832384?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Dokument HD",
+    "id": "14171258",
+    "link": "https://playnow.pl/kanalytv/14171258",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171258/images/838982877?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "FilmBox Premium HD",
+    "id": "23917203",
+    "link": "https://playnow.pl/kanalytv/23917203",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23917203/images/1023144057?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Film Cafe",
+    "id": "16204511",
+    "link": "https://playnow.pl/kanalytv/16204511",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16204511/images/859175344?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Sundance TV",
+    "id": "16204510",
+    "link": "https://playnow.pl/kanalytv/16204510",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/16204510/images/859175349?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "BBC First",
+    "id": "38019",
+    "link": "https://playnow.pl/kanalytv/38019",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38019/images/908106502?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "13 Ulica",
+    "id": "4387166",
+    "link": "https://playnow.pl/kanalytv/4387166",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/4387166/images/908106484?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "SCI FI",
+    "id": "4342434",
+    "link": "https://playnow.pl/kanalytv/4342434",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/4342434/images/284054819?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "ViDoc TV",
+    "id": "26750226",
+    "link": "https://playnow.pl/kanalytv/26750226",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/26750226/images/958690243?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TeenNick",
+    "id": "12231642",
+    "link": "https://playnow.pl/kanalytv/12231642",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/12231642/images/961447357?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Romance.TV",
+    "id": "24",
+    "link": "https://playnow.pl/kanalytv/24",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/24/images/874819431?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CTV Dla Ciebie ",
+    "id": "36229579",
+    "link": "https://playnow.pl/kanalytv/36229579",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/36229579/images/1042685237?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "NOVELAS+",
+    "id": "13544131",
+    "link": "https://playnow.pl/kanalytv/13544131",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/13544131/images/1023143823?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP Seriale",
+    "id": "25517405",
+    "link": "https://playnow.pl/kanalytv/25517405",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/25517405/images/946932382?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Kabaret TV",
+    "id": "25980529",
+    "link": "https://playnow.pl/kanalytv/25980529",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/25980529/images/951366634?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Cinemax HD",
+    "id": "19195238",
+    "link": "https://playnow.pl/kanalytv/19195238",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/19195238/images/1050844145?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Cinemax2 HD",
+    "id": "19195239",
+    "link": "https://playnow.pl/kanalytv/19195239",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/19195239/images/1050844143?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "SkyShowtime 1",
+    "id": "28841472",
+    "link": "https://playnow.pl/kanalytv/28841472",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/28841472/images/975741951?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "SkyShowtime 2",
+    "id": "28842056",
+    "link": "https://playnow.pl/kanalytv/28842056",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/28842056/images/975745454?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Premium ",
+    "id": "14171253",
+    "link": "https://playnow.pl/kanalytv/14171253",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171253/images/838982887?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ 1 HD",
+    "id": "14171259",
+    "link": "https://playnow.pl/kanalytv/14171259",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171259/images/838982875?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Film HD",
+    "id": "14171260",
+    "link": "https://playnow.pl/kanalytv/14171260",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171260/images/838982873?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Seriale HD",
+    "id": "14171261",
+    "link": "https://playnow.pl/kanalytv/14171261",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171261/images/838982871?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ 360",
+    "id": "14171262",
+    "link": "https://playnow.pl/kanalytv/14171262",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171262/images/981832384?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Dokument HD",
+    "id": "14171258",
+    "link": "https://playnow.pl/kanalytv/14171258",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171258/images/838982877?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "FilmBox Premium HD",
+    "id": "23917203",
+    "link": "https://playnow.pl/kanalytv/23917203",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23917203/images/1023144057?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Cinemax HD",
+    "id": "19195238",
+    "link": "https://playnow.pl/kanalytv/19195238",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/19195238/images/1050844145?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Cinemax2 HD",
+    "id": "19195239",
+    "link": "https://playnow.pl/kanalytv/19195239",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/19195239/images/1050844143?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "SkyShowtime 1",
+    "id": "28841472",
+    "link": "https://playnow.pl/kanalytv/28841472",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/28841472/images/975741951?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "SkyShowtime 2",
+    "id": "28842056",
+    "link": "https://playnow.pl/kanalytv/28842056",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/28842056/images/975745454?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Premium ",
+    "id": "14171253",
+    "link": "https://playnow.pl/kanalytv/14171253",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171253/images/838982887?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ 1 HD",
+    "id": "14171259",
+    "link": "https://playnow.pl/kanalytv/14171259",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171259/images/838982875?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Film HD",
+    "id": "14171260",
+    "link": "https://playnow.pl/kanalytv/14171260",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171260/images/838982873?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Seriale HD",
+    "id": "14171261",
+    "link": "https://playnow.pl/kanalytv/14171261",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171261/images/838982871?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ 360",
+    "id": "14171262",
+    "link": "https://playnow.pl/kanalytv/14171262",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171262/images/981832384?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Dokument HD",
+    "id": "14171258",
+    "link": "https://playnow.pl/kanalytv/14171258",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171258/images/838982877?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "FilmBox Premium HD",
+    "id": "23917203",
+    "link": "https://playnow.pl/kanalytv/23917203",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23917203/images/1023144057?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "FilmBox Extra HD",
+    "id": "23917217",
+    "link": "https://playnow.pl/kanalytv/23917217",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23917217/images/1023144069?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "FilmBox Action",
+    "id": "23917234",
+    "link": "https://playnow.pl/kanalytv/23917234",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23917234/images/1023144090?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "FilmBox Family",
+    "id": "23917248",
+    "link": "https://playnow.pl/kanalytv/23917248",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23917248/images/1023144129?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "FilmBox Arthouse HD",
+    "id": "23917315",
+    "link": "https://playnow.pl/kanalytv/23917315",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23917315/images/1023144159?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVN24",
+    "id": "7208754",
+    "link": "https://playnow.pl/kanalytv/7208754",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/7208754/images/1032763214?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVN24 BIS",
+    "id": "7208755",
+    "link": "https://playnow.pl/kanalytv/7208755",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/7208755/images/1032763232?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT News",
+    "id": "20183312",
+    "link": "https://playnow.pl/kanalytv/20183312",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183312/images/896415050?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT News 2",
+    "id": "20183313",
+    "link": "https://playnow.pl/kanalytv/20183313",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183313/images/896415052?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Wydarzenia24",
+    "id": "20183323",
+    "link": "https://playnow.pl/kanalytv/20183323",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183323/images/896414996?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nowość! Euronews PL",
+    "id": "35600060",
+    "link": "https://playnow.pl/kanalytv/35600060",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/35600060/images/1035545579?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP INFO",
+    "id": "21228820",
+    "link": "https://playnow.pl/kanalytv/21228820",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/21228820/images/984696892?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "wPolsce24",
+    "id": "23030282",
+    "link": "https://playnow.pl/kanalytv/23030282",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23030282/images/981472197?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Cinemax HD",
+    "id": "19195238",
+    "link": "https://playnow.pl/kanalytv/19195238",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/19195238/images/1050844145?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Cinemax2 HD",
+    "id": "19195239",
+    "link": "https://playnow.pl/kanalytv/19195239",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/19195239/images/1050844143?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "SkyShowtime 1",
+    "id": "28841472",
+    "link": "https://playnow.pl/kanalytv/28841472",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/28841472/images/975741951?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "SkyShowtime 2",
+    "id": "28842056",
+    "link": "https://playnow.pl/kanalytv/28842056",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/28842056/images/975745454?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Premium ",
+    "id": "14171253",
+    "link": "https://playnow.pl/kanalytv/14171253",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171253/images/838982887?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ 1 HD",
+    "id": "14171259",
+    "link": "https://playnow.pl/kanalytv/14171259",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171259/images/838982875?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Film HD",
+    "id": "14171260",
+    "link": "https://playnow.pl/kanalytv/14171260",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171260/images/838982873?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Seriale HD",
+    "id": "14171261",
+    "link": "https://playnow.pl/kanalytv/14171261",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171261/images/838982871?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ 360",
+    "id": "14171262",
+    "link": "https://playnow.pl/kanalytv/14171262",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171262/images/981832384?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Dokument HD",
+    "id": "14171258",
+    "link": "https://playnow.pl/kanalytv/14171258",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171258/images/838982877?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "FilmBox Premium HD",
+    "id": "23917203",
+    "link": "https://playnow.pl/kanalytv/23917203",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23917203/images/1023144057?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "FilmBox Extra HD",
+    "id": "23917217",
+    "link": "https://playnow.pl/kanalytv/23917217",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23917217/images/1023144069?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "FilmBox Action",
+    "id": "23917234",
+    "link": "https://playnow.pl/kanalytv/23917234",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23917234/images/1023144090?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "FilmBox Family",
+    "id": "23917248",
+    "link": "https://playnow.pl/kanalytv/23917248",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23917248/images/1023144129?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "FilmBox Arthouse HD",
+    "id": "23917315",
+    "link": "https://playnow.pl/kanalytv/23917315",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23917315/images/1023144159?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVN24",
+    "id": "7208754",
+    "link": "https://playnow.pl/kanalytv/7208754",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/7208754/images/1032763214?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVN24 BIS",
+    "id": "7208755",
+    "link": "https://playnow.pl/kanalytv/7208755",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/7208755/images/1032763232?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT News",
+    "id": "20183312",
+    "link": "https://playnow.pl/kanalytv/20183312",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183312/images/896415050?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT News 2",
+    "id": "20183313",
+    "link": "https://playnow.pl/kanalytv/20183313",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183313/images/896415052?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Wydarzenia24",
+    "id": "20183323",
+    "link": "https://playnow.pl/kanalytv/20183323",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183323/images/896414996?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nowość! Euronews PL",
+    "id": "35600060",
+    "link": "https://playnow.pl/kanalytv/35600060",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/35600060/images/1035545579?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP INFO",
+    "id": "21228820",
+    "link": "https://playnow.pl/kanalytv/21228820",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/21228820/images/984696892?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "wPolsce24",
+    "id": "23030282",
+    "link": "https://playnow.pl/kanalytv/23030282",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23030282/images/981472197?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Dokument HD",
+    "id": "14171258",
+    "link": "https://playnow.pl/kanalytv/14171258",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171258/images/838982877?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "FilmBox Premium HD",
+    "id": "23917203",
+    "link": "https://playnow.pl/kanalytv/23917203",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23917203/images/1023144057?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "FilmBox Extra HD",
+    "id": "23917217",
+    "link": "https://playnow.pl/kanalytv/23917217",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23917217/images/1023144069?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "FilmBox Action",
+    "id": "23917234",
+    "link": "https://playnow.pl/kanalytv/23917234",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23917234/images/1023144090?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "FilmBox Family",
+    "id": "23917248",
+    "link": "https://playnow.pl/kanalytv/23917248",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23917248/images/1023144129?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "FilmBox Arthouse HD",
+    "id": "23917315",
+    "link": "https://playnow.pl/kanalytv/23917315",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23917315/images/1023144159?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVN24",
+    "id": "7208754",
+    "link": "https://playnow.pl/kanalytv/7208754",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/7208754/images/1032763214?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVN24 BIS",
+    "id": "7208755",
+    "link": "https://playnow.pl/kanalytv/7208755",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/7208755/images/1032763232?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT News",
+    "id": "20183312",
+    "link": "https://playnow.pl/kanalytv/20183312",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183312/images/896415050?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT News 2",
+    "id": "20183313",
+    "link": "https://playnow.pl/kanalytv/20183313",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183313/images/896415052?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Wydarzenia24",
+    "id": "20183323",
+    "link": "https://playnow.pl/kanalytv/20183323",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183323/images/896414996?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nowość! Euronews PL",
+    "id": "35600060",
+    "link": "https://playnow.pl/kanalytv/35600060",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/35600060/images/1035545579?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP INFO",
+    "id": "21228820",
+    "link": "https://playnow.pl/kanalytv/21228820",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/21228820/images/984696892?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "wPolsce24",
+    "id": "23030282",
+    "link": "https://playnow.pl/kanalytv/23030282",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23030282/images/981472197?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TV Republika HD",
+    "id": "21878540",
+    "link": "https://playnow.pl/kanalytv/21878540",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/21878540/images/910772982?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Biznes24",
+    "id": "18188594",
+    "link": "https://playnow.pl/kanalytv/18188594",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/18188594/images/876355257?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "News24",
+    "id": "14885210",
+    "link": "https://playnow.pl/kanalytv/14885210",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14885210/images/872587022?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat News Polityka",
+    "id": "24725756",
+    "link": "https://playnow.pl/kanalytv/24725756",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/24725756/images/937177205?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVS",
+    "id": "13352686",
+    "link": "https://playnow.pl/kanalytv/13352686",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/13352686/images/831494260?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVC HD",
+    "id": "11984842",
+    "link": "https://playnow.pl/kanalytv/11984842",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/11984842/images/970725781?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polonia1",
+    "id": "11984841",
+    "link": "https://playnow.pl/kanalytv/11984841",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/11984841/images/1023144165?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Tele5",
+    "id": "11984840",
+    "link": "https://playnow.pl/kanalytv/11984840",
+    "logo": "https://r.dcs.redcdn.pl/scale/o2/portal/dev/upload/live/11984840/images/926524377?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT Rodzina",
+    "id": "20183315",
+    "link": "https://playnow.pl/kanalytv/20183315",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183315/images/896415056?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TBN Polska",
+    "id": "18187556",
+    "link": "https://playnow.pl/kanalytv/18187556",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/18187556/images/1023144184?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "DayStar HD",
+    "id": "36187109",
+    "link": "https://playnow.pl/kanalytv/36187109",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/36187109/images/1041995388?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Białystok",
+    "id": "25985264",
+    "link": "https://playnow.pl/kanalytv/25985264",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/25985264/images/951848676?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "CANAL+ Dokument HD",
+    "id": "14171258",
+    "link": "https://playnow.pl/kanalytv/14171258",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14171258/images/838982877?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "FilmBox Premium HD",
+    "id": "23917203",
+    "link": "https://playnow.pl/kanalytv/23917203",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23917203/images/1023144057?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "FilmBox Extra HD",
+    "id": "23917217",
+    "link": "https://playnow.pl/kanalytv/23917217",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23917217/images/1023144069?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "FilmBox Action",
+    "id": "23917234",
+    "link": "https://playnow.pl/kanalytv/23917234",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23917234/images/1023144090?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "FilmBox Family",
+    "id": "23917248",
+    "link": "https://playnow.pl/kanalytv/23917248",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23917248/images/1023144129?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "FilmBox Arthouse HD",
+    "id": "23917315",
+    "link": "https://playnow.pl/kanalytv/23917315",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23917315/images/1023144159?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVN24",
+    "id": "7208754",
+    "link": "https://playnow.pl/kanalytv/7208754",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/7208754/images/1032763214?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVN24 BIS",
+    "id": "7208755",
+    "link": "https://playnow.pl/kanalytv/7208755",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/7208755/images/1032763232?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT News",
+    "id": "20183312",
+    "link": "https://playnow.pl/kanalytv/20183312",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183312/images/896415050?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT News 2",
+    "id": "20183313",
+    "link": "https://playnow.pl/kanalytv/20183313",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183313/images/896415052?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Wydarzenia24",
+    "id": "20183323",
+    "link": "https://playnow.pl/kanalytv/20183323",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183323/images/896414996?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Nowość! Euronews PL",
+    "id": "35600060",
+    "link": "https://playnow.pl/kanalytv/35600060",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/35600060/images/1035545579?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP INFO",
+    "id": "21228820",
+    "link": "https://playnow.pl/kanalytv/21228820",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/21228820/images/984696892?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "wPolsce24",
+    "id": "23030282",
+    "link": "https://playnow.pl/kanalytv/23030282",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23030282/images/981472197?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TV Republika HD",
+    "id": "21878540",
+    "link": "https://playnow.pl/kanalytv/21878540",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/21878540/images/910772982?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Biznes24",
+    "id": "18188594",
+    "link": "https://playnow.pl/kanalytv/18188594",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/18188594/images/876355257?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "News24",
+    "id": "14885210",
+    "link": "https://playnow.pl/kanalytv/14885210",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14885210/images/872587022?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat News Polityka",
+    "id": "24725756",
+    "link": "https://playnow.pl/kanalytv/24725756",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/24725756/images/937177205?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVS",
+    "id": "13352686",
+    "link": "https://playnow.pl/kanalytv/13352686",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/13352686/images/831494260?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVC HD",
+    "id": "11984842",
+    "link": "https://playnow.pl/kanalytv/11984842",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/11984842/images/970725781?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polonia1",
+    "id": "11984841",
+    "link": "https://playnow.pl/kanalytv/11984841",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/11984841/images/1023144165?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Tele5",
+    "id": "11984840",
+    "link": "https://playnow.pl/kanalytv/11984840",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/o2/portal/dev/upload/live/11984840/images/926524377?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT Rodzina",
+    "id": "20183315",
+    "link": "https://playnow.pl/kanalytv/20183315",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183315/images/896415056?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TBN Polska",
+    "id": "18187556",
+    "link": "https://playnow.pl/kanalytv/18187556",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/18187556/images/1023144184?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "DayStar HD",
+    "id": "36187109",
+    "link": "https://playnow.pl/kanalytv/36187109",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/36187109/images/1041995388?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Białystok",
+    "id": "25985264",
+    "link": "https://playnow.pl/kanalytv/25985264",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/25985264/images/951848676?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP INFO",
+    "id": "21228820",
+    "link": "https://playnow.pl/kanalytv/21228820",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/21228820/images/984696892?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "wPolsce24",
+    "id": "23030282",
+    "link": "https://playnow.pl/kanalytv/23030282",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23030282/images/981472197?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TV Republika HD",
+    "id": "21878540",
+    "link": "https://playnow.pl/kanalytv/21878540",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/21878540/images/910772982?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Biznes24",
+    "id": "18188594",
+    "link": "https://playnow.pl/kanalytv/18188594",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/18188594/images/876355257?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "News24",
+    "id": "14885210",
+    "link": "https://playnow.pl/kanalytv/14885210",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14885210/images/872587022?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat News Polityka",
+    "id": "24725756",
+    "link": "https://playnow.pl/kanalytv/24725756",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/24725756/images/937177205?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVS",
+    "id": "13352686",
+    "link": "https://playnow.pl/kanalytv/13352686",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/13352686/images/831494260?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVC HD",
+    "id": "11984842",
+    "link": "https://playnow.pl/kanalytv/11984842",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/11984842/images/970725781?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polonia1",
+    "id": "11984841",
+    "link": "https://playnow.pl/kanalytv/11984841",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/11984841/images/1023144165?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Tele5",
+    "id": "11984840",
+    "link": "https://playnow.pl/kanalytv/11984840",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/o2/portal/dev/upload/live/11984840/images/926524377?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT Rodzina",
+    "id": "20183315",
+    "link": "https://playnow.pl/kanalytv/20183315",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183315/images/896415056?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TBN Polska",
+    "id": "18187556",
+    "link": "https://playnow.pl/kanalytv/18187556",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/18187556/images/1023144184?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "DayStar HD",
+    "id": "36187109",
+    "link": "https://playnow.pl/kanalytv/36187109",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/36187109/images/1041995388?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Białystok",
+    "id": "25985264",
+    "link": "https://playnow.pl/kanalytv/25985264",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/25985264/images/951848676?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Bydgoszcz",
+    "id": "25988999",
+    "link": "https://playnow.pl/kanalytv/25988999",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/25988999/images/951848677?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Gdańsk",
+    "id": "25991928",
+    "link": "https://playnow.pl/kanalytv/25991928",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/25991928/images/951848682?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Gorzów Wielkopolski",
+    "id": "25994762",
+    "link": "https://playnow.pl/kanalytv/25994762",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/25994762/images/951848686?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Katowice",
+    "id": "25997882",
+    "link": "https://playnow.pl/kanalytv/25997882",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/25997882/images/951848688?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Kielce",
+    "id": "26000579",
+    "link": "https://playnow.pl/kanalytv/26000579",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/26000579/images/951848694?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Kraków",
+    "id": "26002254",
+    "link": "https://playnow.pl/kanalytv/26002254",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/26002254/images/951848696?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Lublin",
+    "id": "26004026",
+    "link": "https://playnow.pl/kanalytv/26004026",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/26004026/images/951848698?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Łódź",
+    "id": "26005337",
+    "link": "https://playnow.pl/kanalytv/26005337",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/26005337/images/951848700?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Olsztyn",
+    "id": "26006568",
+    "link": "https://playnow.pl/kanalytv/26006568",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/26006568/images/951848702?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Opole",
+    "id": "26007844",
+    "link": "https://playnow.pl/kanalytv/26007844",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/26007844/images/951848704?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Poznań",
+    "id": "26009065",
+    "link": "https://playnow.pl/kanalytv/26009065",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/26009065/images/951848692?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Rzeszów",
+    "id": "26010495",
+    "link": "https://playnow.pl/kanalytv/26010495",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/26010495/images/951848690?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP INFO",
+    "id": "21228820",
+    "link": "https://playnow.pl/kanalytv/21228820",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/21228820/images/984696892?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "wPolsce24",
+    "id": "23030282",
+    "link": "https://playnow.pl/kanalytv/23030282",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23030282/images/981472197?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TV Republika HD",
+    "id": "21878540",
+    "link": "https://playnow.pl/kanalytv/21878540",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/21878540/images/910772982?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Biznes24",
+    "id": "18188594",
+    "link": "https://playnow.pl/kanalytv/18188594",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/18188594/images/876355257?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "News24",
+    "id": "14885210",
+    "link": "https://playnow.pl/kanalytv/14885210",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/14885210/images/872587022?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polsat News Polityka",
+    "id": "24725756",
+    "link": "https://playnow.pl/kanalytv/24725756",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/24725756/images/937177205?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVS",
+    "id": "13352686",
+    "link": "https://playnow.pl/kanalytv/13352686",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/13352686/images/831494260?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVC HD",
+    "id": "11984842",
+    "link": "https://playnow.pl/kanalytv/11984842",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/11984842/images/970725781?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Polonia1",
+    "id": "11984841",
+    "link": "https://playnow.pl/kanalytv/11984841",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/11984841/images/1023144165?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Tele5",
+    "id": "11984840",
+    "link": "https://playnow.pl/kanalytv/11984840",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/o2/portal/dev/upload/live/11984840/images/926524377?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT Rodzina",
+    "id": "20183315",
+    "link": "https://playnow.pl/kanalytv/20183315",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183315/images/896415056?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TBN Polska",
+    "id": "18187556",
+    "link": "https://playnow.pl/kanalytv/18187556",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/18187556/images/1023144184?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "DayStar HD",
+    "id": "36187109",
+    "link": "https://playnow.pl/kanalytv/36187109",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/36187109/images/1041995388?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Białystok",
+    "id": "25985264",
+    "link": "https://playnow.pl/kanalytv/25985264",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/25985264/images/951848676?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Bydgoszcz",
+    "id": "25988999",
+    "link": "https://playnow.pl/kanalytv/25988999",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/25988999/images/951848677?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Gdańsk",
+    "id": "25991928",
+    "link": "https://playnow.pl/kanalytv/25991928",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/25991928/images/951848682?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Gorzów Wielkopolski",
+    "id": "25994762",
+    "link": "https://playnow.pl/kanalytv/25994762",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/25994762/images/951848686?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Katowice",
+    "id": "25997882",
+    "link": "https://playnow.pl/kanalytv/25997882",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/25997882/images/951848688?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Kielce",
+    "id": "26000579",
+    "link": "https://playnow.pl/kanalytv/26000579",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/26000579/images/951848694?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Kraków",
+    "id": "26002254",
+    "link": "https://playnow.pl/kanalytv/26002254",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/26002254/images/951848696?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Lublin",
+    "id": "26004026",
+    "link": "https://playnow.pl/kanalytv/26004026",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/26004026/images/951848698?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Łódź",
+    "id": "26005337",
+    "link": "https://playnow.pl/kanalytv/26005337",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/26005337/images/951848700?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Olsztyn",
+    "id": "26006568",
+    "link": "https://playnow.pl/kanalytv/26006568",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/26006568/images/951848702?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Opole",
+    "id": "26007844",
+    "link": "https://playnow.pl/kanalytv/26007844",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/26007844/images/951848704?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Poznań",
+    "id": "26009065",
+    "link": "https://playnow.pl/kanalytv/26009065",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/26009065/images/951848692?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Rzeszów",
+    "id": "26010495",
+    "link": "https://playnow.pl/kanalytv/26010495",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/26010495/images/951848690?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "DayStar HD",
+    "id": "36187109",
+    "link": "https://playnow.pl/kanalytv/36187109",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/36187109/images/1041995388?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Białystok",
+    "id": "25985264",
+    "link": "https://playnow.pl/kanalytv/25985264",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/25985264/images/951848676?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Bydgoszcz",
+    "id": "25988999",
+    "link": "https://playnow.pl/kanalytv/25988999",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/25988999/images/951848677?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Gdańsk",
+    "id": "25991928",
+    "link": "https://playnow.pl/kanalytv/25991928",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/25991928/images/951848682?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Gorzów Wielkopolski",
+    "id": "25994762",
+    "link": "https://playnow.pl/kanalytv/25994762",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/25994762/images/951848686?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Katowice",
+    "id": "25997882",
+    "link": "https://playnow.pl/kanalytv/25997882",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/25997882/images/951848688?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Kielce",
+    "id": "26000579",
+    "link": "https://playnow.pl/kanalytv/26000579",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/26000579/images/951848694?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Kraków",
+    "id": "26002254",
+    "link": "https://playnow.pl/kanalytv/26002254",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/26002254/images/951848696?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Lublin",
+    "id": "26004026",
+    "link": "https://playnow.pl/kanalytv/26004026",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/26004026/images/951848698?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Łódź",
+    "id": "26005337",
+    "link": "https://playnow.pl/kanalytv/26005337",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/26005337/images/951848700?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Olsztyn",
+    "id": "26006568",
+    "link": "https://playnow.pl/kanalytv/26006568",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/26006568/images/951848702?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Opole",
+    "id": "26007844",
+    "link": "https://playnow.pl/kanalytv/26007844",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/26007844/images/951848704?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Poznań",
+    "id": "26009065",
+    "link": "https://playnow.pl/kanalytv/26009065",
+    "logo": "https:https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/26009065/images/951848692?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Rzeszów",
+    "id": "26010495",
+    "link": "https://playnow.pl/kanalytv/26010495",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/26010495/images/951848690?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Szczecin",
+    "id": "26012066",
+    "link": "https://playnow.pl/kanalytv/26012066",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/26012066/images/951848684?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVP3 Wrocław",
+    "id": "26013653",
+    "link": "https://playnow.pl/kanalytv/26013653",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/26013653/images/951848680?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "WTK",
+    "id": "27889886",
+    "link": "https://playnow.pl/kanalytv/27889886",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/27889886/images/967695277?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVT",
+    "id": "30394070",
+    "link": "https://playnow.pl/kanalytv/30394070",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/30394070/images/989580607?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "ECHO24",
+    "id": "32639263",
+    "link": "https://playnow.pl/kanalytv/32639263",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/32639263/images/1012273316?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "DlaCiebie. TV",
+    "id": "33423471",
+    "link": "https://playnow.pl/kanalytv/33423471",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/33423471/images/1018108214?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TV Bolesławiec",
+    "id": "34138570",
+    "link": "https://playnow.pl/kanalytv/34138570",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/34138570/images/1023144230?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "Lubuska TV Horyzont",
+    "id": "34380461",
+    "link": "https://playnow.pl/kanalytv/34380461",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/34380461/images/1024584123?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TVN Style HD",
+    "id": "20183308",
+    "link": "https://playnow.pl/kanalytv/20183308",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183308/images/920380116?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "HGTV HD",
+    "id": "20183298",
+    "link": "https://playnow.pl/kanalytv/20183298",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183298/images/896418781?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "POLSAT Cafe",
+    "id": "20288609",
+    "link": "https://playnow.pl/kanalytv/20288609",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20288609/images/896415043?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  },
+  {
+    "name": "TLC HD",
+    "id": "20183303",
+    "link": "https://playnow.pl/kanalytv/20183303",
+    "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183303/images/896415012?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100"
+  }
+]

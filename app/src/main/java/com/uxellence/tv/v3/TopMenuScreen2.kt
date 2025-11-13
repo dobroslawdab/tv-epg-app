@@ -153,7 +153,8 @@ data class AppItem(
 data class TvChannel(
     val name: String,
     val logo: String,
-    val epgId: String? = null  // EPG channel ID for navigation to EPG Day screen
+    val epgId: String? = null,  // EPG channel ID for navigation to EPG Day screen
+    val channelNumber: Int? = null  // Channel number for display (e.g., 1, 50, 600)
 )
 
 data class ServiceLogoItem(
@@ -186,55 +187,103 @@ data class ExpandableChannel(
 
 // Faza 2: MojeFocusPosition deleted - using simple Pair<rowIndex, colIndex> like other sections
 
-// Function to load TV channels from JSON
-private fun loadTvChannelsFromAssets(context: Context): List<TvChannel> {
+// Helper function to load channels from JSON file with channel numbers
+private fun loadChannelsFromJson(context: Context, fileName: String, startNumber: Int): List<TvChannel> {
     return try {
-        val jsonString = context.assets.open("tv_channels_with_streams.json").bufferedReader().use { it.readText() }
+        val jsonString = context.assets.open(fileName).bufferedReader().use { it.readText() }
         val jsonArray = org.json.JSONArray(jsonString)
         val channels = mutableListOf<TvChannel>()
 
         for (i in 0 until jsonArray.length()) {
             val obj = jsonArray.getJSONObject(i)
+            var logoUrl = obj.getString("logo")
+
+            // Fix double "https:https://" prefix
+            if (logoUrl.startsWith("https:https://")) {
+                logoUrl = logoUrl.removePrefix("https:")
+            }
+
             channels.add(
                 TvChannel(
                     name = obj.getString("name"),
-                    logo = obj.getString("logoUrl"),
-                    epgId = obj.optString("epgId", null)  // Extract EPG ID for navigation
+                    logo = logoUrl,
+                    epgId = obj.optString("id", null),
+                    channelNumber = startNumber + i
                 )
             )
         }
-        channels
+
+        // Deduplicate by name
+        channels.distinctBy { it.name }
+            .mapIndexed { index, channel -> channel.copy(channelNumber = startNumber + index) }
     } catch (e: Exception) {
-        android.util.Log.e("TELEWIZJA_DEBUG", "Error loading TV channels: ${e.message}")
+        android.util.Log.e("TELEWIZJA_DEBUG", "Error loading channels from $fileName: ${e.message}")
         emptyList()
     }
 }
 
-// Filter TV channels by category based on channel names
-private fun filterTvChannelsByCategory(channels: List<TvChannel>, category: String): List<TvChannel> {
+// Function to load TV channels from JSON
+private fun loadTvChannelsFromAssets(context: Context): List<TvChannel> {
+    return try {
+        val jsonString = context.assets.open("lista_kanalow.json").bufferedReader().use { it.readText() }
+        val jsonArray = org.json.JSONArray(jsonString)
+        val channels = mutableListOf<TvChannel>()
+
+        for (i in 0 until jsonArray.length()) {
+            val obj = jsonArray.getJSONObject(i)
+            var logoUrl = obj.getString("logo")
+
+            // Fix double "https:https://" prefix
+            if (logoUrl.startsWith("https:https://")) {
+                logoUrl = logoUrl.removePrefix("https:")
+            }
+
+            channels.add(
+                TvChannel(
+                    name = obj.getString("name"),
+                    logo = logoUrl,
+                    epgId = obj.optString("id", null),  // Use 'id' field as EPG ID
+                    channelNumber = i + 1  // Initial numbering (will be renumbered after deduplication)
+                )
+            )
+        }
+
+        // Deduplicate by name (477 → 119 unique channels) and re-number
+        channels.distinctBy { it.name }
+            .mapIndexed { index, channel -> channel.copy(channelNumber = index + 1) }  // Final numbers: 1, 2, 3...
+    } catch (e: Exception) {
+        android.util.Log.e("TELEWIZJA_DEBUG", "Error loading TV channels from lista_kanalow.json: ${e.message}")
+        emptyList()
+    }
+}
+
+// Filter TV channels by category - load from specific JSON files with channel numbers
+private fun filterTvChannelsByCategory(context: Context, channels: List<TvChannel>, category: String): List<TvChannel> {
     return when (category) {
-        "dla-dzieci" -> channels.filter {
-            it.name in listOf("Baby TV", "Duck TV", "POLSAT JimJam")
-        }
-        "dokumenty" -> channels.filter {
-            it.name in listOf("Polo TV", "Zoom TV")
-        }
-        "hbo" -> channels.filter {
-            it.name.startsWith("HBO")
-        }
-        "informacyjne" -> channels.filter {
-            it.name in listOf("Fokus TV HD", "Bloomberg Television")
+        "filmy-i-seriale" -> loadChannelsFromJson(context, "filmy_i_seriale.json", 50)  // 50-529 (480 channels)
+        "dla-dzieci" -> loadChannelsFromJson(context, "dladzieci.json", 600)  // 600-687 (88 channels)
+        "sport" -> loadChannelsFromJson(context, "sport.json", 700)  // 700-805 (106 channels)
+        "dokumenty" -> loadChannelsFromJson(context, "dok.json", 500)  // 500-987 (488 channels)
+        "informacyjne" -> {
+            // Filter from lista_kanalow.json and assign numbers 200+
+            channels.filter {
+                it.name in listOf(
+                    "Fokus TV HD", "Bloomberg Television",  // Old channels
+                    "Fokus TV", "News24", "Nowość! Euronews PL", "POLSAT News",
+                    "POLSAT News 2", "Polsat News Polityka", "Sky News", "TVP INFO"
+                )
+            }.mapIndexed { index, channel -> channel.copy(channelNumber = 200 + index) }  // 200-209
         }
         "moja-lista" -> listOf(
-            TvChannel("TVP", "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/8499963/images/952146681?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0", "TVP 1"),
-            TvChannel("Polsat", "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9817820/images/819859960?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0", "Polsat"),
-            TvChannel("Polsat News Polityka", "https://r.dcs.redcdn.pl/file/play/playtv/upload/live/24725756/images/937177205", "Polsat News Polityka"),
-            TvChannel("4 Fun TV", "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3452692/images/350594752?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0", "4Fun.tv"),
-            TvChannel("TV4", "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9979708/images/913218406?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0", "TV4"),
-            TvChannel("Polsat News", "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183312/images/896415049?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0", "Polsat News HD"),
-            TvChannel("TVP 3", "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/8499965/images/952041085?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0", "TVP 3 Warszawa"),
-            TvChannel("TVN24", "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/7208754/images/1032763214?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100", "TVN 24"),
-            TvChannel("TVP Sport", "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/13352686/images/831494260?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100", "TVP Sport")
+            TvChannel("TVP", "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/8499963/images/952146681?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0", "TVP 1", 1),
+            TvChannel("Polsat", "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9817820/images/819859960?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0", "Polsat", 2),
+            TvChannel("Polsat News Polityka", "https://r.dcs.redcdn.pl/file/play/playtv/upload/live/24725756/images/937177205", "Polsat News Polityka", 3),
+            TvChannel("4 Fun TV", "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3452692/images/350594752?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0", "4Fun.tv", 4),
+            TvChannel("TV4", "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9979708/images/913218406?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0", "TV4", 5),
+            TvChannel("Polsat News", "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183312/images/896415049?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0", "Polsat News HD", 6),
+            TvChannel("TVP 3", "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/8499965/images/952041085?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0", "TVP 3 Warszawa", 7),
+            TvChannel("TVN24", "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/7208754/images/1032763214?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100", "TVN 24", 8),
+            TvChannel("TVP Sport", "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/13352686/images/831494260?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100", "TVP Sport", 9)
         )
         else -> emptyList()
     }
@@ -425,7 +474,11 @@ private fun TvChannelIconCard(
         }
         if (isFocused) {
             Text(
-                text = channel.name,
+                text = if (channel.channelNumber != null) {
+                    "${channel.channelNumber}. ${channel.name}"  // Display: "1. TVP1", "50. CANAL+ 360"
+                } else {
+                    channel.name
+                },
                 color = Color(0xFFEEEEEE),
                 fontSize = (16 * (sy(1).value / 1.dp.value)).sp,
                 fontWeight = FontWeight.W600,
@@ -479,7 +532,11 @@ private fun TvAppIconCard(
         }
         if (isFocused) {
             Text(
-                text = channel.name,
+                text = if (channel.channelNumber != null) {
+                    "${channel.channelNumber}. ${channel.name}"  // Display: "600. Ginx eSports TV", "700. Polsat Sport 1"
+                } else {
+                    channel.name
+                },
                 color = Color(0xFFEEEEEE),
                 fontSize = (20 * (sy(1).value / 1.dp.value)).sp,
                 fontWeight = FontWeight.W700,
@@ -504,7 +561,6 @@ private fun TvAppIconCard(
 @Composable
 private fun ChannelListCard(
     channel: TvChannel,
-    channelNumber: Int,
     isFocused: Boolean,
     focusRequester: FocusRequester,
     onFocusChange: () -> Unit,
@@ -569,7 +625,7 @@ private fun ChannelListCard(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = channelNumber.toString().padStart(2, '0'),  // Format: 01, 02, etc. (2-digit)
+                text = (channel.channelNumber ?: 0).toString().padStart(2, '0'),  // Use channel's assigned number
                 fontSize = (24 * sy(1).value / 1).sp,  // Figma: 24px
                 fontWeight = FontWeight.Medium,  // Figma: Medium (500)
                 lineHeight = (28 * sy(1).value / 1).sp,  // Reduced from 32px to 28px - fits in 54px box without cutoff
@@ -635,7 +691,8 @@ fun TopMenuScreen2(
     restoredTelewizjaFocus: FocusState? = null,
     restoredSection: String? = null,
     pipPlayer: com.google.android.exoplayer2.ExoPlayer? = null,  // PIP player instance
-    onClosePip: () -> Unit = {}  // Callback to close PIP
+    onClosePip: () -> Unit = {},  // Callback to close PIP
+    onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> }
 ) {
     val configuration = LocalConfiguration.current
     val scaleX = configuration.screenWidthDp / 1920f
@@ -644,6 +701,8 @@ fun TopMenuScreen2(
     fun sy(px: Int) = (px * scaleY).dp
 
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    val repository = remember { com.uxellence.tv.v3.repository.EpgRepository.getInstance(context) }
 
     val menuItems = remember {
         listOf(
@@ -824,8 +883,19 @@ fun TopMenuScreen2(
                                 false // Let VodWithChannels handle all keys
                             }
                             "TELEWIZJA" -> {
-                                // TELEWIZJA handles its own navigation entirely
-                                false // Let TelewizjaChannelsScreen handle all keys
+                                // TELEWIZJA handles its own navigation, but intercept key "2" for EPG refresh
+                                if (event.key == Key.Two && event.type == KeyEventType.KeyDown) {
+                                    // Force EPG refresh
+                                    android.util.Log.d("TELEWIZJA_DEBUG", "Key '2' pressed - Force refreshing EPG...")
+                                    coroutineScope.launch {
+                                        repository.clearCache()
+                                        repository.startBackgroundRefresh()
+                                        android.util.Log.d("TELEWIZJA_DEBUG", "EPG refresh triggered, wait 30 seconds...")
+                                    }
+                                    true
+                                } else {
+                                    false // Let TelewizjaChannelsScreen handle other keys
+                                }
                             }
                             "MOJE" -> {
                                 // MOJE handles its own navigation entirely
@@ -898,7 +968,8 @@ fun TopMenuScreen2(
                 onNavigateToEpgDay = onNavigateToEpgDay,
                 onNavigateToStartupMode = onNavigateToStartupMode,
                 onFocusRestored = onFocusRestored,
-                restoredTelewizjaFocus = restoredTelewizjaFocus
+                restoredTelewizjaFocus = restoredTelewizjaFocus,
+                onNavigateToChannelGrid = onNavigateToChannelGrid
             )
         }
 
@@ -1311,7 +1382,8 @@ private fun FullPageContent(
     onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> },
     onNavigateToStartupMode: () -> Unit = {},  // Navigate to startup mode selection
     onFocusRestored: () -> Unit = {},
-    restoredTelewizjaFocus: FocusState? = null
+    restoredTelewizjaFocus: FocusState? = null,
+    onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> }
 ) {
     // Track fresh entry (transition from menu Row 0 → content Row 1+)
     // Used to auto-focus first interactive element only when user enters section, not while hovering tab
@@ -1349,7 +1421,8 @@ private fun FullPageContent(
                 onNavigateToEpg = onNavigateToEpg,
                 onNavigateToEpgDay = onNavigateToEpgDay,
                 onFocusRestored = onFocusRestored,
-                restoredTelewizjaFocus = restoredTelewizjaFocus
+                restoredTelewizjaFocus = restoredTelewizjaFocus,
+                onNavigateToChannelGrid = onNavigateToChannelGrid
             )
         }
         "KINO_PLAY" -> {
@@ -1485,7 +1558,8 @@ private fun TelewizjaScreenContent(
     onNavigateToEpg: () -> Unit = {},
     onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> },
     onFocusRestored: () -> Unit = {},
-    restoredTelewizjaFocus: FocusState? = null
+    restoredTelewizjaFocus: FocusState? = null,
+    onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> }
 ) {
     var resetTrigger by remember { mutableStateOf(0) }
 
@@ -1515,7 +1589,8 @@ private fun TelewizjaScreenContent(
         },
         onFocusRestored = onFocusRestored,
         restoredTelewizjaFocus = restoredTelewizjaFocus,
-        sectionId = globalFocusState.value.sectionId
+        sectionId = globalFocusState.value.sectionId,
+        onNavigateToChannelGrid = onNavigateToChannelGrid
     )
 }
 
@@ -1737,7 +1812,8 @@ private fun TelewizjaChannelsScreen(
     onContentFocusRestored: (Int) -> Unit = {},
     onFocusRestored: () -> Unit = {},
     restoredTelewizjaFocus: FocusState? = null,
-    sectionId: String = "TELEWIZJA"
+    sectionId: String = "TELEWIZJA",
+    onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> }
 ) {
     android.util.Log.d("EPG_DEBUG", "=== TelewizjaChannelsScreen RENDERED ===")
 
@@ -1853,11 +1929,12 @@ private fun TelewizjaChannelsScreen(
 
     // Load TV channel logos from JSON
     val tvChannelLogos = remember { loadTvChannelsFromAssets(context) }
-    val kidsChannels = remember { filterTvChannelsByCategory(tvChannelLogos, "dla-dzieci") }
-    val docChannels = remember { filterTvChannelsByCategory(tvChannelLogos, "dokumenty") }
-    val hboChannels = remember { filterTvChannelsByCategory(tvChannelLogos, "hbo") }
-    val newsChannels = remember { filterTvChannelsByCategory(tvChannelLogos, "informacyjne") }
-    val mojaListaChannels = remember { filterTvChannelsByCategory(tvChannelLogos, "moja-lista") }
+    val filmyISerialeChannels = remember { filterTvChannelsByCategory(context, tvChannelLogos, "filmy-i-seriale") }  // 50-529
+    val kidsChannels = remember { filterTvChannelsByCategory(context, tvChannelLogos, "dla-dzieci") }  // 600-687
+    val sportChannels = remember { filterTvChannelsByCategory(context, tvChannelLogos, "sport") }  // 700-805
+    val docChannels = remember { filterTvChannelsByCategory(context, tvChannelLogos, "dokumenty") }  // 500-987
+    val newsChannels = remember { filterTvChannelsByCategory(context, tvChannelLogos, "informacyjne") }  // 200-209
+    val mojaListaChannels = remember { filterTvChannelsByCategory(context, tvChannelLogos, "moja-lista") }  // 1-9
 
     // New structure: Header rows + content channels + moved rows
     val channels = listOf(
@@ -1872,10 +1949,11 @@ private fun TelewizjaChannelsScreen(
         "Wszystkie kanały",              // Row 8
         "Moja lista kanałów",            // Row 9 - moved from Row 0
         "Dla dzieci",                    // Row 10
-        "Dokumenty",                     // Row 11
-        "Filmy i seriale HBO",           // Row 12
-        "Informacyjne",                  // Row 13
-        "Teraz w TV"                     // Row 14 - moved to bottom (horizontal with programs)
+        "Sport",                         // Row 11 - NEW CATEGORY (700-805)
+        "Dokumenty",                     // Row 12
+        "Filmy i seriale",               // Row 13 - RENAMED from "Filmy i seriale HBO" (50-529)
+        "Informacyjne",                  // Row 14
+        "Teraz w TV"                     // Row 15 - moved to bottom (horizontal with programs)
     )
 
     // Define channel types
@@ -1892,8 +1970,9 @@ private fun TelewizjaChannelsScreen(
             "Wszystkie kanały" to "app-icons",
             "Moja lista kanałów" to "app-icons",
             "Dla dzieci" to "app-icons",
+            "Sport" to "app-icons",  // NEW CATEGORY
             "Dokumenty" to "app-icons",
-            "Filmy i seriale HBO" to "app-icons",
+            "Filmy i seriale" to "app-icons",  // RENAMED
             "Informacyjne" to "app-icons",
             "Teraz w TV" to "horizontal"
         )
@@ -1936,7 +2015,7 @@ private fun TelewizjaChannelsScreen(
                     android.util.Log.d("GRID_CONTENT", "TELETURNIEJE: ${teleturniejePrograms.size} EPG game shows (NO FALLBACK)")
                     teleturniejePrograms // ✅ Zawsze EPG data, bez fallback VOD
                 }
-                "Moja lista kanałów", "Wszystkie kanały", "Dla dzieci", "Dokumenty", "Filmy i seriale HBO", "Informacyjne" -> emptyList() // App-icons type, no VOD grid content
+                "Moja lista kanałów", "Wszystkie kanały", "Dla dzieci", "Sport", "Dokumenty", "Filmy i seriale", "Informacyjne" -> emptyList() // App-icons type, no VOD grid content
                 else -> if (vodContentList.isNotEmpty()) vodContentList.shuffled().take(10) else emptyList() // Fallback
             }
         }
@@ -1945,12 +2024,13 @@ private fun TelewizjaChannelsScreen(
     // App-icons data for TELEWIZJA channels
     val appIconsData = remember {
         mapOf(
-            "Moja lista kanałów" to mojaListaChannels,  // 9 custom channels
-            "Wszystkie kanały" to tvChannelLogos,
-            "Dla dzieci" to kidsChannels,
-            "Dokumenty" to docChannels,
-            "Filmy i seriale HBO" to hboChannels,
-            "Informacyjne" to newsChannels
+            "Moja lista kanałów" to mojaListaChannels,  // 1-9
+            "Wszystkie kanały" to tvChannelLogos,  // 1-119
+            "Dla dzieci" to kidsChannels,  // 600-687
+            "Sport" to sportChannels,  // 700-805 (NEW CATEGORY)
+            "Dokumenty" to docChannels,  // 500-987
+            "Filmy i seriale" to filmyISerialeChannels,  // 50-529 (RENAMED)
+            "Informacyjne" to newsChannels  // 200-209
         )
     }
 
@@ -1995,13 +2075,18 @@ private fun TelewizjaChannelsScreen(
                         put(Pair(rowIndex, -1), FocusRequester()) // CategoryIcon
                         put(Pair(rowIndex, 0), FocusRequester()) // Fixed focus position
                     }
+                    channelName == "Sport" -> {
+                        // CategoryIcon + app-icons (scrolling model: fixed focus at 0, LazyRow scrolls) - NEW CATEGORY
+                        put(Pair(rowIndex, -1), FocusRequester()) // CategoryIcon
+                        put(Pair(rowIndex, 0), FocusRequester()) // Fixed focus position
+                    }
                     channelName == "Dokumenty" -> {
                         // CategoryIcon + app-icons (scrolling model: fixed focus at 0, LazyRow scrolls)
                         put(Pair(rowIndex, -1), FocusRequester()) // CategoryIcon
                         put(Pair(rowIndex, 0), FocusRequester()) // Fixed focus position
                     }
-                    channelName == "Filmy i seriale HBO" -> {
-                        // CategoryIcon + app-icons (scrolling model: fixed focus at 0, LazyRow scrolls)
+                    channelName == "Filmy i seriale" -> {
+                        // CategoryIcon + app-icons (scrolling model: fixed focus at 0, LazyRow scrolls) - RENAMED
                         put(Pair(rowIndex, -1), FocusRequester()) // CategoryIcon
                         put(Pair(rowIndex, 0), FocusRequester()) // Fixed focus position
                     }
@@ -2305,7 +2390,7 @@ private fun TelewizjaChannelsScreen(
                 shortcuts = shortcuts,
                 kidsChannels = kidsChannels,
                 docChannels = docChannels,
-                hboChannels = hboChannels,
+                filmyISerialeChannels = filmyISerialeChannels,
                 newsChannels = newsChannels,
                 appIconsData = appIconsData,
                 focusedRowIndex = focusedRowIndex,
@@ -2326,7 +2411,8 @@ private fun TelewizjaChannelsScreen(
                 sy = sy,
                 onNavigateToEpg = onNavigateToEpg,
                 onNavigateToEpgDay = onNavigateToEpgDay,
-                sectionId = sectionId
+                sectionId = sectionId,
+                onNavigateToChannelGrid = onNavigateToChannelGrid
             )
         }
     }
@@ -6693,7 +6779,7 @@ fun TelewizjaChannelRowsLayout(
     shortcuts: List<ShortcutItem>,
     kidsChannels: List<TvChannel> = emptyList(),
     docChannels: List<TvChannel> = emptyList(),
-    hboChannels: List<TvChannel> = emptyList(),
+    filmyISerialeChannels: List<TvChannel> = emptyList(),
     newsChannels: List<TvChannel> = emptyList(),
     appIconsData: Map<String, List<TvChannel>> = emptyMap(),
     focusedRowIndex: Int,
@@ -6717,7 +6803,8 @@ fun TelewizjaChannelRowsLayout(
     liveOnShowFullscreen: (Boolean) -> Unit = {},
     onNavigateToEpg: () -> Unit = {},
     onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> },
-    sectionId: String = "TELEWIZJA"
+    sectionId: String = "TELEWIZJA",
+    onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> }
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         channels.forEachIndexed { rowIndex, channelName ->
@@ -6760,7 +6847,9 @@ fun TelewizjaChannelRowsLayout(
                     lazyListState = lazyListState,
                     onNavigateToEpg = onNavigateToEpg,
                     onNavigateToEpgDay = onNavigateToEpgDay,
-                    sectionId = channelName  // Pass row channel name (e.g., "Moja lista kanałów") for proper focus restoration
+                    sectionId = channelName,  // Pass row channel name (e.g., "Moja lista kanałów") for proper focus restoration
+                    onNavigateToChannelGrid = onNavigateToChannelGrid,
+                    appIconsData = appIconsData
                 )
             }
         }
@@ -6796,7 +6885,9 @@ fun TelewizjaUnifiedChannelRow(
     liveOnShowFullscreen: (Boolean) -> Unit = {},
     onNavigateToEpg: () -> Unit = {},
     onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> },
-    sectionId: String = "TELEWIZJA"
+    sectionId: String = "TELEWIZJA",
+    onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
+    appIconsData: Map<String, List<TvChannel>> = emptyMap()
 ) {
     val isCurrentRow = rowIndex == focusedRowIndex
     val isShortcutsV2 = channel == "Skróty v2"
@@ -7033,7 +7124,6 @@ fun TelewizjaUnifiedChannelRow(
 
                             ChannelListCard(
                                 channel = tvChannel,
-                                channelNumber = colIndex + 1,  // Channel number: 1, 2, 3, etc.
                                 isFocused = isItemFocused,
                                 focusRequester = focusRequester,
                                 onFocusChange = { onChannelContentFocusChange(rowIndex, colIndex) },
@@ -7458,8 +7548,28 @@ fun TelewizjaUnifiedChannelRow(
                             if (isFocused) onChannelContentFocusChange(rowIndex, colIndex)
                         },
                         onClick = {
-                            if (shortcut.title == "Program telewizyjny") {
-                                onNavigateToEpg()
+                            when (shortcut.title) {
+                                "Program telewizyjny" -> {
+                                    onNavigateToEpg()
+                                }
+                                "Moja lista kanałów" -> {
+                                    // Navigate to ChannelGridScreen with channels 1-9
+                                    onNavigateToChannelGrid(
+                                        "Moja lista kanałów",
+                                        "Wszystkie",
+                                        null,  // No filter - use preloaded channels
+                                        appIconsData["Moja lista kanałów"]  // Pass pre-loaded channels
+                                    )
+                                }
+                                "Lista kanałów" -> {
+                                    // Navigate to ChannelGridScreen with all channels
+                                    onNavigateToChannelGrid(
+                                        "Lista kanałów TV",
+                                        "Wszystkie",
+                                        null,  // No filter - use preloaded channels
+                                        appIconsData["Wszystkie kanały"]  // Pass pre-loaded channels
+                                    )
+                                }
                             }
                         }
                     )
@@ -7500,7 +7610,67 @@ fun TelewizjaUnifiedChannelRow(
                 CategoryIcon(
                     text = channel,
                     isFocused = categoryIsFocused,
-                    onClick = { },
+                    onClick = {
+                        // Handle app-icons CategoryIcon clicks - navigate to ChannelGridScreen
+                        when (channel) {
+                            "Wszystkie kanały" -> {
+                                onNavigateToChannelGrid(
+                                    "Lista kanałów - Wszystkie kanały",
+                                    "Wszystkie",
+                                    null,  // No filter - use preloaded channels
+                                    appIconsData[channel]  // Pass pre-loaded channels
+                                )
+                            }
+                            "Moja lista kanałów" -> {
+                                onNavigateToChannelGrid(
+                                    "Lista kanałów - Moja lista",
+                                    "Wszystkie",
+                                    null,  // No filter - use preloaded channels
+                                    appIconsData[channel]  // Pass pre-loaded channels
+                                )
+                            }
+                            "Dokumenty" -> {
+                                onNavigateToChannelGrid(
+                                    "Lista kanałów - Dokumenty",
+                                    "Dokumenty",
+                                    null,  // No filter - use preloaded channels
+                                    appIconsData[channel]  // Pass pre-loaded channels
+                                )
+                            }
+                            "Dla dzieci" -> {
+                                onNavigateToChannelGrid(
+                                    "Lista kanałów - Dla dzieci",
+                                    "Dzieci",
+                                    null,  // No filter - use preloaded channels
+                                    appIconsData[channel]  // Pass pre-loaded channels
+                                )
+                            }
+                            "Sport" -> {
+                                onNavigateToChannelGrid(
+                                    "Lista kanałów - Sport",
+                                    "Sport",
+                                    null,  // No filter - use preloaded channels
+                                    appIconsData[channel]  // Pass pre-loaded channels
+                                )
+                            }
+                            "Filmy i seriale" -> {
+                                onNavigateToChannelGrid(
+                                    "Lista kanałów - Filmy i seriale",
+                                    "Filmy i seriale",
+                                    null,  // No filter - use preloaded channels
+                                    appIconsData[channel]  // Pass pre-loaded channels
+                                )
+                            }
+                            "Informacyjne" -> {
+                                onNavigateToChannelGrid(
+                                    "Lista kanałów - Informacyjne",
+                                    "Informacyjne",
+                                    null,  // No filter - use preloaded channels
+                                    appIconsData[channel]  // Pass pre-loaded channels
+                                )
+                            }
+                        }
+                    },
                     onFocused = { isFocused ->
                         if (isFocused) {
                             Log.d("TELEWIZJA_DEBUG", "CategoryIcon '$channel' (row $rowIndex) gained focus")
