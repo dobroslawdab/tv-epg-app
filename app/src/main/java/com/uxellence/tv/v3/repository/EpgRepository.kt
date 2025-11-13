@@ -38,6 +38,23 @@ class EpgRepository private constructor(context: Context) {
         private const val EPG_METADATA_KEY = "main_epg"
         private const val CACHE_DURATION_HOURS = 6L
         private const val MAX_CHANNELS_LOAD = 300  // Increased to include all Polish channels
+
+        // Preferred channels for content filtering (FILMY/SERIALE/SPORT/TELETURNIEJE)
+        // + original 9 channels from tv_channels_with_streams.json for "Teraz w TV"
+        private val PREFERRED_EPG_CHANNELS = setOf(
+            "TVP 1", "TVP 2", "Polsat", "TV 4", "TV 6",
+            "TVN", "TV Puls", "Puls 2", "TTV", "Fokus TV",
+            "Super Polsat", "METRO", "ZOOM TV", "WP", "Antena",
+            "HBO", "HBO 2", "HBO 3", "Kino Polska", "Stopklatka TV",
+            "AXN", "Viasat True Crime", "HISTORY", "Discovery Channel",
+            "BBC First", "TVP 3 Warszawa", "TV TRWAM", "TVN 24", "Kabaret TV",
+            // Original 9 channels from JSON (missing 5 added back):
+            "Polsat News Polityka",
+            "4FUN TV",
+            "Polsat News",
+            "TVP Sport",
+            "TVP 3"  // Keep both "TVP 3" and "TVP 3 Warszawa"
+        )
     }
     
     // Public interface matching existing EpgGuide
@@ -116,8 +133,10 @@ class EpgRepository private constructor(context: Context) {
             "informacja", "wiadomości"
         )
 
-        // Filtruj tylko filmy pełnometrażowe
-        val movies = allPrograms.filter { program ->
+        // Filtruj tylko filmy pełnometrażowe z wybranych kanałów
+        val movies = allPrograms
+            .filter { it.channelId in PREFERRED_EPG_CHANNELS }  // Filtruj po preferowanych kanałach
+            .filter { program ->
             // 1. Kategoria zawiera "film" ale nie "dokumentalny"
             val hasFilmCategory = program.categories.any { category ->
                 val lower = category.lowercase()
@@ -174,8 +193,10 @@ class EpgRepository private constructor(context: Context) {
             "magazyn", "poradnik", "teleturniej"
         )
 
-        // Filtruj tylko seriale
-        val series = allPrograms.filter { program ->
+        // Filtruj tylko seriale z wybranych kanałów
+        val series = allPrograms
+            .filter { it.channelId in PREFERRED_EPG_CHANNELS }  // Filtruj po preferowanych kanałach
+            .filter { program ->
             // 1. Kategoria zawiera "serial"
             val hasSeriesCategory = program.categories.any { category ->
                 category.lowercase().contains("serial")
@@ -240,8 +261,10 @@ class EpgRepository private constructor(context: Context) {
             "skoki", "jumping", "narciarstwo", "skiing"
         )
 
-        // Filtruj programy sportowe
-        val sports = allPrograms.filter { program ->
+        // Filtruj programy sportowe z wybranych kanałów
+        val sports = allPrograms
+            .filter { it.channelId in PREFERRED_EPG_CHANNELS }  // Filtruj po preferowanych kanałach
+            .filter { program ->
             program.categories.any { category ->
                 sportKeywords.any { keyword ->
                     category.lowercase().contains(keyword)
@@ -279,8 +302,10 @@ class EpgRepository private constructor(context: Context) {
         // Kategorie teleTurniejowe (tylko teleturnieje)
         val gameShowCategories = setOf("teleturniej")
 
-        // Filtruj tylko teleturnieje
-        val gameShows = allPrograms.filter { program ->
+        // Filtruj tylko teleturnieje z wybranych kanałów
+        val gameShows = allPrograms
+            .filter { it.channelId in PREFERRED_EPG_CHANNELS }  // Filtruj po preferowanych kanałach
+            .filter { program ->
             program.categories.any { category ->
                 gameShowCategories.any { gameShowCategory ->
                     category.lowercase().contains(gameShowCategory)
@@ -301,6 +326,15 @@ class EpgRepository private constructor(context: Context) {
         android.util.Log.d("EpgRepository", "Unique game shows after deduplication: ${uniqueGameShows.size}")
 
         return uniqueGameShows
+    }
+
+    // Clear EPG cache (force refresh on next load)
+    suspend fun clearCache() {
+        android.util.Log.d("EpgRepository", "=== Clearing EPG cache ===")
+        metadataDao.deleteMetadata(EPG_METADATA_KEY)
+        channelDao.deleteAllChannels()
+        programDao.deleteAllPrograms()
+        android.util.Log.d("EpgRepository", "EPG cache cleared")
     }
 
     // Background refresh - call from Application or Service
@@ -370,14 +404,18 @@ class EpgRepository private constructor(context: Context) {
     ): EpgGuide {
         return withContext(Dispatchers.IO) {
             // Get EPG IDs from ChannelManager (if available) for intelligent filtering
+            // Combine original 9 channels from JSON + 28 additional channels from PREFERRED_EPG_CHANNELS
             val filterIds = if (ChannelManager.isInitialized()) {
-                ChannelManager.getEpgIds().also { ids ->
-                    android.util.Log.d("EpgRepository", "Intelligent filtering enabled: ${ids.size} channels")
-                    android.util.Log.d("EpgRepository", "Filter IDs: ${ids.joinToString()}")
+                val jsonIds = ChannelManager.getEpgIds()  // 9 channels from tv_channels_with_streams.json
+                val combinedIds = (jsonIds + PREFERRED_EPG_CHANNELS).toSet()  // 9 + 28 extras = 37 unique
+                combinedIds.also { ids ->
+                    android.util.Log.d("EpgRepository", "Intelligent filtering enabled: ${ids.size} channels (${jsonIds.size} from JSON + ${PREFERRED_EPG_CHANNELS.size} extras)")
+                    android.util.Log.d("EpgRepository", "JSON IDs: ${jsonIds.joinToString()}")
+                    android.util.Log.d("EpgRepository", "Combined IDs: ${ids.joinToString()}")
                 }
             } else {
-                null.also {
-                    android.util.Log.w("EpgRepository", "ChannelManager not initialized, loading first $maxChannels channels")
+                PREFERRED_EPG_CHANNELS.also {
+                    android.util.Log.w("EpgRepository", "ChannelManager not initialized, using PREFERRED_EPG_CHANNELS only (${it.size} channels)")
                 }
             }
 
