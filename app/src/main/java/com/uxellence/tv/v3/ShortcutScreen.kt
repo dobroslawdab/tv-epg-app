@@ -173,7 +173,9 @@ internal fun ShortcutCard(
     isFocused: Boolean,
     focusRequester: FocusRequester,
     sx: (Int) -> androidx.compose.ui.unit.Dp,
-    sy: (Int) -> androidx.compose.ui.unit.Dp
+    sy: (Int) -> androidx.compose.ui.unit.Dp,
+    onClick: () -> Unit = {},
+    onFocusChange: (Boolean) -> Unit = {}
 ) {
     // Figma dimensions: 235×208px (nearly square, wider than tall)
     val cardWidth = sx(235)  // Figma: 235px
@@ -194,6 +196,18 @@ internal fun ShortcutCard(
                 Color(0x33000000) // rgba(0,0,0,0.20) base background
             )
             .focusRequester(focusRequester)
+            .onPreviewKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown &&
+                    (event.key == Key.Enter || event.key == Key.DirectionCenter)) {
+                    onClick()
+                    true
+                } else {
+                    false
+                }
+            }
+            .onFocusChanged { focusState ->
+                onFocusChange(focusState.isFocused)
+            }
             .focusable()
     ) {
         // Content background - darker when focused

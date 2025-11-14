@@ -49,10 +49,11 @@ fun FilterChipRow(
     isFiltersFocused: Boolean,
     sx: (Int) -> Dp,
     sy: (Int) -> Dp,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    categories: List<String>? = null  // Optional custom categories (defaults to TV channels)
 ) {
     val sortOptions = listOf("Po numerze", "Alfabetycznie", "Po kategorii")
-    val categoryOptions = listOf("Wszystkie", "Ogólne", "Sport", "Dzieci", "Dokumenty", "Filmy i seriale", "Informacyjne")
+    val categoryOptions = categories ?: listOf("Wszystkie", "Ogólne", "Sport", "Dzieci", "Dokumenty", "Filmy i seriale", "Informacyjne")
 
     var focusedChipIndex by remember { mutableStateOf(0) }
     val chipFocusRequesters = remember { List(3) { FocusRequester() } }

@@ -53,6 +53,12 @@ class EpgRepository private constructor(context: Context) {
             "4FUN TV",
             "Polsat News",
             "TVP Sport",
+            // Sport channels (added for SPORT EPG category)
+            "Polsat Sport", "Polsat Sport Premium", "Polsat Sport Extra",
+            "Eurosport 1", "Eurosport 2",
+            "Eleven Sports 1", "Eleven Sports 2", "Eleven Sports 3", "Eleven Sports 4",
+            "Canal+ Sport", "Canal+ Sport 2",
+            "nSport+",
             "TVP 3"  // Keep both "TVP 3" and "TVP 3 Warszawa"
         )
     }
@@ -250,20 +256,64 @@ class EpgRepository private constructor(context: Context) {
 
         android.util.Log.d("EpgRepository", "Total programs in last 24h: ${allPrograms.size}")
 
-        // Słowa kluczowe dla sportu (rozszerzona lista)
+        // DEBUG: Pokaż wszystkie unikalne channelIds
+        val uniqueChannels = allPrograms.map { it.channelId }.distinct().sorted()
+        android.util.Log.d("SPORT_DEBUG", "All unique channels in EPG (${uniqueChannels.size}): ${uniqueChannels.take(20)}")
+
+        // Słowa kluczowe dla sportu (rozszerzona lista - 45 keywords)
         val sportKeywords = setOf(
-            "sport", "mecz", "match", "rozgrywki",
-            "piłka nożna", "football", "soccer", "tenis", "tennis",
-            "siatkówka", "volleyball", "koszykówka", "basketball",
+            // Generic terms
+            "sport", "sportowy", "sportowa", "sportowe", "transmisja sportowa",
+            "mecz", "match", "rozgrywki",
+
+            // Ball sports
+            "piłka nożna", "football", "soccer", "pilka nozna",
+            "siatkówka", "volleyball", "siatkowka",
+            "koszykówka", "basketball", "koszykowka",
+
+            // Leagues & tournaments
             "liga", "puchar", "mistrzostwa", "championship",
-            "formuła", "formula", "wyścig", "race", "golf",
+            "ekstraklasa", "uefa", "champions league", "europa league", "liga mistrzów",
+            "nba", "nhl", "nfl", "mlb", "pko bp ekstraklasa",
+
+            // Individual sports
+            "tenis", "tennis", "golf",
+            "formuła", "formula", "wyścig", "race", "wyscig", "f1",
             "hokej", "hockey", "boks", "boxing", "rugby",
-            "skoki", "jumping", "narciarstwo", "skiing"
+            "skoki", "jumping", "narciarstwo", "skiing", "narciarskie",
+
+            // Olympics & athletics
+            "olimpiada", "olympics", "lekkoatletyka", "athletics",
+
+            // Winter sports
+            "biathlon", "biathlon", "skoki narciarskie"
         )
 
+        // DEBUG: Znajdź programy sportowe PRZED filtrem kanałów
+        val allSportsBeforeChannelFilter = allPrograms.filter { program ->
+            program.categories.any { category ->
+                sportKeywords.any { keyword ->
+                    category.lowercase().contains(keyword)
+                }
+            }
+        }
+        android.util.Log.d("SPORT_DEBUG", "Sports BEFORE channel filter: ${allSportsBeforeChannelFilter.size} programs")
+        if (allSportsBeforeChannelFilter.isNotEmpty()) {
+            android.util.Log.d("SPORT_DEBUG", "Sample sport channels: ${allSportsBeforeChannelFilter.map { it.channelId }.distinct().take(10)}")
+        }
+
         // Filtruj programy sportowe z wybranych kanałów
-        val sports = allPrograms
-            .filter { it.channelId in PREFERRED_EPG_CHANNELS }  // Filtruj po preferowanych kanałach
+        val programsInPreferredChannels = allPrograms
+            .filter { it.channelId in PREFERRED_EPG_CHANNELS }
+
+        android.util.Log.d("SPORT_DEBUG", "After channel filter: ${programsInPreferredChannels.size} programs")
+
+        // DEBUG: Wyświetl categories pierwszych 10 programów
+        programsInPreferredChannels.take(10).forEach { program ->
+            android.util.Log.d("SPORT_DEBUG", "Sample program: '${program.title}' on ${program.channelId}, categories: ${program.categories}")
+        }
+
+        val sports = programsInPreferredChannels
             .filter { program ->
             program.categories.any { category ->
                 sportKeywords.any { keyword ->
@@ -272,6 +322,7 @@ class EpgRepository private constructor(context: Context) {
             }
         }
 
+        android.util.Log.d("SPORT_DEBUG", "After keyword filter: ${sports.size} sports programs")
         android.util.Log.d("EpgRepository", "Sports found: ${sports.size}")
 
         // Sortuj po czasie startu (najnowsze najpierw)
@@ -299,20 +350,36 @@ class EpgRepository private constructor(context: Context) {
 
         android.util.Log.d("EpgRepository", "Total programs in last 24h: ${allPrograms.size}")
 
-        // Kategorie teleTurniejowe (tylko teleturnieje)
-        val gameShowCategories = setOf("teleturniej")
+        // Kategorie teleturnie jowe (rozszerzona lista - 10 keywords)
+        val gameShowKeywords = setOf(
+            "teleturniej", "tele-turniej",
+            "quiz", "quizshow", "quiz show",
+            "familiada", "jeden z dziesięciu", "milionerzy",
+            "koło fortuny", "postaw na milion", "awantura o kasę",
+            "va banque", "idol"
+        )
 
         // Filtruj tylko teleturnieje z wybranych kanałów
-        val gameShows = allPrograms
-            .filter { it.channelId in PREFERRED_EPG_CHANNELS }  // Filtruj po preferowanych kanałach
+        val programsInPreferredChannels = allPrograms
+            .filter { it.channelId in PREFERRED_EPG_CHANNELS }
+
+        android.util.Log.d("GAMESHOW_DEBUG", "After channel filter: ${programsInPreferredChannels.size} programs")
+
+        // DEBUG: Wyświetl categories pierwszych 10 programów
+        programsInPreferredChannels.take(10).forEach { program ->
+            android.util.Log.d("GAMESHOW_DEBUG", "Sample program: '${program.title}' on ${program.channelId}, categories: ${program.categories}")
+        }
+
+        val gameShows = programsInPreferredChannels
             .filter { program ->
             program.categories.any { category ->
-                gameShowCategories.any { gameShowCategory ->
-                    category.lowercase().contains(gameShowCategory)
+                gameShowKeywords.any { keyword ->
+                    category.lowercase().contains(keyword)
                 }
             }
         }
 
+        android.util.Log.d("GAMESHOW_DEBUG", "After keyword filter: ${gameShows.size} game shows")
         android.util.Log.d("EpgRepository", "Game shows found: ${gameShows.size}")
 
         // Sortuj po czasie startu (najnowsze najpierw)
