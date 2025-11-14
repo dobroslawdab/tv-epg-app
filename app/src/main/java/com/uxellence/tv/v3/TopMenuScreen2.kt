@@ -692,7 +692,9 @@ fun TopMenuScreen2(
     restoredSection: String? = null,
     pipPlayer: com.google.android.exoplayer2.ExoPlayer? = null,  // PIP player instance
     onClosePip: () -> Unit = {},  // Callback to close PIP
-    onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> }
+    onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
+    onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },  // Navigate to VOD grid (Nagrania, Wypożyczone, Do obejrzenia, etc.)
+    onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> }  // Navigate to KINO grid (Akcja, Horror - vertical posters)
 ) {
     val configuration = LocalConfiguration.current
     val scaleX = configuration.screenWidthDp / 1920f
@@ -969,7 +971,9 @@ fun TopMenuScreen2(
                 onNavigateToStartupMode = onNavigateToStartupMode,
                 onFocusRestored = onFocusRestored,
                 restoredTelewizjaFocus = restoredTelewizjaFocus,
-                onNavigateToChannelGrid = onNavigateToChannelGrid
+                onNavigateToChannelGrid = onNavigateToChannelGrid,
+                onNavigateToVodGrid = onNavigateToVodGrid,
+                onNavigateToKinoGrid = onNavigateToKinoGrid
             )
         }
 
@@ -1383,7 +1387,9 @@ private fun FullPageContent(
     onNavigateToStartupMode: () -> Unit = {},  // Navigate to startup mode selection
     onFocusRestored: () -> Unit = {},
     restoredTelewizjaFocus: FocusState? = null,
-    onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> }
+    onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
+    onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> }
 ) {
     // Track fresh entry (transition from menu Row 0 → content Row 1+)
     // Used to auto-focus first interactive element only when user enters section, not while hovering tab
@@ -1409,6 +1415,9 @@ private fun FullPageContent(
             OdkrywajScreenContent(
                 globalFocusState = globalFocusState,
                 onUserNavigated = onUserNavigated,  // Clear fresh PIP mode on navigation
+                onNavigateToChannelGrid = onNavigateToChannelGrid,
+                onNavigateToVodGrid = onNavigateToVodGrid,
+                appIconsData = emptyMap(),  // TODO: Pass real appIconsData
                 sx = sx,
                 sy = sy
             )
@@ -1422,12 +1431,16 @@ private fun FullPageContent(
                 onNavigateToEpgDay = onNavigateToEpgDay,
                 onFocusRestored = onFocusRestored,
                 restoredTelewizjaFocus = restoredTelewizjaFocus,
-                onNavigateToChannelGrid = onNavigateToChannelGrid
+                onNavigateToChannelGrid = onNavigateToChannelGrid,
+                onNavigateToVodGrid = onNavigateToVodGrid,
+                onNavigateToKinoGrid = onNavigateToKinoGrid
             )
         }
         "KINO_PLAY" -> {
             VodScreenContent(
                 globalFocusState = globalFocusState,
+                onNavigateToVodGrid = onNavigateToVodGrid,
+                onNavigateToKinoGrid = onNavigateToKinoGrid,
                 sx = sx,
                 sy = sy
             )
@@ -1435,6 +1448,7 @@ private fun FullPageContent(
         "WIDEO" -> {
             WideoScreenContent(
                 globalFocusState = globalFocusState,
+                onNavigateToVodGrid = onNavigateToVodGrid,
                 sx = sx,
                 sy = sy
             )
@@ -1442,6 +1456,10 @@ private fun FullPageContent(
         "APLIKACJE" -> {
             AplikacjeScreenContent(
                 globalFocusState = globalFocusState,
+                onNavigateToChannelGrid = onNavigateToChannelGrid,
+                onNavigateToVodGrid = onNavigateToVodGrid,
+                onNavigateToKinoGrid = onNavigateToKinoGrid,
+                appIconsData = emptyMap(),  // TODO: Pass real appIconsData
                 sx = sx,
                 sy = sy
             )
@@ -1450,6 +1468,16 @@ private fun FullPageContent(
             AccountScreenContent(
                 globalFocusState = globalFocusState,
                 onNavigateToStartupMode = onNavigateToStartupMode,
+                sx = sx,
+                sy = sy
+            )
+        }
+        "START" -> {
+            StartScreenContent(
+                globalFocusState = globalFocusState,
+                onNavigateToChannelGrid = onNavigateToChannelGrid,
+                onNavigateToVodGrid = onNavigateToVodGrid,
+                onNavigateToKinoGrid = onNavigateToKinoGrid,
                 sx = sx,
                 sy = sy
             )
@@ -1494,6 +1522,10 @@ private fun MojeScreenContent(
 @Composable
 private fun AplikacjeScreenContent(
     globalFocusState: MutableState<GlobalFocusState>,
+    onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
+    onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    appIconsData: Map<String, List<TvChannel>> = emptyMap(),
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp
 ) {
@@ -1511,6 +1543,10 @@ private fun AplikacjeScreenContent(
             globalFocusState.value = GlobalFocusManager.returnToMenu(globalFocusState.value)
         },
         shouldAutoFocus = globalFocusState.value.sectionId == "APLIKACJE" && globalFocusState.value.currentRow > 0,
+        onNavigateToChannelGrid = onNavigateToChannelGrid,
+        onNavigateToVodGrid = onNavigateToVodGrid,
+        onNavigateToKinoGrid = onNavigateToKinoGrid,
+        appIconsData = appIconsData,
         sx = sx,
         sy = sy,
         resetTrigger = resetTrigger
@@ -1523,6 +1559,10 @@ private fun AplikacjeScreenContent(
 private fun OdkrywajScreenContent(
     globalFocusState: MutableState<GlobalFocusState>,
     onUserNavigated: () -> Unit = {},  // NEW: Callback when user navigates content
+    onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
+    onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    appIconsData: Map<String, List<TvChannel>> = emptyMap(),
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp
 ) {
@@ -1544,6 +1584,10 @@ private fun OdkrywajScreenContent(
             onUserNavigated()
         },
         shouldAutoFocus = globalFocusState.value.sectionId == "ODKRYWAJ" && globalFocusState.value.currentRow > 0,
+        onNavigateToChannelGrid = onNavigateToChannelGrid,
+        onNavigateToVodGrid = onNavigateToVodGrid,
+        onNavigateToKinoGrid = onNavigateToKinoGrid,
+        appIconsData = appIconsData,
         sx = sx,
         sy = sy,
         resetTrigger = resetTrigger
@@ -1559,7 +1603,9 @@ private fun TelewizjaScreenContent(
     onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> },
     onFocusRestored: () -> Unit = {},
     restoredTelewizjaFocus: FocusState? = null,
-    onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> }
+    onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
+    onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> }
 ) {
     var resetTrigger by remember { mutableStateOf(0) }
 
@@ -1590,7 +1636,9 @@ private fun TelewizjaScreenContent(
         onFocusRestored = onFocusRestored,
         restoredTelewizjaFocus = restoredTelewizjaFocus,
         sectionId = globalFocusState.value.sectionId,
-        onNavigateToChannelGrid = onNavigateToChannelGrid
+        onNavigateToChannelGrid = onNavigateToChannelGrid,
+        onNavigateToVodGrid = onNavigateToVodGrid,
+        onNavigateToKinoGrid = onNavigateToKinoGrid
     )
 }
 
@@ -1600,6 +1648,10 @@ private fun OdkrywajChannelsScreen(
     onReturnToMenu: () -> Unit = {},
     onUserNavigated: () -> Unit = {},  // NEW: Callback when user navigates content
     shouldAutoFocus: Boolean = false,
+    onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
+    onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    appIconsData: Map<String, List<TvChannel>> = emptyMap(),
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     resetTrigger: Int = 0
@@ -1792,6 +1844,10 @@ private fun OdkrywajChannelsScreen(
                 focusedRowIndex = row
                 focusedColIndex = col
             },
+            onNavigateToChannelGrid = onNavigateToChannelGrid,
+            onNavigateToVodGrid = onNavigateToVodGrid,
+            onNavigateToKinoGrid = onNavigateToKinoGrid,
+            appIconsData = appIconsData,
             lazyListStates = lazyListStates,
             sx = sx,
             sy = sy
@@ -1813,7 +1869,9 @@ private fun TelewizjaChannelsScreen(
     onFocusRestored: () -> Unit = {},
     restoredTelewizjaFocus: FocusState? = null,
     sectionId: String = "TELEWIZJA",
-    onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> }
+    onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
+    onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> }
 ) {
     android.util.Log.d("EPG_DEBUG", "=== TelewizjaChannelsScreen RENDERED ===")
 
@@ -1936,25 +1994,60 @@ private fun TelewizjaChannelsScreen(
     val newsChannels = remember { filterTvChannelsByCategory(context, tvChannelLogos, "informacyjne") }  // 200-209
     val mojaListaChannels = remember { filterTvChannelsByCategory(context, tvChannelLogos, "moja-lista") }  // 1-9
 
+    // EPG section collapse state (domyślnie UKRYTE - collapsed)
+    var isEpgSectionExpanded by remember { mutableStateOf(false) }
+
+    // Toggle function for EPG section (triggered by key "1")
+    val toggleEpgSection: () -> Unit = {
+        isEpgSectionExpanded = !isEpgSectionExpanded
+        android.util.Log.d("TELEWIZJA_DEBUG", "EPG section expanded: $isEpgSectionExpanded (key '1' pressed)")
+    }
+
     // New structure: Header rows + content channels + moved rows
-    val channels = listOf(
-        "[HEADER] Teraz w TV",          // Row 0 - header above EPG
-        "Kategorie EPG",                 // Row 1 - EPG thumbnails
-        "Skróty v2",                     // Row 2 - shortcuts
-        "[HEADER] Było w TV - oglądaj teraz", // Row 3 - header above movies
-        "FILMY",                         // Row 4
-        "SERIALE",                       // Row 5
-        "SPORT",                         // Row 6
-        "TELETURNIEJE",                  // Row 7
-        "Wszystkie kanały",              // Row 8
-        "Moja lista kanałów",            // Row 9 - moved from Row 0
-        "Dla dzieci",                    // Row 10
-        "Sport",                         // Row 11 - NEW CATEGORY (700-805)
-        "Dokumenty",                     // Row 12
-        "Filmy i seriale",               // Row 13 - RENAMED from "Filmy i seriale HBO" (50-529)
-        "Informacyjne",                  // Row 14
-        "Teraz w TV"                     // Row 15 - moved to bottom (horizontal with programs)
-    )
+    // Dynamic list: EPG section (header + 4 channels) collapse/expand with key "1"
+    val channels = remember(isEpgSectionExpanded) {
+        if (isEpgSectionExpanded) {
+            // EXPANDED: All 16 channels visible (EPG section shown)
+            listOf(
+                "[HEADER] Teraz w TV",          // Row 0 - header above EPG
+                "Kategorie EPG",                 // Row 1 - EPG thumbnails
+                "Skróty v2",                     // Row 2 - shortcuts
+                "[HEADER] Było w TV - oglądaj teraz", // Row 3 - header above movies ← EPG SECTION
+                "FILMY",                         // Row 4 ← EPG SECTION
+                "SERIALE",                       // Row 5 ← EPG SECTION
+                "SPORT",                         // Row 6 ← EPG SECTION
+                "TELETURNIEJE",                  // Row 7 ← EPG SECTION
+                "Wszystkie kanały",              // Row 8
+                "Moja lista kanałów",            // Row 9
+                "Dla dzieci",                    // Row 10
+                "Sport",                         // Row 11
+                "Dokumenty",                     // Row 12
+                "Filmy i seriale",               // Row 13
+                "Informacyjne",                  // Row 14
+                "Teraz w TV"                     // Row 15 - horizontal with current programs
+            )
+        } else {
+            // COLLAPSED: 11 channels (EPG section hidden - press "1" to show)
+            listOf(
+                "[HEADER] Teraz w TV",          // Row 0 - header above EPG
+                "Kategorie EPG",                 // Row 1 - EPG thumbnails
+                "Skróty v2",                     // Row 2 - shortcuts
+                // "[HEADER] Było w TV - oglądaj teraz" ← HIDDEN
+                // "FILMY",                      ← HIDDEN
+                // "SERIALE",                    ← HIDDEN
+                // "SPORT",                      ← HIDDEN
+                // "TELETURNIEJE",               ← HIDDEN
+                "Wszystkie kanały",              // Row 3 (was 8)
+                "Moja lista kanałów",            // Row 4 (was 9)
+                "Dla dzieci",                    // Row 5 (was 10)
+                "Sport",                         // Row 6 (was 11)
+                "Dokumenty",                     // Row 7 (was 12)
+                "Filmy i seriale",               // Row 8 (was 13)
+                "Informacyjne",                  // Row 9 (was 14)
+                "Teraz w TV"                     // Row 10 (was 15)
+            )
+        }
+    }
 
     // Define channel types
     val channelTypes = remember {
@@ -1978,7 +2071,7 @@ private fun TelewizjaChannelsScreen(
         )
     }
 
-    val gridContent = remember(terazWTvPrograms, najczesciejMovies, serialePrograms, sportPrograms, teleturniejePrograms, epgCategoriesPrograms) {
+    val gridContent = remember(isEpgSectionExpanded, terazWTvPrograms, najczesciejMovies, serialePrograms, sportPrograms, teleturniejePrograms, epgCategoriesPrograms) {
         val vodContentList = VodDataCache.getVodContentList()
         val kinoPlayMovies = VodDataCache.getKinoPlayMovies()
 
@@ -2358,11 +2451,34 @@ private fun TelewizjaChannelsScreen(
             initialChannelName = selectedChannelName
         )
     } else {
+        // Focus management: Validate focus after EPG section toggle
+        LaunchedEffect(isEpgSectionExpanded, channels.size) {
+            // If current focus is on a channel that was hidden, move to nearest visible channel
+            if (focusedRowIndex >= channels.size) {
+                val newRowIndex = (channels.size - 1).coerceAtLeast(0)
+                android.util.Log.d("TELEWIZJA_DEBUG", "Focus out of bounds after toggle: $focusedRowIndex -> $newRowIndex")
+                focusedRowIndex = newRowIndex
+                kotlinx.coroutines.delay(50)
+                channelFocusRequesters[Pair(newRowIndex, focusedColIndex)]?.requestFocus()
+            }
+        }
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color(0xFF48227C))
                 .onPreviewKeyEvent { event ->
+                    // Priority 1: Handle key "1" for EPG section toggle (GLOBAL in TELEWIZJA)
+                    if (event.type == KeyEventType.KeyDown) {
+                        when (event.key) {
+                            Key.One -> {
+                                toggleEpgSection()
+                                return@onPreviewKeyEvent true
+                            }
+                        }
+                    }
+
+                    // Priority 2: Regular navigation (existing handleTelewizjaNavigation)
                     handleTelewizjaNavigation(
                         event = event,
                         focusedRowIndex = focusedRowIndex,
@@ -2412,7 +2528,9 @@ private fun TelewizjaChannelsScreen(
                 onNavigateToEpg = onNavigateToEpg,
                 onNavigateToEpgDay = onNavigateToEpgDay,
                 sectionId = sectionId,
-                onNavigateToChannelGrid = onNavigateToChannelGrid
+                onNavigateToChannelGrid = onNavigateToChannelGrid,
+                onNavigateToVodGrid = onNavigateToVodGrid,
+                onNavigateToKinoGrid = onNavigateToKinoGrid
             )
         }
     }
@@ -2655,6 +2773,10 @@ private fun MojeChannelsScreen(
 private fun AplikacjeChannelsScreen(
     onReturnToMenu: () -> Unit = {},
     shouldAutoFocus: Boolean = false,
+    onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
+    onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    appIconsData: Map<String, List<TvChannel>> = emptyMap(),
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     resetTrigger: Int = 0
@@ -2828,6 +2950,10 @@ private fun AplikacjeChannelsScreen(
                 focusedRowIndex = row
                 focusedColIndex = col
             },
+            onNavigateToChannelGrid = onNavigateToChannelGrid,
+            onNavigateToVodGrid = onNavigateToVodGrid,
+            onNavigateToKinoGrid = onNavigateToKinoGrid,
+            appIconsData = appIconsData,
             lazyListStates = lazyListStates,
             sx = sx,
             sy = sy
@@ -2840,6 +2966,9 @@ private fun AplikacjeChannelsScreen(
 @Composable
 private fun StartScreenContent(
     globalFocusState: MutableState<GlobalFocusState>,
+    onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
+    onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp
 ) {
@@ -2854,10 +2983,13 @@ private fun StartScreenContent(
     
     // New 3-row structure for START
     NewStartScreenContent(
-        onReturnToMenu = { 
+        onReturnToMenu = {
             globalFocusState.value = GlobalFocusManager.returnToMenu(globalFocusState.value)
         },
         shouldAutoFocus = globalFocusState.value.sectionId == "START" && globalFocusState.value.currentRow > 0,
+        onNavigateToChannelGrid = onNavigateToChannelGrid,
+        onNavigateToVodGrid = onNavigateToVodGrid,
+        onNavigateToKinoGrid = onNavigateToKinoGrid,
         sx = sx,
         sy = sy,
         resetTrigger = resetTrigger
@@ -3334,6 +3466,10 @@ private fun StartShortcuts(
     focusedIndex: Int,
     currentRow: Int,
     onFocusChange: (Int) -> Unit,
+    onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
+    onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    appIconsData: Map<String, List<TvChannel>> = emptyMap(),
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     offsetY: androidx.compose.ui.unit.Dp = 0.dp
@@ -3353,25 +3489,31 @@ private fun StartShortcuts(
             .fillMaxWidth()
             .offset(y = offsetY)
     ) {
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = sx(134)), // Aligned with SliderMix first slide
-            horizontalArrangement = Arrangement.spacedBy(sx(20)),
-            modifier = Modifier.fillMaxWidth(),
-            userScrollEnabled = false
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = sx(134)), // Aligned with SliderMix first slide
+            horizontalArrangement = Arrangement.spacedBy(sx(20))
         ) {
-            itemsIndexed(shortcuts) { index, shortcut ->
-                StartShortcutCard(
-                    shortcut = shortcut,
-                    isFocused = currentRow == 2 && index == focusedIndex, // Show border only when Shortcuts row is focused AND this shortcut is selected
-                    focusRequester = focusRequesters[index] ?: FocusRequester(),
-                    sx = sx,
-                    sy = sy,
-                    onFocusChange = { isFocused ->
-                        if (isFocused) {
-                            onFocusChange(index)
+            shortcuts.forEachIndexed { index, shortcut ->
+                key(shortcut.title) {  // ✅ Stable key for Compose recomposition
+                    StartShortcutCard(
+                        shortcut = shortcut,
+                        isFocused = currentRow == 2 && index == focusedIndex, // Show border only when Shortcuts row is focused AND this shortcut is selected
+                        focusRequester = focusRequesters[index] ?: FocusRequester(),
+                        onNavigateToChannelGrid = onNavigateToChannelGrid,
+                        onNavigateToVodGrid = onNavigateToVodGrid,
+                        onNavigateToKinoGrid = onNavigateToKinoGrid,
+                        appIconsData = appIconsData,
+                        sx = sx,
+                        sy = sy,
+                        onFocusChange = { isFocused ->
+                            if (isFocused) {
+                                onFocusChange(index)
+                            }
                         }
-                    }
-                )
+                    )
+                }
             }
         }
     }
@@ -3382,6 +3524,10 @@ private fun StartShortcutCard(
     shortcut: ShortcutItem,
     isFocused: Boolean,
     focusRequester: FocusRequester,
+    onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
+    onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    appIconsData: Map<String, List<TvChannel>> = emptyMap(),
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     onFocusChange: (Boolean) -> Unit
@@ -3389,7 +3535,7 @@ private fun StartShortcutCard(
     val cardWidth = sx(210)
     val cardHeight = sy(279)
     val borderColor = if (isFocused) Color(0xFF5AECD3) else Color.Transparent
-    
+
     Box(
         modifier = Modifier
             .width(cardWidth)
@@ -3402,7 +3548,77 @@ private fun StartShortcutCard(
             .clip(RoundedCornerShape(sx(12)))
             .background(Color(0x33000000))
             .focusRequester(focusRequester)
+            .onPreviewKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown &&
+                    (event.key == Key.Enter || event.key == Key.DirectionCenter)) {
+                    android.util.Log.d("START_CARD", "=== Enter/OK pressed for: ${shortcut.title} ===")
+                    when (shortcut.title) {
+                        "Moja lista kanałów" -> {
+                            android.util.Log.d("START_CARD", "Nawigacja do ChannelGrid")
+                            onNavigateToChannelGrid(
+                                "Moja lista kanałów",
+                                "Wszystkie",
+                                null,
+                                appIconsData["Moja lista kanałów"]
+                            )
+                        }
+                        "Nagrania" -> {
+                            android.util.Log.d("START_CARD", "Nawigacja do VodGrid - Nagrania")
+                            val vodList = VodDataCache.getVodContentList()
+                            val randomFilms = vodList.shuffled().take(20)
+                            onNavigateToVodGrid("Wszystkie nagrania", randomFilms, "START")
+                        }
+                        "Wypożyczone" -> {
+                            android.util.Log.d("START_CARD", "Nawigacja do KinoGrid - Wypożyczone (pionowe plakaty)")
+                            val kinoList = VodDataCache.getKinoPlayMovies()
+                            val randomMovies = kinoList.shuffled().take(2)
+                            onNavigateToKinoGrid("Wypożyczone", randomMovies, "START")
+                        }
+                        "Do obejrzenia" -> {
+                            android.util.Log.d("START_CARD", "Nawigacja do VodGrid - Do obejrzenia")
+                            val vodList = VodDataCache.getVodContentList()
+                            val randomFilms = vodList.shuffled().take(20)
+                            onNavigateToVodGrid("Do obejrzenia", randomFilms, "START")
+                        }
+                    }
+                    true
+                } else {
+                    false
+                }
+            }
             .focusable()
+            .clickable {
+                android.util.Log.d("START_CARD", "=== clickable triggered for: ${shortcut.title} ===")
+                when (shortcut.title) {
+                    "Moja lista kanałów" -> {
+                        android.util.Log.d("START_CARD", "Nawigacja do ChannelGrid")
+                        onNavigateToChannelGrid(
+                            "Moja lista kanałów",
+                            "Wszystkie",
+                            null,
+                            appIconsData["Moja lista kanałów"]
+                        )
+                    }
+                    "Nagrania" -> {
+                        android.util.Log.d("START_CARD", "Nawigacja do VodGrid - Nagrania")
+                        val vodList = VodDataCache.getVodContentList()
+                        val randomFilms = vodList.shuffled().take(20)
+                        onNavigateToVodGrid("Wszystkie nagrania", randomFilms, "START")
+                    }
+                    "Wypożyczone" -> {
+                        android.util.Log.d("START_CARD", "Nawigacja do KinoGrid - Wypożyczone (pionowe plakaty)")
+                        val kinoList = VodDataCache.getKinoPlayMovies()
+                        val randomMovies = kinoList.shuffled().take(2)
+                        onNavigateToKinoGrid("Wypożyczone", randomMovies, "START")
+                    }
+                    "Do obejrzenia" -> {
+                        android.util.Log.d("START_CARD", "Nawigacja do VodGrid - Do obejrzenia")
+                        val vodList = VodDataCache.getVodContentList()
+                        val randomFilms = vodList.shuffled().take(20)
+                        onNavigateToVodGrid("Do obejrzenia", randomFilms, "START")
+                    }
+                }
+            }
             .onFocusChanged { focusState ->
                 onFocusChange(focusState.isFocused)
             }
@@ -3628,6 +3844,9 @@ private fun StartSliderMix(
 private fun NewStartScreenContent(
     onReturnToMenu: () -> Unit = {},
     shouldAutoFocus: Boolean = false,
+    onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
+    onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     resetTrigger: Int = 0
@@ -3660,6 +3879,17 @@ private fun NewStartScreenContent(
         }
     }
     val context = LocalContext.current
+
+    // Load TV channel data for "Moja lista kanałów" shortcut
+    val tvChannelLogos = remember { loadTvChannelsFromAssets(context) }
+    val mojaListaChannels = remember { filterTvChannelsByCategory(context, tvChannelLogos, "moja-lista") }
+
+    val appIconsData = remember {
+        mapOf(
+            "Moja lista kanałów" to mojaListaChannels
+        )
+    }
+
     val gridContent = remember {
         val vodContentList = VodDataCache.getVodContentList()
         if (vodContentList.isNotEmpty()) {
@@ -3783,6 +4013,10 @@ private fun NewStartScreenContent(
                 currentRow = 2 // Shortcuts are now Row 2
                 shortcutFocusedIndex = index
             },
+            onNavigateToChannelGrid = onNavigateToChannelGrid,
+            onNavigateToVodGrid = onNavigateToVodGrid,
+            onNavigateToKinoGrid = onNavigateToKinoGrid,
+            appIconsData = appIconsData,
             sx = sx,
             sy = sy,
             offsetY = animatedShortcutsY
@@ -5146,8 +5380,8 @@ fun handleOdkrywajNavigation(
 val telewizjaShortcutsV2 = listOf(
     ShortcutItem("1", "Program telewizyjny", ShortcutIcon.MaterialIcon("add")),
     ShortcutItem("2", "Moja lista kanałów", ShortcutIcon.MaterialIcon("search")),
-    ShortcutItem("3", "Nagrania", ShortcutIcon.MaterialIcon("favorite")),
-    ShortcutItem("4", "Lista kanałów", ShortcutIcon.MaterialIcon("star"))
+    ShortcutItem("3", "Lista kanałów", ShortcutIcon.MaterialIcon("star")),
+    ShortcutItem("4", "Nagrania", ShortcutIcon.MaterialIcon("favorite"))
 )
 
 // Helper function to find next focusable row (skipping headers)
@@ -5934,6 +6168,10 @@ fun AplikacjeChannelRowsLayout(
     focusedColIndex: Int,
     channelFocusRequesters: Map<Pair<Int, Int>, FocusRequester>,
     onChannelContentFocusChange: (Int, Int) -> Unit,
+    onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
+    onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    appIconsData: Map<String, List<TvChannel>> = emptyMap(),
     lazyListStates: Map<Int, LazyListState>,
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp
@@ -6270,6 +6508,10 @@ fun OdkrywajChannelRowsLayout(
     focusedColIndex: Int,
     channelFocusRequesters: Map<Pair<Int, Int>, FocusRequester>,
     onChannelContentFocusChange: (Int, Int) -> Unit,
+    onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
+    onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    appIconsData: Map<String, List<TvChannel>> = emptyMap(),
     lazyListStates: Map<Int, LazyListState>,
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp
@@ -6308,6 +6550,10 @@ fun OdkrywajChannelRowsLayout(
                     focusedColIndex = focusedColIndex,
                     channelFocusRequesters = channelFocusRequesters,
                     onChannelContentFocusChange = onChannelContentFocusChange,
+                    onNavigateToChannelGrid = onNavigateToChannelGrid,
+                    onNavigateToVodGrid = onNavigateToVodGrid,
+                    onNavigateToKinoGrid = onNavigateToKinoGrid,
+                    appIconsData = appIconsData,
                     sx = sx,
                     sy = sy,
                     lazyListState = lazyListState
@@ -6328,6 +6574,10 @@ fun OdkrywajUnifiedChannelRow(
     focusedColIndex: Int,
     channelFocusRequesters: Map<Pair<Int, Int>, FocusRequester>,
     onChannelContentFocusChange: (Int, Int) -> Unit,
+    onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
+    onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    appIconsData: Map<String, List<TvChannel>> = emptyMap(),
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     lazyListState: LazyListState
@@ -6412,6 +6662,10 @@ fun OdkrywajUnifiedChannelRow(
                             shortcut = shortcut,
                             isFocused = isItemFocused,
                             focusRequester = focusRequester,
+                            onNavigateToChannelGrid = onNavigateToChannelGrid,
+                            onNavigateToVodGrid = onNavigateToVodGrid,
+                            onNavigateToKinoGrid = onNavigateToKinoGrid,
+                            appIconsData = appIconsData,
                             sx = sx,
                             sy = sy,
                             onFocusChange = { isFocused ->
@@ -6804,7 +7058,9 @@ fun TelewizjaChannelRowsLayout(
     onNavigateToEpg: () -> Unit = {},
     onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> },
     sectionId: String = "TELEWIZJA",
-    onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> }
+    onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
+    onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> }
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         channels.forEachIndexed { rowIndex, channelName ->
@@ -6849,6 +7105,8 @@ fun TelewizjaChannelRowsLayout(
                     onNavigateToEpgDay = onNavigateToEpgDay,
                     sectionId = channelName,  // Pass row channel name (e.g., "Moja lista kanałów") for proper focus restoration
                     onNavigateToChannelGrid = onNavigateToChannelGrid,
+                    onNavigateToVodGrid = onNavigateToVodGrid,
+                    onNavigateToKinoGrid = onNavigateToKinoGrid,
                     appIconsData = appIconsData
                 )
             }
@@ -6887,6 +7145,8 @@ fun TelewizjaUnifiedChannelRow(
     onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> },
     sectionId: String = "TELEWIZJA",
     onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
+    onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     appIconsData: Map<String, List<TvChannel>> = emptyMap()
 ) {
     val isCurrentRow = rowIndex == focusedRowIndex
@@ -6969,6 +7229,10 @@ fun TelewizjaUnifiedChannelRow(
                             shortcut = shortcut,
                             isFocused = isItemFocused,
                             focusRequester = focusRequester,
+                            onNavigateToChannelGrid = onNavigateToChannelGrid,
+                            onNavigateToVodGrid = onNavigateToVodGrid,
+                            onNavigateToKinoGrid = onNavigateToKinoGrid,
+                            appIconsData = appIconsData,
                             sx = sx,
                             sy = sy,
                             onFocusChange = { isFocused ->
@@ -7570,6 +7834,12 @@ fun TelewizjaUnifiedChannelRow(
                                         appIconsData["Wszystkie kanały"]  // Pass pre-loaded channels
                                     )
                                 }
+                                "Nagrania" -> {
+                                    // Navigate to Nagrania grid (20 random VOD)
+                                    val vodList = VodDataCache.getVodContentList()
+                                    val randomFilms = vodList.shuffled().take(20)
+                                    onNavigateToVodGrid("Wszystkie nagrania", randomFilms, "TELEWIZJA")
+                                }
                             }
                         }
                     )
@@ -7693,6 +7963,8 @@ fun TelewizjaUnifiedChannelRow(
 @Composable
 private fun VodScreenContent(
     globalFocusState: MutableState<GlobalFocusState>,
+    onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp
 ) {
@@ -7710,6 +7982,8 @@ private fun VodScreenContent(
             globalFocusState.value = GlobalFocusManager.returnToMenu(globalFocusState.value)
         },
         shouldAutoFocus = globalFocusState.value.sectionId == "KINO_PLAY" && globalFocusState.value.currentRow > 0,
+        onNavigateToVodGrid = onNavigateToVodGrid,
+        onNavigateToKinoGrid = onNavigateToKinoGrid,
         sx = sx,
         sy = sy,
         resetTrigger = resetTrigger,
@@ -7720,6 +7994,7 @@ private fun VodScreenContent(
 @Composable
 private fun WideoScreenContent(
     globalFocusState: MutableState<GlobalFocusState>,
+    onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp
 ) {
@@ -7737,10 +8012,41 @@ private fun WideoScreenContent(
             globalFocusState.value = GlobalFocusManager.returnToMenu(globalFocusState.value)
         },
         shouldAutoFocus = globalFocusState.value.sectionId == "WIDEO" && globalFocusState.value.currentRow > 0,
+        onNavigateToVodGrid = onNavigateToVodGrid,
         sx = sx,
         sy = sy,
         resetTrigger = resetTrigger
     )
+}
+
+/**
+ * Filter VOD content by WIDEO section category name
+ * Maps WIDEO category names to actual VodContent.category values
+ */
+private fun filterVodByWIDEOCategory(vodList: List<VodContent>, wideoCategory: String): List<VodContent> {
+    return when (wideoCategory) {
+        "Seriale" -> emptyList()  // Brak seriali w kino_play.json
+        "Filmy fabularne" -> vodList.filter {
+            it.category in listOf("Akcja", "Komedia", "Dramat", "Thriller", "Przygodowy", "Fantasy", "Sci-fi")
+        }
+        "Filmy dokumentalne" -> vodList.filter {
+            it.category.lowercase().contains("dokument") ||
+            it.category.lowercase().contains("documentary")
+        }
+        "Dla dzieci" -> vodList.filter {
+            it.category.lowercase().contains("familij") ||
+            it.category.lowercase().contains("animac") ||
+            it.category == "Family"
+        }
+        "Świetna rozrywka" -> vodList.filter {
+            it.category.lowercase().contains("komedia")
+        }
+        "Filmy" -> vodList.filter {
+            it.category in listOf("Akcja", "Komedia", "Dramat", "Thriller", "Horror", "Sci-fi", "Fantasy", "Przygodowy")
+        }
+        "Cinemax", "KOLEKCJE", "Kolekcje", "Najlepsze wg Filmwebu" -> vodList.shuffled()  // Wszystkie filmy (randomizowane)
+        else -> vodList
+    }.take(100)  // Limit dla wydajności
 }
 
 /**
@@ -7752,7 +8058,7 @@ private fun filterMoviesByCategory(movies: List<VodContent>, categoryFilter: Str
         categories.any { category ->
             movie.category.lowercase().contains(category)
         }
-    }.take(10) // Limit to 10 items per channel
+    } // Returns all matching movies (full catalog for KinoGridScreen)
 }
 
 @OptIn(ExperimentalComposeUiApi::class)
@@ -7760,6 +8066,8 @@ private fun filterMoviesByCategory(movies: List<VodContent>, categoryFilter: Str
 private fun VodWithChannels(
     onReturnToMenu: () -> Unit = {},
     shouldAutoFocus: Boolean = false,
+    onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     resetTrigger: Int = 0,
@@ -7892,6 +8200,8 @@ private fun VodWithChannels(
                 focusedRowIndex = row
                 focusedColIndex = col
             },
+            onNavigateToVodGrid = onNavigateToVodGrid,
+            onNavigateToKinoGrid = onNavigateToKinoGrid,
             lazyListStates = lazyListStates,
             globalFocusState = globalFocusState,
             sx = sx,
@@ -7908,6 +8218,8 @@ private fun VodLayoutWithSlider(
     gridContent: Map<String, List<VodContent>>,
     channelFocusRequesters: Map<Pair<Int, Int>, FocusRequester>,
     onChannelContentFocusChange: (Int, Int) -> Unit,
+    onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     lazyListStates: Map<Int, LazyListState>,
     globalFocusState: MutableState<GlobalFocusState>,
     sx: (Int) -> androidx.compose.ui.unit.Dp,
@@ -7948,6 +8260,8 @@ private fun VodLayoutWithSlider(
                 focusedColIndex = focusedColIndex,
                 channelFocusRequesters = channelFocusRequesters,
                 onChannelContentFocusChange = onChannelContentFocusChange,
+                onNavigateToVodGrid = onNavigateToVodGrid,
+                onNavigateToKinoGrid = onNavigateToKinoGrid,
                 lazyListStates = lazyListStates,
                 sx = sx,
                 sy = sy
@@ -8183,6 +8497,8 @@ private fun VodChannelRows(
     focusedColIndex: Int,
     channelFocusRequesters: Map<Pair<Int, Int>, FocusRequester>,
     onChannelContentFocusChange: (Int, Int) -> Unit,
+    onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     lazyListStates: Map<Int, LazyListState>,
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp
@@ -8223,6 +8539,7 @@ private fun VodChannelRows(
                         focusedColIndex = focusedColIndex,
                         channelFocusRequesters = channelFocusRequesters,
                         onChannelContentFocusChange = onChannelContentFocusChange,
+                        onNavigateToKinoGrid = onNavigateToKinoGrid,
                         sx = sx,
                         sy = sy
                     )
@@ -8235,6 +8552,7 @@ private fun VodChannelRows(
                         focusedColIndex = focusedColIndex,
                         channelFocusRequesters = channelFocusRequesters,
                         onChannelContentFocusChange = onChannelContentFocusChange,
+                        onNavigateToKinoGrid = onNavigateToKinoGrid,
                         sx = sx,
                         sy = sy,
                         lazyListState = lazyListState
@@ -8254,6 +8572,8 @@ private fun VodUnifiedChannelRow(
     focusedColIndex: Int,
     channelFocusRequesters: Map<Pair<Int, Int>, FocusRequester>,
     onChannelContentFocusChange: (Int, Int) -> Unit,
+    onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     lazyListState: LazyListState
@@ -8438,7 +8758,21 @@ private fun VodUnifiedChannelRow(
             CategoryIcon(
                 text = channel,
                 isFocused = categoryIsFocused,
-                onClick = { /* Channel click handler */ },
+                onClick = {
+                    // Navigate to KinoGridScreen with category-specific filtered content
+                    if (isVodCategoryChannel) {
+                        val vodList = VodDataCache.getKinoPlayMovies()
+                        val categoryFilter = when (channel) {
+                            "Akcja" -> "Akcja|Action"
+                            "Komedie" -> "Komedia|Comedy"
+                            "Horror" -> "Horror"
+                            "Biograficzne" -> "Biograficzny|Biography|Biographical"
+                            else -> channel
+                        }
+                        val filtered = filterMoviesByCategory(vodList, categoryFilter)
+                        onNavigateToKinoGrid(channel, filtered, "KINO_PLAY")
+                    }
+                },
                 onFocused = { isFocused ->
                     if (isFocused) {
                         Log.d("VOD_DEBUG", "CategoryIcon '$channel' (row $actualRowIndex) gained focus")
@@ -9477,6 +9811,8 @@ private fun VodShortcutsV3Row(
     focusedColIndex: Int,
     channelFocusRequesters: Map<Pair<Int, Int>, FocusRequester>,
     onChannelContentFocusChange: (Int, Int) -> Unit,
+    onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp
 ) {
@@ -9516,7 +9852,20 @@ private fun VodShortcutsV3Row(
                 isFocused = isFocused,
                 focusRequester = focusRequester,
                 sx = sx,
-                sy = sy
+                sy = sy,
+                onFocusChange = { focused ->
+                    if (focused) onChannelContentFocusChange(actualRowIndex, index)
+                },
+                onClick = {
+                    // Navigate to KinoGridScreen with shortcut-specific filtered content
+                    val vodList = VodDataCache.getKinoPlayMovies()
+                    val filtered = if (shortcut.categoryFilter != null) {
+                        filterMoviesByCategory(vodList, shortcut.categoryFilter)
+                    } else {
+                        vodList.shuffled().take(10)
+                    }
+                    onNavigateToKinoGrid(shortcut.title, filtered, "KINO_PLAY")
+                }
             )
         }
     }
@@ -10480,6 +10829,7 @@ fun PositioningGrid(
 private fun WideoChannelsScreen(
     onReturnToMenu: () -> Unit = {},
     shouldAutoFocus: Boolean = false,
+    onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     resetTrigger: Int = 0
@@ -10624,6 +10974,7 @@ private fun WideoChannelsScreen(
                 focusedRowIndex = row
                 focusedColIndex = col
             },
+            onNavigateToVodGrid = onNavigateToVodGrid,
             lazyListStates = lazyListStates,
             sx = sx,
             sy = sy
@@ -10793,6 +11144,7 @@ fun WideoChannelRowsLayout(
     focusedColIndex: Int,
     channelFocusRequesters: Map<Pair<Int, Int>, FocusRequester>,
     onChannelContentFocusChange: (Int, Int) -> Unit,
+    onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     lazyListStates: Map<Int, LazyListState>,
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp
@@ -10844,6 +11196,7 @@ fun WideoChannelRowsLayout(
                     focusedColIndex = focusedColIndex,
                     channelFocusRequesters = channelFocusRequesters,
                     onChannelContentFocusChange = onChannelContentFocusChange,
+                    onNavigateToVodGrid = onNavigateToVodGrid,
                     sx = sx,
                     sy = sy,
                     lazyListState = lazyListState
@@ -10898,6 +11251,7 @@ fun WideoUnifiedChannelRow(
     focusedColIndex: Int,
     channelFocusRequesters: Map<Pair<Int, Int>, FocusRequester>,
     onChannelContentFocusChange: (Int, Int) -> Unit,
+    onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     lazyListState: LazyListState
@@ -10985,6 +11339,12 @@ fun WideoUnifiedChannelRow(
                         sy = sy,
                         onFocusChange = { isFocused ->
                             if (isFocused) onChannelContentFocusChange(rowIndex, colIndex)
+                        },
+                        onClick = {
+                            // Navigate to VodGridScreen with shortcut-specific filtered content
+                            val vodList = VodDataCache.getVodContentList()
+                            val filtered = filterVodByWIDEOCategory(vodList, shortcut.title)
+                            onNavigateToVodGrid(shortcut.title, filtered, "WIDEO")
                         }
                     )
                 }
@@ -11045,7 +11405,12 @@ fun WideoUnifiedChannelRow(
                     CategoryIcon(
                         text = channel,
                         isFocused = categoryIsFocused,
-                        onClick = {},
+                        onClick = {
+                            // Navigate to VodGridScreen with channel-specific filtered content
+                            val vodList = VodDataCache.getVodContentList()
+                            val filtered = filterVodByWIDEOCategory(vodList, channel)
+                            onNavigateToVodGrid(channel, filtered, "WIDEO")
+                        },
                         onFocused = { isFocused ->
                             if (isFocused) onChannelContentFocusChange(rowIndex, -1)
                         },

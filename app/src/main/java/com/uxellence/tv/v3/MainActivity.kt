@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.sp
 import com.uxellence.tv.v3.epg.*
 import com.uxellence.tv.v3.repository.EpgRepository
 import com.uxellence.tv.v3.channels.ChannelManager
+import com.uxellence.tv.v3.version001.VodContent
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.uxellence.tv.v3.ui.theme.figmaRadialBackground
@@ -67,7 +68,7 @@ class MainActivity : ComponentActivity() {
 }
 
 enum class NavigationScreen {
-    HOME, LIVE, COMPONENT_SHOWCASE, TOP_MENU, TOP_MENU2, SHORTCUT, CHANNELE, VIDEOSLIDER, SLIDER, SLIDER_MIX, EPG, EPG_DAY, FOCUS_MINI_CARD, VOICE_TEST, SPLASH, WHATS_NEW, STARTUP_MODE_SELECTION, ZAPPING_BAR, CHANNEL_GRID
+    HOME, LIVE, COMPONENT_SHOWCASE, TOP_MENU, TOP_MENU2, SHORTCUT, CHANNELE, VIDEOSLIDER, SLIDER, SLIDER_MIX, EPG, EPG_DAY, FOCUS_MINI_CARD, VOICE_TEST, SPLASH, WHATS_NEW, STARTUP_MODE_SELECTION, ZAPPING_BAR, CHANNEL_GRID, WIDEO_GRID, KINO_GRID, VOD_GRID
 }
 
 // Kolory z Figma dla nowego menu
@@ -286,6 +287,16 @@ fun TvRoot() {
     var channelGridSourceScreen by remember { mutableStateOf<NavigationScreen?>(null) }
     var channelGridSourceSection by remember { mutableStateOf<String?>(null) }
 
+    // VodGridScreen navigation parameters
+    var vodGridTitle by remember { mutableStateOf("Lista Wideo") }
+    var vodGridPrefiltered by remember { mutableStateOf<List<VodContent>?>(null) }  // Prefiltered VOD data
+    var vodGridSourceSection by remember { mutableStateOf<String?>(null) }  // "TELEWIZJA", "START", etc.
+
+    // KinoGridScreen navigation parameters
+    var kinoGridTitle by remember { mutableStateOf("Lista Kino") }
+    var kinoGridPrefiltered by remember { mutableStateOf<List<VodContent>?>(null) }  // Prefiltered KINO data
+    var kinoGridSourceSection by remember { mutableStateOf<String?>(null) }  // "KINO_PLAY"
+
     // Save TELEWIZJA focus state for smart BACK navigation (ID-based)
     var savedTelewizjaFocus by remember { mutableStateOf<FocusState?>(null) }
 
@@ -316,6 +327,8 @@ fun TvRoot() {
     // Menu items dla wszystkich ekranów - najnowsze na górze
     val menuItems = remember {
         listOf(
+            MainMenuItem(id = "kino_grid", title = "🎬 Lista Kino", navigationScreen = NavigationScreen.KINO_GRID),
+            MainMenuItem(id = "vod_grid", title = "📹 Lista Wideo", navigationScreen = NavigationScreen.WIDEO_GRID),
             MainMenuItem(id = "channel_grid", title = "📺 Lista kanałów TV", navigationScreen = NavigationScreen.CHANNEL_GRID),
             MainMenuItem(id = "startup_mode", title = "⚙️ Tryb startowy", navigationScreen = NavigationScreen.STARTUP_MODE_SELECTION),
             MainMenuItem(id = "whats_new", title = "What's New", navigationScreen = NavigationScreen.WHATS_NEW),
@@ -607,6 +620,45 @@ fun TvRoot() {
                     preloadedChannels = channelGridChannelList
                 )
             }
+            NavigationScreen.WIDEO_GRID -> {
+                VodGridScreen(
+                    onBackPressed = {
+                        // Return to HOME
+                        currentScreen = NavigationScreen.HOME
+                    }
+                )
+            }
+            NavigationScreen.VOD_GRID -> {
+                VodGridScreen(
+                    onBackPressed = {
+                        // Return to source section in TOP_MENU2
+                        currentScreen = NavigationScreen.TOP_MENU2
+                        savedTelewizjaSection = vodGridSourceSection ?: "TELEWIZJA"
+                    },
+                    screenTitle = vodGridTitle,
+                    preloadedData = vodGridPrefiltered
+                )
+            }
+            NavigationScreen.KINO_GRID -> {
+                KinoGridScreen(
+                    onBackPressed = {
+                        // Smart BACK: return to previous screen
+                        when (previousScreen) {
+                            NavigationScreen.TOP_MENU2 -> {
+                                // Return to TOP_MENU2 (came from KINO PLAY section)
+                                currentScreen = NavigationScreen.TOP_MENU2
+                                previousScreen = NavigationScreen.HOME
+                            }
+                            else -> {
+                                // Default: return to HOME
+                                currentScreen = NavigationScreen.HOME
+                            }
+                        }
+                    },
+                    screenTitle = kinoGridTitle,
+                    preloadedData = kinoGridPrefiltered
+                )
+            }
             NavigationScreen.SLIDER -> {
                 SliderScreen()
             }
@@ -712,6 +764,22 @@ fun TvRoot() {
                         channelGridFilter = filter
                         channelGridChannelList = channelList
                         currentScreen = NavigationScreen.CHANNEL_GRID
+                    },
+                    onNavigateToVodGrid = { title, prefiltered, sourceSection ->
+                        // Navigate to VOD grid (Nagrania, Wypożyczone, Do obejrzenia, etc.)
+                        vodGridTitle = title
+                        vodGridPrefiltered = prefiltered
+                        vodGridSourceSection = sourceSection
+                        previousScreen = NavigationScreen.TOP_MENU2
+                        currentScreen = NavigationScreen.VOD_GRID
+                    },
+                    onNavigateToKinoGrid = { title, prefiltered, sourceSection ->
+                        // Navigate to KINO grid (Akcja, Horror, etc. - vertical posters)
+                        kinoGridTitle = title
+                        kinoGridPrefiltered = prefiltered
+                        kinoGridSourceSection = sourceSection
+                        previousScreen = NavigationScreen.TOP_MENU2
+                        currentScreen = NavigationScreen.KINO_GRID
                     }
                 )
 
