@@ -708,7 +708,6 @@ fun TopMenuScreen2(
 
     val menuItems = remember {
         listOf(
-            MenuItem2("ACCOUNT", "Account"),
             MenuItem2("SEARCH", "Search"),
             MenuItem2("ODKRYWAJ", "Start"),
             MenuItem2("MOJE", "Moje"),
@@ -744,6 +743,37 @@ fun TopMenuScreen2(
 
     val focusRequesters = remember(menuItems.size) {
         menuItems.associate { it.id to FocusRequester() }
+    }
+
+    // Right section state (0=CandyBar, 1=Profile, 2=Settings, -1=none focused)
+    var focusedRightButton by remember { mutableStateOf(-1) }
+    val rightButtonFocusRequesters = remember {
+        mapOf(
+            0 to FocusRequester(), // CandyBar
+            1 to FocusRequester(), // Profile
+            2 to FocusRequester()  // Settings
+        )
+    }
+
+    // State for keyboard shortcuts
+    var isCandyBarVisible by remember { mutableStateOf(true) }
+    var showProfileNotificationBadge by remember { mutableStateOf(false) }
+
+    // Manage focus for right section buttons
+    LaunchedEffect(focusedRightButton) {
+        if (focusedRightButton >= 0 && globalFocusState.value.currentRow == 0) {
+            // Focus on right section button
+            delay(50)
+            rightButtonFocusRequesters[focusedRightButton]?.requestFocus()
+        }
+    }
+
+    // Auto-focus Profile button when returning from ACCOUNT content to menu
+    LaunchedEffect(globalFocusState.value.sectionId, globalFocusState.value.currentRow) {
+        if (globalFocusState.value.sectionId == "ACCOUNT" && globalFocusState.value.currentRow == 0) {
+            delay(150)  // Increased delay prevents visible focus flash on START/SZUKAJ
+            focusedRightButton = 1  // Focus Profile button
+        }
     }
 
     LaunchedEffect(globalFocusState.value.currentPosition, globalFocusState.value.currentRow) {
@@ -846,28 +876,76 @@ fun TopMenuScreen2(
                     0 -> { // Menu navigation
                         when (event.key) {
                             Key.DirectionLeft -> {
-                                globalFocusState.value = GlobalFocusManager.navigateRow(globalFocusState.value, RowDirection.LEFT)
+                                if (focusedRightButton >= 0) {
+                                    // In right section - navigate left within buttons or back to main menu
+                                    if (focusedRightButton > 0) {
+                                        // Skip CandyBar (0) if it's hidden - go directly to APLIKACJE
+                                        if (focusedRightButton == 1 && !isCandyBarVisible) {
+                                            focusedRightButton = -1
+                                            globalFocusState.value = globalFocusState.value.copy(currentPosition = MenuPositions.APLIKACJE)
+                                        } else {
+                                            focusedRightButton--
+                                        }
+                                    } else {
+                                        // From CandyBar (0) back to APLIKACJE (last menu item)
+                                        focusedRightButton = -1
+                                        globalFocusState.value = globalFocusState.value.copy(currentPosition = MenuPositions.APLIKACJE)
+                                    }
+                                } else {
+                                    // Normal menu navigation
+                                    globalFocusState.value = GlobalFocusManager.navigateRow(globalFocusState.value, RowDirection.LEFT)
+                                }
                                 true
                             }
                             Key.DirectionRight -> {
-                                globalFocusState.value = GlobalFocusManager.navigateRow(globalFocusState.value, RowDirection.RIGHT)
+                                if (focusedRightButton >= 0) {
+                                    // In right section - navigate right within buttons
+                                    if (focusedRightButton < 2) {
+                                        focusedRightButton++
+                                    }
+                                    // else: already at Settings (2), stay there
+                                } else {
+                                    // Check if at last menu item (APLIKACJE)
+                                    if (globalFocusState.value.currentPosition == MenuPositions.APLIKACJE) {
+                                        // Move to right section - skip CandyBar if hidden
+                                        focusedRightButton = if (isCandyBarVisible) 0 else 1
+                                    } else {
+                                        // Normal menu navigation
+                                        globalFocusState.value = GlobalFocusManager.navigateRow(globalFocusState.value, RowDirection.RIGHT)
+                                    }
+                                }
                                 true
                             }
                             Key.One -> {  // Przycisk "1" na pilocie - otwórz menu główne z ACCOUNT
-                                val currentSection = MenuPositions.getSectionForPosition(globalFocusState.value.currentPosition)
-
-                                if (currentSection == "ACCOUNT") {
+                                // Check sectionId directly since ACCOUNT is not a menu position
+                                if (globalFocusState.value.sectionId == "ACCOUNT") {
                                     onShowMainMenu()
                                     true
                                 } else {
                                     false // Nie obsługujemy na innych zakładkach
                                 }
                             }
-                            Key.DirectionDown, Key.Enter, Key.DirectionCenter -> {
-                                val currentSection = MenuPositions.getSectionForPosition(globalFocusState.value.currentPosition)
-                                // Allow all sections (including ACCOUNT) to transition to content
-                                globalFocusState.value = GlobalFocusManager.transitionToContent(globalFocusState.value, currentSection)
+                            Key.Five -> {  // Przycisk "5" na pilocie - toggle CandyBar visibility
+                                isCandyBarVisible = !isCandyBarVisible
+                                Log.d("TopMenuScreen2", "CandyBar visibility toggled: $isCandyBarVisible")
                                 true
+                            }
+                            Key.Six -> {  // Przycisk "6" na pilocie - toggle notification badge
+                                showProfileNotificationBadge = !showProfileNotificationBadge
+                                Log.d("TopMenuScreen2", "Profile notification badge toggled: $showProfileNotificationBadge")
+                                true
+                            }
+                            Key.DirectionDown, Key.Enter, Key.DirectionCenter -> {
+                                if (focusedRightButton >= 0) {
+                                    // In right section - let button handle click via onFocusChanged
+                                    false // Don't consume, delegate to button
+                                } else {
+                                    // In main menu - transition to content
+                                    val currentSection = MenuPositions.getSectionForPosition(globalFocusState.value.currentPosition)
+                                    // Allow all sections (including ACCOUNT) to transition to content
+                                    globalFocusState.value = GlobalFocusManager.transitionToContent(globalFocusState.value, currentSection)
+                                    true
+                                }
                             }
                             else -> false
                         }
@@ -1028,9 +1106,9 @@ fun TopMenuScreen2(
         val compatMenuState = TopMenuState2(
             focusedItemId = MenuPositions.getSectionForPosition(globalFocusState.value.currentPosition),
             selectedItemId = globalFocusState.value.sectionId,
-            isMenuFocused = globalFocusState.value.currentRow == 0
+            isMenuFocused = globalFocusState.value.currentRow == 0 && focusedRightButton == -1
         )
-        
+
         TopMenuBar2(
             menuItems = menuItems,
             menuState = compatMenuState,
@@ -1044,6 +1122,33 @@ fun TopMenuScreen2(
             isVodMode = globalFocusState.value.sectionId == "KINO_PLAY",
             currentSelectedSection = globalFocusState.value.sectionId,
             isInStartContent = false,
+            focusedRightButton = focusedRightButton,
+            rightButtonFocusRequesters = rightButtonFocusRequesters,
+            onCandyBarClick = {
+                // Navigate to Points History section
+                globalFocusState.value = globalFocusState.value.copy(
+                    sectionId = "POINTS_HISTORY",
+                    currentRow = 0,
+                    currentPosition = 0
+                )
+                focusedRightButton = 0
+            },
+            onProfileClick = {
+                // Navigate to Account section (focus transfers to content)
+                globalFocusState.value = GlobalFocusManager.transitionToContent(
+                    globalFocusState.value,
+                    "ACCOUNT"
+                )
+                focusedRightButton = -1 // Clear right section focus
+            },
+            onSettingsClick = {
+                // Open Android TV system settings
+                val intent = android.content.Intent(android.provider.Settings.ACTION_SETTINGS)
+                context.startActivity(intent)
+                focusedRightButton = 2
+            },
+            isCandyBarVisible = isCandyBarVisible,
+            showProfileNotificationBadge = showProfileNotificationBadge,
             modifier = Modifier.align(Alignment.TopCenter).zIndex(10f)
         )
 
@@ -1107,6 +1212,13 @@ fun TopMenuBar2(
     isVodMode: Boolean = false,
     currentSelectedSection: String = "",
     isInStartContent: Boolean = false,
+    focusedRightButton: Int = -1,
+    rightButtonFocusRequesters: Map<Int, FocusRequester> = emptyMap(),
+    onCandyBarClick: () -> Unit = {},
+    onProfileClick: () -> Unit = {},
+    onSettingsClick: () -> Unit = {},
+    isCandyBarVisible: Boolean = true,
+    showProfileNotificationBadge: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     var currentTime by remember { mutableStateOf(LocalTime.now()) }
@@ -1130,17 +1242,6 @@ fun TopMenuBar2(
             horizontalArrangement = Arrangement.spacedBy(sx(22)),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            StandaloneAccountIcon(
-                isFocused = menuState.focusedItemId == "ACCOUNT" && menuState.isMenuFocused,
-                focusRequester = focusRequesters["ACCOUNT"]!!,
-                onFocused = { onMenuItemFocused("ACCOUNT") },
-                isVodMode = isVodMode,
-                currentSelectedSection = currentSelectedSection,
-                isInStartContent = isInStartContent,
-                sx = sx,
-                sy = sy
-            )
-            
             Box(
                 modifier = Modifier
                     .height(sy(97))
@@ -1156,7 +1257,7 @@ fun TopMenuBar2(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.height(sy(81))
                 ) {
-                    val containerItems = menuItems.drop(1)
+                    val containerItems = menuItems
                     containerItems.forEach { item ->
                         if (item.id == "SEARCH") {
                             MenuSearchIcon2(
@@ -1185,42 +1286,161 @@ fun TopMenuBar2(
                 }
             }
         }
-        
-        Text(
-            text = "${currentTime.hour.toString().padStart(2, '0')}:${currentTime.minute.toString().padStart(2, '0')}",
-            color = Color.White,
-            fontSize = sy(40).value.sp,
-            fontWeight = FontWeight.Medium,
-            lineHeight = sy(39).value.sp,
-            letterSpacing = 0.2.sp,
-            modifier = Modifier.padding(end = sx(30))
-        )
+
+        // Right section: CandyBar + Profile + Settings + Clock
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(sx(15)),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // CandyBar button with toggle visibility
+            AnimatedVisibility(
+                visible = isCandyBarVisible,
+                enter = fadeIn(animationSpec = tween(300)),
+                exit = fadeOut(animationSpec = tween(300))
+            ) {
+                if (rightButtonFocusRequesters.containsKey(0)) {
+                    CandyBarButton(
+                        points = 40,
+                        days = 21,
+                        isFocused = focusedRightButton == 0,
+                        focusRequester = rightButtonFocusRequesters[0]!!,
+                        onClick = onCandyBarClick,
+                        sx = sx,
+                        sy = sy
+                    )
+                }
+            }
+
+            // Profile button
+            if (rightButtonFocusRequesters.containsKey(1)) {
+                ProfileButton(
+                    isFocused = focusedRightButton == 1,
+                    focusRequester = rightButtonFocusRequesters[1]!!,
+                    onClick = onProfileClick,
+                    showBadge = showProfileNotificationBadge,
+                    sx = sx,
+                    sy = sy
+                )
+            }
+
+            // Settings button
+            if (rightButtonFocusRequesters.containsKey(2)) {
+                SettingsButton(
+                    isFocused = focusedRightButton == 2,
+                    focusRequester = rightButtonFocusRequesters[2]!!,
+                    onClick = onSettingsClick,
+                    sx = sx,
+                    sy = sy
+                )
+            }
+
+            Spacer(modifier = Modifier.width(sx(9))) // 24px total gap to clock (15+9)
+
+            // Clock
+            Text(
+                text = "${currentTime.hour.toString().padStart(2, '0')}:${currentTime.minute.toString().padStart(2, '0')}",
+                color = Color.White,
+                fontSize = sy(40).value.sp,
+                fontWeight = FontWeight.Medium,
+                lineHeight = sy(39).value.sp,
+                letterSpacing = 0.2.sp,
+                modifier = Modifier.padding(end = sx(30))
+            )
+        }
     }
 }
 
 @Composable
-private fun StandaloneAccountIcon(
+private fun CandyBarButton(
+    points: Int = 40,
+    days: Int = 21,
     isFocused: Boolean,
     focusRequester: FocusRequester,
-    onFocused: () -> Unit,
-    isVodMode: Boolean = false,
-    currentSelectedSection: String = "",
-    isInStartContent: Boolean = false,
+    onClick: () -> Unit,
     sx: (Int) -> androidx.compose.ui.unit.Dp,
-    sy: (Int) -> androidx.compose.ui.unit.Dp
+    sy: (Int) -> androidx.compose.ui.unit.Dp,
+    modifier: Modifier = Modifier
 ) {
-    val backgroundColor = when {
-        isFocused && !isInStartContent -> Color(0xFF5AECD3) // Show focus when NOT in START content
-        else -> Color(0x33EEEEEE)
-    }
-    
-    val iconColor = when {
-        isFocused -> Color(0xFF48227C)
-        else -> Color(0xFFEEEEEE)
-    }
+    val backgroundColor = if (isFocused) Color(0xFF5AECD3) else Color(0x4A000000)
+    val contentColor = if (isFocused) Color(0xFF48227C) else Color(0xFFEEEEEE)
 
     Box(
-        modifier = Modifier
+        modifier = modifier
+            .widthIn(max = sx(324))
+            .wrapContentWidth()
+            .height(sy(80))
+            .background(
+                color = backgroundColor,
+                shape = RoundedCornerShape(sx(64))
+            )
+            .focusRequester(focusRequester)
+            .focusable()
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center
+    ) {
+        Row(
+            modifier = Modifier
+                .wrapContentSize()
+                .padding(horizontal = sx(32)),
+            horizontalArrangement = Arrangement.spacedBy(sx(16)),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Left section: Wallet icon + points
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(sx(8)),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_wallet),
+                    contentDescription = "Punkty",
+                    tint = contentColor,
+                    modifier = Modifier.size(sx(24), sy(24))
+                )
+                Text(
+                    text = "$points pkt",
+                    color = contentColor,
+                    fontSize = (16 * sx(1).value / 1).sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+
+            // Right section: Calendar icon + days
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(sx(8)),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_calendar),
+                    contentDescription = "Dni",
+                    tint = contentColor,
+                    modifier = Modifier.size(sx(24), sy(24))
+                )
+                Text(
+                    text = "$days dni",
+                    color = contentColor,
+                    fontSize = (16 * sx(1).value / 1).sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProfileButton(
+    isFocused: Boolean,
+    focusRequester: FocusRequester,
+    onClick: () -> Unit,
+    showBadge: Boolean = false,
+    sx: (Int) -> androidx.compose.ui.unit.Dp,
+    sy: (Int) -> androidx.compose.ui.unit.Dp,
+    modifier: Modifier = Modifier
+) {
+    val backgroundColor = if (isFocused) Color(0xFF5AECD3) else Color(0x4A000000)
+    val contentColor = if (isFocused) Color(0xFF48227C) else Color(0xFFEEEEEE)
+
+    Box(
+        modifier = modifier
             .size(sx(80), sy(80))
             .background(
                 color = backgroundColor,
@@ -1228,14 +1448,59 @@ private fun StandaloneAccountIcon(
             )
             .focusRequester(focusRequester)
             .focusable()
-            .onFocusChanged { if (it.isFocused) onFocused() },
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center
+    ) {
+        Box {
+            Image(
+                painter = painterResource(id = R.drawable.lamp),
+                contentDescription = "Profil",
+                modifier = Modifier.size(sx(40), sy(40))
+            )
+
+            // Notification badge (upper-right corner on button area, not on icon)
+            if (showBadge) {
+                Box(
+                    modifier = Modifier
+                        .size(sx(32), sy(32))
+                        .offset(x = sx(34), y = -sy(10))
+                        .background(Color.Red, CircleShape)
+                        .border(sx(3), Color.White, CircleShape)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsButton(
+    isFocused: Boolean,
+    focusRequester: FocusRequester,
+    onClick: () -> Unit,
+    sx: (Int) -> androidx.compose.ui.unit.Dp,
+    sy: (Int) -> androidx.compose.ui.unit.Dp,
+    modifier: Modifier = Modifier
+) {
+    val backgroundColor = if (isFocused) Color(0xFF5AECD3) else Color(0x4A000000)
+    val contentColor = if (isFocused) Color(0xFF48227C) else Color(0xFFEEEEEE)
+
+    Box(
+        modifier = modifier
+            .size(sx(80), sy(80))
+            .background(
+                color = backgroundColor,
+                shape = RoundedCornerShape(sx(64))
+            )
+            .focusRequester(focusRequester)
+            .focusable()
+            .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
         Icon(
-            imageVector = Icons.Default.Person,
-            contentDescription = "Account",
-            tint = iconColor,
-            modifier = Modifier.size(sx(48), sy(48))
+            imageVector = Icons.Default.Settings,
+            contentDescription = "Ustawienia",
+            tint = contentColor,
+            modifier = Modifier.size(sx(32), sy(32))
         )
     }
 }
@@ -1468,6 +1733,13 @@ private fun FullPageContent(
             AccountScreenContent(
                 globalFocusState = globalFocusState,
                 onNavigateToStartupMode = onNavigateToStartupMode,
+                sx = sx,
+                sy = sy
+            )
+        }
+        "POINTS_HISTORY" -> {
+            PointsHistoryScreenContent(
+                globalFocusState = globalFocusState,
                 sx = sx,
                 sy = sy
             )
@@ -11509,6 +11781,89 @@ private fun calculateWideoRowYPosition(
  * Design: Figma node 6359-11841 (Moje konto)
  * Pattern: Similar to MojeScreenContent with reset trigger
  */
+
+/**
+ * PointsHistoryScreenContent - Placeholder for Points History section
+ */
+@Composable
+private fun PointsHistoryScreenContent(
+    globalFocusState: MutableState<GlobalFocusState>,
+    sx: (Int) -> Dp,
+    sy: (Int) -> Dp
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF48227C))
+            .onPreviewKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown && event.key == Key.Back) {
+                    globalFocusState.value = GlobalFocusManager.returnToMenu(globalFocusState.value)
+                    return@onPreviewKeyEvent true
+                }
+                false
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(sy(40))
+        ) {
+            // Title
+            Text(
+                text = "Historia punktów",
+                color = Color.White,
+                fontSize = sy(48).value.sp,
+                fontWeight = FontWeight.Bold
+            )
+
+            // Placeholder info
+            Text(
+                text = "Ekran w przygotowaniu",
+                color = Color(0xCCEEEEEE),
+                fontSize = sy(32).value.sp
+            )
+
+            // Current points display
+            Box(
+                modifier = Modifier
+                    .width(sx(400))
+                    .height(sy(120))
+                    .background(
+                        color = Color(0xFF5AECD3),
+                        shape = RoundedCornerShape(sx(60))
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(sx(16)),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_wallet),
+                        contentDescription = null,
+                        tint = Color(0xFF48227C),
+                        modifier = Modifier.size(sx(48), sy(48))
+                    )
+                    Text(
+                        text = "40 pkt / 21 dni",
+                        color = Color(0xFF48227C),
+                        fontSize = sy(32).value.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+
+            // Navigation hint
+            Text(
+                text = "Naciśnij BACK aby wrócić do menu",
+                color = Color(0x80EEEEEE),
+                fontSize = sy(24).value.sp,
+                modifier = Modifier.padding(top = sy(60))
+            )
+        }
+    }
+}
+
 @Composable
 private fun AccountScreenContent(
     globalFocusState: MutableState<GlobalFocusState>,
@@ -11527,7 +11882,11 @@ private fun AccountScreenContent(
 
     AccountChannelsScreen(
         onReturnToMenu = {
-            globalFocusState.value = GlobalFocusManager.returnToMenu(globalFocusState.value)
+            // Return to menu (LaunchedEffect will auto-focus Profile button)
+            globalFocusState.value = globalFocusState.value.copy(
+                currentRow = 0,
+                isActive = true
+            )
         },
         onNavigateToStartupMode = onNavigateToStartupMode,
         shouldAutoFocus = globalFocusState.value.sectionId == "ACCOUNT" && globalFocusState.value.currentRow > 0,
@@ -11538,37 +11897,29 @@ private fun AccountScreenContent(
 }
 
 /**
- * Focus levels for Account section
+ * Focus levels for Account section (simplified to 2 levels)
  * Level 1: Top Menu (handled by GlobalFocusManager)
  * Level 2: Profile button ("Profil: Andrzej")
- * Level 3: Wallet/Calendar combo button ("40 pkt" + "21 dni")
- * Level 4: Notifications button
- * Level 5: Settings button
- * Level 6+: Menu List (8 menu items with auto-scroll)
+ * Level 3: Menu List (9 menu items: Powiadomienia + 8 others)
  */
 private enum class AccountFocusLevel {
-    PROFILE,           // "Profil: Andrzej"
-    WALLET_CALENDAR,   // "40 pkt" + "21 dni" jako jeden blok
-    NOTIFICATIONS,     // Powiadomienia
-    SETTINGS,          // Ustawienia
-    MENU_LIST          // Lista menu
+    PROFILE,      // "Profil: Andrzej"
+    MENU_LIST     // Lista menu (starts with Powiadomienia)
 }
 
 /**
- * AccountChannelsScreen - Main Account section component with 3-level focus hierarchy
+ * AccountChannelsScreen - Main Account section component with simplified 2-level focus hierarchy
  *
- * Design from Figma (node-id: 6359-11841):
- * - Header Section: Profile card + Wallet (40 pkt) + Calendar (21 dni) - informational only
- * - Action Bar: 2 focusable buttons (Notifications, Settings) - Level 2 focus
- * - Menu List: 8 menu items (vertical list) - Level 3 focus
+ * Simplified Design:
+ * - Profile button ("Profil: Andrzej") - Level 1
+ * - Menu List: 9 menu items (Powiadomienia + 8 others) - Level 2
  *
  * Focus Hierarchy:
- * 1. Top Menu → ACTION_BAR (auto-focus on entry)
- * 2. ACTION_BAR → LEFT/RIGHT navigation between buttons
- * 3. ACTION_BAR → DOWN → MENU_LIST (first item)
- * 4. MENU_LIST → UP (from first) → ACTION_BAR (restore last button)
- * 5. MENU_LIST → UP/DOWN within list
- * 6. Any level → BACK → return to top menu
+ * 1. Top Menu → PROFILE (auto-focus on entry)
+ * 2. PROFILE → DOWN → MENU_LIST (Powiadomienia)
+ * 3. MENU_LIST → UP (from Powiadomienia) → PROFILE
+ * 4. MENU_LIST → UP/DOWN within list (9 items)
+ * 5. Any level → BACK/LEFT → return to top menu
  */
 
 /**
@@ -11593,9 +11944,15 @@ private fun AccountChannelsScreen(
 ) {
     val context = LocalContext.current
 
-    // 9 menu items from Figma design (including Ekran startowy)
+    // 10 menu items (Powiadomienia first, then Ekran startowy at row 3)
     val menuItems = remember(context) {
         listOf(
+            AccountMenuItem(
+                id = "notifications",
+                title = "Powiadomienia",
+                subtitle = "0 powiadomień",
+                icon = Icons.Default.Notifications
+            ),
             AccountMenuItem(
                 id = "service_number",
                 title = "Numer usługi: 696XXXXXXXXXX",
@@ -11653,21 +12010,18 @@ private fun AccountChannelsScreen(
         )
     }
 
-    // 6-level focus state (Profile, WalletCalendar, Notifications, Settings, Menu)
+    // 2-level focus state (Profile, Menu List)
     var focusLevel by remember { mutableStateOf(AccountFocusLevel.PROFILE) }
-    var menuListIndex by remember { mutableStateOf(0) } // 0-8 for menu items (9 total)
+    var menuListIndex by remember { mutableStateOf(0) } // 0-9 for menu items (10 total)
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
 
-    // FocusRequesters for all levels
+    // FocusRequesters for 2 levels
     val profileFocusRequester = remember { FocusRequester() }
-    val walletCalendarFocusRequester = remember { FocusRequester() }
-    val notificationsFocusRequester = remember { FocusRequester() }
-    val settingsFocusRequester = remember { FocusRequester() }
 
-    // FocusRequesters for Menu List (9 items)
+    // FocusRequesters for Menu List (10 items: Powiadomienia + Ekran startowy + 8 others)
     val menuListFocusRequesters = remember {
-        (0 until 9).associateWith { FocusRequester() }
+        (0 until 10).associateWith { FocusRequester() }
     }
 
     // Auto-focus PROFILE when entering content (follows Focus Architect pattern)
@@ -11688,7 +12042,7 @@ private fun AccountChannelsScreen(
     }
 
     // Auto-scroll to keep focused item centered
-    // LazyColumn structure: [0] Profile, [1] Action Bar, [2-9] Menu items
+    // LazyColumn structure: [0] Profile, [1-9] Menu items (Powiadomienia + 8 others)
     LaunchedEffect(menuListIndex, focusLevel) {
         coroutineScope.launch {
             when (focusLevel) {
@@ -11699,19 +12053,10 @@ private fun AccountChannelsScreen(
                         scrollOffset = -sy(200).value.toInt()
                     )
                 }
-                AccountFocusLevel.WALLET_CALENDAR,
-                AccountFocusLevel.NOTIFICATIONS,
-                AccountFocusLevel.SETTINGS -> {
-                    // Scroll to Action Bar (item 1)
-                    listState.animateScrollToItem(
-                        index = 1,
-                        scrollOffset = -sy(200).value.toInt()
-                    )
-                }
                 AccountFocusLevel.MENU_LIST -> {
-                    // Scroll to menu item (items 2-9, so menuListIndex + 2)
+                    // Scroll to menu item (items 1-9, so menuListIndex + 1)
                     listState.animateScrollToItem(
-                        index = menuListIndex + 2,
+                        index = menuListIndex + 1,
                         scrollOffset = -sy(200).value.toInt()
                     )
                 }
@@ -11730,9 +12075,6 @@ private fun AccountChannelsScreen(
                     onFocusLevelChange = { newLevel -> focusLevel = newLevel },
                     onMenuListIndexChange = { newIndex -> menuListIndex = newIndex },
                     profileFocusRequester = profileFocusRequester,
-                    walletCalendarFocusRequester = walletCalendarFocusRequester,
-                    notificationsFocusRequester = notificationsFocusRequester,
-                    settingsFocusRequester = settingsFocusRequester,
                     menuListFocusRequesters = menuListFocusRequesters,
                     menuItemsCount = menuItems.size,
                     onReturnToMenu = onReturnToMenu
@@ -11749,7 +12091,7 @@ private fun AccountChannelsScreen(
             verticalArrangement = Arrangement.spacedBy(sy(24)),
             contentPadding = PaddingValues(bottom = sy(150))
         ) {
-            // Item 1: Profile button (Level 2)
+            // Item 0: Profile button
             item {
                 ProfileButton(
                     isFocused = shouldAutoFocus && focusLevel == AccountFocusLevel.PROFILE,
@@ -11761,49 +12103,7 @@ private fun AccountChannelsScreen(
                 )
             }
 
-            // Item 2: Wallet/Calendar + Action Bar (horizontal row)
-            item {
-                Row(
-                    modifier = Modifier.width(sx(756)),
-                    horizontalArrangement = Arrangement.spacedBy(sx(24))
-                ) {
-                    // Wallet/Calendar combo button (Level 3)
-                    WalletCalendarButton(
-                        isFocused = shouldAutoFocus && focusLevel == AccountFocusLevel.WALLET_CALENDAR,
-                        focusRequester = walletCalendarFocusRequester,
-                        onFocused = { focusLevel = AccountFocusLevel.WALLET_CALENDAR },
-                        onClick = { Log.d("ACCOUNT", "Wallet/Calendar clicked") },
-                        sx = sx,
-                        sy = sy
-                    )
-
-                    // Notifications button (Level 4)
-                    ActionButton(
-                        icon = 0,
-                        label = "Powiadomienia",
-                        isFocused = shouldAutoFocus && focusLevel == AccountFocusLevel.NOTIFICATIONS,
-                        focusRequester = notificationsFocusRequester,
-                        onFocused = { focusLevel = AccountFocusLevel.NOTIFICATIONS },
-                        onClick = { Log.d("ACCOUNT", "Notifications clicked") },
-                        sx = sx,
-                        sy = sy
-                    )
-
-                    // Settings button (Level 5)
-                    ActionButton(
-                        icon = 0,
-                        label = "Ustawienia",
-                        isFocused = shouldAutoFocus && focusLevel == AccountFocusLevel.SETTINGS,
-                        focusRequester = settingsFocusRequester,
-                        onFocused = { focusLevel = AccountFocusLevel.SETTINGS },
-                        onClick = { Log.d("ACCOUNT", "Settings clicked") },
-                        sx = sx,
-                        sy = sy
-                    )
-                }
-            }
-
-            // Items 3+: Menu List (Level 6+)
+            // Items 1-10: Menu List (Powiadomienia + Ekran startowy + 8 others)
             itemsIndexed(menuItems) { index, item ->
                 AccountMenuItemCard(
                     item = item,
@@ -11815,6 +12115,10 @@ private fun AccountChannelsScreen(
                     },
                     onClick = {
                         when (item.id) {
+                            "notifications" -> {
+                                Log.d("ACCOUNT", "Powiadomienia clicked - feature coming soon")
+                                // TODO: Implement notifications screen
+                            }
                             "startup_mode" -> {
                                 Log.d("ACCOUNT", "Navigate to Startup Mode Selection")
                                 onNavigateToStartupMode()
@@ -12151,27 +12455,15 @@ private fun ActionButton(
     }
 }
 /**
- * handleAccountNavigation - Navigation logic for Account section with 6-level hierarchy
+ * handleAccountNavigation - Navigation logic for Account section with simplified 2-level hierarchy
  *
- * Level 2 (PROFILE): "Profil: Andrzej"
- * - DOWN: Move to WALLET_CALENDAR
- * - UP/BACK: Return to top menu
+ * Level 1 (PROFILE): "Profil: Andrzej"
+ * - DOWN: Move to MENU_LIST (first item = Powiadomienia)
+ * - UP/BACK/LEFT: Return to top menu
  *
- * Level 3 (WALLET_CALENDAR): "40 pkt" + "21 dni"
- * - LEFT/RIGHT: Move to NOTIFICATIONS ↔ SETTINGS
- * - UP: Return to PROFILE
- * - DOWN: Move to MENU_LIST (first item)
- * - BACK: Return to top menu
- *
- * Level 4/5 (NOTIFICATIONS/SETTINGS):
- * - LEFT/RIGHT: Navigate between buttons
- * - UP: Return to WALLET_CALENDAR (on WALLET_CALENDAR's line)
- * - DOWN: Move to MENU_LIST (first item)
- * - BACK: Return to top menu
- *
- * Level 6+ (MENU_LIST):
- * - UP: Previous item, or return to WALLET_CALENDAR if at first item
- * - DOWN: Next item
+ * Level 2 (MENU_LIST): 9 menu items (Powiadomienia + 8 others)
+ * - UP: Previous item, or return to PROFILE if at first item (Powiadomienia)
+ * - DOWN: Next item (stay in place if at last item)
  * - BACK/LEFT: Return to top menu
  */
 private fun handleAccountNavigation(
@@ -12181,9 +12473,6 @@ private fun handleAccountNavigation(
     onFocusLevelChange: (AccountFocusLevel) -> Unit,
     onMenuListIndexChange: (Int) -> Unit,
     profileFocusRequester: FocusRequester,
-    walletCalendarFocusRequester: FocusRequester,
-    notificationsFocusRequester: FocusRequester,
-    settingsFocusRequester: FocusRequester,
     menuListFocusRequesters: Map<Int, FocusRequester>,
     menuItemsCount: Int,
     onReturnToMenu: () -> Unit
@@ -12194,113 +12483,13 @@ private fun handleAccountNavigation(
         AccountFocusLevel.PROFILE -> {
             when (event.key) {
                 Key.DirectionDown -> {
-                    // Move to WALLET_CALENDAR
-                    onFocusLevelChange(AccountFocusLevel.WALLET_CALENDAR)
-                    walletCalendarFocusRequester.requestFocus()
+                    // Move to first menu item (Powiadomienia)
+                    onFocusLevelChange(AccountFocusLevel.MENU_LIST)
+                    onMenuListIndexChange(0)
+                    menuListFocusRequesters[0]?.requestFocus()
                     true
                 }
                 Key.DirectionUp, Key.Back, Key.DirectionLeft -> {
-                    // Return to top menu
-                    onReturnToMenu()
-                    true
-                }
-                else -> false
-            }
-        }
-        AccountFocusLevel.WALLET_CALENDAR -> {
-            when (event.key) {
-                Key.DirectionLeft -> {
-                    // Can't move left from WALLET_CALENDAR (it's leftmost)
-                    false
-                }
-                Key.DirectionRight -> {
-                    // Move to NOTIFICATIONS
-                    onFocusLevelChange(AccountFocusLevel.NOTIFICATIONS)
-                    notificationsFocusRequester.requestFocus()
-                    true
-                }
-                Key.DirectionUp -> {
-                    // Return to PROFILE
-                    onFocusLevelChange(AccountFocusLevel.PROFILE)
-                    profileFocusRequester.requestFocus()
-                    true
-                }
-                Key.DirectionDown -> {
-                    // Move to MENU_LIST first item
-                    onFocusLevelChange(AccountFocusLevel.MENU_LIST)
-                    onMenuListIndexChange(0)
-                    menuListFocusRequesters[0]?.requestFocus()
-                    true
-                }
-                Key.Back -> {
-                    // Return to top menu
-                    onReturnToMenu()
-                    true
-                }
-                else -> false
-            }
-        }
-        AccountFocusLevel.NOTIFICATIONS -> {
-            when (event.key) {
-                Key.DirectionLeft -> {
-                    // Move back to WALLET_CALENDAR
-                    onFocusLevelChange(AccountFocusLevel.WALLET_CALENDAR)
-                    walletCalendarFocusRequester.requestFocus()
-                    true
-                }
-                Key.DirectionRight -> {
-                    // Move to SETTINGS
-                    onFocusLevelChange(AccountFocusLevel.SETTINGS)
-                    settingsFocusRequester.requestFocus()
-                    true
-                }
-                Key.DirectionUp -> {
-                    // Return to PROFILE (skip WALLET_CALENDAR)
-                    onFocusLevelChange(AccountFocusLevel.PROFILE)
-                    profileFocusRequester.requestFocus()
-                    true
-                }
-                Key.DirectionDown -> {
-                    // Move to MENU_LIST first item
-                    onFocusLevelChange(AccountFocusLevel.MENU_LIST)
-                    onMenuListIndexChange(0)
-                    menuListFocusRequesters[0]?.requestFocus()
-                    true
-                }
-                Key.Back -> {
-                    // Return to top menu
-                    onReturnToMenu()
-                    true
-                }
-                else -> false
-            }
-        }
-        AccountFocusLevel.SETTINGS -> {
-            when (event.key) {
-                Key.DirectionLeft -> {
-                    // Move to NOTIFICATIONS
-                    onFocusLevelChange(AccountFocusLevel.NOTIFICATIONS)
-                    notificationsFocusRequester.requestFocus()
-                    true
-                }
-                Key.DirectionRight -> {
-                    // Can't move right from SETTINGS (it's rightmost)
-                    false
-                }
-                Key.DirectionUp -> {
-                    // Return to PROFILE (skip WALLET_CALENDAR and NOTIFICATIONS)
-                    onFocusLevelChange(AccountFocusLevel.PROFILE)
-                    profileFocusRequester.requestFocus()
-                    true
-                }
-                Key.DirectionDown -> {
-                    // Move to MENU_LIST first item
-                    onFocusLevelChange(AccountFocusLevel.MENU_LIST)
-                    onMenuListIndexChange(0)
-                    menuListFocusRequesters[0]?.requestFocus()
-                    true
-                }
-                Key.Back -> {
                     // Return to top menu
                     onReturnToMenu()
                     true
@@ -12318,9 +12507,9 @@ private fun handleAccountNavigation(
                         menuListFocusRequesters[newIndex]?.requestFocus()
                         true
                     } else {
-                        // From first item, return to WALLET_CALENDAR
-                        onFocusLevelChange(AccountFocusLevel.WALLET_CALENDAR)
-                        walletCalendarFocusRequester.requestFocus()
+                        // From first item (Powiadomienia), return to PROFILE
+                        onFocusLevelChange(AccountFocusLevel.PROFILE)
+                        profileFocusRequester.requestFocus()
                         true
                     }
                 }
