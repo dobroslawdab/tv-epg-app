@@ -36,9 +36,13 @@ object MojeContentCache {
         val content = if (vodContentList.isNotEmpty() && kinoPlayMovies.isNotEmpty()) {
             when (channelName) {
                 "Aktywne pakiety" -> emptyList()
+                "Skróty" -> emptyList()  // Uses custom MojeSingleShortcutRow component
+                "[HEADER-RIGHT] Miejsce na nagrania" -> emptyList()  // Header - no content needed
+                "Skróty v2 Moje" -> emptyList()  // Shortcuts - no grid content needed
                 "Wypożyczone" -> kinoPlayMovies.shuffled().take(10)
                 "Pojedyncze nagrania", "SERIE", "ZAPLANOWANE" -> vodContentList.shuffled().take(10)
-                else -> vodContentList.shuffled().take(10) // Oglądaj dalej, Nagrania, Do obejrzenia
+                "Nagrania" -> vodContentList.shuffled().take(10)  // New channel (renamed from "Nagrania v2")
+                else -> vodContentList.shuffled().take(10) // Oglądaj dalej, Moje nagrania, Do obejrzenia
             }
         } else {
             emptyList()

@@ -1672,6 +1672,8 @@ private fun FullPageContent(
         "MOJE" -> {
             MojeScreenContent(
                 globalFocusState = globalFocusState,
+                onNavigateToVodGrid = onNavigateToVodGrid,
+                onNavigateToKinoGrid = onNavigateToKinoGrid,
                 sx = sx,
                 sy = sy
             )
@@ -1768,6 +1770,8 @@ private fun FullPageContent(
 @Composable
 private fun MojeScreenContent(
     globalFocusState: MutableState<GlobalFocusState>,
+    onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp
 ) {
@@ -1781,9 +1785,11 @@ private fun MojeScreenContent(
     }
     
     MojeChannelsScreen(
-        onReturnToMenu = { 
+        onReturnToMenu = {
             globalFocusState.value = GlobalFocusManager.returnToMenu(globalFocusState.value)
         },
+        onNavigateToVodGrid = onNavigateToVodGrid,
+        onNavigateToKinoGrid = onNavigateToKinoGrid,
         shouldAutoFocus = globalFocusState.value.sectionId == "MOJE" && globalFocusState.value.currentRow > 0,
         sx = sx,
         sy = sy,
@@ -2812,6 +2818,8 @@ private fun TelewizjaChannelsScreen(
 @Composable
 private fun MojeChannelsScreen(
     onReturnToMenu: () -> Unit = {},
+    onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     shouldAutoFocus: Boolean = false,
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
@@ -2866,43 +2874,82 @@ private fun MojeChannelsScreen(
     // Only tracks whether NAGRANIA is expanded (no nested data)
     var isNagraniaExpanded by remember { mutableStateOf(false) }
 
-    // Maximum number of channels when NAGRANIA is expanded (for stable FocusRequester map)
-    val MAX_MOJE_CHANNELS = 8
+    // Toggle between v1 (Moje nagrania expandable) and v2 (Header + Nagrania + Skróty v2)
+    // Key "8" on remote toggles this state
+    var showNagraniaV2 by remember { mutableStateOf(false) }
 
-    // Faza 3: Dynamic channel list - changes based on isNagraniaExpanded
-    // Collapsed: 5 channels | Expanded: 8 channels (3 sub-channels inserted after Nagrania)
-    val channels = remember(isNagraniaExpanded) {
-        if (isNagraniaExpanded) {
+    // Shortcuts data for "Skróty v2 Moje" channel (4 buttons)
+    val mojeNagraniaShortcuts = remember {
+        listOf(
+            ShortcutItem("1", "Zarządzaj nagraniami", ShortcutIcon.MaterialIcon("settings")),
+            ShortcutItem("2", "Pojedyncze", ShortcutIcon.MaterialIcon("video_library")),
+            ShortcutItem("3", "Serie", ShortcutIcon.MaterialIcon("live_tv")),
+            ShortcutItem("4", "Zaplanowane", ShortcutIcon.MaterialIcon("schedule"))
+        )
+    }
+
+    // Maximum number of channels when NAGRANIA is expanded (for stable FocusRequester map)
+    val MAX_MOJE_CHANNELS = 12  // Max from both versions (v1 expanded: 9, v2: 7)
+
+    // Faza 3: Dynamic channel list - Toggle between v1 (Moje nagrania) and v2 (Header+Nagrania+Skróty)
+    // Key "8" on remote toggles showNagraniaV2
+    val channels = remember(isNagraniaExpanded, showNagraniaV2) {
+        if (showNagraniaV2) {
+            // ═══════════════════════════════════════════════════════════════
+            // VERSION 2: Header + Nagrania + Skróty v2 (7 channels)
+            // ═══════════════════════════════════════════════════════════════
             listOf(
                 "Oglądaj dalej",
-                "Nagrania",
-                "Pojedyncze nagrania",  // Sub-channel 1
-                "SERIE",                // Sub-channel 2
-                "ZAPLANOWANE",          // Sub-channel 3
+                "[HEADER-RIGHT] Miejsce na nagrania",  // Storage counter header
+                "Nagrania",                            // Standard horizontal channel with icon
+                "Skróty v2 Moje",                      // 4 shortcuts row (reduced height)
                 "Do obejrzenia",
                 "Wypożyczone",
                 "Aktywne pakiety"
             )
         } else {
-            listOf(
-                "Oglądaj dalej",
-                "Nagrania",
-                "Do obejrzenia",
-                "Wypożyczone",
-                "Aktywne pakiety"
-            )
+            // ═══════════════════════════════════════════════════════════════
+            // VERSION 1: Moje nagrania expandable (5 collapsed, 9 expanded)
+            // ═══════════════════════════════════════════════════════════════
+            if (isNagraniaExpanded) {
+                listOf(
+                    "Oglądaj dalej",
+                    "Moje nagrania",        // Expandable parent
+                    "Skróty",               // Sub-channel 1 - shortcuts to recordings
+                    "Pojedyncze nagrania",  // Sub-channel 2
+                    "SERIE",                // Sub-channel 3
+                    "ZAPLANOWANE",          // Sub-channel 4
+                    "Do obejrzenia",
+                    "Wypożyczone",
+                    "Aktywne pakiety"
+                )
+            } else {
+                listOf(
+                    "Oglądaj dalej",
+                    "Moje nagrania",        // Collapsed
+                    "Do obejrzenia",
+                    "Wypożyczone",
+                    "Aktywne pakiety"
+                )
+            }
         }
     }
 
-    // Faza 3: Toggle NAGRANIA expansion
+    // Faza 3: Toggle NAGRANIA expansion (v1 only)
     val toggleNagraniaExpansion: () -> Unit = {
         isNagraniaExpanded = !isNagraniaExpanded
         Log.d("MOJE_DEBUG", "NAGRANIA expanded: $isNagraniaExpanded (channels: ${channels.size})")
     }
 
+    // Toggle between v1 and v2 (Key "8" on remote)
+    val toggleNagraniaVersion: () -> Unit = {
+        showNagraniaV2 = !showNagraniaV2
+        Log.d("MOJE_DEBUG", "Key 8 → Toggle Nagrania version: ${if (showNagraniaV2) "v2" else "v1"} (channels: ${channels.size})")
+    }
+
     // Faza 3: Grid content mapping - uses MojeContentCache for persistent content
     // Content is shuffled once per channel on first access and cached for app lifetime
-    val gridContent = remember(isNagraniaExpanded) {
+    val gridContent = remember(isNagraniaExpanded, showNagraniaV2) {
         MojeContentCache.getContent(channels)
     }
 
@@ -2935,14 +2982,31 @@ private fun MojeChannelsScreen(
     // Faza 1 Rollback: Pair keys (back to pre-Phase 6 structure)
     // Pair<rowIndex, colIndex>
     // colIndex: -1 = icon, 0 = content
-    // FIX: Create for MAX_MOJE_CHANNELS to avoid recreation during expand/collapse
-    val channelFocusRequesters = remember {
+    // Special handling for "Skróty" - NO CategoryIcon (like WIDEO "Skróty v2")
+    // Recreate when channels change (expand/collapse) to match current channel list
+    val channelFocusRequesters = remember(channels) {
         mutableMapOf<Pair<Int, Int>, FocusRequester>().apply {
-            repeat(MAX_MOJE_CHANNELS) { rowIndex ->
-                // CategoryIcon
-                put(Pair(rowIndex, -1), FocusRequester())
-                // Content (fixed focus position)
-                put(Pair(rowIndex, 0), FocusRequester())
+            channels.forEachIndexed { rowIndex, channelName ->
+                when {
+                    channelName.startsWith("[HEADER") -> {
+                        // Headers: NO FocusRequesters (not focusable)
+                    }
+                    channelName == "Skróty" -> {
+                        // Shortcuts: direct focus on single shortcut (NO CategoryIcon)
+                        put(Pair(rowIndex, 0), FocusRequester())
+                    }
+                    channelName == "Skróty v2 Moje" -> {
+                        // 4 shortcuts row: direct focus on 4 buttons (NO CategoryIcon)
+                        repeat(4) { colIndex ->
+                            put(Pair(rowIndex, colIndex), FocusRequester())
+                        }
+                    }
+                    else -> {
+                        // Standard channels: CategoryIcon + Content (includes "Nagrania")
+                        put(Pair(rowIndex, -1), FocusRequester())
+                        put(Pair(rowIndex, 0), FocusRequester())
+                    }
+                }
             }
         }
     }
@@ -3014,7 +3078,8 @@ private fun MojeChannelsScreen(
                     gridContent = gridContent,
                     onReturnToMenu = onReturnToMenu,
                     onToggleExpansion = toggleNagraniaExpansion,
-                    isNagraniaExpanded = isNagraniaExpanded  // Faza 5
+                    isNagraniaExpanded = isNagraniaExpanded,  // Faza 5
+                    onToggleVersion = toggleNagraniaVersion   // Key "8" handler
                 )
             }
             .focusable()
@@ -3031,11 +3096,14 @@ private fun MojeChannelsScreen(
                 focusedRowIndex = row
                 focusedColIndex = col
             },
+            onNavigateToVodGrid = onNavigateToVodGrid,
+            onNavigateToKinoGrid = onNavigateToKinoGrid,
             lazyListStates = lazyListStates,
             sx = sx,
             sy = sy,
             isNagraniaExpanded = isNagraniaExpanded,
-            toggleNagraniaExpansion = toggleNagraniaExpansion
+            toggleNagraniaExpansion = toggleNagraniaExpansion,
+            mojeNagraniaShortcuts = mojeNagraniaShortcuts  // NEW: pass shortcuts data
         )
     }
 }
@@ -3979,10 +4047,11 @@ private fun ShortcutCardV2(
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     onFocusChange: (Boolean) -> Unit,
-    onClick: () -> Unit = {}
+    onClick: () -> Unit = {},
+    heightPx: Int = 179  // Configurable height (default 179px, MOJE v2 uses 120px)
 ) {
     val cardWidth = sx(310)
-    val cardHeight = sy(179)
+    val cardHeight = sy(heightPx)  // Use parameter instead of hardcoded value
     val borderColor = if (isFocused) Color(0xFF5AECD3) else Color.Transparent
 
     Box(
@@ -4666,6 +4735,189 @@ fun handleStartNavigation(
 // Faza 2: SubChannelIcon, SubChannelRow, and LeftSideMenu composables deleted
 // Sub-channels will be regular channel rows (no special components needed)
 
+/**
+ * **Storage Counter Header** - Right-aligned header with progress bar for recording storage
+ *
+ * Displays storage usage: "Miejsce na nagrania" [progress bar] "pozostało X/Y h"
+ * Based on Figma design (node 6431:12741)
+ *
+ * Visual:
+ * - Semi-transparent pill container (rgba(255,255,255,0.07), 64px rounded corners)
+ * - Progress bar showing remaining/total hours
+ * - Right-aligned with 120px padding from screen edge
+ * - Hardcoded values: 140h used, 220h total → 80h remaining (36.4% progress)
+ *
+ * @param usedHours Hours already used for recordings (default: 140)
+ * @param totalHours Total available storage hours (default: 220)
+ * @param sx Horizontal scaling function
+ * @param sy Vertical scaling function
+ */
+@Composable
+fun StorageCounterHeader(
+    usedHours: Int = 140,
+    totalHours: Int = 220,
+    sx: (Int) -> androidx.compose.ui.unit.Dp,
+    sy: (Int) -> androidx.compose.ui.unit.Dp
+) {
+    val remainingHours = totalHours - usedHours
+    val progressPercent = remainingHours.toFloat() / totalHours
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(end = sx(120))  // Right padding for alignment
+    ) {
+        // Semi-transparent pill container - right-aligned
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .background(
+                    color = Color(0xFFFFFFFF).copy(alpha = 0.07f),
+                    shape = RoundedCornerShape(sx(64))
+                )
+                .padding(horizontal = sx(32), vertical = sy(12))
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(sx(20)),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Left label: "Miejsce na nagrania"
+                Text(
+                    text = "Miejsce na nagrania",
+                    fontSize = (18.8 * (sy(1).value / 1.dp.value)).sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color(0xFFEEEEEE)
+                )
+
+                // Progress bar container
+                Box(
+                    modifier = Modifier
+                        .width(sx(200))
+                        .height(sy(6))
+                        .background(
+                            color = Color(0xFFEEEEEE).copy(alpha = 0.2f),
+                            shape = RoundedCornerShape(sx(6))
+                        )
+                ) {
+                    // Progress fill (white bar)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .fillMaxWidth(progressPercent.coerceIn(0f, 1f))
+                            .background(
+                                color = Color(0xFFEEEEEE),
+                                shape = RoundedCornerShape(sx(6))
+                            )
+                    )
+                }
+
+                // Right text: "pozostało 80/220 h"
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(sx(2))
+                ) {
+                    Text(
+                        text = "pozostało ",
+                        fontSize = (18.8 * (sy(1).value / 1.dp.value)).sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFFEEEEEE).copy(alpha = 0.8f)
+                    )
+                    Text(
+                        text = "$remainingHours/",
+                        fontSize = (25 * (sy(1).value / 1.dp.value)).sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFEEEEEE).copy(alpha = 0.8f)
+                    )
+                    Text(
+                        text = "$totalHours h",
+                        fontSize = (25 * (sy(1).value / 1.dp.value)).sp,
+                        fontWeight = FontWeight.Normal,
+                        color = Color(0xFFEEEEEE).copy(alpha = 0.8f)
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * MojeShortcutCardV4 - Half-height shortcut card for "Skróty" sub-channel (MOJE → NAGRANIA)
+ *
+ * Displays one shortcut card "Zarządzaj nagraniami" positioned at X: 100px (NO CategoryIcon)
+ * Card size: 310x90px (half height of shortcuts-v2, compact design for sub-channels)
+ *
+ * @param isFocused Whether the card is focused
+ * @param focusRequester FocusRequester for focus management
+ * @param onFocusChanged Callback when focus state changes
+ * @param onClick Callback when card is clicked (navigate to all recordings)
+ * @param sx Horizontal scaling function
+ * @param sy Vertical scaling function
+ */
+@Composable
+fun MojeShortcutCardV4(
+    isFocused: Boolean,
+    focusRequester: FocusRequester,
+    onFocusChanged: (Boolean) -> Unit,
+    onClick: () -> Unit,
+    sx: (Int) -> androidx.compose.ui.unit.Dp,
+    sy: (Int) -> androidx.compose.ui.unit.Dp
+) {
+    var isCardFocused by remember { mutableStateOf(false) }
+
+    Card(
+        modifier = Modifier
+            .offset(x = sx(400), y = sy(0))  // Positioned at 400px from left edge
+            .size(sx(310), sy(90))  // Half height: 90px (was 179px)
+            .focusRequester(focusRequester)
+            .focusable()
+            .onFocusChanged { focusState ->
+                val nowFocused = focusState.isFocused
+                if (nowFocused != isCardFocused) {
+                    isCardFocused = nowFocused
+                    onFocusChanged(nowFocused)
+                }
+            }
+            .onPreviewKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown &&
+                    (event.key == Key.Enter || event.key == Key.DirectionCenter)) {
+                    onClick()
+                    true
+                } else {
+                    false
+                }
+            }
+            .clickable { onClick() },
+        shape = RoundedCornerShape(sx(20)),
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0x3B000000)  // rgba(0,0,0,0.23)
+        ),
+        border = if (isFocused)
+            androidx.compose.foundation.BorderStroke(sx(6), Color(0xFF5AECD3))  // 6px border
+        else null
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(if (isFocused) Color(0x4D000000) else Color.Transparent)
+                // rgba(0,0,0,0.30) overlay when focused
+                .padding(sx(15))  // Smaller padding for smaller card
+        ) {
+            // Text centered - no icons
+            Text(
+                text = "Zarządzaj nagraniami",
+                fontSize = (24 * (sy(1).value / 1.dp.value)).sp,  // Same as CategoryIcon: 24sp
+                fontWeight = FontWeight.W500,
+                color = Color(0xFFEEEEEE),
+                lineHeight = (24 * 1.33f * (sy(1).value / 1.dp.value)).sp,  // Match CategoryIcon line height
+                letterSpacing = 0.32.sp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.Center)
+            )
+        }
+    }
+}
+
 // Faza 4: Simplified layout - sub-channels are now regular channels, no special rendering needed
 @Composable
 fun MojeChannelRowsLayout(
@@ -4676,11 +4928,14 @@ fun MojeChannelRowsLayout(
     focusedColIndex: Int,
     channelFocusRequesters: Map<Pair<Int, Int>, FocusRequester>,
     onChannelContentFocusChange: (Int, Int) -> Unit,
+    onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     lazyListStates: Map<Int, LazyListState>,
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     isNagraniaExpanded: Boolean = false,
-    toggleNagraniaExpansion: (() -> Unit)? = null
+    toggleNagraniaExpansion: (() -> Unit)? = null,
+    mojeNagraniaShortcuts: List<ShortcutItem> = emptyList()  // NEW: for "Skróty v2 Moje"
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         repeat(channels.size) { rowIndex ->
@@ -4720,11 +4975,14 @@ fun MojeChannelRowsLayout(
                     focusedColIndex = focusedColIndex,
                     channelFocusRequesters = channelFocusRequesters,
                     onChannelContentFocusChange = onChannelContentFocusChange,
+                    onNavigateToVodGrid = onNavigateToVodGrid,
+                    onNavigateToKinoGrid = onNavigateToKinoGrid,
                     sx = sx,
                     sy = sy,
                     lazyListState = lazyListState,
                     isNagraniaExpanded = isNagraniaExpanded,
-                    toggleNagraniaExpansion = toggleNagraniaExpansion
+                    toggleNagraniaExpansion = toggleNagraniaExpansion,
+                    mojeNagraniaShortcuts = mojeNagraniaShortcuts  // NEW: pass shortcuts data
                 )
             }
         }
@@ -4742,11 +5000,14 @@ fun MojeUnifiedChannelRow(
     focusedColIndex: Int,
     channelFocusRequesters: Map<Pair<Int, Int>, FocusRequester>,
     onChannelContentFocusChange: (Int, Int) -> Unit,
+    onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     lazyListState: LazyListState,
     isNagraniaExpanded: Boolean = false,
-    toggleNagraniaExpansion: (() -> Unit)? = null
+    toggleNagraniaExpansion: (() -> Unit)? = null,
+    mojeNagraniaShortcuts: List<ShortcutItem> = emptyList()  // For "Skróty v2 Moje" rendering
 ) {
     val isCurrentRow = rowIndex == focusedRowIndex
 
@@ -4769,28 +5030,47 @@ fun MojeUnifiedChannelRow(
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    // NAGRANIA Group - Separate background Box with full height + content wrapper
-    // Background fills content area (216px/506px), outer Box adds 20px margin = 40px total spacing
+    // NAGRANIA Groups - Three separate background groups with different expansion behaviors
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    val isNagraniaGroup = channel in listOf("Nagrania", "Pojedyncze nagrania", "SERIE", "ZAPLANOWANE")
+    // Group 1: "Moje nagrania" (old expandable) + sub-channels - EXPANDABLE background
+    val isMojeNagraniaGroup = channel in listOf("Moje nagrania", "Skróty", "Pojedyncze nagrania", "SERIE", "ZAPLANOWANE")
+
+    // Group 2: "Nagrania" (new channel) - EXPANDABLE background (same as old Moje nagrania)
+    val isNagraniaNewExpandable = channel == "Nagrania"
+
+    // Group 3: Header + Skróty v2 - FIXED height (non-expandable)
+    val isNagraniaNewFixed = channel.startsWith("[HEADER-RIGHT]") || channel == "Skróty v2 Moje"
 
     Box(modifier = Modifier.fillMaxWidth().padding(vertical = sy(20))) {
-        // Background Box - animated offset + height for NAGRANIA channels
-        if (isNagraniaGroup) {
+        // Background Box - purple #3A1B63 for all three groups
+        if (isMojeNagraniaGroup || isNagraniaNewExpandable || isNagraniaNewFixed) {
             val isCurrentRow = rowIndex == focusedRowIndex
+            val isShortcuts = channel == "Skróty"
+            val isHeader = channel.startsWith("[HEADER-RIGHT]")
+            val isNewShortcuts = channel == "Skróty v2 Moje"
 
-            // Y offset: instant (no animation)
-            val backgroundYOffset = if (isCurrentRow && focusedColIndex >= 0) {
-                sy(-120)  // Expanded: 120px above CategoryIcon
-            } else {
-                sy(-20)   // Normal: 20px above CategoryIcon top
+            // Y offset calculation
+            val backgroundYOffset = when {
+                // Fixed channels - always -20px
+                isHeader -> sy(-20)
+                isNewShortcuts -> sy(-20)
+                isShortcuts -> sy(-20)
+                // Expandable channels - shift up when content focused
+                (isMojeNagraniaGroup || isNagraniaNewExpandable) && isCurrentRow && focusedColIndex >= 0 -> sy(-120)
+                // Default - normal offset
+                else -> sy(-20)
             }
 
-            // Height: instant (no animation)
-            val animatedBackgroundHeight = if (isCurrentRow && focusedColIndex >= 0) {
-                sy(648)  // Expanded: from -120 to 528 = 648px total
-            } else {
-                sy(256)  // Normal: CategoryIcon (216px) + 20px top + 20px bottom = 256px
+            // Height calculation
+            val animatedBackgroundHeight = when {
+                // Fixed heights for non-expandable channels
+                isHeader -> sy(80)                               // Header: 80px total
+                isNewShortcuts -> sy(180)                        // Skróty v2: 120px card + 60px spacing
+                isShortcuts -> sy(170)                           // Skróty (old): 90px card + 80px spacing
+                // Expandable channels - expand when content focused
+                (isMojeNagraniaGroup || isNagraniaNewExpandable) && isCurrentRow && focusedColIndex >= 0 -> sy(546)  // EXPANDED: CategoryIcon (216px) + miniatures (290px) + spacing (40px)
+                // Default - normal height
+                else -> sy(256)                                   // NORMAL: CategoryIcon (216px) + spacing (40px)
             }
 
             Box(
@@ -4805,6 +5085,90 @@ fun MojeUnifiedChannelRow(
 
         // Content wrapper Box without padding (content fills entire background)
         Box(modifier = Modifier.fillMaxWidth()) {
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // NEW SECTION v2: Header + Content + Shortcuts (3 channels)
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        if (channel.startsWith("[HEADER-RIGHT]")) {
+            // 1. Storage Counter Header - right-aligned, no focus
+            StorageCounterHeader(
+                usedHours = 140,
+                totalHours = 220,
+                sx = sx,
+                sy = sy
+            )
+        } else if (channel == "Skróty v2 Moje") {
+            // 3. Shortcuts Row - 4 focusable buttons (Zarządzaj, Pojedyncze, Serie, Zaplanowane)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = sx(400)),  // Align with content area (not 120px like TELEWIZJA)
+                horizontalArrangement = Arrangement.spacedBy(sx(20))
+            ) {
+                mojeNagraniaShortcuts.forEachIndexed { colIndex, shortcut ->
+                    val isItemFocused = isCurrentRow && colIndex == focusedColIndex
+                    val focusRequester = channelFocusRequesters[Pair(rowIndex, colIndex)] ?: FocusRequester()
+
+                    ShortcutCardV2(
+                        shortcut = shortcut,
+                        isFocused = isItemFocused,
+                        focusRequester = focusRequester,
+                        onFocusChange = { isFocused ->
+                            if (isFocused) {
+                                onChannelContentFocusChange(rowIndex, colIndex)
+                            }
+                        },
+                        onClick = {
+                            val vodList = VodDataCache.getVodContentList()
+                            when (shortcut.title) {
+                                "Zarządzaj nagraniami" -> {
+                                    onNavigateToVodGrid("Wszystkie nagrania", vodList.shuffled().take(20), "MOJE")
+                                }
+                                "Pojedyncze" -> {
+                                    onNavigateToVodGrid("Pojedyncze nagrania", vodList.shuffled().take(20), "MOJE")
+                                }
+                                "Serie" -> {
+                                    val seriesContent = vodList.filter {
+                                        it.category.contains("Serial", ignoreCase = true)
+                                    }.take(20)
+                                    onNavigateToVodGrid("Serie", seriesContent, "MOJE")
+                                }
+                                "Zaplanowane" -> {
+                                    onNavigateToVodGrid("Zaplanowane nagrania", vodList.shuffled().take(10), "MOJE")
+                                }
+                            }
+                        },
+                        sx = sx,
+                        sy = sy,
+                        heightPx = 120  // MOJE v2: Reduced height for compact layout
+                    )
+                }
+            }
+        } // 2. "Nagrania" uses standard LazyRow below (no special case needed)
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // END NEW SECTION v2
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // Special rendering for "Skróty" sub-channel (single shortcut card v4 - half height)
+        else if (channel == "Skróty") {
+            val shortcutFocusRequester = channelFocusRequesters[Pair(rowIndex, 0)] ?: FocusRequester()
+            MojeShortcutCardV4(
+                isFocused = isCurrentRow && focusedColIndex == 0,
+                focusRequester = shortcutFocusRequester,
+                onFocusChanged = { isFocused ->
+                    if (isFocused) {
+                        onChannelContentFocusChange(rowIndex, 0)
+                    }
+                },
+                onClick = {
+                    Log.d("MOJE_DEBUG", "Zarządzaj nagraniami clicked - navigate to recordings grid")
+                    val vodList = VodDataCache.getVodContentList()
+                    val randomFilms = vodList.shuffled().take(20)
+                    onNavigateToVodGrid("Wszystkie nagrania", randomFilms, "MOJE")
+                },
+                sx = sx,
+                sy = sy
+            )
+        } else {
+        // Standard LazyRow content for other channels
         val isMiniaturesOnScreen = isCurrentRow && focusedColIndex >= 0
         val miniaturesYOffset by animateDpAsState(
             targetValue = if (isMiniaturesOnScreen) sy(290) else sy(0),
@@ -4966,8 +5330,10 @@ fun MojeUnifiedChannelRow(
                 }
             }
         }
-        
-        // CategoryIcon
+        } // end else (standard LazyRow content)
+
+        // CategoryIcon (hidden for "Skróty", Headers, and "Skróty v2 Moje")
+        if (!channel.startsWith("[HEADER") && channel != "Skróty" && channel != "Skróty v2 Moje") {
         Box(modifier = Modifier.offset(x = sx(80), y = sy(0))) {
             // Faza 4: Standard focus check
             val categoryIsFocused = rowIndex == focusedRowIndex && focusedColIndex == -1
@@ -4976,7 +5342,8 @@ fun MojeUnifiedChannelRow(
             // Icon mapping for different channels (PNG)
             val logoDrawableId = when (channel) {
                 "Oglądaj dalej" -> R.drawable.ic_keep_watching
-                "Nagrania" -> R.drawable.ic_records
+                "Moje nagrania" -> R.drawable.ic_records  // Old expandable channel
+                "Nagrania" -> R.drawable.ic_records       // New channel with icon
                 "Do obejrzenia" -> R.drawable.ic_add_to_watch
                 "Aktywne pakiety" -> R.drawable.ic_packages
                 "Wypożyczone" -> R.drawable.ic_rented
@@ -4984,7 +5351,7 @@ fun MojeUnifiedChannelRow(
             }
 
             // Sub-channels use WIDEO style (text-only, no icon)
-            val isSubChannel = channel in listOf("Pojedyncze nagrania", "SERIE", "ZAPLANOWANE")
+            val isSubChannel = channel in listOf("Skróty", "Pojedyncze nagrania", "SERIE", "ZAPLANOWANE")
 
             if (rowIndex < 3) { // Debug only for first 3 channels
                 Log.d("MOJE_DEBUG", "Channel '$channel' (row $rowIndex) - categoryIsFocused: $categoryIsFocused, focusRequester available: ${categoryFocusRequester != null}")
@@ -4993,7 +5360,10 @@ fun MojeUnifiedChannelRow(
             CategoryIcon(
                 text = channel,
                 isFocused = categoryIsFocused,
-                onClick = { /* Channel click handler */ },
+                onClick = {
+                    // Empty - expansion for "Moje nagrania" is handled by chevron click (onChevronClick)
+                    // MOJE CategoryIcons don't navigate to grids (unlike START section)
+                },
                 onFocused = { isFocused ->
                     if (isFocused) {
                         Log.d("MOJE_DEBUG", "CategoryIcon '$channel' (row $rowIndex) gained focus")
@@ -5005,11 +5375,12 @@ fun MojeUnifiedChannelRow(
                 logoDrawableId = if (!isSubChannel) logoDrawableId else null,
                 showIcon = !isSubChannel,                      // Sub-channels: false (text-only like WIDEO)
                 showBackgroundWhenFocused = isSubChannel,      // Sub-channels: true (background on focus)
-                isExpanded = (channel == "Nagrania") && isNagraniaExpanded,
-                showChevron = (channel == "Nagrania"),
-                onChevronClick = if (channel == "Nagrania") { { toggleNagraniaExpansion?.invoke() } } else null
+                isExpanded = (channel == "Moje nagrania") && isNagraniaExpanded,
+                showChevron = (channel == "Moje nagrania"),
+                onChevronClick = if (channel == "Moje nagrania") { { toggleNagraniaExpansion?.invoke() } } else null
             )
         }
+        }  // end if (!channel.startsWith("[HEADER") && channel != "Skróty" && channel != "Skróty v2 Moje")
         }  // End content wrapper Box (with padding for NAGRANIA)
     }  // End main outer Box (with background for NAGRANIA)
 }
@@ -5023,6 +5394,12 @@ private const val MOJE_HORIZONTAL_EXPANDED_ROW_HEIGHT = 546 // CategoryIcon (216
 // Vertical posters (Pakiety, Wypożyczone) - large spacing
 private const val MOJE_VERTICAL_NORMAL_ROW_HEIGHT = 346 // CategoryIcon (216px) + spacing (130px)
 private const val MOJE_VERTICAL_EXPANDED_ROW_HEIGHT = 636 // CategoryIcon (216px) + miniatures (290px) + spacing (130px)
+// Shortcuts v4 (Skróty sub-channel) - fixed height, NO expansion, half-size card
+private const val MOJE_SHORTCUTS_NORMAL_ROW_HEIGHT = 150 // Shortcut card (90px) + spacing (60px)
+private const val MOJE_SHORTCUTS_EXPANDED_ROW_HEIGHT = 150 // NO expansion - always 150px
+// Shortcuts v2 (Skróty v2 Moje) - fixed height, NO expansion, larger card
+private const val MOJE_SHORTCUTS_V2_NORMAL_ROW_HEIGHT = 160 // Shortcut card (120px) + spacing (40px)
+private const val MOJE_SHORTCUTS_V2_EXPANDED_ROW_HEIGHT = 160 // NO expansion - always 160px
 private const val MOJE_CONTENT_FOCUS_EXTRA_SPACING = 100 // Extra spacing above focused content row
 
 // MOJE Sub-Channel spacing constants (Phase 4) - For expandable NAGRANIA channel
@@ -5105,11 +5482,26 @@ private fun calculateMojeChannelYPosition(
     channels: List<String>,
     sy: (Int) -> androidx.compose.ui.unit.Dp
 ): androidx.compose.ui.unit.Dp {
-    // Determine if channel is vertical or horizontal
+    // Determine channel type: header, shortcuts, shortcuts-v2, vertical posters, or horizontal miniatures
     val channelName = channels.getOrNull(rowIndex) ?: ""
+    val isHeader = channelName.startsWith("[HEADER")
+    val isShortcuts = channelName == "Skróty"
+    val isShortcutsV2 = channelName == "Skróty v2 Moje"
     val isVertical = channelName == "Wypożyczone"
-    val normalRowHeight = if (isVertical) MOJE_VERTICAL_NORMAL_ROW_HEIGHT else MOJE_HORIZONTAL_NORMAL_ROW_HEIGHT
-    val expandedRowHeight = if (isVertical) MOJE_VERTICAL_EXPANDED_ROW_HEIGHT else MOJE_HORIZONTAL_EXPANDED_ROW_HEIGHT
+    val normalRowHeight = when {
+        isHeader -> 80                               // Header: 80px content, 0px spacing
+        isShortcuts -> MOJE_SHORTCUTS_NORMAL_ROW_HEIGHT
+        isShortcutsV2 -> MOJE_SHORTCUTS_V2_NORMAL_ROW_HEIGHT
+        isVertical -> MOJE_VERTICAL_NORMAL_ROW_HEIGHT
+        else -> MOJE_HORIZONTAL_NORMAL_ROW_HEIGHT
+    }
+    val expandedRowHeight = when {
+        isHeader -> 80                               // Header: no expansion
+        isShortcuts -> MOJE_SHORTCUTS_EXPANDED_ROW_HEIGHT
+        isShortcutsV2 -> MOJE_SHORTCUTS_V2_EXPANDED_ROW_HEIGHT
+        isVertical -> MOJE_VERTICAL_EXPANDED_ROW_HEIGHT
+        else -> MOJE_HORIZONTAL_EXPANDED_ROW_HEIGHT
+    }
 
     return when {
         // Zfokusowany kanał - zawsze na Y: 340px (MOJE_FIXED_FOCUS_Y)
@@ -5119,13 +5511,29 @@ private fun calculateMojeChannelYPosition(
         // Kanały powyżej zfokusowanego - przesuwają się w górę
         rowIndex < focusedRowIndex -> {
             // Dodatkowe 100px odsunięcie gdy fokus na treści (focusedColIndex >= 0)
-            val extraSpacing = if (focusedColIndex >= 0) MOJE_CONTENT_FOCUS_EXTRA_SPACING else 0
+            // EXCEPT for shortcuts - no extra spacing for shortcuts (compact layout)
+            val focusedChannelName = channels.getOrNull(focusedRowIndex) ?: ""
+            val isFocusedShortcuts = focusedChannelName in listOf("Skróty", "Skróty v2 Moje")
+            val extraSpacing = if (focusedColIndex >= 0 && !isFocusedShortcuts) {
+                MOJE_CONTENT_FOCUS_EXTRA_SPACING
+            } else {
+                0
+            }
             // Calculate cumulative height from current row to focused row
             var cumulativeHeight = MOJE_FIXED_FOCUS_Y
             for (i in rowIndex until focusedRowIndex) {
                 val betweenChannelName = channels.getOrNull(i) ?: ""
+                val betweenIsHeader = betweenChannelName.startsWith("[HEADER")
+                val betweenIsShortcuts = betweenChannelName == "Skróty"
+                val betweenIsShortcutsV2 = betweenChannelName == "Skróty v2 Moje"
                 val betweenIsVertical = betweenChannelName == "Wypożyczone"
-                val betweenRowHeight = if (betweenIsVertical) MOJE_VERTICAL_NORMAL_ROW_HEIGHT else MOJE_HORIZONTAL_NORMAL_ROW_HEIGHT
+                val betweenRowHeight = when {
+                    betweenIsHeader -> 80                        // Header: 0px spacing
+                    betweenIsShortcuts -> MOJE_SHORTCUTS_NORMAL_ROW_HEIGHT
+                    betweenIsShortcutsV2 -> MOJE_SHORTCUTS_V2_NORMAL_ROW_HEIGHT
+                    betweenIsVertical -> MOJE_VERTICAL_NORMAL_ROW_HEIGHT
+                    else -> MOJE_HORIZONTAL_NORMAL_ROW_HEIGHT
+                }
                 cumulativeHeight -= betweenRowHeight
             }
             sy(cumulativeHeight - extraSpacing)
@@ -5134,11 +5542,20 @@ private fun calculateMojeChannelYPosition(
         rowIndex > focusedRowIndex -> {
             // Sprawdzamy czy zfokusowany kanał ma miniaturkę zfokusowaną (powiększony)
             val focusedChannelName = channels.getOrNull(focusedRowIndex) ?: ""
+            val focusedIsShortcuts = focusedChannelName in listOf("Skróty", "Skróty v2 Moje")
             val focusedIsVertical = focusedChannelName == "Wypożyczone"
             val focusedChannelExpansion = if (focusedColIndex >= 0) {
-                if (focusedIsVertical) MOJE_VERTICAL_EXPANDED_ROW_HEIGHT else MOJE_HORIZONTAL_EXPANDED_ROW_HEIGHT
+                when {
+                    focusedIsShortcuts -> MOJE_SHORTCUTS_EXPANDED_ROW_HEIGHT
+                    focusedIsVertical -> MOJE_VERTICAL_EXPANDED_ROW_HEIGHT
+                    else -> MOJE_HORIZONTAL_EXPANDED_ROW_HEIGHT
+                }
             } else {
-                if (focusedIsVertical) MOJE_VERTICAL_NORMAL_ROW_HEIGHT else MOJE_HORIZONTAL_NORMAL_ROW_HEIGHT
+                when {
+                    focusedIsShortcuts -> MOJE_SHORTCUTS_NORMAL_ROW_HEIGHT
+                    focusedIsVertical -> MOJE_VERTICAL_NORMAL_ROW_HEIGHT
+                    else -> MOJE_HORIZONTAL_NORMAL_ROW_HEIGHT
+                }
             }
 
             // Dodatkowy odstęp 20px dla pionowych miniaturek gdy są zfokusowane
@@ -5148,8 +5565,17 @@ private fun calculateMojeChannelYPosition(
             var cumulativeHeight = MOJE_FIXED_FOCUS_Y + focusedChannelExpansion + verticalExtraSpacing
             for (i in (focusedRowIndex + 1) until rowIndex) {
                 val betweenChannelName = channels.getOrNull(i) ?: ""
+                val betweenIsHeader = betweenChannelName.startsWith("[HEADER")
+                val betweenIsShortcuts = betweenChannelName == "Skróty"
+                val betweenIsShortcutsV2 = betweenChannelName == "Skróty v2 Moje"
                 val betweenIsVertical = betweenChannelName == "Wypożyczone"
-                val betweenRowHeight = if (betweenIsVertical) MOJE_VERTICAL_NORMAL_ROW_HEIGHT else MOJE_HORIZONTAL_NORMAL_ROW_HEIGHT
+                val betweenRowHeight = when {
+                    betweenIsHeader -> 80                        // Header: 0px spacing
+                    betweenIsShortcuts -> MOJE_SHORTCUTS_NORMAL_ROW_HEIGHT
+                    betweenIsShortcutsV2 -> MOJE_SHORTCUTS_V2_NORMAL_ROW_HEIGHT
+                    betweenIsVertical -> MOJE_VERTICAL_NORMAL_ROW_HEIGHT
+                    else -> MOJE_HORIZONTAL_NORMAL_ROW_HEIGHT
+                }
                 cumulativeHeight += betweenRowHeight
             }
             sy(cumulativeHeight)
@@ -5187,18 +5613,25 @@ fun handleMojeChannelsNavigation(
     gridContent: Map<String, List<VodContent>>,
     onReturnToMenu: () -> Unit,
     onToggleExpansion: (() -> Unit)? = null,
-    isNagraniaExpanded: Boolean = false  // Faza 5: For auto-collapse detection
+    isNagraniaExpanded: Boolean = false,  // Faza 5: For auto-collapse detection
+    onToggleVersion: (() -> Unit)? = null  // Key "8": Toggle v1/v2
 ): Boolean {
     if (event.nativeKeyEvent.action != android.view.KeyEvent.ACTION_DOWN) return false
 
     when (event.key) {
-        // OK on NAGRANIA CategoryIcon → toggle expansion
+        // Key "8" on remote → Toggle between v1 (Moje nagrania) and v2 (Header+Nagrania+Skróty)
+        Key.Eight -> {
+            onToggleVersion?.invoke()
+            return true
+        }
+
+        // OK on "Moje nagrania" CategoryIcon → toggle expansion
         Key.Enter, Key.DirectionCenter -> {
             if (focusedColIndex == -1) {
                 val channelName = channels.getOrNull(focusedRowIndex)
-                if (channelName == "Nagrania") {
+                if (channelName == "Moje nagrania") {
                     onToggleExpansion?.invoke()
-                    Log.d("MOJE_DEBUG", "OK on NAGRANIA → toggle expansion")
+                    Log.d("MOJE_DEBUG", "OK on MOJE NAGRANIA → toggle expansion")
                     return true
                 }
             }
@@ -5206,12 +5639,12 @@ fun handleMojeChannelsNavigation(
         }
 
         Key.DirectionUp -> {
-            // Faza 5: Auto-collapse when going UP from "Pojedyncze nagrania" to "Nagrania"
+            // Faza 5: Auto-collapse when going UP from "Skróty" (first sub-channel) to "Moje nagrania"
             val currentChannel = channels.getOrNull(focusedRowIndex)
-            if (isNagraniaExpanded && currentChannel == "Pojedyncze nagrania") {
-                Log.d("MOJE_DEBUG", "AUTO-COLLAPSE: UP from Pojedyncze nagrania → collapse and focus Nagrania")
+            if (isNagraniaExpanded && currentChannel == "Skróty") {
+                Log.d("MOJE_DEBUG", "AUTO-COLLAPSE: UP from Skróty → collapse and focus Moje nagrania")
                 onToggleExpansion?.invoke() // Collapse
-                // After collapse, "Nagrania" will be at row=1
+                // After collapse, "Moje nagrania" will be at row=1
                 kotlinx.coroutines.GlobalScope.launch {
                     kotlinx.coroutines.delay(50) // Wait for channel list to update
                     val targetColIndex = if (focusedColIndex == -1) -1 else 0
@@ -5224,8 +5657,23 @@ fun handleMojeChannelsNavigation(
             when {
                 focusedRowIndex > 0 -> {
                     // Move up one channel
-                    val newRowIndex = focusedRowIndex - 1
-                    val targetColIndex = if (focusedColIndex == -1) -1 else 0
+                    var newRowIndex = focusedRowIndex - 1
+                    var newChannelName = channels.getOrNull(newRowIndex) ?: ""
+                    val currentChannelName = channels.getOrNull(focusedRowIndex) ?: ""
+
+                    // Skip header if we're moving to it (headers are not focusable)
+                    if (newChannelName.startsWith("[HEADER")) {
+                        newRowIndex -= 1
+                        newChannelName = channels.getOrNull(newRowIndex) ?: ""
+                    }
+
+                    val targetColIndex = when {
+                        newChannelName == "Skróty" -> 0  // Moving TO Skróty: always go to shortcut (NO CategoryIcon)
+                        newChannelName == "Skróty v2 Moje" -> 0  // Moving TO Skróty v2: go to first shortcut
+                        currentChannelName == "Skróty" -> -1  // Moving FROM Skróty: go to CategoryIcon of channel above
+                        currentChannelName == "Skróty v2 Moje" -> -1  // Moving FROM Skróty v2: go to CategoryIcon
+                        else -> if (focusedColIndex == -1) -1 else 0  // Standard: preserve type
+                    }
                     onChannelContentFocusChange(newRowIndex, targetColIndex)
                     channelFocusRequesters[Pair(newRowIndex, targetColIndex)]?.requestFocus()
                 }
@@ -5243,9 +5691,16 @@ fun handleMojeChannelsNavigation(
                     onReturnToMenu()
                 }
                 else -> {
-                    // From content of first channel → CategoryIcon
-                    onChannelContentFocusChange(0, -1)
-                    channelFocusRequesters[Pair(0, -1)]?.requestFocus()
+                    // From content of first channel → CategoryIcon (or menu if Skróty)
+                    val firstChannelName = channels.getOrNull(0) ?: ""
+                    if (firstChannelName == "Skróty") {
+                        // Skróty has NO CategoryIcon → return to menu
+                        onReturnToMenu()
+                    } else {
+                        // Standard channel → go to CategoryIcon
+                        onChannelContentFocusChange(0, -1)
+                        channelFocusRequesters[Pair(0, -1)]?.requestFocus()
+                    }
                 }
             }
             return true
@@ -5269,8 +5724,23 @@ fun handleMojeChannelsNavigation(
 
             if (focusedRowIndex < channels.size - 1) {
                 // Move down one channel
-                val newRowIndex = focusedRowIndex + 1
-                val targetColIndex = if (focusedColIndex == -1) -1 else 0
+                var newRowIndex = focusedRowIndex + 1
+                var newChannelName = channels.getOrNull(newRowIndex) ?: ""
+                val currentChannelName = channels.getOrNull(focusedRowIndex) ?: ""
+
+                // Skip header if we're moving to it (headers are not focusable)
+                if (newChannelName.startsWith("[HEADER")) {
+                    newRowIndex += 1
+                    newChannelName = channels.getOrNull(newRowIndex) ?: ""
+                }
+
+                val targetColIndex = when {
+                    newChannelName == "Skróty" -> 0  // Moving TO Skróty: always go to shortcut (NO CategoryIcon)
+                    newChannelName == "Skróty v2 Moje" -> 0  // Moving TO Skróty v2: go to first shortcut
+                    currentChannelName == "Skróty" -> -1  // Moving FROM Skróty: go to CategoryIcon of channel below
+                    currentChannelName == "Skróty v2 Moje" -> -1  // Moving FROM Skróty v2: go to CategoryIcon
+                    else -> if (focusedColIndex == -1) -1 else 0  // Standard: preserve type
+                }
                 onChannelContentFocusChange(newRowIndex, targetColIndex)
                 channelFocusRequesters[Pair(newRowIndex, targetColIndex)]?.requestFocus()
             }
@@ -5278,6 +5748,30 @@ fun handleMojeChannelsNavigation(
         }
 
         Key.DirectionLeft -> {
+            val currentChannel = channels.getOrNull(focusedRowIndex)
+
+            // Special handling for "Skróty" - only 1 item, nowhere to go
+            if (currentChannel == "Skróty" && focusedColIndex == 0) {
+                return true  // Consume event, do nothing (single shortcut, no CategoryIcon)
+            }
+
+            // Special handling for "Skróty v2 Moje" - 4 shortcuts, move between them
+            if (currentChannel == "Skróty v2 Moje") {
+                when {
+                    focusedColIndex > 0 -> {
+                        // Move to previous shortcut
+                        val newColIndex = focusedColIndex - 1
+                        onChannelContentFocusChange(focusedRowIndex, newColIndex)
+                        channelFocusRequesters[Pair(focusedRowIndex, newColIndex)]?.requestFocus()
+                    }
+                    focusedColIndex == 0 -> {
+                        // Already at first shortcut - do nothing (no CategoryIcon for shortcuts)
+                        return true
+                    }
+                }
+                return true
+            }
+
             when {
                 focusedColIndex == -1 -> {
                     // On CategoryIcon - do nothing
@@ -5302,6 +5796,30 @@ fun handleMojeChannelsNavigation(
         }
 
         Key.DirectionRight -> {
+            val currentChannel = channels.getOrNull(focusedRowIndex)
+
+            // Special handling for "Skróty" - only 1 item, nowhere to go
+            if (currentChannel == "Skróty" && focusedColIndex == 0) {
+                return true  // Consume event, do nothing (single shortcut)
+            }
+
+            // Special handling for "Skróty v2 Moje" - 4 shortcuts, move between them
+            if (currentChannel == "Skróty v2 Moje") {
+                when {
+                    focusedColIndex < 3 -> {
+                        // Move to next shortcut (max colIndex is 3 for 4 shortcuts)
+                        val newColIndex = focusedColIndex + 1
+                        onChannelContentFocusChange(focusedRowIndex, newColIndex)
+                        channelFocusRequesters[Pair(focusedRowIndex, newColIndex)]?.requestFocus()
+                    }
+                    focusedColIndex == 3 -> {
+                        // Already at last shortcut - do nothing
+                        return true
+                    }
+                }
+                return true
+            }
+
             when {
                 focusedColIndex == -1 -> {
                     // From CategoryIcon → go to content
