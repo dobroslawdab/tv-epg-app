@@ -270,10 +270,10 @@ private fun handleKeyNavigation(
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-fun TvRoot() {
+fun TvRoot(startScreen: NavigationScreen = NavigationScreen.SPLASH) {
     val context = LocalContext.current
     val repository = remember { EpgRepository.getInstance(context) }
-    var currentScreen by remember { mutableStateOf(NavigationScreen.SPLASH) }
+    var currentScreen by remember { mutableStateOf(startScreen) }
     var previousScreen by remember { mutableStateOf(NavigationScreen.HOME) }
     var selectedChannelName by remember { mutableStateOf<String?>(null) }
 

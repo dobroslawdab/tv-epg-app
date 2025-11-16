@@ -23,8 +23,25 @@
         android:banner="@drawable/banner"
         android:icon="@drawable/banner"
         android:localeConfig="@xml/locales_config">
+
+        <!-- LauncherActivity: Entry point when app is set as Android TV Launcher (HOME button) -->
         <activity
-            android:name=".MainActivity"
+            android:name=".LauncherActivity"
+            android:exported="true"
+            android:resizeableActivity="false"
+            android:launchMode="singleTask"
+            android:screenOrientation="landscape">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- EpgActivity: Entry point when app is launched from app drawer -->
+        <activity
+            android:name=".EpgActivity"
             android:exported="true"
             android:resizeableActivity="false"
             android:launchMode="singleTask"
@@ -34,6 +51,15 @@
                 <category android:name="android.intent.category.LAUNCHER" />
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
+        </activity>
+
+        <!-- MainActivity: Development/testing entry point (not exported for production) -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="false"
+            android:resizeableActivity="false"
+            android:launchMode="singleTask"
+            android:screenOrientation="landscape">
         </activity>
 
         <!-- Rive removed - EPG-only app -->

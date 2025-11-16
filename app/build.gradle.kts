@@ -15,8 +15,8 @@ android {
           applicationId = "com.uxellence.tv.v3"
           minSdk = 21
           targetSdk = 35
-          versionCode = 27
-          versionName = "3.8.0"
+          versionCode = 28
+          versionName = "3.9.0"
   
           // Specify the ABIs to build for. Including both 32-bit and 64-bit ensures compatibility.
           ndk {
