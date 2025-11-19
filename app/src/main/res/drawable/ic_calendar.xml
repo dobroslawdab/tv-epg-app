@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Calendar icon for CandyBar component - 48x48dp -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+
+    <!-- Calendar body -->
+    <path
+        android:fillColor="#EEEEEE"
+        android:pathData="M38,10 L36,10 L36,8 C36,6.9 35.1,6 34,6 C32.9,6 32,6.9 32,8 L32,10 L16,10 L16,8 C16,6.9 15.1,6 14,6 C12.9,6 12,6.9 12,8 L12,10 L10,10 C8.9,10 8,10.9 8,12 L8,38 C8,39.1 8.9,40 10,40 L38,40 C39.1,40 40,39.1 40,38 L40,12 C40,10.9 39.1,10 38,10 Z M38,38 L10,38 L10,18 L38,18 L38,38 Z" />
+
+    <!-- Calendar date boxes -->
+    <path
+        android:fillColor="#EEEEEE"
+        android:pathData="M14,22 L14,26 L18,26 L18,22 Z M20,22 L20,26 L24,26 L24,22 Z M26,22 L26,26 L30,26 L30,22 Z M32,22 L32,26 L36,26 L36,22 Z" />
+    <path
+        android:fillColor="#EEEEEE"
+        android:pathData="M14,28 L14,32 L18,32 L18,28 Z M20,28 L20,32 L24,32 L24,28 Z M26,28 L26,32 L30,32 L30,28 Z" />
+</vector>

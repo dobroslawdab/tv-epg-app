@@ -373,6 +373,8 @@ val expandedRowHeight = when {
 
 **Key Difference**: EXPANDED_ROW_HEIGHT equals NORMAL_ROW_HEIGHT (no expansion)
 
+**Complete Checklist**: For app-icons specifically (with ChannelListCard, CategoryIcon fade, title above list), see [`docs/patterns/APP_ICONS_CHANNEL_CHECKLIST.md`](../../docs/patterns/APP_ICONS_CHANNEL_CHECKLIST.md) - this covers ALL 8 steps needed including isSubChannel, alpha/zIndex, and calculateYPosition updates.
+
 ### Pattern 3: Migrating Channel to Different Section
 
 **When**: Developer wants to move channel from one section to another

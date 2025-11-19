@@ -25,6 +25,15 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalContext
+import android.graphics.BitmapFactory
+import coil.ImageLoader
+import coil.compose.AsyncImage
+import coil.decode.GifDecoder
+import coil.decode.ImageDecoderDecoder
+import android.os.Build
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
@@ -100,15 +109,71 @@ fun TopMenuOverlay(
                     .padding(start = sx(67), top = sy(15))
             )
 
-            // Tooltip with instruction
-            // Figma: X=82, Y=153
-            TooltipInstruction(
-                sx = sx,
-                sy = sy,
+            // Remote hint: PNG + GIF overlay
+            // Struktura: Box (kontener) -> PNG pilota -> GIF animacja (nad PNG)
+            val context = LocalContext.current
+
+            // Wczytaj PNG pilota
+            val pilotBitmap = remember {
+                context.assets.open("pilot.png").use { inputStream ->
+                    BitmapFactory.decodeStream(inputStream)?.asImageBitmap()
+                }
+            }
+
+            // ImageLoader dla GIF z odpowiednim dekoderem
+            val gifImageLoader = remember {
+                ImageLoader.Builder(context)
+                    .components {
+                        if (Build.VERSION.SDK_INT >= 28) {
+                            add(ImageDecoderDecoder.Factory())
+                        } else {
+                            add(GifDecoder.Factory())
+                        }
+                    }
+                    .build()
+            }
+
+            // Animacja wjazdu z lewej strony
+            val slideOffset by animateDpAsState(
+                targetValue = sx(80),  // Docelowa pozycja X=80px
+                animationSpec = tween(
+                    durationMillis = 600,
+                    easing = androidx.compose.animation.core.EaseOutCubic
+                ),
+                label = "remoteSlide"
+            )
+
+            // Kontener z PNG + GIF (250x850px, obrócony 15° w prawo)
+            Box(
                 modifier = Modifier
                     .align(Alignment.TopStart)
-                    .padding(start = sx(82), top = sy(153))
-            )
+                    .offset(x = slideOffset, y = sy(170))  // Y=170px for top-left corner
+                    .size(sx(250), sy(850))  // Rozmiar: 250x850px
+                    .rotate(15f)  // Obrót 15° w prawo
+            ) {
+                // PNG pilota - warstwa dolna
+                // Rozmiar: wysokość 850px, szerokość proporcjonalnie
+                if (pilotBitmap != null) {
+                    Image(
+                        bitmap = pilotBitmap,
+                        contentDescription = "Remote",
+                        modifier = Modifier.height(sy(850))
+                    )
+                }
+
+                // GIF animacja - warstwa górna (nad PNG)
+                // Rozmiar: 150x150px, pozycja: 400px od góry boxa
+                AsyncImage(
+                    model = "file:///android_asset/mae.gif",
+                    contentDescription = "Remote animation",
+                    imageLoader = gifImageLoader,
+                    modifier = Modifier
+                        .size(sx(150), sy(150))
+                        .align(Alignment.TopCenter)
+                        .offset(y = sy(400))
+                        .zIndex(1f)
+                )
+            }
 
             // Current time display
             // Figma: X=1920-1775-82=63, Y=40
@@ -129,7 +194,15 @@ private fun TopMenuBar(
     sy: (Int) -> Dp,
     modifier: Modifier = Modifier
 ) {
-    val menuItems = listOf("Start", "Moje", "Telewizja", "KinoPlay", "Wideo", "Aplikacje")
+    val context = LocalContext.current
+    val menuItems = listOf("Moje", "Telewizja", "KinoPlay", "Wideo", "Aplikacje")
+
+    // Wczytaj ikonę domku
+    val homeIcon = remember {
+        context.assets.open("domek2.png").use { inputStream ->
+            BitmapFactory.decodeStream(inputStream)?.asImageBitmap()
+        }
+    }
 
     Row(
         modifier = modifier
@@ -143,33 +216,64 @@ private fun TopMenuBar(
         horizontalArrangement = Arrangement.spacedBy(sx(13)), // Figma: 13px gap
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Search icon button
-        // Figma: 80x80px
+        // Start z ikoną domku - stan SELECTED (białe tło)
         Box(
             modifier = Modifier
-                .size(sx(80), sy(80))
+                .height(sy(80))
                 .background(
-                    color = Color(0x08FFFFFF), // rgba(255, 255, 255, 0.03)
-                    shape = RoundedCornerShape(sx(64)) // Figma: 64px
-                ),
+                    color = Color(0xFFFFFFFF), // Białe tło - selected state
+                    shape = RoundedCornerShape(sx(64))
+                )
+                .padding(horizontal = sx(32)),
             contentAlignment = Alignment.Center
         ) {
-            // Search icon (magnifying glass) from Material Icons
-            // Figma: 48x48px
-            Icon(
-                imageVector = Icons.Default.Search,
-                contentDescription = "Search",
-                tint = Color(0xFFEEEEEE),  // White color #EEEEEE
-                modifier = Modifier.size(sx(48), sy(48))  // Figma: 48x48px
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(sx(8))
+            ) {
+                // Ikona domku - ciemny kolor jak tekst
+                if (homeIcon != null) {
+                    Image(
+                        bitmap = homeIcon,
+                        contentDescription = "Home",
+                        modifier = Modifier.size(sx(24), sy(24)),
+                        colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(Color(0xFF48227C))
+                    )
+                }
+                Text(
+                    text = "Start",
+                    color = Color(0xFF48227C), // Purple text on white background
+                    fontSize = (24 * sy(1).value / 1).sp,
+                    fontWeight = FontWeight.Medium,
+                    letterSpacing = (0.48 * sy(1).value / 1).sp
+                )
+            }
         }
 
-        // Menu items
+        // Pozostałe menu items
         menuItems.forEach { itemText ->
             MenuItem(
                 text = itemText,
                 sx = sx,
                 sy = sy
+            )
+        }
+
+        // Search icon button na końcu
+        Box(
+            modifier = Modifier
+                .size(sx(80), sy(80))
+                .background(
+                    color = Color(0x08FFFFFF), // rgba(255, 255, 255, 0.03)
+                    shape = RoundedCornerShape(sx(64))
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Search,
+                contentDescription = "Search",
+                tint = Color(0xFFEEEEEE),
+                modifier = Modifier.size(sx(48), sy(48))
             )
         }
     }
@@ -234,19 +338,19 @@ private fun TooltipInstruction(
             )
         }
 
-        // Rectangle 491: 378x180px white background
+        // Rectangle 491: 428x180px white background
         Box(
             modifier = Modifier
-                .size(width = sx(378), height = sy(180)) // Figma: 378x180px
+                .size(width = sx(428), height = sy(180)) // 428px width
                 .background(
                     color = Color(0xFFEEEEEE), // White background #EEEEEE
                     shape = RoundedCornerShape(sx(8)) // Figma: 8px radius
                 )
-                .padding(start = sx(39), top = sy(47)), // Figma: left 39px, top 47px
-            contentAlignment = Alignment.TopStart
+                .padding(start = sx(20), end = sx(20), top = sy(47)), // Centered padding
+            contentAlignment = Alignment.TopCenter
         ) {
         Column(
-            horizontalAlignment = Alignment.Start,
+            horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(sy(10)) // Figma: 10px gap
         ) {
             // First row: "Naciśnij," + [home button] + "na pilocie,"
@@ -295,16 +399,15 @@ private fun TooltipInstruction(
                 )
             }
 
-            // Second row: "aby przejść do\nekranu głównego" (centered, 2 lines, width 300px)
+            // Second row: "aby przejść do menu głównego" (centered)
             Text(
-                text = "aby przejść do\nekranu głównego",
+                text = "aby przejść do menu głównego",
                 color = Color(0xFF48227C),
                 fontSize = sy(24).value.sp, // Figma: 24px
                 fontWeight = FontWeight.Bold,
                 lineHeight = sy(32).value.sp, // Figma: 32px line height
                 letterSpacing = (-0.48).sp, // Figma: -0.48px
-                textAlign = TextAlign.Center,
-                modifier = Modifier.width(sx(300)) // Figma: width 300px
+                textAlign = TextAlign.Center
             )
         }
         }

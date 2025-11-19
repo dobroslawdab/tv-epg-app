@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Wallet icon for CandyBar component - 48x48dp -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+
+    <!-- Wallet body -->
+    <path
+        android:fillColor="#EEEEEE"
+        android:pathData="M38,14 L10,14 C8.9,14 8,14.9 8,16 L8,32 C8,33.1 8.9,34 10,34 L38,34 C39.1,34 40,33.1 40,32 L40,16 C40,14.9 39.1,14 38,14 Z M38,32 L10,32 L10,16 L38,16 L38,32 Z" />
+
+    <!-- Card slot -->
+    <path
+        android:fillColor="#EEEEEE"
+        android:pathData="M33,22 L33,26 C33,27.1 32.1,28 31,28 L29,28 C27.9,28 27,27.1 27,26 L27,22 C27,20.9 27.9,20 29,20 L31,20 C32.1,20 33,20.9 33,22 Z" />
+
+    <!-- Top flap -->
+    <path
+        android:fillColor="#EEEEEE"
+        android:pathData="M35,10 L13,10 C11.9,10 11,10.9 11,12 L11,16 L37,16 L37,12 C37,10.9 36.1,10 35,10 Z" />
+</vector>

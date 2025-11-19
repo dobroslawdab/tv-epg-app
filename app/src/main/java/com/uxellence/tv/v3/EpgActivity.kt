@@ -1,10 +1,15 @@
 package com.uxellence.tv.v3
 
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.res.Configuration
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.runtime.mutableStateOf
 import com.uxellence.tv.v3.channels.ChannelManager
 import java.util.*
 
@@ -39,6 +44,19 @@ import java.util.*
  * @see MainActivity for development/testing entry point
  */
 class EpgActivity : ComponentActivity() {
+    // State to trigger HOME button navigation
+    private val homePressedTrigger = mutableStateOf(0)
+
+    // BroadcastReceiver for HOME button events from AccessibilityService
+    private val homeButtonReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action == HomeButtonAccessibilityService.HOME_PRESSED_ACTION) {
+                android.util.Log.d("EPG_HOME", "HOME from AccessibilityService - navigating to START")
+                homePressedTrigger.value++
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -51,9 +69,29 @@ class EpgActivity : ComponentActivity() {
         // Initialize ChannelManager with TV channels database
         ChannelManager.initialize(this)
 
+        // Register BroadcastReceiver for HOME button events from AccessibilityService
+        val filter = IntentFilter(HomeButtonAccessibilityService.HOME_PRESSED_ACTION)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(homeButtonReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(homeButtonReceiver, filter)
+        }
+
         // Start at SPLASH screen - follows normal startup flow
         setContent {
-            TvRoot(startScreen = NavigationScreen.SPLASH)
+            TvRoot(
+                startScreen = NavigationScreen.SPLASH,
+                homePressedTrigger = homePressedTrigger.value
+            )
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        try {
+            unregisterReceiver(homeButtonReceiver)
+        } catch (e: IllegalArgumentException) {
+            // Receiver not registered - safe to ignore
         }
     }
 

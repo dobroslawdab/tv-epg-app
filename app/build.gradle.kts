@@ -15,8 +15,8 @@ android {
           applicationId = "com.uxellence.tv.v3"
           minSdk = 21
           targetSdk = 35
-          versionCode = 28
-          versionName = "3.9.0"
+          versionCode = 33
+          versionName = "4.0.0"
   
           // Specify the ABIs to build for. Including both 32-bit and 64-bit ensures compatibility.
           ndk {
@@ -85,8 +85,9 @@ dependencies {
 
   // Rive removed (project limited to EPG only)
 
-  // Coil for image loading (channel logos)
+  // Coil for image loading (channel logos) and GIF support
   implementation("io.coil-kt:coil-compose:2.7.0")
+  implementation("io.coil-kt:coil-gif:2.7.0")
   
   // Lottie for animations
   implementation("com.airbnb.android:lottie-compose:6.2.0")

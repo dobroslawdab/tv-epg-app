@@ -706,15 +706,19 @@ fun TopMenuScreen2(
     val coroutineScope = rememberCoroutineScope()
     val repository = remember { com.uxellence.tv.v3.repository.EpgRepository.getInstance(context) }
 
+    // Global state for keyboard shortcuts (defined early for use in global handlers)
+    var isEpgSectionExpanded by remember { mutableStateOf(com.uxellence.tv.v3.utils.VersionTracker.getEpgSectionExpanded(context)) }
+    var showNagraniaV2 by remember { mutableStateOf(com.uxellence.tv.v3.utils.VersionTracker.getNagraniaVersion(context) == "v2") }
+
     val menuItems = remember {
         listOf(
-            MenuItem2("SEARCH", "Search"),
-            MenuItem2("ODKRYWAJ", "Start"),
-            MenuItem2("MOJE", "Moje"),
-            MenuItem2("TELEWIZJA", "Telewizja"),
-            MenuItem2("KINO_PLAY", "Kino Play"),
-            MenuItem2("WIDEO", "Wideo"),
-            MenuItem2("APLIKACJE", "Aplikacje")
+            MenuItem2("ODKRYWAJ", "Start"),       // Moved from position 1 to 0
+            MenuItem2("MOJE", "Moje"),            // Moved from position 2 to 1
+            MenuItem2("TELEWIZJA", "Telewizja"),  // Moved from position 3 to 2
+            MenuItem2("KINO_PLAY", "Kino Play"),  // Moved from position 4 to 3
+            MenuItem2("WIDEO", "Wideo"),          // Moved from position 5 to 4
+            MenuItem2("APLIKACJE", "Aplikacje"),  // Moved from position 6 to 5
+            MenuItem2("SEARCH", "Search")         // Moved from position 0 to 6 (Lupa na koniec)
         )
     }
 
@@ -755,9 +759,9 @@ fun TopMenuScreen2(
         )
     }
 
-    // State for keyboard shortcuts
-    var isCandyBarVisible by remember { mutableStateOf(true) }
-    var showProfileNotificationBadge by remember { mutableStateOf(false) }
+    // State for keyboard shortcuts (loaded from SharedPreferences)
+    var isCandyBarVisible by remember { mutableStateOf(com.uxellence.tv.v3.utils.VersionTracker.getCandyBarVisibility(context)) }
+    var showProfileNotificationBadge by remember { mutableStateOf(com.uxellence.tv.v3.utils.VersionTracker.getNotificationBadge(context)) }
 
     // Manage focus for right section buttons
     LaunchedEffect(focusedRightButton) {
@@ -872,6 +876,57 @@ fun TopMenuScreen2(
                     return@onPreviewKeyEvent true
                 }
 
+                // ===== GLOBAL KEYBOARD SHORTCUTS (work everywhere) =====
+
+                // Global: Key "1" - Return to main menu (works from any tab)
+                if (event.key == Key.One) {
+                    android.util.Log.d("TopMenuScreen2", "Key '1' pressed - Returning to main menu")
+                    onShowMainMenu()
+                    return@onPreviewKeyEvent true
+                }
+
+                // Global: Key "3" - Toggle EPG "Było w TV" section (changed from Key.One)
+                if (event.key == Key.Three) {
+                    isEpgSectionExpanded = !isEpgSectionExpanded
+                    com.uxellence.tv.v3.utils.VersionTracker.setEpgSectionExpanded(context, isEpgSectionExpanded)
+                    android.util.Log.d("TopMenuScreen2", "Key '3' pressed - EPG section toggled: $isEpgSectionExpanded (saved to prefs)")
+                    return@onPreviewKeyEvent true
+                }
+
+                // Global: Key "5" - Toggle CandyBar visibility
+                if (event.key == Key.Five) {
+                    isCandyBarVisible = !isCandyBarVisible
+                    com.uxellence.tv.v3.utils.VersionTracker.setCandyBarVisibility(context, isCandyBarVisible)
+                    android.util.Log.d("TopMenuScreen2", "Key '5' pressed - CandyBar visibility toggled: $isCandyBarVisible (saved to prefs)")
+                    return@onPreviewKeyEvent true
+                }
+
+                // Global: Key "6" - Toggle notification badge
+                if (event.key == Key.Six) {
+                    showProfileNotificationBadge = !showProfileNotificationBadge
+                    com.uxellence.tv.v3.utils.VersionTracker.setNotificationBadge(context, showProfileNotificationBadge)
+                    android.util.Log.d("TopMenuScreen2", "Key '6' pressed - Notification badge toggled: $showProfileNotificationBadge (saved to prefs)")
+                    return@onPreviewKeyEvent true
+                }
+
+                // Global: Key "7" - Open startup mode selection
+                if (event.key == Key.Seven) {
+                    android.util.Log.d("TopMenuScreen2", "Key '7' pressed - Opening startup mode selection")
+                    onNavigateToStartupMode()
+                    return@onPreviewKeyEvent true
+                }
+
+                // Global: Key "8" - Toggle Nagrania version (v1 expandable ↔ v2 with 4 buttons)
+                if (event.key == Key.Eight) {
+                    showNagraniaV2 = !showNagraniaV2
+                    val version = if (showNagraniaV2) "v2" else "v1"
+                    com.uxellence.tv.v3.utils.VersionTracker.setNagraniaVersion(context, version)
+                    android.util.Log.d("TopMenuScreen2", "Key '8' pressed - Nagrania version toggled: $version (saved to prefs)")
+                    return@onPreviewKeyEvent true
+                }
+
+                // ===== END GLOBAL SHORTCUTS =====
+
                 when (globalFocusState.value.currentRow) {
                     0 -> { // Menu navigation
                         when (event.key) {
@@ -879,17 +934,19 @@ fun TopMenuScreen2(
                                 if (focusedRightButton >= 0) {
                                     // In right section - navigate left within buttons or back to main menu
                                     if (focusedRightButton > 0) {
-                                        // Skip CandyBar (0) if it's hidden - go directly to APLIKACJE
+                                        // Skip CandyBar (0) if it's hidden - go directly to last menu item
                                         if (focusedRightButton == 1 && !isCandyBarVisible) {
                                             focusedRightButton = -1
-                                            globalFocusState.value = globalFocusState.value.copy(currentPosition = MenuPositions.APLIKACJE)
+                                            val lastMenuPosition = menuItems.size - 1
+                                            globalFocusState.value = globalFocusState.value.copy(currentPosition = lastMenuPosition)
                                         } else {
                                             focusedRightButton--
                                         }
                                     } else {
-                                        // From CandyBar (0) back to APLIKACJE (last menu item)
+                                        // From CandyBar (0) back to last menu item
                                         focusedRightButton = -1
-                                        globalFocusState.value = globalFocusState.value.copy(currentPosition = MenuPositions.APLIKACJE)
+                                        val lastMenuPosition = menuItems.size - 1
+                                        globalFocusState.value = globalFocusState.value.copy(currentPosition = lastMenuPosition)
                                     }
                                 } else {
                                     // Normal menu navigation
@@ -897,6 +954,19 @@ fun TopMenuScreen2(
                                 }
                                 true
                             }
+                            /**
+                             * RIGHT KEY NAVIGATION (Row 0: Menu)
+                             *
+                             * Pattern: Last menu item transitions to right section (CandyBar/Profile/Settings)
+                             * - Last item → focusedRightButton (0=CandyBar, 1=Profile, 2=Settings)
+                             * - Other items → Continue normal menu navigation via GlobalFocusManager
+                             *
+                             * Current menu order: ODKRYWAJ(0), MOJE(1), TELEWIZJA(2),
+                             *                     KINO_PLAY(3), WIDEO(4), APLIKACJE(5), SEARCH(6)
+                             * Last item: menuItems.size - 1 (currently 6 = SEARCH)
+                             *
+                             * @see GlobalFocusManager.navigateRow for normal menu navigation
+                             */
                             Key.DirectionRight -> {
                                 if (focusedRightButton >= 0) {
                                     // In right section - navigate right within buttons
@@ -905,8 +975,9 @@ fun TopMenuScreen2(
                                     }
                                     // else: already at Settings (2), stay there
                                 } else {
-                                    // Check if at last menu item (APLIKACJE)
-                                    if (globalFocusState.value.currentPosition == MenuPositions.APLIKACJE) {
+                                    // Check if at last menu item (dynamic based on menuItems.size)
+                                    val lastMenuPosition = menuItems.size - 1
+                                    if (globalFocusState.value.currentPosition == lastMenuPosition) {
                                         // Move to right section - skip CandyBar if hidden
                                         focusedRightButton = if (isCandyBarVisible) 0 else 1
                                     } else {
@@ -916,25 +987,7 @@ fun TopMenuScreen2(
                                 }
                                 true
                             }
-                            Key.One -> {  // Przycisk "1" na pilocie - otwórz menu główne z ACCOUNT
-                                // Check sectionId directly since ACCOUNT is not a menu position
-                                if (globalFocusState.value.sectionId == "ACCOUNT") {
-                                    onShowMainMenu()
-                                    true
-                                } else {
-                                    false // Nie obsługujemy na innych zakładkach
-                                }
-                            }
-                            Key.Five -> {  // Przycisk "5" na pilocie - toggle CandyBar visibility
-                                isCandyBarVisible = !isCandyBarVisible
-                                Log.d("TopMenuScreen2", "CandyBar visibility toggled: $isCandyBarVisible")
-                                true
-                            }
-                            Key.Six -> {  // Przycisk "6" na pilocie - toggle notification badge
-                                showProfileNotificationBadge = !showProfileNotificationBadge
-                                Log.d("TopMenuScreen2", "Profile notification badge toggled: $showProfileNotificationBadge")
-                                true
-                            }
+                            // Keys 1, 5, 6 removed - now handled globally above
                             Key.DirectionDown, Key.Enter, Key.DirectionCenter -> {
                                 if (focusedRightButton >= 0) {
                                     // In right section - let button handle click via onFocusChanged
@@ -1051,7 +1104,15 @@ fun TopMenuScreen2(
                 restoredTelewizjaFocus = restoredTelewizjaFocus,
                 onNavigateToChannelGrid = onNavigateToChannelGrid,
                 onNavigateToVodGrid = onNavigateToVodGrid,
-                onNavigateToKinoGrid = onNavigateToKinoGrid
+                onNavigateToKinoGrid = onNavigateToKinoGrid,
+                isEpgSectionExpanded = isEpgSectionExpanded,
+                onEpgSectionExpandedChange = { expanded ->
+                    isEpgSectionExpanded = expanded
+                },
+                showNagraniaV2 = showNagraniaV2,
+                onShowNagraniaV2Change = { v2 ->
+                    showNagraniaV2 = v2
+                }
             )
         }
 
@@ -1230,14 +1291,20 @@ fun TopMenuBar2(
         }
     }
 
-    Row(
+    Box(
         modifier = modifier
             .padding(top = sy(20), start = sx(20))
             .fillMaxWidth()
-            .height(sy(97)),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+            .wrapContentHeight()
     ) {
+        // Layer 1: Main content row
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(sy(97)),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(sx(22)),
             verticalAlignment = Alignment.CenterVertically
@@ -1261,6 +1328,7 @@ fun TopMenuBar2(
                     containerItems.forEach { item ->
                         if (item.id == "SEARCH") {
                             MenuSearchIcon2(
+                                isSelected = menuState.selectedItemId == item.id,
                                 isFocused = menuState.focusedItemId == item.id && menuState.isMenuFocused,
                                 focusRequester = focusRequesters[item.id]!!,
                                 onFocused = { onMenuItemFocused(item.id) },
@@ -1346,6 +1414,46 @@ fun TopMenuBar2(
                 letterSpacing = 0.2.sp,
                 modifier = Modifier.padding(end = sx(30))
             )
+        }
+        }
+
+        // Layer 2: Tooltip overlay (z-index on top, doesn't affect layout)
+        if (focusedRightButton >= 0) {
+            val labelText = when (focusedRightButton) {
+                0 -> "Zarządzaj punktami"
+                1 -> "Konto, profile"
+                2 -> "Ustawienia systemowe"
+                else -> ""
+            }
+
+            // Calculate offset from right edge to center text below button
+            // Box width is 400px, offset = icon_center - box_width/2 to center Box on icon
+            val boxHalfWidth = 200
+            val labelOffsetFromRight = when (focusedRightButton) {
+                0 -> sx(511 - boxHalfWidth)  // CandyBar center (511) - half box width
+                1 -> sx(294 - boxHalfWidth)  // Profile center (294) - half box width
+                2 -> sx(199 - boxHalfWidth)  // Settings center (199) - half box width
+                else -> sx(0)
+            }
+
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .offset(
+                        x = -labelOffsetFromRight,
+                        y = sy(105)  // 97px row height + 8px gap
+                    )
+                    .width(sx(400))  // Fixed width for centering
+                    .wrapContentHeight()
+            ) {
+                Text(
+                    text = labelText,
+                    color = Color(0xFF5FEDD4),  // Aqua color
+                    fontSize = sy(28).value.sp,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.align(Alignment.TopCenter)  // Center text in Box
+                )
+            }
         }
     }
 }
@@ -1507,6 +1615,7 @@ private fun SettingsButton(
 
 @Composable
 private fun MenuSearchIcon2(
+    isSelected: Boolean,
     isFocused: Boolean,
     focusRequester: FocusRequester,
     onFocused: () -> Unit,
@@ -1516,12 +1625,14 @@ private fun MenuSearchIcon2(
     sy: (Int) -> androidx.compose.ui.unit.Dp
 ) {
     val backgroundColor = when {
-        isFocused && !isInStartContent -> Color(0xFF5AECD3) // Show focus when NOT in START content
+        isFocused && !isInStartContent -> Color(0xFF5AECD3) // Aqua when focused
+        isSelected -> Color.White // White when selected
         else -> Color(0x08FFFFFF)
     }
     
     val iconColor = when {
-        isFocused -> Color(0xFF48227C)
+        isFocused -> Color(0xFF48227C) // Purple when focused
+        isSelected -> Color(0xFF48227C) // Purple when selected
         else -> Color(0xFFEEEEEE)
     }
 
@@ -1654,8 +1765,14 @@ private fun FullPageContent(
     restoredTelewizjaFocus: FocusState? = null,
     onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
-    onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> }
+    onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    isEpgSectionExpanded: Boolean = false,
+    onEpgSectionExpandedChange: (Boolean) -> Unit = {},
+    showNagraniaV2: Boolean = false,
+    onShowNagraniaV2Change: (Boolean) -> Unit = {}
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+
     // Track fresh entry (transition from menu Row 0 → content Row 1+)
     // Used to auto-focus first interactive element only when user enters section, not while hovering tab
     var previousRow by remember { mutableStateOf(0) }
@@ -1675,7 +1792,9 @@ private fun FullPageContent(
                 onNavigateToVodGrid = onNavigateToVodGrid,
                 onNavigateToKinoGrid = onNavigateToKinoGrid,
                 sx = sx,
-                sy = sy
+                sy = sy,
+                showNagraniaV2 = showNagraniaV2,
+                onShowNagraniaV2Change = onShowNagraniaV2Change
             )
         }
         "ODKRYWAJ" -> {
@@ -1700,7 +1819,9 @@ private fun FullPageContent(
                 restoredTelewizjaFocus = restoredTelewizjaFocus,
                 onNavigateToChannelGrid = onNavigateToChannelGrid,
                 onNavigateToVodGrid = onNavigateToVodGrid,
-                onNavigateToKinoGrid = onNavigateToKinoGrid
+                onNavigateToKinoGrid = onNavigateToKinoGrid,
+                isEpgSectionExpanded = isEpgSectionExpanded,
+                onEpgSectionExpandedChange = onEpgSectionExpandedChange
             )
         }
         "KINO_PLAY" -> {
@@ -1773,7 +1894,9 @@ private fun MojeScreenContent(
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     sx: (Int) -> androidx.compose.ui.unit.Dp,
-    sy: (Int) -> androidx.compose.ui.unit.Dp
+    sy: (Int) -> androidx.compose.ui.unit.Dp,
+    showNagraniaV2: Boolean = false,
+    onShowNagraniaV2Change: (Boolean) -> Unit = {}
 ) {
     var resetTrigger by remember { mutableStateOf(0) }
     
@@ -1793,7 +1916,9 @@ private fun MojeScreenContent(
         shouldAutoFocus = globalFocusState.value.sectionId == "MOJE" && globalFocusState.value.currentRow > 0,
         sx = sx,
         sy = sy,
-        resetTrigger = resetTrigger
+        resetTrigger = resetTrigger,
+        showNagraniaV2 = showNagraniaV2,
+        onShowNagraniaV2Change = onShowNagraniaV2Change
     )
 }
 
@@ -1883,7 +2008,9 @@ private fun TelewizjaScreenContent(
     restoredTelewizjaFocus: FocusState? = null,
     onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
-    onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> }
+    onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    isEpgSectionExpanded: Boolean = false,
+    onEpgSectionExpandedChange: (Boolean) -> Unit = {}
 ) {
     var resetTrigger by remember { mutableStateOf(0) }
 
@@ -1916,7 +2043,9 @@ private fun TelewizjaScreenContent(
         sectionId = globalFocusState.value.sectionId,
         onNavigateToChannelGrid = onNavigateToChannelGrid,
         onNavigateToVodGrid = onNavigateToVodGrid,
-        onNavigateToKinoGrid = onNavigateToKinoGrid
+        onNavigateToKinoGrid = onNavigateToKinoGrid,
+        isEpgSectionExpanded = isEpgSectionExpanded,
+        onEpgSectionExpandedChange = onEpgSectionExpandedChange
     )
 }
 
@@ -2149,7 +2278,9 @@ private fun TelewizjaChannelsScreen(
     sectionId: String = "TELEWIZJA",
     onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
-    onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> }
+    onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    isEpgSectionExpanded: Boolean = false,
+    onEpgSectionExpandedChange: (Boolean) -> Unit = {}
 ) {
     android.util.Log.d("EPG_DEBUG", "=== TelewizjaChannelsScreen RENDERED ===")
 
@@ -2272,13 +2403,13 @@ private fun TelewizjaChannelsScreen(
     val newsChannels = remember { filterTvChannelsByCategory(context, tvChannelLogos, "informacyjne") }  // 200-209
     val mojaListaChannels = remember { filterTvChannelsByCategory(context, tvChannelLogos, "moja-lista") }  // 1-9
 
-    // EPG section collapse state (domyślnie UKRYTE - collapsed)
-    var isEpgSectionExpanded by remember { mutableStateOf(false) }
+    // EPG section collapse state - MOVED TO TOP (now defined globally for keyboard shortcut access)
+    // var isEpgSectionExpanded - defined at line ~710
 
-    // Toggle function for EPG section (triggered by key "1")
+    // Toggle function for EPG section (triggered by key "3")
     val toggleEpgSection: () -> Unit = {
-        isEpgSectionExpanded = !isEpgSectionExpanded
-        android.util.Log.d("TELEWIZJA_DEBUG", "EPG section expanded: $isEpgSectionExpanded (key '1' pressed)")
+        onEpgSectionExpandedChange(!isEpgSectionExpanded)
+        android.util.Log.d("TELEWIZJA_DEBUG", "EPG section expanded: ${!isEpgSectionExpanded} (key '3' pressed)")
     }
 
     // New structure: Header rows + content channels + moved rows
@@ -2746,17 +2877,8 @@ private fun TelewizjaChannelsScreen(
                 .fillMaxSize()
                 .background(Color(0xFF48227C))
                 .onPreviewKeyEvent { event ->
-                    // Priority 1: Handle key "1" for EPG section toggle (GLOBAL in TELEWIZJA)
-                    if (event.type == KeyEventType.KeyDown) {
-                        when (event.key) {
-                            Key.One -> {
-                                toggleEpgSection()
-                                return@onPreviewKeyEvent true
-                            }
-                        }
-                    }
-
-                    // Priority 2: Regular navigation (existing handleTelewizjaNavigation)
+                    // EPG section toggle moved to global shortcuts (Key "3")
+                    // Regular navigation (handleTelewizjaNavigation)
                     handleTelewizjaNavigation(
                         event = event,
                         focusedRowIndex = focusedRowIndex,
@@ -2823,9 +2945,17 @@ private fun MojeChannelsScreen(
     shouldAutoFocus: Boolean = false,
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
-    resetTrigger: Int = 0
+    resetTrigger: Int = 0,
+    showNagraniaV2: Boolean = false,
+    onShowNagraniaV2Change: (Boolean) -> Unit = {},
+    onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> }  // For TV channel click
 ) {
     val context = LocalContext.current
+
+    // Load TV channel data for "Moja lista kanałów" in MOJE section
+    val tvChannelLogos = remember { loadTvChannelsFromAssets(context) }
+    val mojaListaChannels = remember { filterTvChannelsByCategory(context, tvChannelLogos, "moja-lista") }
+
     // Faza 3: Old static channel list deleted - now using dynamic list below based on isNagraniaExpanded
 
     val packages = remember {
@@ -2875,8 +3005,9 @@ private fun MojeChannelsScreen(
     var isNagraniaExpanded by remember { mutableStateOf(false) }
 
     // Toggle between v1 (Moje nagrania expandable) and v2 (Header + Nagrania + Skróty v2)
-    // Key "8" on remote toggles this state
-    var showNagraniaV2 by remember { mutableStateOf(false) }
+    // Key "8" on remote toggles this state (loaded from SharedPreferences)
+    // MOVED TO TOP (now defined globally for keyboard shortcut access at line ~711)
+    // var showNagraniaV2 - defined at line ~711
 
     // Shortcuts data for "Skróty v2 Moje" channel (4 buttons)
     val mojeNagraniaShortcuts = remember {
@@ -2896,10 +3027,11 @@ private fun MojeChannelsScreen(
     val channels = remember(isNagraniaExpanded, showNagraniaV2) {
         if (showNagraniaV2) {
             // ═══════════════════════════════════════════════════════════════
-            // VERSION 2: Header + Nagrania + Skróty v2 (7 channels)
+            // VERSION 2: Header + Nagrania + Skróty v2 (8 channels)
             // ═══════════════════════════════════════════════════════════════
             listOf(
                 "Oglądaj dalej",
+                "Moja lista kanałów",                  // App-icons channel (like TELEWIZJA)
                 "[HEADER-RIGHT] Miejsce na nagrania",  // Storage counter header
                 "Nagrania",                            // Standard horizontal channel with icon
                 "Skróty v2 Moje",                      // 4 shortcuts row (reduced height)
@@ -2909,11 +3041,12 @@ private fun MojeChannelsScreen(
             )
         } else {
             // ═══════════════════════════════════════════════════════════════
-            // VERSION 1: Moje nagrania expandable (5 collapsed, 9 expanded)
+            // VERSION 1: Moje nagrania expandable (6 collapsed, 10 expanded)
             // ═══════════════════════════════════════════════════════════════
             if (isNagraniaExpanded) {
                 listOf(
                     "Oglądaj dalej",
+                    "Moja lista kanałów",   // App-icons channel (like TELEWIZJA)
                     "Moje nagrania",        // Expandable parent
                     "Skróty",               // Sub-channel 1 - shortcuts to recordings
                     "Pojedyncze nagrania",  // Sub-channel 2
@@ -2926,6 +3059,7 @@ private fun MojeChannelsScreen(
             } else {
                 listOf(
                     "Oglądaj dalej",
+                    "Moja lista kanałów",   // App-icons channel (like TELEWIZJA)
                     "Moje nagrania",        // Collapsed
                     "Do obejrzenia",
                     "Wypożyczone",
@@ -2943,8 +3077,8 @@ private fun MojeChannelsScreen(
 
     // Toggle between v1 and v2 (Key "8" on remote)
     val toggleNagraniaVersion: () -> Unit = {
-        showNagraniaV2 = !showNagraniaV2
-        Log.d("MOJE_DEBUG", "Key 8 → Toggle Nagrania version: ${if (showNagraniaV2) "v2" else "v1"} (channels: ${channels.size})")
+        onShowNagraniaV2Change(!showNagraniaV2)
+        Log.d("MOJE_DEBUG", "Key 8 → Toggle Nagrania version: ${if (!showNagraniaV2) "v2" else "v1"} (channels: ${channels.size})")
     }
 
     // Faza 3: Grid content mapping - uses MojeContentCache for persistent content
@@ -3103,7 +3237,9 @@ private fun MojeChannelsScreen(
             sy = sy,
             isNagraniaExpanded = isNagraniaExpanded,
             toggleNagraniaExpansion = toggleNagraniaExpansion,
-            mojeNagraniaShortcuts = mojeNagraniaShortcuts  // NEW: pass shortcuts data
+            mojeNagraniaShortcuts = mojeNagraniaShortcuts,  // NEW: pass shortcuts data
+            mojaListaChannels = mojaListaChannels,  // NEW: pass TV channels for "Moja lista kanałów"
+            onNavigateToEpgDay = onNavigateToEpgDay  // For TV channel click
         )
     }
 }
@@ -4935,7 +5071,9 @@ fun MojeChannelRowsLayout(
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     isNagraniaExpanded: Boolean = false,
     toggleNagraniaExpansion: (() -> Unit)? = null,
-    mojeNagraniaShortcuts: List<ShortcutItem> = emptyList()  // NEW: for "Skróty v2 Moje"
+    mojeNagraniaShortcuts: List<ShortcutItem> = emptyList(),  // NEW: for "Skróty v2 Moje"
+    mojaListaChannels: List<TvChannel> = emptyList(),  // NEW: for "Moja lista kanałów"
+    onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> }  // For TV channel click
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         repeat(channels.size) { rowIndex ->
@@ -4982,7 +5120,9 @@ fun MojeChannelRowsLayout(
                     lazyListState = lazyListState,
                     isNagraniaExpanded = isNagraniaExpanded,
                     toggleNagraniaExpansion = toggleNagraniaExpansion,
-                    mojeNagraniaShortcuts = mojeNagraniaShortcuts  // NEW: pass shortcuts data
+                    mojeNagraniaShortcuts = mojeNagraniaShortcuts,  // NEW: pass shortcuts data
+                    tvChannels = if (channelName == "Moja lista kanałów") mojaListaChannels else emptyList(),  // NEW: pass TV channels for app-icons
+                    onNavigateToEpgDay = onNavigateToEpgDay  // For TV channel click
                 )
             }
         }
@@ -5007,13 +5147,16 @@ fun MojeUnifiedChannelRow(
     lazyListState: LazyListState,
     isNagraniaExpanded: Boolean = false,
     toggleNagraniaExpansion: (() -> Unit)? = null,
-    mojeNagraniaShortcuts: List<ShortcutItem> = emptyList()  // For "Skróty v2 Moje" rendering
+    mojeNagraniaShortcuts: List<ShortcutItem> = emptyList(),  // For "Skróty v2 Moje" rendering
+    tvChannels: List<TvChannel> = emptyList(),  // For "Moja lista kanałów" rendering
+    onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> }  // For TV channel click
 ) {
     val isCurrentRow = rowIndex == focusedRowIndex
 
     // Detect content type based on channel name
     val isVertical = channel == "Wypożyczone"
     val isPackages = channel == "Aktywne pakiety"
+    val isAppIcons = channel == "Moja lista kanałów"
 
     var showDetailsWithDelay by remember { mutableStateOf(false) }
 
@@ -5167,6 +5310,45 @@ fun MojeUnifiedChannelRow(
                 sx = sx,
                 sy = sy
             )
+        } else if (isAppIcons) {
+            // App Icons row - TV channels from "Moja lista kanałów"
+            // IDENTICAL to TELEWIZJA implementation (ChannelListCard, direct focus, 12px spacing)
+            LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                state = lazyListState,
+                contentPadding = PaddingValues(start = sx(380), end = sx(20)),
+                horizontalArrangement = Arrangement.spacedBy(sx(12))  // Same as TELEWIZJA
+            ) {
+                items(tvChannels.size) { colIndex ->
+                    val channel = tvChannels[colIndex]
+                    // Direct focus model (same as TELEWIZJA)
+                    val isItemFocused = rowIndex == focusedRowIndex && colIndex == focusedColIndex
+                    val focusRequester = channelFocusRequesters[Pair(rowIndex, colIndex)] ?: FocusRequester()
+
+                    ChannelListCard(
+                        channel = channel,
+                        isFocused = isItemFocused,
+                        focusRequester = focusRequester,
+                        onFocusChange = { onChannelContentFocusChange(rowIndex, colIndex) },
+                        onClick = {
+                            // Navigate to EPG Day screen (same as TELEWIZJA)
+                            val epgId = channel.epgId ?: channel.name
+                            onNavigateToEpgDay("Moja lista kanałów", epgId, 0, "MOJE")
+                        },
+                        sx = sx,
+                        sy = sy
+                    )
+                }
+
+                // Spacer items (same size as TELEWIZJA)
+                items(8) {
+                    Spacer(
+                        modifier = Modifier
+                            .width(sx(TELEWIZJA_CHANNEL_LIST_CARD_WIDTH))   // 208px
+                            .height(sy(TELEWIZJA_CHANNEL_LIST_CARD_HEIGHT))  // 208px
+                    )
+                }
+            }
         } else {
         // Standard LazyRow content for other channels
         val isMiniaturesOnScreen = isCurrentRow && focusedColIndex >= 0
@@ -5332,9 +5514,31 @@ fun MojeUnifiedChannelRow(
         }
         } // end else (standard LazyRow content)
 
+        // Title above scrolled list for app-icons (like TELEWIZJA)
+        val isCurrentRow = rowIndex == focusedRowIndex
+        if (isAppIcons && isCurrentRow && focusedColIndex >= 0 && lazyListState.firstVisibleItemIndex > 0) {
+            Box(modifier = Modifier.offset(x = sx(80), y = sy(-45))) {
+                Text(
+                    text = channel,
+                    color = Color(0xFFEEEEEE),
+                    fontSize = (24 * (sy(1).value / 1.dp.value)).sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.4.sp
+                )
+            }
+        }
+
+        // CategoryIcon alpha and zIndex for app-icons fade (like TELEWIZJA)
+        val categoryAlpha = if (isAppIcons && isCurrentRow && focusedColIndex >= 0 && lazyListState.firstVisibleItemIndex > 0) 0f else 1f
+        val categoryZIndex = if (isAppIcons) -1f else 0f
+
         // CategoryIcon (hidden for "Skróty", Headers, and "Skróty v2 Moje")
         if (!channel.startsWith("[HEADER") && channel != "Skróty" && channel != "Skróty v2 Moje") {
-        Box(modifier = Modifier.offset(x = sx(80), y = sy(0))) {
+        Box(modifier = Modifier
+            .offset(x = sx(80), y = sy(0))
+            .alpha(categoryAlpha)
+            .zIndex(categoryZIndex)
+        ) {
             // Faza 4: Standard focus check
             val categoryIsFocused = rowIndex == focusedRowIndex && focusedColIndex == -1
             val categoryFocusRequester = channelFocusRequesters[Pair(rowIndex, -1)]
@@ -5347,11 +5551,18 @@ fun MojeUnifiedChannelRow(
                 "Do obejrzenia" -> R.drawable.ic_add_to_watch
                 "Aktywne pakiety" -> R.drawable.ic_packages
                 "Wypożyczone" -> R.drawable.ic_rented
+                "Moja lista kanałów" -> null  // App-icons channel - text-only
                 else -> null
             }
 
-            // Sub-channels use WIDEO style (text-only, no icon)
-            val isSubChannel = channel in listOf("Skróty", "Pojedyncze nagrania", "SERIE", "ZAPLANOWANE")
+            // Sub-channels and app-icons channels use WIDEO style (text-only, bg on focus)
+            val isSubChannel = channel in listOf(
+                "Skróty",
+                "Pojedyncze nagrania",
+                "SERIE",
+                "ZAPLANOWANE",
+                "Moja lista kanałów"  // App-icons channel - text-only like TELEWIZJA
+            )
 
             if (rowIndex < 3) { // Debug only for first 3 channels
                 Log.d("MOJE_DEBUG", "Channel '$channel' (row $rowIndex) - categoryIsFocused: $categoryIsFocused, focusRequester available: ${categoryFocusRequester != null}")
@@ -5401,6 +5612,9 @@ private const val MOJE_SHORTCUTS_EXPANDED_ROW_HEIGHT = 150 // NO expansion - alw
 private const val MOJE_SHORTCUTS_V2_NORMAL_ROW_HEIGHT = 160 // Shortcut card (120px) + spacing (40px)
 private const val MOJE_SHORTCUTS_V2_EXPANDED_ROW_HEIGHT = 160 // NO expansion - always 160px
 private const val MOJE_CONTENT_FOCUS_EXTRA_SPACING = 100 // Extra spacing above focused content row
+// App-icons (Moja lista kanałów) - NO expansion like TELEWIZJA
+private const val MOJE_APP_ICONS_NORMAL_ROW_HEIGHT = 256  // CategoryIcon (216px) + spacing (40px)
+private const val MOJE_APP_ICONS_EXPANDED_ROW_HEIGHT = 256 // NO expansion - always 256px (like TELEWIZJA)
 
 // MOJE Sub-Channel spacing constants (Phase 4) - For expandable NAGRANIA channel
 private const val MOJE_SUB_CHANNEL_NORMAL_HEIGHT = 180 // SubChannelIcon (140px) + spacing (40px)
@@ -5482,17 +5696,19 @@ private fun calculateMojeChannelYPosition(
     channels: List<String>,
     sy: (Int) -> androidx.compose.ui.unit.Dp
 ): androidx.compose.ui.unit.Dp {
-    // Determine channel type: header, shortcuts, shortcuts-v2, vertical posters, or horizontal miniatures
+    // Determine channel type: header, shortcuts, shortcuts-v2, vertical posters, app-icons, or horizontal miniatures
     val channelName = channels.getOrNull(rowIndex) ?: ""
     val isHeader = channelName.startsWith("[HEADER")
     val isShortcuts = channelName == "Skróty"
     val isShortcutsV2 = channelName == "Skróty v2 Moje"
     val isVertical = channelName == "Wypożyczone"
+    val isAppIcons = channelName == "Moja lista kanałów"  // App-icons - NO expansion
     val normalRowHeight = when {
         isHeader -> 80                               // Header: 80px content, 0px spacing
         isShortcuts -> MOJE_SHORTCUTS_NORMAL_ROW_HEIGHT
         isShortcutsV2 -> MOJE_SHORTCUTS_V2_NORMAL_ROW_HEIGHT
         isVertical -> MOJE_VERTICAL_NORMAL_ROW_HEIGHT
+        isAppIcons -> MOJE_APP_ICONS_NORMAL_ROW_HEIGHT   // App-icons: no expansion
         else -> MOJE_HORIZONTAL_NORMAL_ROW_HEIGHT
     }
     val expandedRowHeight = when {
@@ -5500,6 +5716,7 @@ private fun calculateMojeChannelYPosition(
         isShortcuts -> MOJE_SHORTCUTS_EXPANDED_ROW_HEIGHT
         isShortcutsV2 -> MOJE_SHORTCUTS_V2_EXPANDED_ROW_HEIGHT
         isVertical -> MOJE_VERTICAL_EXPANDED_ROW_HEIGHT
+        isAppIcons -> MOJE_APP_ICONS_EXPANDED_ROW_HEIGHT // App-icons: no expansion (256=256)
         else -> MOJE_HORIZONTAL_EXPANDED_ROW_HEIGHT
     }
 
@@ -5527,11 +5744,13 @@ private fun calculateMojeChannelYPosition(
                 val betweenIsShortcuts = betweenChannelName == "Skróty"
                 val betweenIsShortcutsV2 = betweenChannelName == "Skróty v2 Moje"
                 val betweenIsVertical = betweenChannelName == "Wypożyczone"
+                val betweenIsAppIcons = betweenChannelName == "Moja lista kanałów"
                 val betweenRowHeight = when {
                     betweenIsHeader -> 80                        // Header: 0px spacing
                     betweenIsShortcuts -> MOJE_SHORTCUTS_NORMAL_ROW_HEIGHT
                     betweenIsShortcutsV2 -> MOJE_SHORTCUTS_V2_NORMAL_ROW_HEIGHT
                     betweenIsVertical -> MOJE_VERTICAL_NORMAL_ROW_HEIGHT
+                    betweenIsAppIcons -> MOJE_APP_ICONS_NORMAL_ROW_HEIGHT
                     else -> MOJE_HORIZONTAL_NORMAL_ROW_HEIGHT
                 }
                 cumulativeHeight -= betweenRowHeight
@@ -5544,16 +5763,19 @@ private fun calculateMojeChannelYPosition(
             val focusedChannelName = channels.getOrNull(focusedRowIndex) ?: ""
             val focusedIsShortcuts = focusedChannelName in listOf("Skróty", "Skróty v2 Moje")
             val focusedIsVertical = focusedChannelName == "Wypożyczone"
+            val focusedIsAppIcons = focusedChannelName == "Moja lista kanałów"
             val focusedChannelExpansion = if (focusedColIndex >= 0) {
                 when {
                     focusedIsShortcuts -> MOJE_SHORTCUTS_EXPANDED_ROW_HEIGHT
                     focusedIsVertical -> MOJE_VERTICAL_EXPANDED_ROW_HEIGHT
+                    focusedIsAppIcons -> MOJE_APP_ICONS_EXPANDED_ROW_HEIGHT  // No expansion
                     else -> MOJE_HORIZONTAL_EXPANDED_ROW_HEIGHT
                 }
             } else {
                 when {
                     focusedIsShortcuts -> MOJE_SHORTCUTS_NORMAL_ROW_HEIGHT
                     focusedIsVertical -> MOJE_VERTICAL_NORMAL_ROW_HEIGHT
+                    focusedIsAppIcons -> MOJE_APP_ICONS_NORMAL_ROW_HEIGHT
                     else -> MOJE_HORIZONTAL_NORMAL_ROW_HEIGHT
                 }
             }
@@ -5569,11 +5791,13 @@ private fun calculateMojeChannelYPosition(
                 val betweenIsShortcuts = betweenChannelName == "Skróty"
                 val betweenIsShortcutsV2 = betweenChannelName == "Skróty v2 Moje"
                 val betweenIsVertical = betweenChannelName == "Wypożyczone"
+                val betweenIsAppIcons = betweenChannelName == "Moja lista kanałów"
                 val betweenRowHeight = when {
                     betweenIsHeader -> 80                        // Header: 0px spacing
                     betweenIsShortcuts -> MOJE_SHORTCUTS_NORMAL_ROW_HEIGHT
                     betweenIsShortcutsV2 -> MOJE_SHORTCUTS_V2_NORMAL_ROW_HEIGHT
                     betweenIsVertical -> MOJE_VERTICAL_NORMAL_ROW_HEIGHT
+                    betweenIsAppIcons -> MOJE_APP_ICONS_NORMAL_ROW_HEIGHT
                     else -> MOJE_HORIZONTAL_NORMAL_ROW_HEIGHT
                 }
                 cumulativeHeight += betweenRowHeight
@@ -5619,11 +5843,7 @@ fun handleMojeChannelsNavigation(
     if (event.nativeKeyEvent.action != android.view.KeyEvent.ACTION_DOWN) return false
 
     when (event.key) {
-        // Key "8" on remote → Toggle between v1 (Moje nagrania) and v2 (Header+Nagrania+Skróty)
-        Key.Eight -> {
-            onToggleVersion?.invoke()
-            return true
-        }
+        // Key "8" removed - now handled globally
 
         // OK on "Moje nagrania" CategoryIcon → toggle expansion
         Key.Enter, Key.DirectionCenter -> {

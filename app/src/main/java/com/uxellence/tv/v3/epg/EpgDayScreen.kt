@@ -122,6 +122,8 @@ fun EpgDayScreen(
     onNavigateToPipMode: (ExoPlayer?, String) -> Unit = { _, _ -> },  // PIP callback
     initialChannelId: String? = null,  // Optional: Start EPG on specific channel (for "Moja lista kanałów")
     showTopMenuOverlay: Boolean = false,  // Show overlay only when launched from startup mode (MODE_EPG_DAY)
+    shouldNavigateHomeWithPip: Boolean = false,  // HOME button PIP navigation request from MainActivity
+    onHomeNavigationComplete: () -> Unit = {},    // Callback to reset flag after HOME navigation
     sx: (Int) -> Dp,            // Layout Engineer: ALWAYS sx/sy parameters
     sy: (Int) -> Dp
 ) {
@@ -218,6 +220,23 @@ fun EpgDayScreen(
                     android.util.Log.d("EpgDayScreen", "GUI manually hidden via BACK - staying hidden")
                 }
             }
+        }
+    }
+
+    // HOME button PIP navigation (identical logic to Key "0")
+    // When MainActivity requests PIP navigation via shouldNavigateHomeWithPip flag
+    LaunchedEffect(shouldNavigateHomeWithPip) {
+        if (shouldNavigateHomeWithPip && player != null && streamUrl.isNotEmpty()) {
+            android.util.Log.d("EpgDayScreen", "HOME button pressed - Transferring to PIP mode and START tab")
+
+            // Set PIP mode flag to prevent player release on dispose
+            isPipMode = true
+
+            // Transfer player to PIP and navigate to TopMenu2/START (same as Key "0")
+            onNavigateToPipMode(player, streamUrl)
+
+            // Notify MainActivity that navigation is complete (reset flag)
+            onHomeNavigationComplete()
         }
     }
 
@@ -808,11 +827,11 @@ fun EpgDayScreen(
         }
     }
 
-    // Auto-hide TopMenuOverlay after 10 seconds
+    // Auto-hide TopMenuOverlay after 20 seconds
     LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(10000) // 10 seconds
+        kotlinx.coroutines.delay(20000) // 20 seconds
         overlayVisible = false
-        android.util.Log.d("EpgDayScreen", "TopMenuOverlay auto-hidden after 10 seconds")
+        android.util.Log.d("EpgDayScreen", "TopMenuOverlay auto-hidden after 20 seconds")
     }
 
     Box(

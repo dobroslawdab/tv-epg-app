@@ -1,6 +1,7 @@
 package com.uxellence.tv.v3
 
 import android.content.Context
+import android.content.Intent
 import android.content.res.Configuration
 import android.os.Bundle
 import android.view.KeyEvent
@@ -68,7 +69,44 @@ class MainActivity : ComponentActivity() {
 }
 
 enum class NavigationScreen {
-    HOME, LIVE, COMPONENT_SHOWCASE, TOP_MENU, TOP_MENU2, SHORTCUT, CHANNELE, VIDEOSLIDER, SLIDER, SLIDER_MIX, EPG, EPG_DAY, FOCUS_MINI_CARD, VOICE_TEST, SPLASH, WHATS_NEW, STARTUP_MODE_SELECTION, ZAPPING_BAR, CHANNEL_GRID, WIDEO_GRID, KINO_GRID, VOD_GRID
+    HOME, LIVE, COMPONENT_SHOWCASE, TOP_MENU, TOP_MENU2, SHORTCUT, CHANNELE, VIDEOSLIDER, SLIDER, SLIDER_MIX, EPG, EPG_DAY, FOCUS_MINI_CARD, VOICE_TEST, SPLASH, WHATS_NEW, STARTUP_MODE_SELECTION, LAUNCHER_SETUP, ZAPPING_BAR, CHANNEL_GRID, WIDEO_GRID, KINO_GRID, VOD_GRID
+}
+
+// Helper functions for launcher setup
+
+/**
+ * Check if the app is set as the default launcher (HOME app)
+ */
+fun isDefaultLauncher(context: Context): Boolean {
+    val intent = Intent(Intent.ACTION_MAIN)
+    intent.addCategory(Intent.CATEGORY_HOME)
+    val resolveInfo = context.packageManager.resolveActivity(intent, 0)
+    return resolveInfo?.activityInfo?.packageName == context.packageName
+}
+
+/**
+ * Open Android TV launcher settings
+ * Tries to open the role settings, falls back to home settings if unavailable
+ */
+fun openLauncherSettings(context: Context) {
+    try {
+        // Try to open role settings (Android 10+)
+        val roleIntent = Intent(android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
+        roleIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(roleIntent)
+    } catch (e: Exception) {
+        try {
+            // Fallback to home settings
+            val homeIntent = Intent(android.provider.Settings.ACTION_HOME_SETTINGS)
+            homeIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(homeIntent)
+        } catch (e2: Exception) {
+            // Last resort: main settings
+            val settingsIntent = Intent(android.provider.Settings.ACTION_SETTINGS)
+            settingsIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(settingsIntent)
+        }
+    }
 }
 
 // Kolory z Figma dla nowego menu
@@ -270,7 +308,10 @@ private fun handleKeyNavigation(
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-fun TvRoot(startScreen: NavigationScreen = NavigationScreen.SPLASH) {
+fun TvRoot(
+    startScreen: NavigationScreen = NavigationScreen.SPLASH,
+    homePressedTrigger: Int = 0  // Trigger for HOME button navigation
+) {
     val context = LocalContext.current
     val repository = remember { EpgRepository.getInstance(context) }
     var currentScreen by remember { mutableStateOf(startScreen) }
@@ -311,9 +352,57 @@ fun TvRoot(startScreen: NavigationScreen = NavigationScreen.SPLASH) {
     // Track if EPG_DAY was launched from startup (show overlay) or from TOP_MENU2 (no overlay)
     var isEpgDayFromStartup by remember { mutableStateOf(false) }
 
+    // State flag for HOME button PIP navigation request
+    var shouldNavigateHomeWithPip by remember { mutableStateOf(false) }
+
     // Start background EPG loading on app start
     LaunchedEffect(Unit) {
         repository.startBackgroundRefresh()
+    }
+
+    // Handle HOME button navigation (from LauncherActivity)
+    // When homePressedTrigger changes, navigate based on current state
+    LaunchedEffect(homePressedTrigger) {
+        if (homePressedTrigger > 0) {  // Ignore initial value (0)
+            android.util.Log.d("HOME_NAVIGATION", "HOME pressed (trigger=$homePressedTrigger)")
+
+            when {
+                // Scenariusz 1: PIP aktywny w TopMenu2 → Wróć do fullscreen EPG
+                pipPlayer != null && pipMode && currentScreen == NavigationScreen.TOP_MENU2 -> {
+                    android.util.Log.d("HOME_NAVIGATION", "PIP active - returning to fullscreen EPG")
+
+                    currentScreen = NavigationScreen.EPG_DAY
+
+                    // Close PIP (same as onClosePip callback)
+                    pipPlayer?.stop()
+                    pipPlayer?.release()
+                    pipPlayer = null
+                    pipStreamUrl = null
+                    pipMode = false
+                }
+
+                // Scenariusz 2: Fullscreen EPG → Nawiguj do TopMenu2 z PIP (jak klawisz "0")
+                currentScreen == NavigationScreen.EPG_DAY -> {
+                    android.util.Log.d("HOME_NAVIGATION", "EPG Day Test - requesting PIP navigation")
+                    shouldNavigateHomeWithPip = true  // EpgDayScreen wykryje i przeniesie player do PIP
+                }
+
+                // Scenariusz 3: Inne ekrany → Nawiguj do TopMenu2/START (bez PIP)
+                else -> {
+                    android.util.Log.d("HOME_NAVIGATION", "Other screen - navigating to TOP_MENU2/START")
+
+                    currentScreen = NavigationScreen.TOP_MENU2
+                    savedTelewizjaSection = "ODKRYWAJ"  // START tab
+
+                    // Clear PIP if active (HOME should reset to clean state)
+                    pipPlayer?.stop()
+                    pipPlayer?.release()
+                    pipPlayer = null
+                    pipStreamUrl = null
+                    pipMode = false
+                }
+            }
+        }
     }
 
     // Clear saved focus and section when leaving TOP_MENU2
@@ -368,9 +457,13 @@ fun TvRoot(startScreen: NavigationScreen = NavigationScreen.SPLASH) {
                         !com.uxellence.tv.v3.utils.VersionTracker.isFirstInstall(context) ->
                             NavigationScreen.WHATS_NEW
 
-                        // PIERWSZA INSTALACJA: wybór trybu (bez changelog)
+                        // PIERWSZA INSTALACJA: sprawdź czy launcher setup został zakończony
                         com.uxellence.tv.v3.utils.VersionTracker.isFirstInstall(context) ->
-                            NavigationScreen.STARTUP_MODE_SELECTION
+                            if (!com.uxellence.tv.v3.utils.VersionTracker.isLauncherSetupCompleted(context)) {
+                                NavigationScreen.LAUNCHER_SETUP  // First run: show launcher setup
+                            } else {
+                                NavigationScreen.STARTUP_MODE_SELECTION  // Launcher setup done: show mode selection
+                            }
 
                         // Normalny start: użyj zapisanego trybu startowego
                         else -> when (com.uxellence.tv.v3.utils.VersionTracker.getStartupMode(context)) {
@@ -423,6 +516,32 @@ fun TvRoot(startScreen: NavigationScreen = NavigationScreen.SPLASH) {
                         } else {
                             NavigationScreen.TOP_MENU2  // Return to ACCOUNT or default menu
                         }
+                    },
+                    sx = ::sx,
+                    sy = ::sy
+                )
+            }
+            NavigationScreen.LAUNCHER_SETUP -> {
+                val context = LocalContext.current
+                val configuration = LocalConfiguration.current
+                val scaleX = configuration.screenWidthDp / 1920f
+                val scaleY = configuration.screenHeightDp / 1080f
+                fun sx(px: Int) = (px * scaleX).dp
+                fun sy(px: Int) = (px * scaleY).dp
+
+                LauncherSetupScreen(
+                    onOpenSettings = {
+                        // Open Android TV Settings to set as launcher
+                        openLauncherSettings(context)
+                        // Stay on this screen - user will come back after settings
+                    },
+                    onSkip = {
+                        // User chose to skip launcher setup - go to mode selection
+                        currentScreen = NavigationScreen.STARTUP_MODE_SELECTION
+                    },
+                    onBackPressed = {
+                        // BACK = same as Skip
+                        currentScreen = NavigationScreen.STARTUP_MODE_SELECTION
                     },
                     sx = ::sx,
                     sy = ::sy
@@ -576,6 +695,8 @@ fun TvRoot(startScreen: NavigationScreen = NavigationScreen.SPLASH) {
                     },
                     initialChannelId = savedTelewizjaFocus?.itemId,  // Start EPG on selected channel (itemId contains epgId like "Polsat")
                     showTopMenuOverlay = isEpgDayFromStartup,  // Show overlay only when launched from startup
+                    shouldNavigateHomeWithPip = shouldNavigateHomeWithPip,  // HOME button PIP navigation request
+                    onHomeNavigationComplete = { shouldNavigateHomeWithPip = false },  // Reset flag after navigation
                     sx = ::sx,  // Layout Engineer: ALWAYS pass sx/sy
                     sy = ::sy
                 )

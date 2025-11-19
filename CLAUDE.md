@@ -768,6 +768,51 @@ SafeNavigationScope(
 - **Pattern Reference**: Follows tescik example (input gating) + EpgDayScreen pattern (controller extraction)
 - **Commits**: 29973a5, 96baec1, 3bf5d4d, 6194519 (4 atomic commits)
 
+#### **Issue #6: TopMenu Right Section Dual Focus** (2025-11-15)
+- **Issue**: Right section (CandyBar/Profile/Settings buttons) showed dual focus with main menu, violating single-focus principle
+- **Symptoms**:
+  1. APLIKACJE tab showed aqua focus (white background) while CandyBar also showed aqua focus
+  2. Pressing OK activated APLIKACJE (content transition) instead of CandyBar (Points History)
+  3. CandyBar width stretched beyond content instead of fitting naturally
+- **Root Cause**:
+  - `isMenuFocused` calculation didn't exclude right section focus state
+  - ENTER/OK handler always intercepted keys without delegating to focused buttons
+  - CandyBar used fixed width instead of content-fitted width
+- **Solution**: Focus Architect Compliance - Three targeted fixes:
+  1. **isMenuFocused Guard** (Line 1072): Changed from `currentRow == 0` to `currentRow == 0 && focusedRightButton == -1`
+  2. **ENTER/OK Delegation** (Lines 911-922): Added `if (focusedRightButton >= 0) return false` to delegate to button callbacks
+  3. **CandyBar Width** (Lines 1328-1329): Changed from `.width(sx(324))` to `.widthIn(max = sx(324)).wrapContentWidth()`
+- **Result**:
+  - ✅ Single focus guarantee: Only CandyBar shows aqua when focused, APLIKACJE shows "selected" (white bg)
+  - ✅ OK delegation works: Pressing OK on CandyBar opens Points History via button's `onFocusChanged` callback
+  - ✅ CandyBar width fits content: Dynamic width based on "40 pkt / 21 dni" text length
+  - ✅ Clean separation: Main menu "selected" state independent from right section "focused" state
+  - ✅ Focus Architect pattern: Callback delegation instead of parent interception
+- **Files**: `TopMenuScreen2.kt:1072` (isMenuFocused), `TopMenuScreen2.kt:911-922` (delegation), `TopMenuScreen2.kt:1328-1329` (width)
+- **Documentation**: Added to Recent Conflict Resolution with Focus Architect compliance notes
+- **User Feedback**: "mamy dwo fokusy... powinienem mieć taką sytuację ze na aplikacje zostaje selected ale fokus jest na candy punktach"
+
+#### **Issue #7: SEARCH Navigation Skipped (Menu-to-Right Section)** (2025-11-18)
+- **Issue**: Hardcoded `MenuPositions.APLIKACJE` check prevented SEARCH(6) from transitioning to right section (CandyBar/Profile/Settings) after menu reordering
+- **Symptoms**:
+  1. RIGHT from SEARCH(6) stayed on SEARCH instead of moving to CandyBar/Profile
+  2. LEFT from CandyBar/Profile skipped SEARCH(6) and went to APLIKACJE(5)
+  3. SEARCH effectively unreachable when navigating between menu and right section
+- **Root Cause**: Navigation logic hardcoded assumption that APLIKACJE (position 5) was last menu item, but SEARCH moved to position 6 in menu reorder
+- **Solution**: Replaced 3 hardcoded position checks with dynamic `menuItems.size - 1` calculation:
+  1. **Line 967** (RIGHT key): Check if at last menu item before transitioning to right section
+  2. **Line 949** (LEFT from CandyBar): Return to last menu item dynamically
+  3. **Line 941** (LEFT from Profile with CandyBar hidden): Return to last menu item dynamically
+- **Result**:
+  - ✅ RIGHT from SEARCH(6) correctly transitions to CandyBar/Profile
+  - ✅ LEFT from CandyBar/Profile correctly returns to SEARCH(6)
+  - ✅ Navigation robust to future menu reordering (no hardcoded positions)
+  - ✅ Self-documenting code with clear "last menu item" pattern
+- **Files**: `TopMenuScreen2.kt:941, 949, 967` (3 occurrences of hardcoded APLIKACJE position replaced)
+- **Documentation**: Added comprehensive documentation comment explaining "last menu item → right section" pattern
+- **Pattern**: Always use dynamic calculations (`menuItems.size - 1`) instead of hardcoded positions for edge case logic
+- **Anti-pattern Warning**: Hardcoding position checks (`currentPosition == MenuPositions.APLIKACJE`) creates fragile navigation that breaks when menu order changes
+
 #### **Key Learnings**
 1. **Delegation Pattern**: Sections with complex multi-row navigation (MOJE, START, APLIKACJE, VOD) should delegate ALL keys to child components
 2. **Callback Pattern**: Child components use `onReturnToMenu` callback for menu transitions instead of parent intercepting keys
@@ -1207,6 +1252,88 @@ Wzorzec dynamicznego wstawiania sub-kanałów jako oddzielnych pełnowymiarowych
 
 ---
 
+## HOME Button Navigation Pattern (Launcher Integration) 🆕
+
+**Status**: ✅ Production-ready (wersja 3.12.0)
+**Pattern Guide**: [`docs/patterns/HOME_BUTTON_NAVIGATION_PATTERN.md`](docs/patterns/HOME_BUTTON_NAVIGATION_PATTERN.md)
+**Implementation Date**: 2025-11-18
+
+### Quick Reference
+
+Pełna obsługa przycisku HOME na Android TV z inteligentną nawigacją PIP (Picture-in-Picture), identyczną jak klawisz "0".
+
+**3 Kluczowe komponenty:**
+1. **LauncherActivity.onNewIntent()** - Standard Android API do wykrywania HOME button w launcherze
+2. **State Flag Communication** - `shouldNavigateHomeWithPip` jako trigger MainActivity → EpgDayScreen
+3. **Infrastructure Reuse** - `onNavigateToPipMode()` callback wykorzystany z klawisza "0"
+
+### Lokalizacje w kodzie
+
+**LauncherActivity.kt:**
+- Lines **120-134**: `onNewIntent()` - wykrywanie HOME button, incrementacja `homePressedTrigger`
+
+**MainActivity.kt:**
+- Line **318**: `shouldNavigateHomeWithPip` state flag
+- Lines **327-368**: `LaunchedEffect(homePressedTrigger)` - 3-scenariuszowa logika nawigacji
+- Lines **630-631**: Przekazanie parametrów do EpgDayScreen
+
+**EpgDayScreen.kt:**
+- Lines **125-126**: Function signature z nowymi parametrami
+- Lines **226-241**: `LaunchedEffect(shouldNavigateHomeWithPip)` - transfer playera do PIP
+
+### Scenariusze nawigacji
+
+1. **Fullscreen EPG → HOME** → TopMenu2 START z PIP (jak klawisz "0")
+2. **TopMenu2 z PIP → HOME** → Fullscreen EPG (zamknięcie PIP)
+3. **Netflix/inne → HOME** → TopMenu2 START (standardowy launcher)
+
+### Kluczowe wzorce
+
+**State Flag Communication:**
+```kotlin
+// MainActivity - sender
+var shouldNavigateHomeWithPip by remember { mutableStateOf(false) }
+
+// EpgDayScreen - receiver
+LaunchedEffect(shouldNavigateHomeWithPip) {
+    if (shouldNavigateHomeWithPip) {
+        isPipMode = true
+        onNavigateToPipMode(player, streamUrl)
+        onHomeNavigationComplete()  // CRITICAL: always reset flag
+    }
+}
+```
+
+**Callback Reset Pattern:**
+```kotlin
+onHomeNavigationComplete = { shouldNavigateHomeWithPip = false }
+```
+
+### Wymagania systemowe
+
+- ✅ Aplikacja MUSI być ustawiona jako domyślny launcher
+- ✅ AccessibilityService (opcjonalny, dodatkowa warstwa)
+- ✅ `android:launchMode="singleTask"` w AndroidManifest.xml
+
+**Ustawienie jako launcher:**
+```bash
+adb shell cmd role add-role-holder android.app.role.HOME com.uxellence.tv.v3
+```
+
+### Common Pitfalls
+
+❌ **NIE zapomnij**: Wywołać `onHomeNavigationComplete()` - ryzyko infinite loop
+❌ **NIE używaj**: Direct callbacks zamiast state flags - gorsze separation of concerns
+❌ **NIE zakładaj**: Że HOME działa bez ustawienia jako launcher
+
+✅ **Zawsze sprawdzaj**: Czy `player != null` przed transferem do PIP
+✅ **Zawsze używaj**: `isPipMode = true` flag przed `onNavigateToPipMode()`
+✅ **Zawsze testuj**: Wszystkie 3 scenariusze nawigacji
+
+**Szczegółowa dokumentacja**: Przeczytaj `docs/patterns/HOME_BUTTON_NAVIGATION_PATTERN.md` - zawiera flow diagrams, debugging tips, FAQ.
+
+---
+
 ## MOJE Section Spacing System (2025-09-29)
 
 ### 📋 System Documentation
@@ -1234,6 +1361,37 @@ private const val MOJE_CONTENT_FOCUS_EXTRA_SPACING = 100 // Dodatkowe odsunięci
 - Plik: `TopMenuScreen2.kt:930` - funkcja `calculateMojeChannelYPosition`
 - Wzorowana na Version001Screen z dostosowanymi wartościami
 - Automatyczne wykrywanie fokusa: CategoryIcon (`focusedColIndex == -1`) vs treść (`focusedColIndex >= 0`)
+
+---
+
+## 📋 Channel Type Implementation Guides
+
+### Quick Reference - Template Prompts
+
+When adding channels of specific types, use these template prompts to avoid multiple iterations:
+
+#### App-Icons Channel
+```
+"Dodaj kanał '[NAZWA]' typu app-icons do sekcji [SECTION].
+PRZED IMPLEMENTACJĄ: Przeczytaj docs/patterns/APP_ICONS_CHANNEL_CHECKLIST.md
+Wzoruj się na: TELEWIZJA app-icons (TopMenuScreen2.kt:8310-8395)"
+```
+
+**Detailed checklist**: [`docs/patterns/APP_ICONS_CHANNEL_CHECKLIST.md`](docs/patterns/APP_ICONS_CHANNEL_CHECKLIST.md)
+
+### Available Checklists
+
+| Channel Type | Checklist | Key Requirements |
+|-------------|-----------|------------------|
+| **app-icons** | `APP_ICONS_CHANNEL_CHECKLIST.md` | ChannelListCard 208x208, direct focus, NO expansion (256=256), CategoryIcon fade |
+| horizontal | *(in channel-type-specialist)* | Standard miniatures with slide-down animation |
+| vertical | *(in channel-type-specialist)* | Poster-style cards (198x286) |
+| shortcuts | *(in channel-type-specialist)* | Fixed height (150px), no expansion |
+
+### Why Use Checklists?
+
+Without checklist: **3+ iterations** of fixes (wrong component, missing constants, missing features)
+With checklist: **1 prompt, 0 fixes** (all requirements documented upfront)
 
 ---
 

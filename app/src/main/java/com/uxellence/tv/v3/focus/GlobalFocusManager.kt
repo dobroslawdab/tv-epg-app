@@ -13,7 +13,7 @@ import androidx.compose.ui.unit.dp
  * Global Focus State for Row-Based TV Navigation
  *
  * Implements single-focus guarantee across all UI components
- * Row 0: Menu (TOP_MENU2 items) - positions: ACCOUNT=0, SEARCH=1, ODKRYWAJ=2, MOJE=3, TELEWIZJA=4, VOD=5, APLIKACJE=6
+ * Row 0: Menu (TOP_MENU2 items) - positions: SEARCH=0, ODKRYWAJ=1, MOJE=2, TELEWIZJA=3, KINO_PLAY=4, WIDEO=5, APLIKACJE=6
  * Row 1: SliderMix content
  * Row 2: ChanneleScreen content
  */
@@ -26,21 +26,19 @@ data class GlobalFocusState(
 
 /**
  * Menu item positions for Row 0
- * Layout: ACCOUNT=0, SEARCH=1, ODKRYWAJ=2, MOJE=3, TELEWIZJA=4, KINO_PLAY=5, WIDEO=6, APLIKACJE=7
+ * Layout: ODKRYWAJ=0, MOJE=1, TELEWIZJA=2, KINO_PLAY=3, WIDEO=4, APLIKACJE=5, SEARCH=6
  */
 object MenuPositions {
-    const val ACCOUNT = 0
-    const val SEARCH = 1
-    const val ODKRYWAJ = 2
-    const val MOJE = 3
-    const val TELEWIZJA = 4
-    const val KINO_PLAY = 5
-    const val WIDEO = 6
-    const val APLIKACJE = 7
+    const val ODKRYWAJ = 0    // Moved from 1 - now first
+    const val MOJE = 1        // Moved from 2
+    const val TELEWIZJA = 2   // Moved from 3
+    const val KINO_PLAY = 3   // Moved from 4
+    const val WIDEO = 4       // Moved from 5
+    const val APLIKACJE = 5   // Moved from 6
+    const val SEARCH = 6      // Moved from 0 - now last (Lupa na koniec)
 
     fun getPositionForSection(sectionId: String): Int {
         return when (sectionId) {
-            "ACCOUNT" -> ACCOUNT
             "SEARCH" -> SEARCH
             "ODKRYWAJ" -> ODKRYWAJ
             "MOJE" -> MOJE
@@ -54,7 +52,6 @@ object MenuPositions {
 
     fun getSectionForPosition(position: Int): String {
         return when (position) {
-            ACCOUNT -> "ACCOUNT"
             SEARCH -> "SEARCH"
             ODKRYWAJ -> "ODKRYWAJ"
             MOJE -> "MOJE"
@@ -205,7 +202,7 @@ class GlobalFocusManager {
             currentState: GlobalFocusState,
             direction: RowDirection,
             maxRows: Int = 3,
-            maxPositionsInRow: IntArray = intArrayOf(8, 10, 8) // Menu (8 items: ACCOUNT, SEARCH, ODKRYWAJ, MOJE, TELEWIZJA, KINO_PLAY, WIDEO, APLIKACJE), SliderMix, Channele
+            maxPositionsInRow: IntArray = intArrayOf(7, 10, 8) // Menu (7 items: SEARCH, ODKRYWAJ, MOJE, TELEWIZJA, KINO_PLAY, WIDEO, APLIKACJE), SliderMix, Channele
         ): GlobalFocusState {
             return when (direction) {
                 RowDirection.UP -> {
