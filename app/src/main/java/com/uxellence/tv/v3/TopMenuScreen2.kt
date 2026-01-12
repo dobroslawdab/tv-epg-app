@@ -5,6 +5,19 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.EaseInOutCubic
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.PaintingStyle
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -22,12 +35,20 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.zIndex
+import android.os.Build
+import android.graphics.BlurMaskFilter
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Person
@@ -64,9 +85,11 @@ import androidx.compose.ui.input.key.*
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
@@ -88,12 +111,21 @@ import com.uxellence.tv.v3.ShortcutIcon
 import com.uxellence.tv.v3.ShortcutCard
 import com.uxellence.tv.v3.pip.PipDialogController
 import com.uxellence.tv.v3.pip.PipDialogMenu
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.haze
+import dev.chrisbanes.haze.hazeChild
+import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.HazeTint
 import java.time.LocalTime
 import coil.compose.AsyncImage
 import android.util.Log
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.viewinterop.AndroidView
 import com.google.android.exoplayer2.ExoPlayer
 import com.google.android.exoplayer2.MediaItem
@@ -101,6 +133,8 @@ import com.google.android.exoplayer2.ui.PlayerView
 import android.widget.Toast
 import android.content.Context
 import com.uxellence.tv.v3.utils.VersionTracker
+import com.uxellence.tv.v3.config.ConfigManager
+import androidx.compose.material.icons.filled.Refresh
 
 // PIP Dialog Constants
 private val DIALOG_ALLOWED_KEYS = setOf(
@@ -111,6 +145,487 @@ private val DIALOG_ALLOWED_KEYS = setOf(
     Key.Back,
     Key.Escape
 )
+
+// =============================================================================
+// TOP MENU VARIANT SYSTEM - Design switcher (Key "4" toggles)
+// =============================================================================
+
+/** Focus indicator style types */
+internal enum class FocusType {
+    FLOATING_INDICATOR,  // Animowany wskaźnik zewnętrzny (obecne)
+    FLOATING_FILL,       // Floating indicator z fill (zakładki przezroczyste, indicator z fill)
+    CLASSIC_FILL,        // Klasyczny fill z wersji 4.0.0 (aqua fill + purple text)
+    BORDER_INSIDE,       // Klasyczny border wewnątrz buttona
+    UNDERLINE,           // Linia pod tekstem
+    SCALE                // Powiększenie buttona
+}
+
+/** Background effect types */
+internal enum class BackgroundType {
+    BLUR,        // Haze blur effect
+    SOLID,       // Jednolity kolor
+    GRADIENT,    // Gradient od góry
+    TRANSPARENT  // Przezroczyste
+}
+
+/** Configuration for a single TopMenu design variant */
+internal data class TopMenuVariantConfig(
+    val id: Int,
+    val name: String,
+    // Focus style
+    val focusType: FocusType,
+    val focusBorderWidth: Int,
+    val focusBorderColor: Color,
+    val focusGlowColor: Color,
+    val focusAnimationDuration: Int,
+    // Layout
+    val itemHeight: Int,
+    val itemGap: Int,
+    val containerPaddingH: Int,
+    val containerPaddingV: Int,
+    val itemBorderRadius: Int,
+    // Background
+    val backgroundType: BackgroundType,
+    val backgroundColor: Color,
+    val blurEnabled: Boolean
+)
+
+/** Predefiniowane 4 warianty designu TopMenu */
+internal val MENU_VARIANTS = listOf(
+    // V1: Floating Focus + Blur (obecny design)
+    TopMenuVariantConfig(
+        id = 1,
+        name = "Floating + Blur",
+        focusType = FocusType.FLOATING_INDICATOR,
+        focusBorderWidth = 8,
+        focusBorderColor = Color(0xFF5FEDD4),
+        focusGlowColor = Color(0xE65FEDD4),
+        focusAnimationDuration = 200,
+        itemHeight = 80,
+        itemGap = 20,
+        containerPaddingH = 16,
+        containerPaddingV = 10,
+        itemBorderRadius = 64,
+        backgroundType = BackgroundType.BLUR,
+        backgroundColor = Color(0x1AEEEEEE),
+        blurEnabled = true
+    ),
+    // V2: Border Inside + Solid
+    TopMenuVariantConfig(
+        id = 2,
+        name = "Classic (4.0.0)",
+        focusType = FocusType.CLASSIC_FILL,
+        focusBorderWidth = 4,
+        focusBorderColor = Color(0xFF5FEDD4),
+        focusGlowColor = Color(0x805FEDD4),
+        focusAnimationDuration = 150,
+        itemHeight = 88,
+        itemGap = 16,
+        containerPaddingH = 20,
+        containerPaddingV = 12,
+        itemBorderRadius = 44,
+        backgroundType = BackgroundType.SOLID,
+        backgroundColor = Color(0x40000000),
+        blurEnabled = false
+    ),
+    // V3: Kopia V2 z FLOATING_FILL (przezroczyste zakładki + floating indicator z fill)
+    TopMenuVariantConfig(
+        id = 3,
+        name = "Floating Fill",
+        focusType = FocusType.FLOATING_FILL,  // Jedyna zmiana vs V2: floating focus z aqua fill
+        focusBorderWidth = 4,                  // KOPIA V2
+        focusBorderColor = Color(0xFF5FEDD4),  // KOPIA V2
+        focusGlowColor = Color(0x805FEDD4),    // KOPIA V2
+        focusAnimationDuration = 150,          // KOPIA V2
+        itemHeight = 88,                       // KOPIA V2
+        itemGap = 16,                          // KOPIA V2
+        containerPaddingH = 20,                // KOPIA V2
+        containerPaddingV = 12,                // KOPIA V2
+        itemBorderRadius = 44,                 // KOPIA V2
+        backgroundType = BackgroundType.SOLID, // KOPIA V2
+        backgroundColor = Color(0x40000000),   // KOPIA V2
+        blurEnabled = false                    // KOPIA V2
+    ),
+    // V4: Scale + Transparent
+    TopMenuVariantConfig(
+        id = 4,
+        name = "Scale + Transparent",
+        focusType = FocusType.SCALE,
+        focusBorderWidth = 2,
+        focusBorderColor = Color(0xCCEEEEEE),
+        focusGlowColor = Color(0x00000000),
+        focusAnimationDuration = 250,
+        itemHeight = 80,
+        itemGap = 32,
+        containerPaddingH = 24,
+        containerPaddingV = 16,
+        itemBorderRadius = 64,
+        backgroundType = BackgroundType.TRANSPARENT,
+        backgroundColor = Color(0x00000000),
+        blurEnabled = false
+    )
+)
+
+// =============================================================================
+// TOP MENU DESIGN SYSTEM (Figma 2025)
+// =============================================================================
+// Source: https://www.figma.com/design/YTejY9SbZxFlXk3V70bJEv/Nowa-strona-główna-BOX?node-id=252-7403
+// All values in px at 1920x1080 baseline, use sx()/sy() for scaling
+// =============================================================================
+private object TopMenuDesign {
+    // Container (Main menu bar)
+    const val CONTAINER_HEIGHT = 112          // Figma: 112px
+    const val CONTAINER_BORDER_RADIUS = 64    // Figma: 64px all corners
+    const val CONTAINER_PADDING_H = 16        // Figma: 16px horizontal
+    const val CONTAINER_PADDING_V = 10        // Figma: 10px vertical
+    const val CONTAINER_TOP_OFFSET = 32       // Figma: top=32px
+
+    // Layout margins (NEW - full width layout)
+    const val MARGIN_LEFT = 54                // 54px from left edge to container
+    const val MARGIN_RIGHT = 60               // 60px from right edge (after clock)
+    const val GAP_CONTAINER_CLOCK = 40        // 40px gap between container and clock
+
+    // Menu Items (Start, Moje, Telewizja, etc.)
+    const val ITEM_HEIGHT = 80                // Figma: 80px
+    const val ITEM_BORDER_RADIUS = 64         // Figma: 64px (pill shape)
+    const val ITEM_PADDING_H = 24             // Figma: 24px horizontal
+    const val ITEM_GAP = 20                   // Figma: 20px gap between items
+
+    // Focus State (NEW - border + glow instead of fill)
+    const val FOCUS_BORDER_WIDTH = 8          // Figma: 8px border
+    const val FOCUS_GLOW_RADIUS = 80          // Figma: 80px blur radius
+
+    // Pakiety Button (NEW)
+    const val PAKIETY_WIDTH = 206             // Figma: 206px
+    const val PAKIETY_PADDING_LEFT = 24       // Figma: 24px left
+    const val PAKIETY_PADDING_RIGHT = 48      // Figma: 48px right
+
+    // CandyBar Button (NEW Figma design - node 253:8401)
+    const val CANDYBAR_BORDER_RADIUS = 302    // Figma: rounded-[302px]
+    const val CANDYBAR_ICON_SIZE = 48         // Figma: wallet icon 48x48px
+    const val CANDYBAR_TEXT_SIZE = 24         // Figma: 24px medium
+    const val CANDYBAR_GAP_ICON_TEXT = 8      // Figma: 8px gap between icon and text
+    const val CANDYBAR_GAP_TEXT_DIVIDER = 12  // Figma: 12px gap between text, divider, text
+    const val CANDYBAR_DIVIDER_WIDTH = 2      // Figma: 2px divider width
+    const val CANDYBAR_DIVIDER_HEIGHT = 24    // Figma: 24px divider height
+
+    // Icons (Search, Profile, Settings)
+    const val ICON_SIZE = 80                  // Figma: 80x80px
+    const val ICON_INNER_SIZE = 48            // Figma: 48x48px inner icon
+
+    // Aqua Ellipse Glow (ambient light effect under menu)
+    // CSS: width: 1064px, height: 225px, opacity: 0.30, filter: blur(180px)
+    // Position: x: 428px, y: -182px
+    const val ELLIPSE_WIDTH = 1064            // CSS: 1064px
+    const val ELLIPSE_HEIGHT = 225            // CSS: 225px
+    const val ELLIPSE_X_OFFSET = 428          // CSS: x=428px
+    const val ELLIPSE_Y_OFFSET = -182         // CSS: y=-182px
+    const val ELLIPSE_BLUR = 180              // CSS: filter: blur(180px)
+
+    // Top Gradient (NEW - gradient from top)
+    const val GRADIENT_HEIGHT = 300           // Height of top gradient area
+
+    // Clock
+    const val CLOCK_FONT_SIZE = 32            // Figma: 32px bold
+
+    // Colors (from Figma variables)
+    val COLOR_BG_CONTAINER = Color(0x1AEEEEEE)    // Figma: rgba(238,238,238,0.1)
+    val COLOR_BG_ITEM = Color(0x66000000)         // Figma: rgba(0,0,0,0.4)
+    val COLOR_TEXT = Color(0xFFEEEEEE)            // Figma: #EEEEEE
+    val COLOR_FOCUS_BORDER = Color(0xFF5FEDD4)    // Figma: #5FEDD4
+    val COLOR_FOCUS_GLOW = Color(0xE65FEDD4)      // 90% alpha aqua glow for buttons
+    val COLOR_MENU_GLOW = Color(0x4D5FEDD4)      // 30% alpha aqua glow for menu background (CSS: opacity: 0.30)
+    // Selected state (Figma node 253:8546): dark bg + white/gray border
+    val COLOR_SELECTED_BG = Color(0x66000000)     // Figma: rgba(0,0,0,0.4) - same as item bg
+    val COLOR_SELECTED_BORDER = Color(0xCCEEEEEE) // Figma: rgba(238,238,238,0.8) - 80% white
+    val COLOR_SELECTED_TEXT = Color(0xFFEEEEEE)   // Figma: #EEEEEE - white text
+    const val SELECTED_BORDER_WIDTH = 4           // Figma: 4px border
+    val COLOR_GRADIENT_TOP = Color(0xFF281443)    // Top gradient color #281443
+}
+
+// =============================================================================
+// ANIMATED FOCUS INDICATOR DATA & COMPONENT
+// =============================================================================
+/**
+ * Bounds data for animated focus indicator
+ * Stores position, size and corner radius of each focusable element
+ */
+private data class FocusableBounds(
+    val x: Float,
+    val y: Float,
+    val width: Float,
+    val height: Float,
+    val cornerRadius: Float  // For different shapes (pill, circle, etc.)
+)
+
+/**
+ * Animated focus indicator that floats outside buttons
+ * - Outline is OUTSIDE the button (not inside like .border())
+ * - Smoothly animates position, size, and corner radius
+ * - Renders glow + border effect
+ *
+ * @param targetBounds Current target bounds to animate to
+ * @param borderWidth Width of the outline border (8px)
+ * @param isVisible Whether the indicator should be visible
+ * @param sx Scaling function for X dimension
+ * @param sy Scaling function for Y dimension
+ */
+@Composable
+private fun AnimatedFocusIndicator(
+    targetBounds: FocusableBounds?,
+    borderWidth: Dp,
+    isVisible: Boolean,
+    focusType: FocusType = FocusType.FLOATING_INDICATOR,
+    indicatorColor: Color = TopMenuDesign.COLOR_FOCUS_BORDER,  // NEW: customizable color (aqua or white)
+    sx: (Int) -> Dp,
+    sy: (Int) -> Dp,
+    modifier: Modifier = Modifier
+) {
+    // Don't render if not visible or no target
+    if (!isVisible || targetBounds == null) return
+
+    val borderWidthPx = with(LocalDensity.current) { borderWidth.toPx() }
+
+    // FLOATING_FILL: tylko fill, bez powiększenia, bez shadow/border
+    val isFloatingFill = focusType == FocusType.FLOATING_FILL
+
+    // Animate all properties with 200ms easing
+    val animSpec = tween<Float>(durationMillis = if (isFloatingFill) 150 else 200, easing = FastOutSlowInEasing)
+
+    // FLOATING_FILL: exact button size (no enlargement)
+    // FLOATING_INDICATOR: enlarged by borderWidth
+    val animatedX by animateFloatAsState(
+        targetValue = if (isFloatingFill) targetBounds.x else targetBounds.x - borderWidthPx,
+        animationSpec = animSpec,
+        label = "focusX"
+    )
+    val animatedY by animateFloatAsState(
+        targetValue = if (isFloatingFill) targetBounds.y else targetBounds.y - borderWidthPx,
+        animationSpec = animSpec,
+        label = "focusY"
+    )
+    val animatedWidth by animateFloatAsState(
+        targetValue = if (isFloatingFill) targetBounds.width else targetBounds.width + borderWidthPx * 2,
+        animationSpec = animSpec,
+        label = "focusWidth"
+    )
+    val animatedHeight by animateFloatAsState(
+        targetValue = if (isFloatingFill) targetBounds.height else targetBounds.height + borderWidthPx * 2,
+        animationSpec = animSpec,
+        label = "focusHeight"
+    )
+    val animatedCornerRadius by animateFloatAsState(
+        targetValue = if (isFloatingFill) targetBounds.cornerRadius else targetBounds.cornerRadius + borderWidthPx,
+        animationSpec = animSpec,
+        label = "focusCornerRadius"
+    )
+
+    val density = LocalDensity.current
+
+    Box(
+        modifier = modifier
+            .offset {
+                IntOffset(animatedX.toInt(), animatedY.toInt())
+            }
+            .size(
+                width = with(density) { animatedWidth.toDp() },
+                height = with(density) { animatedHeight.toDp() }
+            )
+            // FLOATING_FILL: tylko fill, bez shadow i border
+            .then(
+                if (isFloatingFill) {
+                    Modifier.background(
+                        color = indicatorColor,  // Use passed color (aqua for focus, white for selected)
+                        shape = RoundedCornerShape(with(density) { animatedCornerRadius.toDp() })
+                    )
+                } else {
+                    // FLOATING_INDICATOR: shadow + border (bez fill)
+                    Modifier
+                        .shadow(
+                            elevation = sx(24),
+                            shape = RoundedCornerShape(with(density) { animatedCornerRadius.toDp() }),
+                            ambientColor = TopMenuDesign.COLOR_FOCUS_GLOW,
+                            spotColor = TopMenuDesign.COLOR_FOCUS_GLOW
+                        )
+                        .border(
+                            width = borderWidth,
+                            color = indicatorColor,
+                            shape = RoundedCornerShape(with(density) { animatedCornerRadius.toDp() })
+                        )
+                }
+            )
+    )
+}
+
+// =============================================================================
+// FOCUS GLOW MODIFIER (Figma: glow effect on focus)
+// =============================================================================
+/**
+ * Adds glow effect to focused menu items
+ * Note: dropShadow() not available in stable Compose 1.10.0 (BOM 2025.12.00)
+ * Using shadow() as workaround for glow effect
+ * Figma: DROP_SHADOW 80px radius, rgba(95,237,212,0.3)
+ */
+private fun Modifier.focusGlow(
+    isFocused: Boolean,
+    sx: (Int) -> Dp
+): Modifier {
+    return if (isFocused) {
+        this.shadow(
+            elevation = sx(20),  // Figma: 80px blur approximated
+            shape = RoundedCornerShape(sx(TopMenuDesign.ITEM_BORDER_RADIUS)),
+            ambientColor = TopMenuDesign.COLOR_FOCUS_GLOW,
+            spotColor = TopMenuDesign.COLOR_FOCUS_GLOW
+        )
+    } else {
+        this
+    }
+}
+
+// =============================================================================
+// AQUA ELLIPSE GLOW COMPONENT (ambient glow background under menu)
+// =============================================================================
+/**
+ * Ambient aqua glow effect under menu
+ * CSS: width: 1064px, height: 225px, opacity: 0.30, background: #5FEDD4
+ *      filter: blur(180px), border-radius: 9999px
+ * Position: centered horizontally (center-to-center), y: -182px
+ *
+ * Using sx/sy scaling system (baseline 1920x1080)
+ * Note: Parent uses Alignment.TopCenter which aligns LEFT EDGE to center.
+ *       To center the object itself, we need x offset = -width/2 = -532px
+ */
+@Composable
+private fun AquaEllipseGlow(
+    sx: (Int) -> Dp,
+    sy: (Int) -> Dp,
+    modifier: Modifier = Modifier
+) {
+    // Width is 1064px, so to center object we need offset x = -532px (half width)
+    val halfWidth = TopMenuDesign.ELLIPSE_WIDTH / 2  // 1064 / 2 = 532
+
+    Box(
+        modifier = modifier
+            .offset(
+                x = sx(-halfWidth),  // -532px to center object (not left edge)
+                y = sy(TopMenuDesign.ELLIPSE_Y_OFFSET)   // y=-182px
+            )
+            .size(
+                width = sx(TopMenuDesign.ELLIPSE_WIDTH),   // 1064px
+                height = sy(TopMenuDesign.ELLIPSE_HEIGHT)  // 225px
+            )
+            .blur(radius = sx(TopMenuDesign.ELLIPSE_BLUR))  // CSS: filter: blur(180px)
+            .background(
+                color = TopMenuDesign.COLOR_MENU_GLOW,  // #5FEDD4 at 30% opacity
+                shape = CircleShape  // CSS: border-radius: 9999px (ellipse)
+            )
+    )
+}
+
+// =============================================================================
+// PAKIETY BUTTON COMPONENT (NEW - Figma design)
+// =============================================================================
+/**
+ * Pakiety button with icon and text
+ * Figma: Width 206px, Height 80px, icon 48px + "Pakiety" text
+ * Focus: 8px border #5FEDD4 + glow effect - now handled by AnimatedFocusIndicator
+ */
+@Composable
+private fun PakietyButton(
+    isFocused: Boolean,
+    isSelected: Boolean = false,  // NEW: Selected state when PAKIETY section is active
+    focusRequester: FocusRequester,
+    onClick: () -> Unit,
+    onBoundsChanged: (FocusableBounds) -> Unit = {},  // NEW: Report bounds for AnimatedFocusIndicator
+    focusType: FocusType = FocusType.FLOATING_INDICATOR,  // Design variant focus style
+    sx: (Int) -> Dp,
+    sy: (Int) -> Dp,
+    modifier: Modifier = Modifier
+) {
+    // For buttons OUTSIDE container, FLOATING_FILL should behave like CLASSIC_FILL
+    val useClassicStyleFill = focusType == FocusType.CLASSIC_FILL || focusType == FocusType.FLOATING_FILL
+
+    // Background color depends on focus type and selected state
+    val backgroundColor = when {
+        useClassicStyleFill && isFocused -> Color(0xFF5AECD3)  // Aqua fill on focus
+        useClassicStyleFill && isSelected -> Color.White       // White fill on selected
+        useClassicStyleFill -> Color(0x0AEEEEEE)               // Transparent default
+        else -> TopMenuDesign.COLOR_BG_ITEM                    // Figma: rgba(0,0,0,0.4)
+    }
+
+    // Content color depends on focus type and selected state
+    val contentColor = when {
+        useClassicStyleFill && isFocused -> Color(0xFF48227C)  // Purple on focus
+        useClassicStyleFill && isSelected -> Color(0xFF48227C) // Purple on selected
+        useClassicStyleFill -> Color(0xFFEEEEEE)               // White default
+        else -> TopMenuDesign.COLOR_TEXT                       // Figma: #EEEEEE
+    }
+    val density = LocalDensity.current
+
+    // Focus border/glow now handled by AnimatedFocusIndicator
+
+    Box(
+        modifier = modifier
+            .wrapContentWidth()                            // Dynamic width to fit content
+            .height(sy(TopMenuDesign.ITEM_HEIGHT))         // Figma: 80px
+            // REMOVED: .focusGlow() and .border() - now handled by AnimatedFocusIndicator
+            .background(
+                color = backgroundColor,
+                shape = RoundedCornerShape(sx(TopMenuDesign.ITEM_BORDER_RADIUS))  // Figma: 64px
+            )
+            .focusRequester(focusRequester)
+            .focusable()
+            .onFocusChanged { /* handled by parent */ }
+            .clickable { onClick() }
+            .onGloballyPositioned { coords ->
+                // Report bounds for AnimatedFocusIndicator (pill shape = 64px corner radius)
+                val cornerRadiusPx = with(density) { sx(TopMenuDesign.ITEM_BORDER_RADIUS).toPx() }
+                onBoundsChanged(
+                    FocusableBounds(
+                        x = coords.positionInRoot().x,
+                        y = coords.positionInRoot().y,
+                        width = coords.size.width.toFloat(),
+                        height = coords.size.height.toFloat(),
+                        cornerRadius = cornerRadiusPx
+                    )
+                )
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Row(
+            modifier = Modifier.padding(
+                start = sx(TopMenuDesign.PAKIETY_PADDING_LEFT),   // Figma: 24px
+                end = sx(TopMenuDesign.PAKIETY_PADDING_RIGHT)     // Figma: 48px
+            ),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(sx(8))   // Gap between icon and text
+        ) {
+            // Icon: ic_packages
+            Image(
+                painter = painterResource(id = R.drawable.ic_packages),
+                contentDescription = "Pakiety",
+                modifier = Modifier.size(
+                    sx(TopMenuDesign.ICON_INNER_SIZE),  // Figma: 48px
+                    sy(TopMenuDesign.ICON_INNER_SIZE)
+                ),
+                colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(contentColor)
+            )
+
+            // Text: "Pakiety"
+            Text(
+                text = "Pakiety",
+                color = contentColor,
+                style = TextStyle(
+                    fontSize = (24 * sy(1).value / 1).sp,        // Figma: 24px
+                    fontWeight = FontWeight.Medium,               // Figma: Medium (500)
+                    lineHeight = (32 * sy(1).value / 1).sp,       // Figma: 32px
+                    letterSpacing = 0.48.sp                       // Figma: 0.48px
+                ),
+                maxLines = 1                                      // Prevent text wrapping
+            )
+        }
+    }
+}
 
 // Data classes
 data class TopMenuState2(
@@ -134,7 +649,9 @@ data class VodSlideData(
     val ageRating: String,
     val description: String,
     val price: String,
-    val backgroundUrl: String
+    val backgroundUrl: String,
+    val posterUrl: String = "", // Poster for thumbnail view
+    val youtubeUrl: String? = null // YouTube trailer URL for auto-play
 )
 
 data class PackageItem(
@@ -694,7 +1211,8 @@ fun TopMenuScreen2(
     onClosePip: () -> Unit = {},  // Callback to close PIP
     onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },  // Navigate to VOD grid (Nagrania, Wypożyczone, Do obejrzenia, etc.)
-    onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> }  // Navigate to KINO grid (Akcja, Horror - vertical posters)
+    onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },  // Navigate to KINO grid (Akcja, Horror - vertical posters)
+    onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> }  // Navigate to Recordings grid (Zarządzaj nagraniami)
 ) {
     val configuration = LocalConfiguration.current
     val scaleX = configuration.screenWidthDp / 1920f
@@ -705,6 +1223,9 @@ fun TopMenuScreen2(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val repository = remember { com.uxellence.tv.v3.repository.EpgRepository.getInstance(context) }
+
+    // Remote config from Supabase (colors, texts, feature flags)
+    val appConfig by ConfigManager.configState.collectAsState()
 
     // Global state for keyboard shortcuts (defined early for use in global handlers)
     var isEpgSectionExpanded by remember { mutableStateOf(com.uxellence.tv.v3.utils.VersionTracker.getEpgSectionExpanded(context)) }
@@ -749,19 +1270,32 @@ fun TopMenuScreen2(
         menuItems.associate { it.id to FocusRequester() }
     }
 
-    // Right section state (0=CandyBar, 1=Profile, 2=Settings, -1=none focused)
+    // Left Profil button state (v4.0.0: Profil is on left side, before Start)
+    var isLeftProfilFocused by remember { mutableStateOf(false) }
+    val leftProfilFocusRequester = remember { FocusRequester() }
+
+    // Right section state (0=Konto, 1=Ustawienia, -1=none focused)
+    // Note: Profil moved to left side in v4.0.0
     var focusedRightButton by remember { mutableStateOf(-1) }
     val rightButtonFocusRequesters = remember {
         mapOf(
-            0 to FocusRequester(), // CandyBar
-            1 to FocusRequester(), // Profile
-            2 to FocusRequester()  // Settings
+            0 to FocusRequester(), // Konto (account icon)
+            1 to FocusRequester()  // Ustawienia (settings gear)
         )
     }
+
+    // Pakiety button state (between menu and right section)
+    var isPakietyFocused by remember { mutableStateOf(false) }
+    val pakietyFocusRequester = remember { FocusRequester() }
 
     // State for keyboard shortcuts (loaded from SharedPreferences)
     var isCandyBarVisible by remember { mutableStateOf(com.uxellence.tv.v3.utils.VersionTracker.getCandyBarVisibility(context)) }
     var showProfileNotificationBadge by remember { mutableStateOf(com.uxellence.tv.v3.utils.VersionTracker.getNotificationBadge(context)) }
+
+    // TopMenu design variant (1-4, cycled with key "4")
+    val menuPrefs = remember { context.getSharedPreferences("top_menu_prefs", android.content.Context.MODE_PRIVATE) }
+    var currentMenuVariant by remember { mutableIntStateOf(menuPrefs.getInt("menu_variant", 1)) }
+    val currentVariantConfig = remember(currentMenuVariant) { MENU_VARIANTS.getOrNull(currentMenuVariant - 1) ?: MENU_VARIANTS[0] }
 
     // Manage focus for right section buttons
     LaunchedEffect(focusedRightButton) {
@@ -772,18 +1306,63 @@ fun TopMenuScreen2(
         }
     }
 
-    // Auto-focus Profile button when returning from ACCOUNT content to menu
-    LaunchedEffect(globalFocusState.value.sectionId, globalFocusState.value.currentRow) {
-        if (globalFocusState.value.sectionId == "ACCOUNT" && globalFocusState.value.currentRow == 0) {
-            delay(150)  // Increased delay prevents visible focus flash on START/SZUKAJ
-            focusedRightButton = 1  // Focus Profile button
+    // Manage focus for Pakiety button
+    LaunchedEffect(isPakietyFocused) {
+        if (isPakietyFocused && globalFocusState.value.currentRow == 0) {
+            delay(50)
+            pakietyFocusRequester.requestFocus()
         }
     }
+
+    // Manage focus for left Profil button (v4.0.0: Profil moved to left side)
+    LaunchedEffect(isLeftProfilFocused) {
+        if (isLeftProfilFocused && globalFocusState.value.currentRow == 0) {
+            delay(50)
+            leftProfilFocusRequester.requestFocus()
+        }
+    }
+
+    // Auto-focus buttons when returning from their content to menu
+    // ACCOUNT → Konto button (right section, index 0)
+    // PROFILE → Profil button (LEFT side in v4.0.0)
+    // POINTS_HISTORY → CandyBar/Pakiety button (when CandyBar visible)
+    // PAKIETY → Pakiety button (when CandyBar not visible)
+    // NOTE: No delay! Immediate focus prevents "through Start" flash when returning from content
+    LaunchedEffect(globalFocusState.value.sectionId, globalFocusState.value.currentRow) {
+        if (globalFocusState.value.currentRow == 0) {
+            when (globalFocusState.value.sectionId) {
+                "ACCOUNT" -> {
+                    focusedRightButton = 0  // Focus Konto button (index 0)
+                    isPakietyFocused = false
+                    isLeftProfilFocused = false
+                }
+                "PROFILE" -> {
+                    // v4.0.0: Profil is now on the LEFT side
+                    isLeftProfilFocused = true
+                    focusedRightButton = -1
+                    isPakietyFocused = false
+                }
+                "POINTS_HISTORY", "PAKIETY" -> {
+                    // Both use the same Pakiety button (different sectionId based on CandyBar visibility)
+                    focusedRightButton = -1
+                    isPakietyFocused = true  // Focus CandyBar/Pakiety button
+                    isLeftProfilFocused = false
+                }
+            }
+        }
+    }
+
+    // Special sections that have their own buttons (not main menu tabs)
+    // These should NOT be overwritten by position-based section detection
+    val specialSections = listOf("PROFILE", "ACCOUNT", "POINTS_HISTORY", "PAKIETY")
 
     LaunchedEffect(globalFocusState.value.currentPosition, globalFocusState.value.currentRow) {
         if (globalFocusState.value.currentRow == 0) {
             val currentSection = MenuPositions.getSectionForPosition(globalFocusState.value.currentPosition)
-            if (globalFocusState.value.sectionId != currentSection) {
+            // Don't overwrite special sections - they are managed by their dedicated buttons
+            // (Profil on left, CandyBar/Konto on right, Pakiety button)
+            if (globalFocusState.value.sectionId != currentSection &&
+                globalFocusState.value.sectionId !in specialSections) {
                 // DEBOUNCE: Wait 350ms before loading content
                 // If user moves LEFT/RIGHT quickly, LaunchedEffect cancels and content never loads
                 // This allows free navigation without blocking - content loads only when user stops
@@ -804,6 +1383,59 @@ fun TopMenuScreen2(
         }
     }
 
+    // Load content when special buttons are focused (like main tabs)
+    // v4.0.0: Profil is on LEFT side, CandyBar/Konto/Ustawienia on RIGHT side
+    // Same 350ms debounce pattern for consistent behavior
+    // Also handles returning to main tabs - updates sectionId when focus leaves special buttons
+    LaunchedEffect(focusedRightButton, isPakietyFocused, isLeftProfilFocused) {
+        if (globalFocusState.value.currentRow == 0) {
+            val targetSection = when {
+                isLeftProfilFocused -> "PROFILE"  // Left Profil button
+                isPakietyFocused && isCandyBarVisible -> "POINTS_HISTORY"
+                isPakietyFocused && !isCandyBarVisible -> "PAKIETY"
+                focusedRightButton == 0 -> "ACCOUNT"
+                // focusedRightButton == 1 is Settings (external app, no section)
+                else -> null  // Focus is on main tabs
+            }
+
+            if (targetSection != null && globalFocusState.value.sectionId != targetSection) {
+                // DEBOUNCE: Same 350ms as main tabs
+                delay(350)
+
+                // Show loader
+                isContentLoading = true
+
+                // Change section
+                globalFocusState.value = globalFocusState.value.copy(sectionId = targetSection)
+
+                // Short delay for content initialization
+                delay(50)
+
+                // Hide loader
+                isContentLoading = false
+            } else if (targetSection == null && !isPakietyFocused && !isLeftProfilFocused && focusedRightButton == -1) {
+                // Focus returned to main tabs - update sectionId based on currentPosition
+                val currentSection = MenuPositions.getSectionForPosition(globalFocusState.value.currentPosition)
+                if (globalFocusState.value.sectionId != currentSection) {
+                    // DEBOUNCE: Same 350ms as main tabs
+                    delay(350)
+
+                    // Show loader
+                    isContentLoading = true
+
+                    // Change section
+                    globalFocusState.value = globalFocusState.value.copy(sectionId = currentSection)
+
+                    // Short delay for content initialization
+                    delay(50)
+
+                    // Hide loader
+                    isContentLoading = false
+                }
+            }
+        }
+    }
+
     LaunchedEffect(globalFocusState.value.currentRow, globalFocusState.value.currentPosition) {
         if (globalFocusState.value.currentRow == 0) {
             val currentSection = MenuPositions.getSectionForPosition(globalFocusState.value.currentPosition)
@@ -811,10 +1443,13 @@ fun TopMenuScreen2(
         }
     }
 
+    // Haze state for blur effect under menu
+    val hazeState = remember { HazeState() }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF48227C))
+            .background(appConfig.backgroundColor)  // Dynamic from remote config
             .onPreviewKeyEvent { event ->
                 if (event.type != KeyEventType.KeyDown) {
                     return@onPreviewKeyEvent false
@@ -844,6 +1479,24 @@ fun TopMenuScreen2(
 
                     // Normal BACK - from content to menu
                     if (globalFocusState.value.currentRow != 0) {
+                        // Set button focus states FIRST to prevent "through Start" flash
+                        when (globalFocusState.value.sectionId) {
+                            "ACCOUNT" -> {
+                                focusedRightButton = 0  // Konto button
+                                isPakietyFocused = false
+                                isLeftProfilFocused = false
+                            }
+                            "PROFILE" -> {
+                                isLeftProfilFocused = true  // Left Profil button
+                                focusedRightButton = -1
+                                isPakietyFocused = false
+                            }
+                            "POINTS_HISTORY", "PAKIETY" -> {
+                                isPakietyFocused = true  // CandyBar/Pakiety button
+                                focusedRightButton = -1
+                                isLeftProfilFocused = false
+                            }
+                        }
                         globalFocusState.value = GlobalFocusManager.returnToMenu(globalFocusState.value)
                         return@onPreviewKeyEvent true
                     }
@@ -893,6 +1546,15 @@ fun TopMenuScreen2(
                     return@onPreviewKeyEvent true
                 }
 
+                // Global: Key "4" - Cycle TopMenu design variant (1→2→3→4→1)
+                if (event.key == Key.Four) {
+                    currentMenuVariant = (currentMenuVariant % 4) + 1
+                    menuPrefs.edit().putInt("menu_variant", currentMenuVariant).apply()
+                    android.util.Log.d("TopMenuScreen2", "Key '4' pressed - Menu variant changed to: $currentMenuVariant/4 (${currentVariantConfig.name})")
+                    android.widget.Toast.makeText(context, "Menu: Wersja ${currentMenuVariant}/4", android.widget.Toast.LENGTH_SHORT).show()
+                    return@onPreviewKeyEvent true
+                }
+
                 // Global: Key "5" - Toggle CandyBar visibility
                 if (event.key == Key.Five) {
                     isCandyBarVisible = !isCandyBarVisible
@@ -932,22 +1594,29 @@ fun TopMenuScreen2(
                         when (event.key) {
                             Key.DirectionLeft -> {
                                 if (focusedRightButton >= 0) {
-                                    // In right section - navigate left within buttons or back to main menu
+                                    // In right section - navigate left: Ustawienia(1) -> Konto(0) -> Pakiety/CandyBar -> menu
                                     if (focusedRightButton > 0) {
-                                        // Skip CandyBar (0) if it's hidden - go directly to last menu item
-                                        if (focusedRightButton == 1 && !isCandyBarVisible) {
-                                            focusedRightButton = -1
-                                            val lastMenuPosition = menuItems.size - 1
-                                            globalFocusState.value = globalFocusState.value.copy(currentPosition = lastMenuPosition)
-                                        } else {
-                                            focusedRightButton--
-                                        }
+                                        // Move to previous button (Ustawienia->Konto)
+                                        focusedRightButton--
                                     } else {
-                                        // From CandyBar (0) back to last menu item
+                                        // From Konto(0) -> Pakiety/CandyBar (center element)
                                         focusedRightButton = -1
-                                        val lastMenuPosition = menuItems.size - 1
-                                        globalFocusState.value = globalFocusState.value.copy(currentPosition = lastMenuPosition)
+                                        isPakietyFocused = true
                                     }
+                                } else if (isPakietyFocused) {
+                                    // From Pakiety/CandyBar -> last menu item (SEARCH)
+                                    // IMPORTANT: Update currentPosition BEFORE isPakietyFocused
+                                    // LaunchedEffect uses isPakietyFocused as key, so it runs when isPakietyFocused changes.
+                                    // We need currentPosition to be already updated when LaunchedEffect reads it.
+                                    val lastMenuPosition = menuItems.size - 1
+                                    globalFocusState.value = globalFocusState.value.copy(currentPosition = lastMenuPosition)
+                                    isPakietyFocused = false  // This triggers LaunchedEffect with correct currentPosition
+                                } else if (isLeftProfilFocused) {
+                                    // Already at leftmost element (Profil), stay there
+                                    // Do nothing
+                                } else if (globalFocusState.value.currentPosition == 0) {
+                                    // At Start (first menu item) -> go to Profil on the left
+                                    isLeftProfilFocused = true
                                 } else {
                                     // Normal menu navigation
                                     globalFocusState.value = GlobalFocusManager.navigateRow(globalFocusState.value, RowDirection.LEFT)
@@ -957,29 +1626,35 @@ fun TopMenuScreen2(
                             /**
                              * RIGHT KEY NAVIGATION (Row 0: Menu)
                              *
-                             * Pattern: Last menu item transitions to right section (CandyBar/Profile/Settings)
-                             * - Last item → focusedRightButton (0=CandyBar, 1=Profile, 2=Settings)
+                             * v4.0.0 Layout: Profil (left) | [Start ... SEARCH] | CandyBar | Konto | Ustawienia | Clock
+                             * - Profil → Start (first menu item)
+                             * - Last item (SEARCH) → Pakiety/CandyBar
+                             * - Pakiety/CandyBar → Konto(0) → Ustawienia(1)
                              * - Other items → Continue normal menu navigation via GlobalFocusManager
-                             *
-                             * Current menu order: ODKRYWAJ(0), MOJE(1), TELEWIZJA(2),
-                             *                     KINO_PLAY(3), WIDEO(4), APLIKACJE(5), SEARCH(6)
-                             * Last item: menuItems.size - 1 (currently 6 = SEARCH)
                              *
                              * @see GlobalFocusManager.navigateRow for normal menu navigation
                              */
                             Key.DirectionRight -> {
                                 if (focusedRightButton >= 0) {
-                                    // In right section - navigate right within buttons
-                                    if (focusedRightButton < 2) {
+                                    // In right section - navigate right: Konto(0) -> Ustawienia(1)
+                                    if (focusedRightButton < 1) {
                                         focusedRightButton++
                                     }
-                                    // else: already at Settings (2), stay there
+                                    // else: already at Ustawienia(1), stay there
+                                } else if (isPakietyFocused) {
+                                    // From Pakiety/CandyBar -> first right section button (Konto)
+                                    isPakietyFocused = false
+                                    focusedRightButton = 0  // Always start with Konto
+                                } else if (isLeftProfilFocused) {
+                                    // From Profil (left side) -> Start (first menu item)
+                                    isLeftProfilFocused = false
+                                    globalFocusState.value = globalFocusState.value.copy(currentPosition = 0)
                                 } else {
                                     // Check if at last menu item (dynamic based on menuItems.size)
                                     val lastMenuPosition = menuItems.size - 1
                                     if (globalFocusState.value.currentPosition == lastMenuPosition) {
-                                        // Move to right section - skip CandyBar if hidden
-                                        focusedRightButton = if (isCandyBarVisible) 0 else 1
+                                        // Move to Pakiety/CandyBar (center element)
+                                        isPakietyFocused = true
                                     } else {
                                         // Normal menu navigation
                                         globalFocusState.value = GlobalFocusManager.navigateRow(globalFocusState.value, RowDirection.RIGHT)
@@ -990,8 +1665,24 @@ fun TopMenuScreen2(
                             // Keys 1, 5, 6 removed - now handled globally above
                             Key.DirectionDown, Key.Enter, Key.DirectionCenter -> {
                                 if (focusedRightButton >= 0) {
-                                    // In right section - let button handle click via onFocusChanged
+                                    // In right section - let button handle ENTER/DPAD_CENTER via onPreviewKeyEvent
                                     false // Don't consume, delegate to button
+                                } else if (isPakietyFocused) {
+                                    // Pakiety focused - navigate to PAKIETY section
+                                    isPakietyFocused = false
+                                    globalFocusState.value = GlobalFocusManager.transitionToContent(
+                                        globalFocusState.value,
+                                        "PAKIETY"
+                                    )
+                                    true
+                                } else if (isLeftProfilFocused) {
+                                    // Left Profil focused - navigate to PROFILE section
+                                    isLeftProfilFocused = false
+                                    globalFocusState.value = GlobalFocusManager.transitionToContent(
+                                        globalFocusState.value,
+                                        "PROFILE"
+                                    )
+                                    true
                                 } else {
                                     // In main menu - transition to content
                                     val currentSection = MenuPositions.getSectionForPosition(globalFocusState.value.currentPosition)
@@ -1051,8 +1742,27 @@ fun TopMenuScreen2(
                                 false // Let AccountChannelsScreen handle all keys
                             }
                             else -> {
+                                // Fallback for sections without own navigation (PROFILE, POINTS_HISTORY, PAKIETY, etc.)
                                 when (event.key) {
                                     Key.DirectionUp -> {
+                                        // Set button focus states FIRST to prevent "through Start" flash
+                                        when (globalFocusState.value.sectionId) {
+                                            "ACCOUNT" -> {
+                                                focusedRightButton = 0
+                                                isPakietyFocused = false
+                                                isLeftProfilFocused = false
+                                            }
+                                            "PROFILE" -> {
+                                                isLeftProfilFocused = true
+                                                focusedRightButton = -1
+                                                isPakietyFocused = false
+                                            }
+                                            "POINTS_HISTORY", "PAKIETY" -> {
+                                                isPakietyFocused = true
+                                                focusedRightButton = -1
+                                                isLeftProfilFocused = false
+                                            }
+                                        }
                                         globalFocusState.value = GlobalFocusManager.returnToMenu(globalFocusState.value)
                                         true
                                     }
@@ -1065,9 +1775,11 @@ fun TopMenuScreen2(
             }
     ) {
         // Wrap FullPageContent to block focus when dialog is open
+        // .haze(hazeState) marks this content as blur source for menu overlay
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .haze(hazeState)  // Blur source - content under menu will be blurred
                 .then(
                     if (showPipDialog) {
                         // When dialog open, overlay blocks background keys but lets dialog keys through
@@ -1093,6 +1805,26 @@ fun TopMenuScreen2(
                 selectedSection = globalFocusState.value.sectionId,
                 onReturnToMenu = { globalFocusState.value = GlobalFocusManager.returnToMenu(globalFocusState.value) },
                 onUserNavigated = { freshPipMode = false },  // Clear fresh PIP mode when user navigates
+                onPrepareReturnFocus = { sectionId ->
+                    // Set button focus states BEFORE returning to menu (prevents "through Start" flash)
+                    when (sectionId) {
+                        "ACCOUNT" -> {
+                            focusedRightButton = 0  // Konto button
+                            isPakietyFocused = false
+                            isLeftProfilFocused = false
+                        }
+                        "PROFILE" -> {
+                            isLeftProfilFocused = true  // Left Profil button
+                            focusedRightButton = -1
+                            isPakietyFocused = false
+                        }
+                        "POINTS_HISTORY", "PAKIETY" -> {
+                            isPakietyFocused = true  // CandyBar/Pakiety button
+                            focusedRightButton = -1
+                            isLeftProfilFocused = false
+                        }
+                    }
+                },
                 shouldAutoFocus = globalFocusState.value.currentRow != 0,
                 sx = { sx(it) },
                 sy = { sy(it) },
@@ -1105,6 +1837,7 @@ fun TopMenuScreen2(
                 onNavigateToChannelGrid = onNavigateToChannelGrid,
                 onNavigateToVodGrid = onNavigateToVodGrid,
                 onNavigateToKinoGrid = onNavigateToKinoGrid,
+                onNavigateToRecordingsGrid = onNavigateToRecordingsGrid,
                 isEpgSectionExpanded = isEpgSectionExpanded,
                 onEpgSectionExpandedChange = { expanded ->
                     isEpgSectionExpanded = expanded
@@ -1117,23 +1850,29 @@ fun TopMenuScreen2(
         }
 
         // Gradient from top (same as EPG Day TopMenuOverlay)
-        // Solid purple at top (0-30%), fades to transparent (30-60%)
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(sy(TOP_MENU_GRADIENT_HEIGHT))  // 600px height
-                .align(Alignment.TopCenter)
-                .zIndex(5f)  // Above content (0f), below menu (10f)
-                .background(
-                    brush = Brush.verticalGradient(
-                        0.0f to Color(0xFF48227C),    // 0%: Solid purple at top
-                        0.3f to Color(0xFF48227C),    // 30%: Still solid purple
-                        0.6f to Color(0x0048227C),    // 60%: Transparent purple
-                        startY = 0f,
-                        endY = sy(TOP_MENU_GRADIENT_HEIGHT).value
+        // Solid dark purple at top (0-30%), fades to transparent (30-60%)
+        // Hidden in KINO_PLAY when on slider or row 1 - shows only from row 2+
+        val isKinoPlayOnSlider = globalFocusState.value.sectionId == "KINO_PLAY" &&
+                                  globalFocusState.value.currentRow <= 1
+
+        if (!isKinoPlayOnSlider) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(sy(TOP_MENU_GRADIENT_HEIGHT))  // 600px height
+                    .align(Alignment.TopCenter)
+                    .zIndex(5f)  // Above content (0f), below menu (10f)
+                    .background(
+                        brush = Brush.verticalGradient(
+                            0.0f to Color(0xFF281443),    // 0%: Solid dark purple at top
+                            0.3f to Color(0xFF281443),    // 30%: Still solid dark purple
+                            0.6f to Color(0x00281443),    // 60%: Transparent
+                            startY = 0f,
+                            endY = sy(TOP_MENU_GRADIENT_HEIGHT).value
+                        )
                     )
-                )
-        )
+            )
+        }
 
         // Smooth loader overlay (Netflix-style transition)
         AnimatedVisibility(
@@ -1144,7 +1883,7 @@ fun TopMenuScreen2(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color(0xFF48227C)), // Menu background color
+                    .background(Color(0xFF281443)), // Menu background color
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -1167,7 +1906,7 @@ fun TopMenuScreen2(
         val compatMenuState = TopMenuState2(
             focusedItemId = MenuPositions.getSectionForPosition(globalFocusState.value.currentPosition),
             selectedItemId = globalFocusState.value.sectionId,
-            isMenuFocused = globalFocusState.value.currentRow == 0 && focusedRightButton == -1
+            isMenuFocused = globalFocusState.value.currentRow == 0 && focusedRightButton == -1 && !isPakietyFocused && !isLeftProfilFocused
         )
 
         TopMenuBar2(
@@ -1183,33 +1922,55 @@ fun TopMenuScreen2(
             isVodMode = globalFocusState.value.sectionId == "KINO_PLAY",
             currentSelectedSection = globalFocusState.value.sectionId,
             isInStartContent = false,
+            // Left Profil (v4.0.0)
+            isLeftProfilFocused = isLeftProfilFocused,
+            leftProfilFocusRequester = leftProfilFocusRequester,
+            // Right section
             focusedRightButton = focusedRightButton,
             rightButtonFocusRequesters = rightButtonFocusRequesters,
-            onCandyBarClick = {
-                // Navigate to Points History section
-                globalFocusState.value = globalFocusState.value.copy(
-                    sectionId = "POINTS_HISTORY",
-                    currentRow = 0,
-                    currentPosition = 0
-                )
-                focusedRightButton = 0
-            },
-            onProfileClick = {
-                // Navigate to Account section (focus transfers to content)
+            onKontoClick = {
+                // Konto → Navigate to ACCOUNT section
                 globalFocusState.value = GlobalFocusManager.transitionToContent(
                     globalFocusState.value,
                     "ACCOUNT"
                 )
-                focusedRightButton = -1 // Clear right section focus
+                focusedRightButton = -1  // Clear right section focus
             },
             onSettingsClick = {
-                // Open Android TV system settings
+                // Ustawienia → Open Android TV system settings
                 val intent = android.content.Intent(android.provider.Settings.ACTION_SETTINGS)
                 context.startActivity(intent)
-                focusedRightButton = 2
             },
+            onProfileClick = {
+                // Profil → Navigate to PROFILE section (profile switching)
+                globalFocusState.value = GlobalFocusManager.transitionToContent(
+                    globalFocusState.value,
+                    "PROFILE"
+                )
+                isLeftProfilFocused = false  // Clear left Profil focus
+            },
+            onPakietyClick = {
+                // Pakiety → Navigate to PAKIETY section
+                globalFocusState.value = GlobalFocusManager.transitionToContent(
+                    globalFocusState.value,
+                    "PAKIETY"
+                )
+                isPakietyFocused = false
+            },
+            isPakietyFocused = isPakietyFocused,
+            pakietyFocusRequester = pakietyFocusRequester,
             isCandyBarVisible = isCandyBarVisible,
+            onCandyBarClick = {
+                // CandyBar → Navigate to Points History or similar
+                globalFocusState.value = GlobalFocusManager.transitionToContent(
+                    globalFocusState.value,
+                    "POINTS_HISTORY"  // TODO: May need adjustment for actual destination
+                )
+                isPakietyFocused = false
+            },
             showProfileNotificationBadge = showProfileNotificationBadge,
+            hazeState = hazeState,  // Pass haze state for blur effect
+            variantConfig = currentVariantConfig,  // Design variant (key "4" to cycle)
             modifier = Modifier.align(Alignment.TopCenter).zIndex(10f)
         )
 
@@ -1262,8 +2023,19 @@ fun TopMenuScreen2(
     }
 }
 
+/**
+ * TopMenuBar2 - Redesigned per Figma (2025-12)
+ *
+ * v4.0.0 STRUCTURE:
+ * [Profil] | [Menu Container: Start ... Search] | [CandyBar] [Konto] [Ustawienia] | [Clock]
+ *
+ * - Profil is on LEFT side (before Start)
+ * - Right section icons (0=Konto, 1=Ustawienia):
+ *   - Konto → ACCOUNT section
+ *   - Ustawienia → Android system settings
+ */
 @Composable
-fun TopMenuBar2(
+internal fun TopMenuBar2(
     menuItems: List<MenuItem2>,
     menuState: TopMenuState2,
     focusRequesters: Map<String, FocusRequester>,
@@ -1273,17 +2045,27 @@ fun TopMenuBar2(
     isVodMode: Boolean = false,
     currentSelectedSection: String = "",
     isInStartContent: Boolean = false,
+    // Left Profil (v4.0.0: moved to left side)
+    isLeftProfilFocused: Boolean = false,
+    leftProfilFocusRequester: FocusRequester? = null,
+    // Right section (0=Konto, 1=Ustawienia)
     focusedRightButton: Int = -1,
     rightButtonFocusRequesters: Map<Int, FocusRequester> = emptyMap(),
-    onCandyBarClick: () -> Unit = {},
-    onProfileClick: () -> Unit = {},
-    onSettingsClick: () -> Unit = {},
-    isCandyBarVisible: Boolean = true,
+    onKontoClick: () -> Unit = {},                                      // Konto → ACCOUNT
+    onSettingsClick: () -> Unit = {},                                   // Ustawienia → System settings
+    onProfileClick: () -> Unit = {},                                    // Profil → PROFILE section
+    onPakietyClick: () -> Unit = {},
+    isPakietyFocused: Boolean = false,
+    pakietyFocusRequester: FocusRequester? = null,
+    isCandyBarVisible: Boolean = false,                                  // Toggle between Pakiety and CandyBar
+    onCandyBarClick: () -> Unit = {},                                    // CandyBar -> Points History
     showProfileNotificationBadge: Boolean = false,
+    hazeState: HazeState? = null,                                         // Haze state for blur effect
+    variantConfig: TopMenuVariantConfig = MENU_VARIANTS[0],              // Design variant config (key "4" to cycle)
     modifier: Modifier = Modifier
 ) {
     var currentTime by remember { mutableStateOf(LocalTime.now()) }
-    
+
     LaunchedEffect(Unit) {
         while (true) {
             currentTime = LocalTime.now()
@@ -1293,247 +2075,661 @@ fun TopMenuBar2(
 
     Box(
         modifier = modifier
-            .padding(top = sy(20), start = sx(20))
             .fillMaxWidth()
             .wrapContentHeight()
     ) {
-        // Layer 1: Main content row
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(sy(97)),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(sx(22)),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
+        // Layer 0: Top gradient overlay - DISABLED (duplicate, main gradient is at lines 1850-1865)
+        // Using only one gradient (#48227C) for consistent look with app background
+        // Box(
+        //     modifier = Modifier
+        //         .fillMaxWidth()
+        //         .height(sy(TopMenuDesign.GRADIENT_HEIGHT))
+        //         .background(
+        //             brush = Brush.verticalGradient(
+        //                 colors = listOf(
+        //                     TopMenuDesign.COLOR_GRADIENT_TOP,  // #281443 at top
+        //                     Color.Transparent                   // Transparent at bottom
+        //                 )
+        //             )
+        //         )
+        // )
+
+        // Layer 1: Aqua Ellipse Glow (ambient light at top)
+        // DISABLED - needs gradient implementation instead of solid color + blur
+        // AquaEllipseGlow(
+        //     sx = sx,
+        //     sy = sy,
+        //     modifier = Modifier
+        //         .align(Alignment.TopCenter)
+        //         .offset(y = sy(TopMenuDesign.CONTAINER_TOP_OFFSET))
+        // )
+
+        // Determine if using classic layout (v4.0.0 Google Play design) vs modern Figma design
+        // V2 (CLASSIC_FILL) and V3 (FLOATING_FILL) use classic layout with profile on left
+        val useClassicLayout = variantConfig.focusType == FocusType.CLASSIC_FILL ||
+                               variantConfig.focusType == FocusType.FLOATING_FILL
+
+        // Layer 2: Main row with container + clock
+        if (useClassicLayout) {
+            // === CLASSIC LAYOUT (v4.0.0) ===
+            // Profil on left, Container wraps menu items, right section is outside without background
+            Row(
                 modifier = Modifier
-                    .height(sy(97))
-                    .wrapContentWidth()
-                    .background(
-                        color = Color(0x4A000000),
-                        shape = RoundedCornerShape(sx(49))
-                    )
-                    .padding(horizontal = sx(10), vertical = sy(8))
+                    .fillMaxWidth()
+                    .padding(top = sy(20), start = sx(20), end = sx(20))
+                    .height(sy(97)),  // v4.0.0: 97px height
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                // LEFT SIDE: Profil + Container with menu items
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(sx(13)),
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.height(sy(81))
+                    horizontalArrangement = Arrangement.spacedBy(sx(15)),  // Gap between Profil and container
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    val containerItems = menuItems
-                    containerItems.forEach { item ->
-                        if (item.id == "SEARCH") {
-                            MenuSearchIcon2(
-                                isSelected = menuState.selectedItemId == item.id,
-                                isFocused = menuState.focusedItemId == item.id && menuState.isMenuFocused,
-                                focusRequester = focusRequesters[item.id]!!,
-                                onFocused = { onMenuItemFocused(item.id) },
-                                currentSelectedSection = currentSelectedSection,
-                                isInStartContent = isInStartContent,
+                    // Profil button (separate, no background - on left side before menu)
+                    if (leftProfilFocusRequester != null) {
+                        ProfilButton(
+                            isFocused = isLeftProfilFocused,
+                            isSelected = currentSelectedSection == "PROFILE",
+                            focusRequester = leftProfilFocusRequester,
+                            onClick = onProfileClick,
+                            showBadge = showProfileNotificationBadge,
+                            onBoundsChanged = { },
+                            focusType = variantConfig.focusType,
+                            sx = sx,
+                            sy = sy
+                        )
+                    }
+
+                    // Container ONLY for menu items (no shadow, no blur)
+                    // For FLOATING_FILL: wrap with Box to hold AnimatedFocusIndicator
+                    val isFloatingFillLayout = variantConfig.focusType == FocusType.FLOATING_FILL
+
+                    // Map to store bounds of focusable elements (for FLOATING_FILL)
+                    val focusBoundsMap = remember { mutableStateMapOf<String, FocusableBounds>() }
+                    // Track container position for relative calculations
+                    var containerOffsetX by remember { mutableFloatStateOf(0f) }
+                    var containerOffsetY by remember { mutableFloatStateOf(0f) }
+
+                    Box(
+                        modifier = Modifier
+                            .height(sy(97))
+                            .wrapContentWidth()
+                            .background(Color(0x4A000000), RoundedCornerShape(sx(49)))
+                            .padding(horizontal = sx(10), vertical = sy(8))
+                            .onGloballyPositioned { coords ->
+                                containerOffsetX = coords.positionInRoot().x
+                                containerOffsetY = coords.positionInRoot().y
+                            },
+                        // FLOATING_FILL: TopStart for correct indicator positioning
+                        contentAlignment = if (isFloatingFillLayout) Alignment.TopStart else Alignment.Center
+                    ) {
+                        // AnimatedFocusIndicator for FLOATING_FILL (rendered below buttons)
+                        if (isFloatingFillLayout) {
+                            // Determine which item to highlight and with what color:
+                            // - Menu focused: show AQUA on focused item
+                            // - Menu not focused (content focused): show WHITE on selected item
+                            val (indicatorKey, indicatorColor) = if (menuState.isMenuFocused && !isInStartContent) {
+                                menuState.focusedItemId to TopMenuDesign.COLOR_FOCUS_BORDER  // Aqua
+                            } else {
+                                menuState.selectedItemId to Color.White  // White for selected
+                            }
+
+                            // Convert from root coordinates to container-relative
+                            val relativeBounds = indicatorKey.takeIf { it.isNotEmpty() }?.let { key ->
+                                focusBoundsMap[key]?.let { bounds ->
+                                    bounds.copy(
+                                        x = bounds.x - containerOffsetX,
+                                        y = bounds.y - containerOffsetY
+                                    )
+                                }
+                            }
+
+                            AnimatedFocusIndicator(
+                                targetBounds = relativeBounds,
+                                borderWidth = sx(variantConfig.focusBorderWidth),
+                                isVisible = relativeBounds != null,
+                                focusType = variantConfig.focusType,
+                                indicatorColor = indicatorColor,
+                                sx = sx,
+                                sy = sy,
+                                modifier = Modifier.zIndex(-1f)
+                            )
+                        }
+
+                        Row(
+                            // V3 (FLOATING_FILL): smaller gaps (6px), V2 (CLASSIC_FILL): normal gaps (13px)
+                            horizontalArrangement = Arrangement.spacedBy(sx(if (isFloatingFillLayout) 6 else 13)),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Menu items (Start, Moje, Telewizja, Kino Play, Wideo, Aplikacje, Search)
+                        menuItems.forEach { item ->
+                            if (item.id == "SEARCH") {
+                                MenuSearchIcon2(
+                                    isSelected = menuState.selectedItemId == item.id,
+                                    isFocused = menuState.focusedItemId == item.id && menuState.isMenuFocused,
+                                    focusRequester = focusRequesters[item.id]!!,
+                                    onFocused = { onMenuItemFocused(item.id) },
+                                    currentSelectedSection = currentSelectedSection,
+                                    isInStartContent = isInStartContent,
+                                    isMenuFocused = menuState.isMenuFocused,  // For FLOATING_FILL icon color
+                                    onBoundsChanged = { bounds ->
+                                        if (isFloatingFillLayout) focusBoundsMap[item.id] = bounds
+                                    },
+                                    focusType = variantConfig.focusType,
+                                    sx = sx,
+                                    sy = sy
+                                )
+                            } else {
+                                MenuButton2(
+                                    title = item.title,
+                                    isSelected = menuState.selectedItemId == item.id,
+                                    isFocused = menuState.focusedItemId == item.id && menuState.isMenuFocused,
+                                    focusRequester = focusRequesters[item.id]!!,
+                                    onFocused = { onMenuItemFocused(item.id) },
+                                    currentSelectedSection = currentSelectedSection,
+                                    isInStartContent = isInStartContent,
+                                    isMenuFocused = menuState.isMenuFocused,  // For FLOATING_FILL text color
+                                    onBoundsChanged = { bounds ->
+                                        if (isFloatingFillLayout) focusBoundsMap[item.id] = bounds
+                                    },
+                                    focusType = variantConfig.focusType,
+                                    sx = sx,
+                                    sy = sy
+                                )
+                            }
+                        }
+                    }
+                }
+                }  // End of LEFT SIDE Row (Profil + Container)
+
+                // RIGHT: No background! (outside container)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(sx(15)),  // v4.0.0: 15px gap
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // CandyBar or Pakiety button
+                    if (pakietyFocusRequester != null) {
+                        if (isCandyBarVisible) {
+                            CandyBarButton(
+                                isFocused = isPakietyFocused,
+                                isSelected = currentSelectedSection == "POINTS_HISTORY",
+                                focusRequester = pakietyFocusRequester,
+                                onClick = onCandyBarClick,
+                                onBoundsChanged = { },
+                                focusType = variantConfig.focusType,
                                 sx = sx,
                                 sy = sy
                             )
                         } else {
-                            MenuButton2(
-                                title = item.title,
-                                isSelected = menuState.selectedItemId == item.id,
-                                isFocused = menuState.focusedItemId == item.id && menuState.isMenuFocused,
-                                focusRequester = focusRequesters[item.id]!!,
-                                onFocused = { onMenuItemFocused(item.id) },
-                                currentSelectedSection = currentSelectedSection,
-                                isInStartContent = isInStartContent,
+                            PakietyButton(
+                                isFocused = isPakietyFocused,
+                                isSelected = currentSelectedSection == "PAKIETY",
+                                focusRequester = pakietyFocusRequester,
+                                onClick = onPakietyClick,
+                                onBoundsChanged = { },
+                                focusType = variantConfig.focusType,
+                                sx = sx,
+                                sy = sy
+                            )
+                        }
+                    }
+
+                    // Konto icon
+                    if (rightButtonFocusRequesters.containsKey(0)) {
+                        KontoButton(
+                            isFocused = focusedRightButton == 0,
+                            isSelected = currentSelectedSection == "ACCOUNT",
+                            focusRequester = rightButtonFocusRequesters[0]!!,
+                            onClick = onKontoClick,
+                            onBoundsChanged = { },
+                            focusType = variantConfig.focusType,
+                            sx = sx,
+                            sy = sy
+                        )
+                    }
+
+                    // Ustawienia icon
+                    if (rightButtonFocusRequesters.containsKey(1)) {
+                        SettingsButton(
+                            isFocused = focusedRightButton == 1,
+                            focusRequester = rightButtonFocusRequesters[1]!!,
+                            onClick = onSettingsClick,
+                            onBoundsChanged = { },
+                            focusType = variantConfig.focusType,
+                            sx = sx,
+                            sy = sy
+                        )
+                    }
+                    // Note: Profil moved to LEFT SIDE (before Start) in v4.0.0
+
+                    // Clock (outside container)
+                    Text(
+                        text = "${currentTime.hour.toString().padStart(2, '0')}:${currentTime.minute.toString().padStart(2, '0')}",
+                        color = TopMenuDesign.COLOR_TEXT,
+                        fontSize = (32 * sy(1).value / 1).sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.2.sp
+                    )
+                }
+            }
+        } else {
+        // === MODERN LAYOUT (Figma 2025-12) ===
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    top = sy(TopMenuDesign.CONTAINER_TOP_OFFSET),  // 32px from top
+                    start = sx(TopMenuDesign.MARGIN_LEFT),         // 54px from left edge
+                    end = sx(TopMenuDesign.MARGIN_RIGHT)           // 60px from right edge
+                )
+                .height(sy(TopMenuDesign.CONTAINER_HEIGHT)),  // Figma: 112px
+            horizontalArrangement = Arrangement.spacedBy(sx(TopMenuDesign.GAP_CONTAINER_CLOCK)),  // 40px gap between container and clock
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // === SINGLE CONTAINER: Menu + Search + Pakiety + Icons (fills available space) ===
+            // Using Card with CardDefaults.cardElevation (same approach as SliderMix)
+            val containerShape = RoundedCornerShape(sx(TopMenuDesign.CONTAINER_BORDER_RADIUS))
+
+            // Create blur style for menu container (only used for BLUR background type)
+            val menuBlurStyle = HazeStyle(
+                backgroundColor = TopMenuDesign.COLOR_BG_CONTAINER,  // Required: container background color
+                blurRadius = 25.dp,
+                tint = HazeTint(Color.White.copy(alpha = 0.05f))
+            )
+
+            // Determine container color based on variant's background type
+            val containerColor = when (variantConfig.backgroundType) {
+                BackgroundType.BLUR -> TopMenuDesign.COLOR_BG_CONTAINER
+                BackgroundType.SOLID -> variantConfig.backgroundColor
+                BackgroundType.GRADIENT -> Color.Transparent  // Gradient drawn separately
+                BackgroundType.TRANSPARENT -> Color.Transparent
+            }
+
+            // Apply haze blur only for BLUR background type
+            val useBlur = variantConfig.backgroundType == BackgroundType.BLUR && hazeState != null
+
+            Card(
+                modifier = Modifier
+                    .weight(1f)  // Fill available space (stretches between margins)
+                    .height(sy(TopMenuDesign.CONTAINER_HEIGHT))  // Figma: 112px
+                    .then(
+                        if (useBlur) {
+                            Modifier.hazeChild(
+                                state = hazeState!!,
+                                shape = containerShape,  // Match Card's rounded corners
+                                style = menuBlurStyle
+                            )
+                        } else {
+                            Modifier
+                        }
+                    )
+                    .then(
+                        // Apply gradient background for GRADIENT type
+                        if (variantConfig.backgroundType == BackgroundType.GRADIENT) {
+                            Modifier.background(
+                                brush = Brush.verticalGradient(
+                                    colors = listOf(
+                                        variantConfig.backgroundColor,
+                                        variantConfig.backgroundColor.copy(alpha = 0.3f)
+                                    )
+                                ),
+                                shape = containerShape
+                            )
+                        } else {
+                            Modifier
+                        }
+                    ),
+                shape = containerShape,
+                colors = CardDefaults.cardColors(
+                    containerColor = containerColor
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)  // Same as SliderMix
+            ) {
+                // Center content vertically inside Card
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                // === ANIMATED FOCUS INDICATOR SYSTEM ===
+                // Map to store bounds of all focusable elements
+                val focusBoundsMap = remember { mutableStateMapOf<String, FocusableBounds>() }
+                val density = LocalDensity.current
+
+                // Track container root position for relative calculations
+                var containerRootX by remember { mutableFloatStateOf(0f) }
+                var containerRootY by remember { mutableFloatStateOf(0f) }
+
+                // Determine current focused element key
+                val currentFocusKey: String? = when {
+                    menuState.isMenuFocused && menuState.focusedItemId != null -> "menu_${menuState.focusedItemId}"
+                    isPakietyFocused -> "pakiety"
+                    focusedRightButton == 0 -> "konto"
+                    focusedRightButton == 1 -> "settings"
+                    focusedRightButton == 2 -> "profile"
+                    else -> null
+                }
+
+                // Show floating indicator for FLOATING_INDICATOR and FLOATING_FILL focus types
+                val showFocusIndicator = currentFocusKey != null && !isInStartContent &&
+                    (variantConfig.focusType == FocusType.FLOATING_INDICATOR ||
+                     variantConfig.focusType == FocusType.FLOATING_FILL)
+
+                // Container for AnimatedFocusIndicator - starts at 0,0 of outer Box
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .zIndex(-1f)
+                        .onGloballyPositioned { coords ->
+                            containerRootX = coords.positionInRoot().x
+                            containerRootY = coords.positionInRoot().y
+                        },
+                    contentAlignment = Alignment.TopStart
+                ) {
+                    AnimatedFocusIndicator(
+                        targetBounds = currentFocusKey?.let { key ->
+                            focusBoundsMap[key]?.let { bounds ->
+                                // Convert from root coordinates to container-relative
+                                bounds.copy(
+                                    x = bounds.x - containerRootX,
+                                    y = bounds.y - containerRootY
+                                )
+                            }
+                        },
+                        borderWidth = sx(TopMenuDesign.FOCUS_BORDER_WIDTH),  // 8px
+                        isVisible = showFocusIndicator,
+                        focusType = variantConfig.focusType,  // NEW: Pass focus type for fill decision
+                        sx = sx,
+                        sy = sy
+                    )
+                }
+
+                // Main container row with 3 sections: LEFT | CENTER | RIGHT
+                Row(
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = sx(TopMenuDesign.CONTAINER_PADDING_H), vertical = sy(TopMenuDesign.CONTAINER_PADDING_V))  // Figma: 16px H, 10px V
+                        .height(sy(TopMenuDesign.ITEM_HEIGHT))  // Figma: 80px
+                ) {
+                    // === LEFT SECTION: Menu items (Start, Moje, Telewizja, etc.) ===
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(sx(TopMenuDesign.ITEM_GAP)),  // Figma: 20px gap
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Menu items (Start, Moje, Telewizja, Kino Play, Wideo, Aplikacje, Search)
+                        menuItems.forEach { item ->
+                            if (item.id == "SEARCH") {
+                                MenuSearchIcon2(
+                                    isSelected = menuState.selectedItemId == item.id,
+                                    isFocused = menuState.focusedItemId == item.id && menuState.isMenuFocused,
+                                    focusRequester = focusRequesters[item.id]!!,
+                                    onFocused = { onMenuItemFocused(item.id) },
+                                    currentSelectedSection = currentSelectedSection,
+                                    isInStartContent = isInStartContent,
+                                    onBoundsChanged = { bounds ->
+                                        focusBoundsMap["menu_${item.id}"] = bounds
+                                    },
+                                    focusType = variantConfig.focusType,
+                                    sx = sx,
+                                    sy = sy
+                                )
+                            } else {
+                                MenuButton2(
+                                    title = item.title,
+                                    isSelected = menuState.selectedItemId == item.id,
+                                    isFocused = menuState.focusedItemId == item.id && menuState.isMenuFocused,
+                                    focusRequester = focusRequesters[item.id]!!,
+                                    onFocused = { onMenuItemFocused(item.id) },
+                                    currentSelectedSection = currentSelectedSection,
+                                    isInStartContent = isInStartContent,
+                                    onBoundsChanged = { bounds ->
+                                        focusBoundsMap["menu_${item.id}"] = bounds
+                                    },
+                                    focusType = variantConfig.focusType,  // Design variant focus style
+                                    sx = sx,
+                                    sy = sy
+                                )
+                            }
+                        }
+                    }
+
+                    // === CENTER SECTION: Pakiety OR CandyBar (centered between left and right) ===
+                    if (pakietyFocusRequester != null) {
+                        if (isCandyBarVisible) {
+                            CandyBarButton(
+                                isFocused = isPakietyFocused,
+                                isSelected = currentSelectedSection == "POINTS_HISTORY",
+                                focusRequester = pakietyFocusRequester,
+                                onClick = onCandyBarClick,
+                                onBoundsChanged = { bounds ->
+                                    focusBoundsMap["pakiety"] = bounds
+                                },
+                                focusType = variantConfig.focusType,
+                                sx = sx,
+                                sy = sy
+                            )
+                        } else {
+                            PakietyButton(
+                                isFocused = isPakietyFocused,
+                                isSelected = currentSelectedSection == "PAKIETY",
+                                focusRequester = pakietyFocusRequester,
+                                onClick = onPakietyClick,
+                                onBoundsChanged = { bounds ->
+                                    focusBoundsMap["pakiety"] = bounds
+                                },
+                                focusType = variantConfig.focusType,
+                                sx = sx,
+                                sy = sy
+                            )
+                        }
+                    }
+
+                    // === RIGHT SECTION: Konto, Ustawienia, Profil (aligned to right) ===
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(sx(TopMenuDesign.ITEM_GAP)),  // Figma: 20px gap
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Konto icon (person)
+                        if (rightButtonFocusRequesters.containsKey(0)) {
+                            KontoButton(
+                                isFocused = focusedRightButton == 0,
+                                isSelected = currentSelectedSection == "ACCOUNT",
+                                focusRequester = rightButtonFocusRequesters[0]!!,
+                                onClick = onKontoClick,
+                                onBoundsChanged = { bounds ->
+                                    focusBoundsMap["konto"] = bounds
+                                },
+                                focusType = variantConfig.focusType,
+                                sx = sx,
+                                sy = sy
+                            )
+                        }
+
+                        // Ustawienia icon (gear)
+                        if (rightButtonFocusRequesters.containsKey(1)) {
+                            SettingsButton(
+                                isFocused = focusedRightButton == 1,
+                                focusRequester = rightButtonFocusRequesters[1]!!,
+                                onClick = onSettingsClick,
+                                onBoundsChanged = { bounds ->
+                                    focusBoundsMap["settings"] = bounds
+                                },
+                                focusType = variantConfig.focusType,
+                                sx = sx,
+                                sy = sy
+                            )
+                        }
+
+                        // Profil icon (avatar)
+                        if (rightButtonFocusRequesters.containsKey(2)) {
+                            ProfilButton(
+                                isFocused = focusedRightButton == 2,
+                                isSelected = currentSelectedSection == "PROFILE",
+                                focusRequester = rightButtonFocusRequesters[2]!!,
+                                onClick = onProfileClick,
+                                showBadge = showProfileNotificationBadge,
+                                onBoundsChanged = { bounds ->
+                                    focusBoundsMap["profile"] = bounds
+                                },
+                                focusType = variantConfig.focusType,
                                 sx = sx,
                                 sy = sy
                             )
                         }
                     }
                 }
-            }
-        }
+                }  // End centering Box
+            }  // End SINGLE CONTAINER (Card)
 
-        // Right section: CandyBar + Profile + Settings + Clock
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(sx(15)),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // CandyBar button with toggle visibility
-            AnimatedVisibility(
-                visible = isCandyBarVisible,
-                enter = fadeIn(animationSpec = tween(300)),
-                exit = fadeOut(animationSpec = tween(300))
-            ) {
-                if (rightButtonFocusRequesters.containsKey(0)) {
-                    CandyBarButton(
-                        points = 40,
-                        days = 21,
-                        isFocused = focusedRightButton == 0,
-                        focusRequester = rightButtonFocusRequesters[0]!!,
-                        onClick = onCandyBarClick,
-                        sx = sx,
-                        sy = sy
-                    )
-                }
-            }
-
-            // Profile button
-            if (rightButtonFocusRequesters.containsKey(1)) {
-                ProfileButton(
-                    isFocused = focusedRightButton == 1,
-                    focusRequester = rightButtonFocusRequesters[1]!!,
-                    onClick = onProfileClick,
-                    showBadge = showProfileNotificationBadge,
-                    sx = sx,
-                    sy = sy
-                )
-            }
-
-            // Settings button
-            if (rightButtonFocusRequesters.containsKey(2)) {
-                SettingsButton(
-                    isFocused = focusedRightButton == 2,
-                    focusRequester = rightButtonFocusRequesters[2]!!,
-                    onClick = onSettingsClick,
-                    sx = sx,
-                    sy = sy
-                )
-            }
-
-            Spacer(modifier = Modifier.width(sx(9))) // 24px total gap to clock (15+9)
-
-            // Clock
+            // === CLOCK (outside container, no extra padding needed - margins are on parent Row) ===
             Text(
                 text = "${currentTime.hour.toString().padStart(2, '0')}:${currentTime.minute.toString().padStart(2, '0')}",
-                color = Color.White,
-                fontSize = sy(40).value.sp,
-                fontWeight = FontWeight.Medium,
-                lineHeight = sy(39).value.sp,
-                letterSpacing = 0.2.sp,
-                modifier = Modifier.padding(end = sx(30))
+                color = TopMenuDesign.COLOR_TEXT,                    // Figma: #EEEEEE
+                fontSize = (32 * sy(1).value / 1).sp,                // Figma: 32px (Layout Engineer pattern)
+                fontWeight = FontWeight.Bold,                         // Figma: Bold
+                letterSpacing = 0.2.sp
             )
         }
-        }
-
-        // Layer 2: Tooltip overlay (z-index on top, doesn't affect layout)
-        if (focusedRightButton >= 0) {
-            val labelText = when (focusedRightButton) {
-                0 -> "Zarządzaj punktami"
-                1 -> "Konto, profile"
-                2 -> "Ustawienia systemowe"
-                else -> ""
-            }
-
-            // Calculate offset from right edge to center text below button
-            // Box width is 400px, offset = icon_center - box_width/2 to center Box on icon
-            val boxHalfWidth = 200
-            val labelOffsetFromRight = when (focusedRightButton) {
-                0 -> sx(511 - boxHalfWidth)  // CandyBar center (511) - half box width
-                1 -> sx(294 - boxHalfWidth)  // Profile center (294) - half box width
-                2 -> sx(199 - boxHalfWidth)  // Settings center (199) - half box width
-                else -> sx(0)
-            }
-
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .offset(
-                        x = -labelOffsetFromRight,
-                        y = sy(105)  // 97px row height + 8px gap
-                    )
-                    .width(sx(400))  // Fixed width for centering
-                    .wrapContentHeight()
-            ) {
-                Text(
-                    text = labelText,
-                    color = Color(0xFF5FEDD4),  // Aqua color
-                    fontSize = sy(28).value.sp,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.align(Alignment.TopCenter)  // Center text in Box
-                )
-            }
-        }
+        }  // End else (modern layout)
     }
 }
 
+/**
+ * CandyBar button showing points and days - NEW Figma design (node 253:8401)
+ * Structure: [Wallet Icon 48x48] [gap 8px] "40 pkt" [divider] "21 dni"
+ * Figma: bg rgba(0,0,0,0.4), rounded-[302px], h-80
+ * Focus: 8px border #5FEDD4 OUTSIDE - now handled by AnimatedFocusIndicator
+ */
 @Composable
 private fun CandyBarButton(
     points: Int = 40,
     days: Int = 21,
     isFocused: Boolean,
+    isSelected: Boolean = false,  // NEW: Selected state when POINTS_HISTORY section is active
     focusRequester: FocusRequester,
     onClick: () -> Unit,
+    onBoundsChanged: (FocusableBounds) -> Unit = {},  // NEW: Report bounds for AnimatedFocusIndicator
+    focusType: FocusType = FocusType.FLOATING_INDICATOR,  // Design variant focus style
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     modifier: Modifier = Modifier
 ) {
-    val backgroundColor = if (isFocused) Color(0xFF5AECD3) else Color(0x4A000000)
-    val contentColor = if (isFocused) Color(0xFF48227C) else Color(0xFFEEEEEE)
+    // For buttons OUTSIDE container, FLOATING_FILL should behave like CLASSIC_FILL
+    val useClassicStyleFill = focusType == FocusType.CLASSIC_FILL || focusType == FocusType.FLOATING_FILL
 
+    // Background color depends on focus type and selected state
+    val backgroundColor = when {
+        useClassicStyleFill && isFocused -> Color(0xFF5AECD3)  // Aqua fill on focus
+        useClassicStyleFill && isSelected -> Color.White       // White fill on selected
+        useClassicStyleFill -> Color(0x0AEEEEEE)               // Transparent default
+        else -> TopMenuDesign.COLOR_BG_ITEM                    // Figma: rgba(0,0,0,0.4)
+    }
+
+    // Content color depends on focus type and selected state
+    val contentColor = when {
+        useClassicStyleFill && isFocused -> Color(0xFF48227C)  // Purple on focus
+        useClassicStyleFill && isSelected -> Color(0xFF48227C) // Purple on selected
+        useClassicStyleFill -> Color(0xFFEEEEEE)               // White default
+        else -> TopMenuDesign.COLOR_TEXT                       // Figma: #EEEEEE
+    }
+
+    // Use 40px for pill shape (half of height 80px) - gives perfect pill
+    val candyBarShape = RoundedCornerShape(sx(40))
+    val density = LocalDensity.current
+
+    // Focus border/glow now handled by AnimatedFocusIndicator
     Box(
         modifier = modifier
-            .widthIn(max = sx(324))
+            .height(sy(TopMenuDesign.ITEM_HEIGHT))      // Figma: 80px
             .wrapContentWidth()
-            .height(sy(80))
-            .background(
-                color = backgroundColor,
-                shape = RoundedCornerShape(sx(64))
-            )
+            // REMOVED: shadow() and border() for focused state - now handled by AnimatedFocusIndicator
+            // Background only
+            .background(backgroundColor, candyBarShape)
             .focusRequester(focusRequester)
+            .onPreviewKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown &&
+                    (event.key == Key.Enter || event.key == Key.DirectionCenter ||
+                     event.key == Key.DirectionDown)) {
+                    onClick()
+                    true
+                } else {
+                    false
+                }
+            }
             .focusable()
-            .clickable { onClick() },
+            .onGloballyPositioned { coords ->
+                // Report bounds for AnimatedFocusIndicator (pill shape = 40px corner radius)
+                val cornerRadiusPx = with(density) { sx(40).toPx() }
+                onBoundsChanged(
+                    FocusableBounds(
+                        x = coords.positionInRoot().x,
+                        y = coords.positionInRoot().y,
+                        width = coords.size.width.toFloat(),
+                        height = coords.size.height.toFloat(),
+                        cornerRadius = cornerRadiusPx
+                    )
+                )
+            },
         contentAlignment = Alignment.Center
     ) {
+        // NEW Figma layout: Row with icon + text row
         Row(
             modifier = Modifier
                 .wrapContentSize()
-                .padding(horizontal = sx(32)),
-            horizontalArrangement = Arrangement.spacedBy(sx(16)),
+                .padding(horizontal = sx(16)),  // Figma: px-16
+            horizontalArrangement = Arrangement.spacedBy(sx(TopMenuDesign.CANDYBAR_GAP_ICON_TEXT)),  // 8px gap
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Left section: Wallet icon + points
+            // Wallet icon (48x48px)
+            Icon(
+                painter = painterResource(id = R.drawable.ic_wallet),
+                contentDescription = "Punkty",
+                tint = contentColor,
+                modifier = Modifier.size(sx(TopMenuDesign.CANDYBAR_ICON_SIZE))  // 48x48px
+            )
+
+            // Text row: "40 pkt" | divider | "21 dni"
             Row(
-                horizontalArrangement = Arrangement.spacedBy(sx(8)),
+                horizontalArrangement = Arrangement.spacedBy(sx(TopMenuDesign.CANDYBAR_GAP_TEXT_DIVIDER)),  // 12px gap
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_wallet),
-                    contentDescription = "Punkty",
-                    tint = contentColor,
-                    modifier = Modifier.size(sx(24), sy(24))
-                )
+                // Points text
                 Text(
                     text = "$points pkt",
                     color = contentColor,
-                    fontSize = (16 * sx(1).value / 1).sp,
-                    fontWeight = FontWeight.Medium
+                    fontSize = (TopMenuDesign.CANDYBAR_TEXT_SIZE * sy(1).value).sp,  // 24px
+                    fontWeight = FontWeight.Medium,
+                    letterSpacing = 0.48.sp  // Figma: 0.48px letter spacing
                 )
-            }
 
-            // Right section: Calendar icon + days
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(sx(8)),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_calendar),
-                    contentDescription = "Dni",
-                    tint = contentColor,
-                    modifier = Modifier.size(sx(24), sy(24))
+                // Vertical divider (2px width, 24px height, #EEEEEE)
+                Box(
+                    modifier = Modifier
+                        .width(sx(TopMenuDesign.CANDYBAR_DIVIDER_WIDTH))   // 2px
+                        .height(sy(TopMenuDesign.CANDYBAR_DIVIDER_HEIGHT)) // 24px
+                        .background(contentColor)  // #EEEEEE
                 )
+
+                // Days text
                 Text(
                     text = "$days dni",
                     color = contentColor,
-                    fontSize = (16 * sx(1).value / 1).sp,
-                    fontWeight = FontWeight.Medium
+                    fontSize = (TopMenuDesign.CANDYBAR_TEXT_SIZE * sy(1).value).sp,  // 24px
+                    fontWeight = FontWeight.Medium,
+                    letterSpacing = 0.48.sp  // Figma: 0.48px letter spacing
                 )
             }
         }
     }
 }
 
+/**
+ * Profile button with new Figma design
+ * Figma: Size 80x80px, icon 40px, bg rgba(0,0,0,0.4)
+ * Focus: 8px border #5FEDD4 + glow (NO aqua fill)
+ */
 @Composable
 private fun ProfileButton(
     isFocused: Boolean,
@@ -1544,16 +2740,30 @@ private fun ProfileButton(
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     modifier: Modifier = Modifier
 ) {
-    val backgroundColor = if (isFocused) Color(0xFF5AECD3) else Color(0x4A000000)
-    val contentColor = if (isFocused) Color(0xFF48227C) else Color(0xFFEEEEEE)
+    // Figma: background rgba(0,0,0,0.4), focus = border only (not fill)
+    val backgroundColor = TopMenuDesign.COLOR_BG_ITEM              // Figma: rgba(0,0,0,0.4)
+    val contentColor = TopMenuDesign.COLOR_TEXT                     // Figma: #EEEEEE
+
+    // Figma: Focus = 8px outline + glow
+    val borderWidth = if (isFocused) sx(TopMenuDesign.FOCUS_BORDER_WIDTH) else 0.dp  // 8px
+    val borderColor = if (isFocused) TopMenuDesign.COLOR_FOCUS_BORDER else Color.Transparent
 
     Box(
         modifier = modifier
-            .size(sx(80), sy(80))
-            .background(
-                color = backgroundColor,
-                shape = CircleShape
+            .size(sx(TopMenuDesign.ICON_SIZE), sy(TopMenuDesign.ICON_SIZE))  // Figma: 80x80px
+            // 1. Glow effect (boxShadow in CSS) - blur 80px, 30% alpha aqua
+            .then(
+                if (isFocused) Modifier.shadow(
+                    elevation = sx(40),
+                    shape = CircleShape,
+                    ambientColor = TopMenuDesign.COLOR_FOCUS_GLOW,
+                    spotColor = TopMenuDesign.COLOR_FOCUS_GLOW
+                ) else Modifier
             )
+            // 2. Background
+            .background(backgroundColor, CircleShape)
+            // 3. Outline (CSS outline: 8px solid)
+            .border(borderWidth, borderColor, CircleShape)
             .focusRequester(focusRequester)
             .focusable()
             .clickable { onClick() },
@@ -1563,7 +2773,7 @@ private fun ProfileButton(
             Image(
                 painter = painterResource(id = R.drawable.lamp),
                 contentDescription = "Profil",
-                modifier = Modifier.size(sx(40), sy(40))
+                modifier = Modifier.size(sx(40), sy(40))           // Figma: 40px icon
             )
 
             // Notification badge (upper-right corner on button area, not on icon)
@@ -1580,39 +2790,269 @@ private fun ProfileButton(
     }
 }
 
+/**
+ * Settings button with new Figma design
+ * Figma: Size 80x80px, icon 32px, bg rgba(0,0,0,0.4)
+ * Focus: 8px border #5FEDD4 + glow (NO aqua fill)
+ */
 @Composable
 private fun SettingsButton(
     isFocused: Boolean,
     focusRequester: FocusRequester,
     onClick: () -> Unit,
+    onBoundsChanged: (FocusableBounds) -> Unit = {},  // NEW: Report bounds for AnimatedFocusIndicator
+    focusType: FocusType = FocusType.FLOATING_INDICATOR,  // Design variant focus style
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     modifier: Modifier = Modifier
 ) {
-    val backgroundColor = if (isFocused) Color(0xFF5AECD3) else Color(0x4A000000)
-    val contentColor = if (isFocused) Color(0xFF48227C) else Color(0xFFEEEEEE)
+    // For buttons OUTSIDE container, FLOATING_FILL should behave like CLASSIC_FILL
+    val useClassicStyleFill = focusType == FocusType.CLASSIC_FILL || focusType == FocusType.FLOATING_FILL
+
+    // Background color depends on focus type
+    // Note: SettingsButton has no isSelected state (opens external Settings app)
+    val backgroundColor = when {
+        useClassicStyleFill && isFocused -> Color(0xFF5AECD3)  // Aqua fill on focus
+        useClassicStyleFill -> Color(0x0AEEEEEE)               // Transparent default
+        else -> TopMenuDesign.COLOR_BG_ITEM                    // Figma: rgba(0,0,0,0.4)
+    }
+
+    // Content color depends on focus type
+    val contentColor = when {
+        useClassicStyleFill && isFocused -> Color(0xFF48227C)  // Purple on focus
+        useClassicStyleFill -> Color(0xFFEEEEEE)               // White default
+        else -> TopMenuDesign.COLOR_TEXT                       // Figma: #EEEEEE
+    }
+    val settingsShape = RoundedCornerShape(sx(TopMenuDesign.ITEM_BORDER_RADIUS))  // Figma: 64px (pill)
+    val density = LocalDensity.current
+
+    // Focus border/glow now handled by AnimatedFocusIndicator
 
     Box(
         modifier = modifier
-            .size(sx(80), sy(80))
-            .background(
-                color = backgroundColor,
-                shape = RoundedCornerShape(sx(64))
-            )
+            .size(sx(TopMenuDesign.ICON_SIZE), sy(TopMenuDesign.ICON_SIZE))  // Figma: 80x80px
+            // REMOVED: shadow() and border() for focused state - now handled by AnimatedFocusIndicator
+            // Background only
+            .background(backgroundColor, settingsShape)
             .focusRequester(focusRequester)
+            .onPreviewKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown &&
+                    (event.key == Key.Enter || event.key == Key.DirectionCenter)) {
+                    onClick()
+                    true
+                } else {
+                    false
+                }
+            }
             .focusable()
-            .clickable { onClick() },
+            .onGloballyPositioned { coords ->
+                // Report bounds for AnimatedFocusIndicator (64px corner radius)
+                val cornerRadiusPx = with(density) { sx(TopMenuDesign.ITEM_BORDER_RADIUS).toPx() }
+                onBoundsChanged(
+                    FocusableBounds(
+                        x = coords.positionInRoot().x,
+                        y = coords.positionInRoot().y,
+                        width = coords.size.width.toFloat(),
+                        height = coords.size.height.toFloat(),
+                        cornerRadius = cornerRadiusPx
+                    )
+                )
+            },
         contentAlignment = Alignment.Center
     ) {
         Icon(
             imageVector = Icons.Default.Settings,
             contentDescription = "Ustawienia",
             tint = contentColor,
-            modifier = Modifier.size(sx(32), sy(32))
+            modifier = Modifier.size(sx(32), sy(32))               // Figma: 32px icon
         )
     }
 }
 
+/**
+ * Konto button (person icon) - navigates to ACCOUNT section
+ * Figma: Size 80x80px, icon 48px, bg rgba(0,0,0,0.4)
+ * Focus: 8px border #5FEDD4 + glow - now handled by AnimatedFocusIndicator
+ */
+@Composable
+private fun KontoButton(
+    isFocused: Boolean,
+    isSelected: Boolean = false,  // NEW: Selected state when ACCOUNT section is active
+    focusRequester: FocusRequester,
+    onClick: () -> Unit,
+    onBoundsChanged: (FocusableBounds) -> Unit = {},  // NEW: Report bounds for AnimatedFocusIndicator
+    focusType: FocusType = FocusType.FLOATING_INDICATOR,  // Design variant focus style
+    sx: (Int) -> androidx.compose.ui.unit.Dp,
+    sy: (Int) -> androidx.compose.ui.unit.Dp,
+    modifier: Modifier = Modifier
+) {
+    // For buttons OUTSIDE container, FLOATING_FILL should behave like CLASSIC_FILL
+    val useClassicStyleFill = focusType == FocusType.CLASSIC_FILL || focusType == FocusType.FLOATING_FILL
+
+    // Background color depends on focus type and selected state
+    val backgroundColor = when {
+        useClassicStyleFill && isFocused -> Color(0xFF5AECD3)  // Aqua fill on focus
+        useClassicStyleFill && isSelected -> Color.White       // White fill on selected
+        useClassicStyleFill -> Color(0x0AEEEEEE)               // Transparent default
+        else -> TopMenuDesign.COLOR_BG_ITEM                    // Figma: rgba(0,0,0,0.4)
+    }
+
+    // Content color depends on focus type and selected state
+    val contentColor = when {
+        useClassicStyleFill && isFocused -> Color(0xFF48227C)  // Purple on focus
+        useClassicStyleFill && isSelected -> Color(0xFF48227C) // Purple on selected
+        useClassicStyleFill -> Color(0xFFEEEEEE)               // White default
+        else -> TopMenuDesign.COLOR_TEXT                       // Figma: #EEEEEE
+    }
+    val density = LocalDensity.current
+
+    // Focus border/glow now handled by AnimatedFocusIndicator
+
+    Box(
+        modifier = modifier
+            .size(sx(TopMenuDesign.ICON_SIZE), sy(TopMenuDesign.ICON_SIZE))  // Figma: 80x80px
+            // REMOVED: shadow() and border() for focused state - now handled by AnimatedFocusIndicator
+            // Background only
+            .background(backgroundColor, CircleShape)
+            .focusRequester(focusRequester)
+            .onPreviewKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown &&
+                    (event.key == Key.Enter || event.key == Key.DirectionCenter ||
+                     event.key == Key.DirectionDown)) {
+                    onClick()
+                    true
+                } else {
+                    false
+                }
+            }
+            .focusable()
+            .onGloballyPositioned { coords ->
+                // Report bounds for AnimatedFocusIndicator (CircleShape = half of width)
+                val cornerRadiusPx = coords.size.width.toFloat() / 2
+                onBoundsChanged(
+                    FocusableBounds(
+                        x = coords.positionInRoot().x,
+                        y = coords.positionInRoot().y,
+                        width = coords.size.width.toFloat(),
+                        height = coords.size.height.toFloat(),
+                        cornerRadius = cornerRadiusPx
+                    )
+                )
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = Icons.Default.Person,
+            contentDescription = "Konto",
+            tint = contentColor,
+            modifier = Modifier.size(sx(48), sy(48))  // Figma: 48px icon
+        )
+    }
+}
+
+/**
+ * Profil button (avatar icon) - navigates to PROFILE section (profile switching)
+ * Figma: Size 80x80px, icon 48px, bg rgba(0,0,0,0.4)
+ * Focus: 8px border #5FEDD4 + glow - now handled by AnimatedFocusIndicator
+ */
+@Composable
+private fun ProfilButton(
+    isFocused: Boolean,
+    isSelected: Boolean = false,  // NEW: Selected state when PROFILE section is active
+    focusRequester: FocusRequester,
+    onClick: () -> Unit,
+    showBadge: Boolean = false,
+    onBoundsChanged: (FocusableBounds) -> Unit = {},  // NEW: Report bounds for AnimatedFocusIndicator
+    focusType: FocusType = FocusType.FLOATING_INDICATOR,  // Design variant focus style
+    sx: (Int) -> androidx.compose.ui.unit.Dp,
+    sy: (Int) -> androidx.compose.ui.unit.Dp,
+    modifier: Modifier = Modifier
+) {
+    // For buttons OUTSIDE container, FLOATING_FILL should behave like CLASSIC_FILL
+    val useClassicStyleFill = focusType == FocusType.CLASSIC_FILL || focusType == FocusType.FLOATING_FILL
+
+    // Background color depends on focus type and selected state
+    val backgroundColor = when {
+        useClassicStyleFill && isFocused -> Color(0xFF5AECD3)  // Aqua fill on focus
+        useClassicStyleFill && isSelected -> Color.White       // White fill on selected
+        useClassicStyleFill -> Color(0x0AEEEEEE)               // Transparent default
+        else -> TopMenuDesign.COLOR_BG_ITEM                    // Figma: rgba(0,0,0,0.4)
+    }
+
+    // Content color depends on focus type and selected state
+    val contentColor = when {
+        useClassicStyleFill && isFocused -> Color(0xFF48227C)  // Purple on focus
+        useClassicStyleFill && isSelected -> Color(0xFF48227C) // Purple on selected
+        useClassicStyleFill -> Color(0xFFEEEEEE)               // White default
+        else -> TopMenuDesign.COLOR_TEXT                       // Figma: #EEEEEE
+    }
+    val density = LocalDensity.current
+
+    // Focus border/glow now handled by AnimatedFocusIndicator
+
+    Box(
+        modifier = modifier
+            .size(sx(TopMenuDesign.ICON_SIZE), sy(TopMenuDesign.ICON_SIZE))  // Figma: 80x80px
+            // REMOVED: .focusGlow() and .border() - now handled by AnimatedFocusIndicator
+            .background(
+                color = backgroundColor,
+                shape = CircleShape
+            )
+            .focusRequester(focusRequester)
+            .onPreviewKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown &&
+                    (event.key == Key.Enter || event.key == Key.DirectionCenter ||
+                     event.key == Key.DirectionDown)) {
+                    onClick()
+                    true
+                } else {
+                    false
+                }
+            }
+            .focusable()
+            .onGloballyPositioned { coords ->
+                // Report bounds for AnimatedFocusIndicator (CircleShape = half of width)
+                val cornerRadiusPx = coords.size.width.toFloat() / 2
+                onBoundsChanged(
+                    FocusableBounds(
+                        x = coords.positionInRoot().x,
+                        y = coords.positionInRoot().y,
+                        width = coords.size.width.toFloat(),
+                        height = coords.size.height.toFloat(),
+                        cornerRadius = cornerRadiusPx
+                    )
+                )
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Box {
+            // Avatar/profile icon
+            Image(
+                painter = painterResource(id = R.drawable.lamp),  // Use existing lamp or add profile icon
+                contentDescription = "Profil",
+                modifier = Modifier.size(sx(48), sy(48))
+            )
+
+            // Notification badge
+            if (showBadge) {
+                Box(
+                    modifier = Modifier
+                        .size(sx(24), sy(24))
+                        .offset(x = sx(28), y = -sy(4))
+                        .background(Color.Red, CircleShape)
+                        .border(sx(2), Color.White, CircleShape)
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Search icon button with new Figma design
+ * Figma: Size 80x80px, icon 48px, bg rgba(0,0,0,0.4)
+ * Focus: 8px border #5FEDD4 + glow (NO aqua fill) - now handled by AnimatedFocusIndicator
+ * Selected: white background, purple icon
+ */
 @Composable
 private fun MenuSearchIcon2(
     isSelected: Boolean,
@@ -1621,38 +3061,85 @@ private fun MenuSearchIcon2(
     onFocused: () -> Unit,
     currentSelectedSection: String = "",
     isInStartContent: Boolean = false,
+    isMenuFocused: Boolean = true,  // NEW: Whether menu is focused (for FLOATING_FILL icon color)
+    onBoundsChanged: (FocusableBounds) -> Unit = {},  // Report bounds for AnimatedFocusIndicator
+    focusType: FocusType = FocusType.FLOATING_INDICATOR,  // Design variant focus style
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp
 ) {
+    // Check if using CLASSIC_FILL style (v4.0.0 design)
+    val useClassicFill = focusType == FocusType.CLASSIC_FILL
+    // FLOATING_FILL mode - transparent tabs with floating aqua indicator
+    val useFloatingFill = focusType == FocusType.FLOATING_FILL
+
+    // Background color depends on focus type
     val backgroundColor = when {
-        isFocused && !isInStartContent -> Color(0xFF5AECD3) // Aqua when focused
-        isSelected -> Color.White // White when selected
-        else -> Color(0x08FFFFFF)
+        useClassicFill && isFocused && !isInStartContent -> Color(0xFF5AECD3)  // Aqua fill on focus
+        useClassicFill && isSelected -> Color.White                            // White fill on selected
+        useClassicFill -> Color(0x0AEEEEEE)                                    // Transparent default
+        // FLOATING_FILL: always transparent (floating indicator handles both focus and selected)
+        useFloatingFill -> Color.Transparent
+        else -> TopMenuDesign.COLOR_BG_ITEM                                    // Figma: rgba(0,0,0,0.4)
     }
-    
+
+    // Icon color depends on focus type
     val iconColor = when {
-        isFocused -> Color(0xFF48227C) // Purple when focused
-        isSelected -> Color(0xFF48227C) // Purple when selected
-        else -> Color(0xFFEEEEEE)
+        useClassicFill && (isFocused && !isInStartContent) -> Color(0xFF48227C)  // Purple on focus
+        useClassicFill && isSelected -> Color(0xFF48227C)                        // Purple on selected
+        useClassicFill -> Color(0xFFEEEEEE)                                      // White default
+        // FLOATING_FILL: purple icon when indicator is behind (focused OR selected when menu not focused)
+        useFloatingFill && isFocused && !isInStartContent -> Color(0xFF48227C)  // Purple (focused - aqua indicator)
+        useFloatingFill && isSelected && !isMenuFocused -> Color(0xFF48227C)    // Purple (selected - white indicator)
+        useFloatingFill -> Color(0xFFEEEEEE)                                    // White (no indicator behind)
+        else -> TopMenuDesign.COLOR_TEXT                                         // Figma: #EEEEEE
     }
+
+    // Border: ONLY for selected state when NOT using classic fill or floating fill
+    val showSelectedBorder = isSelected && !(isFocused && !isInStartContent) && !useClassicFill && !useFloatingFill
+    val borderWidth = if (showSelectedBorder) sx(TopMenuDesign.SELECTED_BORDER_WIDTH) else 0.dp  // 4px white
+    val borderColor = if (showSelectedBorder) TopMenuDesign.COLOR_SELECTED_BORDER else Color.Transparent
+
+    val density = LocalDensity.current
 
     Box(
         modifier = Modifier
-            .size(sx(80), sy(80))
+            .size(sx(TopMenuDesign.ICON_SIZE), sy(TopMenuDesign.ICON_SIZE))  // Figma: 80x80px
+            // REMOVED: .focusGlow() - now handled by AnimatedFocusIndicator
             .background(
                 color = backgroundColor,
                 shape = CircleShape
             )
+            .border(
+                width = borderWidth,
+                color = borderColor,
+                shape = CircleShape
+            )
             .focusRequester(focusRequester)
             .focusable()
-            .onFocusChanged { if (it.isFocused) onFocused() },
+            .onFocusChanged { if (it.isFocused) onFocused() }
+            .onGloballyPositioned { coords ->
+                // Report bounds for AnimatedFocusIndicator (CircleShape = half of width)
+                val cornerRadiusPx = coords.size.width.toFloat() / 2
+                onBoundsChanged(
+                    FocusableBounds(
+                        x = coords.positionInRoot().x,
+                        y = coords.positionInRoot().y,
+                        width = coords.size.width.toFloat(),
+                        height = coords.size.height.toFloat(),
+                        cornerRadius = cornerRadiusPx
+                    )
+                )
+            },
         contentAlignment = Alignment.Center
     ) {
         Icon(
             imageVector = Icons.Default.Search,
             contentDescription = "Search",
             tint = iconColor,
-            modifier = Modifier.size(sx(48), sy(48))
+            modifier = Modifier.size(
+                sx(TopMenuDesign.ICON_INNER_SIZE),  // Figma: 48px
+                sy(TopMenuDesign.ICON_INNER_SIZE)
+            )
         )
     }
 }
@@ -1700,6 +3187,12 @@ private fun ShortcutAddButton(
     }
 }
 
+/**
+ * Menu button with new Figma design
+ * Figma: Height 80px, border-radius 64px, bg rgba(0,0,0,0.4)
+ * Focus: 8px border #5FEDD4 + glow (NO aqua fill)
+ * Selected: white background, purple text
+ */
 @Composable
 private fun MenuButton2(
     title: String,
@@ -1709,41 +3202,116 @@ private fun MenuButton2(
     onFocused: () -> Unit,
     currentSelectedSection: String = "",
     isInStartContent: Boolean = false,
+    isMenuFocused: Boolean = true,  // NEW: Whether menu is focused (for FLOATING_FILL text color)
+    onBoundsChanged: (FocusableBounds) -> Unit = {},  // Report bounds for AnimatedFocusIndicator
+    focusType: FocusType = FocusType.FLOATING_INDICATOR,  // Design variant focus style
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp
 ) {
+    // CLASSIC_FILL mode - design from version 4.0.0 (Google Play)
+    val useClassicFill = focusType == FocusType.CLASSIC_FILL
+    // FLOATING_FILL mode - transparent tabs with floating aqua indicator
+    val useFloatingFill = focusType == FocusType.FLOATING_FILL
+
+    // Background color depends on focus type
     val backgroundColor = when {
-        isFocused && !isInStartContent -> Color(0xFF5AECD3) // Show focus when NOT in START content
-        isSelected -> Color.White
-        else -> Color(0x0AEEEEEE)
+        // CLASSIC_FILL: aqua fill on focus, white fill on selected, transparent default
+        useClassicFill && isFocused && !isInStartContent -> Color(0xFF5AECD3)  // Aqua fill
+        useClassicFill && isSelected -> Color.White
+        useClassicFill -> Color(0x0AEEEEEE)  // Transparent default
+        // FLOATING_FILL: always transparent (floating indicator handles both focus and selected)
+        useFloatingFill -> Color.Transparent
+        // Other focus types: always dark background
+        else -> TopMenuDesign.COLOR_BG_ITEM  // Figma: rgba(0,0,0,0.4)
     }
-    
+
+    // Text color depends on focus type
     val textColor = when {
-        isFocused -> Color(0xFF48227C)
-        isSelected -> Color(0xFF48227C)
-        else -> Color(0xFFEEEEEE)
+        // CLASSIC_FILL: purple text on focus/selected, white default
+        useClassicFill && (isFocused && !isInStartContent) -> Color(0xFF48227C)  // Purple
+        useClassicFill && isSelected -> Color(0xFF48227C)  // Purple
+        useClassicFill -> Color(0xFFEEEEEE)  // White
+        // FLOATING_FILL: purple text when indicator is behind (focused OR selected when menu not focused)
+        useFloatingFill && isFocused && !isInStartContent -> Color(0xFF48227C)  // Purple (focused - aqua indicator)
+        useFloatingFill && isSelected && !isMenuFocused -> Color(0xFF48227C)  // Purple (selected - white indicator)
+        useFloatingFill -> Color(0xFFEEEEEE)  // White (no indicator behind)
+        // Other focus types: always white text
+        else -> TopMenuDesign.COLOR_TEXT  // Figma: #EEEEEE
     }
+
+    // Determine if button should show its own focus border (not floating indicator)
+    val showOwnFocusBorder = isFocused && !isInStartContent && focusType == FocusType.BORDER_INSIDE
+
+    // Border: for selected state OR for BORDER_INSIDE focus type
+    // CLASSIC_FILL and FLOATING_FILL use fill instead of border, so no border needed
+    val showSelectedBorder = isSelected && !(isFocused && !isInStartContent) && !useClassicFill && !useFloatingFill
+    val borderWidth = when {
+        showOwnFocusBorder -> sx(TopMenuDesign.FOCUS_BORDER_WIDTH)  // 8px aqua for focus
+        showSelectedBorder -> sx(TopMenuDesign.SELECTED_BORDER_WIDTH)  // 4px white for selected
+        else -> 0.dp
+    }
+    val borderColor = when {
+        showOwnFocusBorder -> TopMenuDesign.COLOR_FOCUS_BORDER  // Aqua
+        showSelectedBorder -> TopMenuDesign.COLOR_SELECTED_BORDER  // White
+        else -> Color.Transparent
+    }
+
+    // Scale animation for SCALE focus type
+    val scale by animateFloatAsState(
+        targetValue = if (isFocused && !isInStartContent && focusType == FocusType.SCALE) 1.15f else 1f,
+        animationSpec = tween(durationMillis = 200),
+        label = "button_scale"
+    )
+
+    val density = LocalDensity.current
 
     Box(
         modifier = Modifier
-            .height(sy(80))
+            .height(sy(TopMenuDesign.ITEM_HEIGHT))              // Figma: 80px
+            .graphicsLayer(scaleX = scale, scaleY = scale)  // Scale animation for SCALE focus type
+            // REMOVED: .focusGlow() - now handled by AnimatedFocusIndicator
             .background(
                 color = backgroundColor,
-                shape = CircleShape
+                shape = RoundedCornerShape(sx(TopMenuDesign.ITEM_BORDER_RADIUS))  // Figma: 64px
+            )
+            .border(
+                width = borderWidth,
+                color = borderColor,
+                shape = RoundedCornerShape(sx(TopMenuDesign.ITEM_BORDER_RADIUS))
             )
             .focusRequester(focusRequester)
             .focusable()
             .onFocusChanged { if (it.isFocused) onFocused() }
-            .padding(horizontal = sx(32)),
+            .onGloballyPositioned { coords ->
+                // Report bounds for AnimatedFocusIndicator
+                val cornerRadiusPx = with(density) { sx(TopMenuDesign.ITEM_BORDER_RADIUS).toPx() }
+                onBoundsChanged(
+                    FocusableBounds(
+                        x = coords.positionInRoot().x,
+                        y = coords.positionInRoot().y,
+                        width = coords.size.width.toFloat(),
+                        height = coords.size.height.toFloat(),
+                        cornerRadius = cornerRadiusPx
+                    )
+                )
+            }
+            .padding(horizontal = sx(TopMenuDesign.ITEM_PADDING_H)),  // Figma: 24px
         contentAlignment = Alignment.Center
     ) {
+        // UNDERLINE focus type: use text decoration
+        val showUnderline = isFocused && !isInStartContent && focusType == FocusType.UNDERLINE
+        val textDecoration = if (showUnderline) TextDecoration.Underline else TextDecoration.None
+
         Text(
             text = title,
-            color = textColor,
-            fontSize = sy(24).value.sp,
-            fontWeight = FontWeight.Medium,
-            lineHeight = sy(32).value.sp,
-            letterSpacing = 0.48.sp,
+            color = if (showUnderline) TopMenuDesign.COLOR_FOCUS_BORDER else textColor,  // Aqua when underlined
+            style = TextStyle(
+                fontSize = (24 * sy(1).value / 1).sp,           // Figma: 24px
+                fontWeight = FontWeight.Medium,                  // Figma: Medium (500)
+                lineHeight = (32 * sy(1).value / 1).sp,          // Figma: 32px
+                letterSpacing = 0.48.sp,                         // Figma: 0.48px
+                textDecoration = textDecoration                   // Underline for UNDERLINE focus type
+            ),
             textAlign = TextAlign.Center
         )
     }
@@ -1754,6 +3322,7 @@ private fun FullPageContent(
     selectedSection: String,
     onReturnToMenu: () -> Unit,
     onUserNavigated: () -> Unit = {},  // NEW: Callback when user navigates (clears fresh PIP mode)
+    onPrepareReturnFocus: (String) -> Unit = {},  // Set button focus state BEFORE returning to menu (prevents flash)
     shouldAutoFocus: Boolean,
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
@@ -1766,6 +3335,7 @@ private fun FullPageContent(
     onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> },
     isEpgSectionExpanded: Boolean = false,
     onEpgSectionExpandedChange: (Boolean) -> Unit = {},
     showNagraniaV2: Boolean = false,
@@ -1791,6 +3361,7 @@ private fun FullPageContent(
                 globalFocusState = globalFocusState,
                 onNavigateToVodGrid = onNavigateToVodGrid,
                 onNavigateToKinoGrid = onNavigateToKinoGrid,
+                onNavigateToRecordingsGrid = onNavigateToRecordingsGrid,
                 sx = sx,
                 sy = sy,
                 showNagraniaV2 = showNagraniaV2,
@@ -1820,6 +3391,7 @@ private fun FullPageContent(
                 onNavigateToChannelGrid = onNavigateToChannelGrid,
                 onNavigateToVodGrid = onNavigateToVodGrid,
                 onNavigateToKinoGrid = onNavigateToKinoGrid,
+                onNavigateToRecordingsGrid = onNavigateToRecordingsGrid,
                 isEpgSectionExpanded = isEpgSectionExpanded,
                 onEpgSectionExpandedChange = onEpgSectionExpandedChange
             )
@@ -1856,6 +3428,7 @@ private fun FullPageContent(
             AccountScreenContent(
                 globalFocusState = globalFocusState,
                 onNavigateToStartupMode = onNavigateToStartupMode,
+                onPrepareReturnFocus = { onPrepareReturnFocus("ACCOUNT") },
                 sx = sx,
                 sy = sy
             )
@@ -1863,6 +3436,7 @@ private fun FullPageContent(
         "POINTS_HISTORY" -> {
             PointsHistoryScreenContent(
                 globalFocusState = globalFocusState,
+                onPrepareReturnFocus = { onPrepareReturnFocus("POINTS_HISTORY") },
                 sx = sx,
                 sy = sy
             )
@@ -1873,6 +3447,25 @@ private fun FullPageContent(
                 onNavigateToChannelGrid = onNavigateToChannelGrid,
                 onNavigateToVodGrid = onNavigateToVodGrid,
                 onNavigateToKinoGrid = onNavigateToKinoGrid,
+                onNavigateToRecordingsGrid = onNavigateToRecordingsGrid,
+                sx = sx,
+                sy = sy
+            )
+        }
+        "PAKIETY" -> {
+            // Pakiety section placeholder - will show channel packages
+            PakietyScreenContent(
+                globalFocusState = globalFocusState,
+                onPrepareReturnFocus = { onPrepareReturnFocus("PAKIETY") },
+                sx = sx,
+                sy = sy
+            )
+        }
+        "PROFILE" -> {
+            // Profile section - profile switching
+            ProfileScreenContent(
+                globalFocusState = globalFocusState,
+                onPrepareReturnFocus = { onPrepareReturnFocus("PROFILE") },
                 sx = sx,
                 sy = sy
             )
@@ -1893,6 +3486,7 @@ private fun MojeScreenContent(
     globalFocusState: MutableState<GlobalFocusState>,
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> },
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     showNagraniaV2: Boolean = false,
@@ -1913,6 +3507,7 @@ private fun MojeScreenContent(
         },
         onNavigateToVodGrid = onNavigateToVodGrid,
         onNavigateToKinoGrid = onNavigateToKinoGrid,
+        onNavigateToRecordingsGrid = onNavigateToRecordingsGrid,
         shouldAutoFocus = globalFocusState.value.sectionId == "MOJE" && globalFocusState.value.currentRow > 0,
         sx = sx,
         sy = sy,
@@ -2009,6 +3604,7 @@ private fun TelewizjaScreenContent(
     onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> },
     isEpgSectionExpanded: Boolean = false,
     onEpgSectionExpandedChange: (Boolean) -> Unit = {}
 ) {
@@ -2044,6 +3640,7 @@ private fun TelewizjaScreenContent(
         onNavigateToChannelGrid = onNavigateToChannelGrid,
         onNavigateToVodGrid = onNavigateToVodGrid,
         onNavigateToKinoGrid = onNavigateToKinoGrid,
+        onNavigateToRecordingsGrid = onNavigateToRecordingsGrid,
         isEpgSectionExpanded = isEpgSectionExpanded,
         onEpgSectionExpandedChange = onEpgSectionExpandedChange
     )
@@ -2218,7 +3815,7 @@ private fun OdkrywajChannelsScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF48227C))
+            .background(Color(0xFF281443))
             .onPreviewKeyEvent { event ->
                 handleOdkrywajNavigation(
                     event = event,
@@ -2279,6 +3876,7 @@ private fun TelewizjaChannelsScreen(
     onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> },
     isEpgSectionExpanded: Boolean = false,
     onEpgSectionExpandedChange: (Boolean) -> Unit = {}
 ) {
@@ -2875,7 +4473,7 @@ private fun TelewizjaChannelsScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFF48227C))
+                .background(Color(0xFF281443))
                 .onPreviewKeyEvent { event ->
                     // EPG section toggle moved to global shortcuts (Key "3")
                     // Regular navigation (handleTelewizjaNavigation)
@@ -2930,7 +4528,8 @@ private fun TelewizjaChannelsScreen(
                 sectionId = sectionId,
                 onNavigateToChannelGrid = onNavigateToChannelGrid,
                 onNavigateToVodGrid = onNavigateToVodGrid,
-                onNavigateToKinoGrid = onNavigateToKinoGrid
+                onNavigateToKinoGrid = onNavigateToKinoGrid,
+                onNavigateToRecordingsGrid = onNavigateToRecordingsGrid
             )
         }
     }
@@ -2942,6 +4541,7 @@ private fun MojeChannelsScreen(
     onReturnToMenu: () -> Unit = {},
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> },
     shouldAutoFocus: Boolean = false,
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
@@ -3195,7 +4795,7 @@ private fun MojeChannelsScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF48227C))
+            .background(Color(0xFF281443))
             .onPreviewKeyEvent { event ->
                 handleMojeChannelsNavigation(
                     event = event,
@@ -3239,7 +4839,8 @@ private fun MojeChannelsScreen(
             toggleNagraniaExpansion = toggleNagraniaExpansion,
             mojeNagraniaShortcuts = mojeNagraniaShortcuts,  // NEW: pass shortcuts data
             mojaListaChannels = mojaListaChannels,  // NEW: pass TV channels for "Moja lista kanałów"
-            onNavigateToEpgDay = onNavigateToEpgDay  // For TV channel click
+            onNavigateToEpgDay = onNavigateToEpgDay,  // For TV channel click
+            onNavigateToRecordingsGrid = onNavigateToRecordingsGrid
         )
     }
 }
@@ -3392,7 +4993,7 @@ private fun AplikacjeChannelsScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF48227C))
+            .background(Color(0xFF281443))
             .onPreviewKeyEvent { event ->
                 handleAplikacjeChannelsNavigation(
                     event = event,
@@ -3445,6 +5046,7 @@ private fun StartScreenContent(
     onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> },
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp
 ) {
@@ -3466,6 +5068,7 @@ private fun StartScreenContent(
         onNavigateToChannelGrid = onNavigateToChannelGrid,
         onNavigateToVodGrid = onNavigateToVodGrid,
         onNavigateToKinoGrid = onNavigateToKinoGrid,
+        onNavigateToRecordingsGrid = onNavigateToRecordingsGrid,
         sx = sx,
         sy = sy,
         resetTrigger = resetTrigger
@@ -3563,7 +5166,7 @@ private fun StartChannelsScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF48227C))
+            .background(Color(0xFF281443))
             .onPreviewKeyEvent { event ->
                 handleStartChannelsNavigation(
                     event = event,
@@ -3945,6 +5548,7 @@ private fun StartShortcuts(
     onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> },
     appIconsData: Map<String, List<TvChannel>> = emptyMap(),
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
@@ -3980,6 +5584,7 @@ private fun StartShortcuts(
                         onNavigateToChannelGrid = onNavigateToChannelGrid,
                         onNavigateToVodGrid = onNavigateToVodGrid,
                         onNavigateToKinoGrid = onNavigateToKinoGrid,
+                        onNavigateToRecordingsGrid = onNavigateToRecordingsGrid,
                         appIconsData = appIconsData,
                         sx = sx,
                         sy = sy,
@@ -4003,6 +5608,7 @@ private fun StartShortcutCard(
     onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> },
     appIconsData: Map<String, List<TvChannel>> = emptyMap(),
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
@@ -4039,10 +5645,8 @@ private fun StartShortcutCard(
                             )
                         }
                         "Nagrania" -> {
-                            android.util.Log.d("START_CARD", "Nawigacja do VodGrid - Nagrania")
-                            val vodList = VodDataCache.getVodContentList()
-                            val randomFilms = vodList.shuffled().take(20)
-                            onNavigateToVodGrid("Wszystkie nagrania", randomFilms, "START")
+                            android.util.Log.d("START_CARD", "Nawigacja do RecordingsGrid - Nagrania")
+                            onNavigateToRecordingsGrid("Zarządzaj nagraniami", "START")
                         }
                         "Wypożyczone" -> {
                             android.util.Log.d("START_CARD", "Nawigacja do KinoGrid - Wypożyczone (pionowe plakaty)")
@@ -4076,10 +5680,8 @@ private fun StartShortcutCard(
                         )
                     }
                     "Nagrania" -> {
-                        android.util.Log.d("START_CARD", "Nawigacja do VodGrid - Nagrania")
-                        val vodList = VodDataCache.getVodContentList()
-                        val randomFilms = vodList.shuffled().take(20)
-                        onNavigateToVodGrid("Wszystkie nagrania", randomFilms, "START")
+                        android.util.Log.d("START_CARD", "Nawigacja do RecordingsGrid - Nagrania")
+                        onNavigateToRecordingsGrid("Zarządzaj nagraniami", "START")
                     }
                     "Wypożyczone" -> {
                         android.util.Log.d("START_CARD", "Nawigacja do KinoGrid - Wypożyczone (pionowe plakaty)")
@@ -4324,6 +5926,7 @@ private fun NewStartScreenContent(
     onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> },
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     resetTrigger: Int = 0
@@ -4420,7 +6023,7 @@ private fun NewStartScreenContent(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF48227C))
+            .background(Color(0xFF281443))
             .onPreviewKeyEvent { event ->
                 handleStartNavigation(
                     event = event,
@@ -4493,6 +6096,7 @@ private fun NewStartScreenContent(
             onNavigateToChannelGrid = onNavigateToChannelGrid,
             onNavigateToVodGrid = onNavigateToVodGrid,
             onNavigateToKinoGrid = onNavigateToKinoGrid,
+            onNavigateToRecordingsGrid = onNavigateToRecordingsGrid,
             appIconsData = appIconsData,
             sx = sx,
             sy = sy,
@@ -5073,7 +6677,8 @@ fun MojeChannelRowsLayout(
     toggleNagraniaExpansion: (() -> Unit)? = null,
     mojeNagraniaShortcuts: List<ShortcutItem> = emptyList(),  // NEW: for "Skróty v2 Moje"
     mojaListaChannels: List<TvChannel> = emptyList(),  // NEW: for "Moja lista kanałów"
-    onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> }  // For TV channel click
+    onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> },  // For TV channel click
+    onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> }
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         repeat(channels.size) { rowIndex ->
@@ -5115,6 +6720,7 @@ fun MojeChannelRowsLayout(
                     onChannelContentFocusChange = onChannelContentFocusChange,
                     onNavigateToVodGrid = onNavigateToVodGrid,
                     onNavigateToKinoGrid = onNavigateToKinoGrid,
+                    onNavigateToRecordingsGrid = onNavigateToRecordingsGrid,
                     sx = sx,
                     sy = sy,
                     lazyListState = lazyListState,
@@ -5142,6 +6748,7 @@ fun MojeUnifiedChannelRow(
     onChannelContentFocusChange: (Int, Int) -> Unit,
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> },
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     lazyListState: LazyListState,
@@ -5261,22 +6868,22 @@ fun MojeUnifiedChannelRow(
                             }
                         },
                         onClick = {
-                            val vodList = VodDataCache.getVodContentList()
                             when (shortcut.title) {
                                 "Zarządzaj nagraniami" -> {
-                                    onNavigateToVodGrid("Wszystkie nagrania", vodList.shuffled().take(20), "MOJE")
+                                    // Navigate to new RecordingsGridScreen
+                                    onNavigateToRecordingsGrid("Zarządzaj nagraniami", "MOJE")
                                 }
                                 "Pojedyncze" -> {
-                                    onNavigateToVodGrid("Pojedyncze nagrania", vodList.shuffled().take(20), "MOJE")
+                                    // Navigate to RecordingsGridScreen with individual recordings filter
+                                    onNavigateToRecordingsGrid("Pojedyncze nagrania", "MOJE")
                                 }
                                 "Serie" -> {
-                                    val seriesContent = vodList.filter {
-                                        it.category.contains("Serial", ignoreCase = true)
-                                    }.take(20)
-                                    onNavigateToVodGrid("Serie", seriesContent, "MOJE")
+                                    // Navigate to RecordingsGridScreen with series filter
+                                    onNavigateToRecordingsGrid("Serie", "MOJE")
                                 }
                                 "Zaplanowane" -> {
-                                    onNavigateToVodGrid("Zaplanowane nagrania", vodList.shuffled().take(10), "MOJE")
+                                    // Navigate to RecordingsGridScreen with scheduled filter
+                                    onNavigateToRecordingsGrid("Zaplanowane", "MOJE")
                                 }
                             }
                         },
@@ -5303,9 +6910,7 @@ fun MojeUnifiedChannelRow(
                 },
                 onClick = {
                     Log.d("MOJE_DEBUG", "Zarządzaj nagraniami clicked - navigate to recordings grid")
-                    val vodList = VodDataCache.getVodContentList()
-                    val randomFilms = vodList.shuffled().take(20)
-                    onNavigateToVodGrid("Wszystkie nagrania", randomFilms, "MOJE")
+                    onNavigateToRecordingsGrid("Zarządzaj nagraniami", "MOJE")
                 },
                 sx = sx,
                 sy = sy
@@ -8070,7 +9675,8 @@ fun TelewizjaChannelRowsLayout(
     sectionId: String = "TELEWIZJA",
     onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
-    onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> }
+    onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> }
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         channels.forEachIndexed { rowIndex, channelName ->
@@ -8117,6 +9723,7 @@ fun TelewizjaChannelRowsLayout(
                     onNavigateToChannelGrid = onNavigateToChannelGrid,
                     onNavigateToVodGrid = onNavigateToVodGrid,
                     onNavigateToKinoGrid = onNavigateToKinoGrid,
+                    onNavigateToRecordingsGrid = onNavigateToRecordingsGrid,
                     appIconsData = appIconsData
                 )
             }
@@ -8157,6 +9764,7 @@ fun TelewizjaUnifiedChannelRow(
     onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> },
     appIconsData: Map<String, List<TvChannel>> = emptyMap()
 ) {
     val isCurrentRow = rowIndex == focusedRowIndex
@@ -8845,10 +10453,8 @@ fun TelewizjaUnifiedChannelRow(
                                     )
                                 }
                                 "Nagrania" -> {
-                                    // Navigate to Nagrania grid (20 random VOD)
-                                    val vodList = VodDataCache.getVodContentList()
-                                    val randomFilms = vodList.shuffled().take(20)
-                                    onNavigateToVodGrid("Wszystkie nagrania", randomFilms, "TELEWIZJA")
+                                    // Navigate to RecordingsGridScreen
+                                    onNavigateToRecordingsGrid("Zarządzaj nagraniami", "TELEWIZJA")
                                 }
                             }
                         }
@@ -9086,23 +10692,33 @@ private fun VodWithChannels(
     val context = LocalContext.current
     val channels = listOf("Kino Play", "Skróty v3", "Polecane", "Top 10", "Ostatnio dodane", "Akcja", "Komedie", "Horror", "Biograficzne")
 
-    val gridContent = remember {
-        val kinoPlayMovies = VodDataCache.getKinoPlayMovies()
-        if (kinoPlayMovies.isNotEmpty()) {
-            channels.associateWith { channelName ->
-                when (channelName) {
-                    "Skróty v3" -> emptyList() // Shortcuts don't have grid content
-                    "Kino Play", "Polecane", "Top 10", "Ostatnio dodane" ->
-                        kinoPlayMovies.shuffled().take(10)
-                    "Akcja" -> filterMoviesByCategory(kinoPlayMovies, "Akcja|Action")
-                    "Komedie" -> filterMoviesByCategory(kinoPlayMovies, "Komedia|Comedy")
-                    "Horror" -> filterMoviesByCategory(kinoPlayMovies, "Horror")
-                    "Biograficzne" -> filterMoviesByCategory(kinoPlayMovies, "Biograficzny|Biography|Biographical")
-                    else -> emptyList()
-                }
+    // State to track Supabase initialization for recomposition
+    var supabaseInitialized by remember { mutableStateOf(VodDataCache.isSupabaseInitialized()) }
+
+    // Initialize Supabase data when VOD section is loaded
+    LaunchedEffect(Unit) {
+        if (!VodDataCache.isSupabaseInitialized()) {
+            VodDataCache.initializeFromSupabase(context)
+            supabaseInitialized = VodDataCache.isSupabaseInitialized()
+        }
+    }
+
+    // Grid content from Supabase (with fallback to local JSON in VodDataCache)
+    // Uses supabaseInitialized as key to recompose when data becomes available
+    val gridContent = remember(supabaseInitialized) {
+        channels.associateWith { channelName ->
+            when (channelName) {
+                "Skróty v3" -> emptyList() // Shortcuts don't have grid content
+                "Kino Play" -> VodDataCache.getSupabaseMovies().take(10) // Hero slider
+                "Polecane" -> VodDataCache.getNewest() // Recommended (newest movies)
+                "Top 10" -> VodDataCache.getTop10() // Top 10 from Supabase (is_top10=true, ORDER BY top10_order)
+                "Ostatnio dodane" -> VodDataCache.getNewest() // Recently added (ORDER BY created_at DESC)
+                "Akcja" -> VodDataCache.getByGenre("Akcja")
+                "Komedie" -> VodDataCache.getByGenre("Komedia")
+                "Horror" -> VodDataCache.getByGenre("Horror")
+                "Biograficzne" -> VodDataCache.getByGenre("Biograficzny")
+                else -> emptyList()
             }
-        } else {
-            emptyMap()
         }
     }
 
@@ -9179,7 +10795,7 @@ private fun VodWithChannels(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF48227C))
+            .background(Color(0xFF281443))
             .onPreviewKeyEvent { event ->
                 handleVodNavigation(
                     event = event,
@@ -9256,8 +10872,34 @@ private fun VodLayoutWithSlider(
             )
         }
 
+        // Gradient pod menu - widoczny gdy fokus na channelach (row >= 2)
+        val gradientAlpha by animateFloatAsState(
+            targetValue = if (focusedRowIndex >= 2) 1f else 0f,
+            animationSpec = tween(durationMillis = 350),
+            label = "vod_gradient_alpha"
+        )
+
+        if (gradientAlpha > 0f) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(sy(300))
+                    .zIndex(5f)
+                    .alpha(gradientAlpha)
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                Color(0xE6281443), // Dark purple 90%
+                                Color(0x99281443), // Dark purple 60%
+                                Color.Transparent
+                            )
+                        )
+                    )
+            )
+        }
+
         // Channele (Row 2+) - z-index 10 (nad sliderem)
-        // Pierwszy channel wystawający 60px od dołu
+        // Pierwszy channel wystawający 40px od dołu
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -9289,74 +10931,59 @@ private fun VodHeroSlider(
 ) {
     var currentSlide by remember { mutableStateOf(0) }
     val focusRequester = remember { FocusRequester() }
+    val posterListState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
 
-    val sliderItems = remember {
-        listOf(
-            VodSlideData(
-                "Ballerina. Z uniwersum Johna Wicka",
-                "Akcja",
-                "120 min.",
-                "2025 r.",
-                "USA",
-                "13 lat",
-                "Zemsta ma nowe, piękniejsze oblicze. Ale wciąż nie zna litości. John Wick powraca, by wspomóc swoją godną następczynię!",
-                "24 zł/48h",
-                "https://n-1401-7.dcs.redcdn.pl/scale/play/playtv/upload/tvod/36490504/images/1053333674?srcmode=3&srcw=16&srch=9&dstw=1280&dsth=720&type=1&quality=85"
-            ),
-            VodSlideData(
-                "Fantastyczna 4: Pierwsze kroki",
-                "Akcja",
-                "110 min",
-                "2025 r.",
-                "USA",
-                "13 lat",
-                "Pierwsza Rodzina Marvela staje przed swoim najtrudniejszym wyzwaniem. Zmuszeni do balansowania między rolą bohaterów a siłą rodzinnych więzi, muszą obronić Ziemię przed wygłodniałym kosmicznym bogiem Galactusem i jego heroldem, Srebrnym Surferem.",
-                "24 zł/48h",
-                "https://n-1401-7.dcs.redcdn.pl/scale/play/playtv/images/vod/e3f1e1b2-a53b-4a24-bfad-99ed0ce5e0ea/billboard_mobile.jpg?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&quality=80&type=1"
-            ),
-            VodSlideData(
-                "Materialiści",
-                "Komedia",
-                "116 min",
-                "2025 r.",
-                "USA",
-                "13 lat",
-                "Lucy (Dakota Johnson) to młoda, ambitna swatka z Nowego Jorku, która wierzy, że zna przepis na miłość. Pewnego wieczoru poznaje wysokiego, przystojnego bruneta, prawdziwego „jednorożca\" (Pedro Pascal), a przypadkowe spotkanie z byłym chłopakiem (Chris Evans) stawia ją przed trudnym wyborem. Teraz musi zdecydować między idealnym partnerem a nieidealnym byłym.",
-                "24 zł/48h",
-                "https://n-1401-4.dcs.redcdn.pl/scale/play/playtv/upload/tvod/36337247/images/1051510641?srcmode=3&srcw=16&srch=9&dstw=1280&dsth=720&type=1&quality=85"
-            ),
-            VodSlideData(
-                "Oszukać przeznaczenie: Więzy krwi",
-                "Horror",
-                "132 min",
-                "2025 r.",
-                "USA",
-                "13 lat",
-                "Dręczona przez gwałtowny, powtarzający się koszmar studentka Stefani wraca do domu, aby wytropić jedyną osobę, która może przerwać ten cykl i uratować jej rodzinę przed makabryczną śmiercią, która na nią czeka.",
-                "24 zł/48h",
-                "https://n-1411-10.dcs.redcdn.pl/scale/play/playtv/upload/tvod/35502381/images/1034599634?srcmode=3&srcw=16&srch=9&dstw=1280&dsth=720&type=1&quality=85"
-            )
-        )
+    // Check if Supabase is initialized (for recomposition when data loads)
+    val supabaseReady = VodDataCache.isSupabaseInitialized()
+
+    // Slider movies from Supabase (no fallback - shows preloader until data loads)
+    val sliderItems = remember(supabaseReady) {
+        VodDataCache.getSliderMovies()
     }
 
-    val currentItem = sliderItems[currentSlide]
+    // Reset currentSlide if it's out of bounds after data loads
+    LaunchedEffect(sliderItems.size) {
+        if (currentSlide >= sliderItems.size && sliderItems.isNotEmpty()) {
+            currentSlide = 0
+        }
+    }
 
     LaunchedEffect(isFocused) {
         if (isFocused) {
-            // Reduced from 100ms to 0ms for instant focus
             kotlinx.coroutines.delay(0)
             focusRequester.requestFocus()
+        }
+    }
+
+    // Auto-scroll to center selected poster when it changes
+    LaunchedEffect(currentSlide) {
+        if (sliderItems.isNotEmpty()) {
+            // Scroll to center the selected item
+            // Calculate offset to center: (screenWidth/2) - (posterWidth/2) - (itemIndex * (posterWidth + spacing))
+            val posterWidth = 200 // px (będzie przeskalowane przez LazyRow)
+            val spacing = 16
+            val itemWidth = posterWidth + spacing
+
+            // Centrowanie - scrollujemy tak aby wybrany item był na środku
+            // Używamy animateScrollToItem z offset dla centrowania
+            posterListState.animateScrollToItem(
+                index = currentSlide,
+                scrollOffset = -(960 - posterWidth / 2) // ~środek ekranu minus połowa plakatu
+            )
         }
     }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .background(Color(0xFF281443)) // Dark purple background
             .focusRequester(focusRequester)
             .focusable()
             .onPreviewKeyEvent { event ->
                 if (!isFocused) return@onPreviewKeyEvent false
                 if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                if (sliderItems.isEmpty()) return@onPreviewKeyEvent false
 
                 when (event.key) {
                     Key.DirectionLeft -> {
@@ -9375,70 +11002,163 @@ private fun VodHeroSlider(
                 }
             }
     ) {
-        AsyncImage(
-            model = currentItem.backgroundUrl,
-            contentDescription = null,
-            modifier = Modifier
-                .fillMaxSize()
-                .let { modifier ->
-                    if (currentSlide == 1) {
-                        modifier.scale(scaleX = -1f, scaleY = 1f)
-                    } else {
-                        modifier
-                    }
-                },
-            contentScale = ContentScale.Crop
-        )
-
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    brush = Brush.horizontalGradient(
-                        colors = listOf(
-                            Color(0xAA000000),
-                            Color(0x33000000),
-                            Color.Transparent
-                        ),
-                        endX = sx(960).value
-                    )
+        // Show preloader while loading from Supabase
+        if (sliderItems.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(
+                    color = Color(0xFF5AECD3), // Aqua
+                    modifier = Modifier.size(56.dp),
+                    strokeWidth = 4.dp
                 )
-        )
+            }
+        } else {
+            // Capture STABLE item at slide change - prevents flickering when sliderItems reloads
+            // This ensures trailer URL and all data remain consistent for the current slide
+            val stableItem = remember(currentSlide) { sliderItems.getOrNull(currentSlide) ?: sliderItems[0] }
+            // Trailer URL from database (youtube_url field in Supabase movies table)
+            // Supports: direct MP4/M3U8 URLs (Supabase Storage), YouTube URLs (via extraction API)
+            val trailerUrl = stableItem.youtubeUrl
+
+            // Use stableItem for display, fallback to currentItem for fresh data when needed
+            val displayItem = sliderItems.getOrNull(currentSlide) ?: stableItem
+
+            // Trailer auto-play state - key by stableItem.title to be extra stable
+            var showTrailer by remember(stableItem.title) { mutableStateOf(false) }
+
+            // STABLE EFFECT: Only restarts when slide changes, not when focus flickers
+            // isFocused is checked inside the loop to handle focus changes gracefully
+            LaunchedEffect(stableItem.title) {
+                android.util.Log.d("VodHeroSlider", "LaunchedEffect started for: ${stableItem.title}")
+
+                // Continuous loop that checks focus state
+                while (true) {
+                    if (isFocused && !trailerUrl.isNullOrBlank() && !showTrailer) {
+                        // Wait 2 seconds before showing trailer
+                        kotlinx.coroutines.delay(2000)
+                        // Double-check focus is still active after delay
+                        if (isFocused && !trailerUrl.isNullOrBlank()) {
+                            showTrailer = true
+                            android.util.Log.d("VodHeroSlider", "Trailer START for: ${stableItem.title}, url=$trailerUrl")
+                        }
+                    } else if (!isFocused && showTrailer) {
+                        // Hide trailer when focus is lost
+                        showTrailer = false
+                        android.util.Log.d("VodHeroSlider", "Trailer STOP (focus lost) for: ${stableItem.title}")
+                    }
+                    // Small delay to prevent busy-waiting
+                    kotlinx.coroutines.delay(100)
+                }
+            }
+
+            // LAYER 0 (BOTTOM): Trailer video - UNDER backdrop, fills entire screen
+            // RESIZE_MODE_ZOOM in StyledPlayerView handles fullscreen filling
+            key(currentSlide) {
+                if (showTrailer && !trailerUrl.isNullOrBlank()) {
+                    trailerUrl?.let { url ->
+                        android.util.Log.d("VodHeroSlider", "YouTubeTrailerPlayer rendering for slide $currentSlide: ${url.take(60)}...")
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .zIndex(-1f)  // UNDER backdrop (lowest layer)
+                        ) {
+                            com.uxellence.tv.v3.components.YouTubeTrailerPlayer(
+                                youtubeUrl = url,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                    }
+                }
+            }
+
+            // LAYER 1: Backdrop image (fades out when trailer plays to reveal video underneath)
+            androidx.compose.animation.AnimatedVisibility(
+                visible = !showTrailer,
+                enter = androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(300)),
+                exit = androidx.compose.animation.fadeOut(animationSpec = androidx.compose.animation.core.tween(300))
+            ) {
+                AsyncImage(
+                    model = displayItem.backgroundUrl,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            }
+
+            // LAYER 2: 20% black overlay - ONLY when backdrop is visible (trailer not playing)
+            if (!showTrailer) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color(0x33000000)) // 20% black
+                )
+            }
+
+            // Left gradient for text readability - lighter when trailer is playing
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .zIndex(6f)  // On top of trailer for text readability
+                    .background(
+                        brush = Brush.horizontalGradient(
+                            colors = if (showTrailer) {
+                                // Lighter gradient when trailer plays (trailer has contrast)
+                                listOf(
+                                    Color(0x66000000),  // 40% black
+                                    Color.Transparent
+                                )
+                            } else {
+                                // Normal gradient for backdrop image
+                                listOf(
+                                    Color(0xAA000000),
+                                    Color(0x33000000),
+                                    Color.Transparent
+                                )
+                            },
+                            endX = sx(960).value
+                        )
+                    )
+            )
 
         Column(
             modifier = Modifier
                 .align(Alignment.CenterStart)
                 .width(sx(800))
-                .padding(sx(80))
+                .padding(start = sx(80))
+                .offset(y = -sy(100)) // Move everything up by 100px
                 .zIndex(1f),
             verticalArrangement = Arrangement.spacedBy(sy(24))
         ) {
+            // Title - up to half screen width (960px), single line unless longer
             Text(
-                text = currentItem.title,
+                text = displayItem.title,
                 color = Color.White,
                 fontSize = sy(64).value.sp,
                 fontWeight = FontWeight.Bold,
                 maxLines = 2,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.widthIn(max = sx(960))
             )
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(sx(16))
             ) {
-                Text(currentItem.genre, style = vodMetadataStyle(sy))
+                Text(displayItem.genre, style = vodMetadataStyle(sy))
                 VodMetadataSeparator(sy)
-                Text(currentItem.duration, style = vodMetadataStyle(sy))
+                Text(displayItem.duration, style = vodMetadataStyle(sy))
                 VodMetadataSeparator(sy)
-                Text(currentItem.year, style = vodMetadataStyle(sy))
+                Text(displayItem.year, style = vodMetadataStyle(sy))
                 VodMetadataSeparator(sy)
-                Text(currentItem.country, style = vodMetadataStyle(sy))
+                Text(displayItem.country, style = vodMetadataStyle(sy))
                 VodMetadataSeparator(sy)
-                Text(currentItem.ageRating, style = vodMetadataStyle(sy))
+                Text(displayItem.ageRating, style = vodMetadataStyle(sy))
             }
 
             Text(
-                text = currentItem.description,
+                text = displayItem.description,
                 color = Color(0xFFEEEEEE),
                 fontSize = sy(24).value.sp,
                 fontWeight = FontWeight.W400,
@@ -9447,55 +11167,82 @@ private fun VodHeroSlider(
                 lineHeight = (sy(24).value * 1.4).sp
             )
 
-            Spacer(modifier = Modifier.height(sy(24)))
+        }
 
-            // Rent button only
-            Box(
-                modifier = Modifier
-                    .height(sy(72))
-                    .background(
-                        color = if (isFocused) Color(0xFF5FEDD4) else Color(0x33EEEEEE),
-                        shape = RoundedCornerShape(sx(8))
-                    )
-                    .padding(horizontal = sx(32)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Wypożycz: ${currentItem.price}",
-                    color = if (isFocused) Color(0xFF48227C) else Color(0xFFEEEEEE),
-                    fontSize = sy(24).value.sp,
-                    fontWeight = FontWeight.W700,
-                    letterSpacing = (-0.48).sp
+        // Poster row at bottom - edge-to-edge scrolling, centers on selected
+        // zIndex(10f) ensures posters are ABOVE the trailer video
+        LazyRow(
+            state = posterListState,
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+                .zIndex(10f)  // ABOVE video layer
+                .padding(bottom = sy(120)),
+            horizontalArrangement = Arrangement.spacedBy(sx(16)),
+            contentPadding = PaddingValues(horizontal = sx(80)) // Padding na krawędziach, scroll edge-to-edge
+        ) {
+            itemsIndexed(sliderItems) { index, item ->
+                val isSelected = index == currentSlide
+                val isSliderFocused = isFocused
+
+                // Animowana skala (110% gdy selected + focused)
+                val posterScale by animateFloatAsState(
+                    targetValue = if (isSelected && isSliderFocused) 1.1f else 1f,
+                    animationSpec = tween(200),
+                    label = "poster_scale_$index"
                 )
-            }
 
-            Spacer(modifier = Modifier.height(sy(24)))
-
-            // Bullety
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(sx(24)),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                repeat(sliderItems.size) { index ->
-                    Box(
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Poster - same size as channel posters (200x280)
+                    Card(
                         modifier = Modifier
-                            .size(
-                                width = if (index == currentSlide) sx(32) else sx(16),
-                                height = if (index == currentSlide) sy(32) else sy(16)
-                            )
-                            .background(
-                                color = if (index == currentSlide) Color(0xFFEEEEEE) else Color.Transparent,
-                                shape = CircleShape
-                            )
-                            .border(
-                                width = if (index == currentSlide) 0.dp else 2.dp,
-                                color = if (index == currentSlide) Color.Transparent else Color(0x99EEEEEE),
-                                shape = CircleShape
-                            )
+                            .width(sx(200))
+                            .height(sy(280))
+                            .graphicsLayer {
+                                scaleX = posterScale
+                                scaleY = posterScale
+                            }
+                            .then(
+                                when {
+                                    // Focused: aqua border + shadow
+                                    isSelected && isSliderFocused -> Modifier
+                                        .shadow(16.dp, RoundedCornerShape(sx(12)))
+                                        .border(4.dp, Color(0xFF5AECD3), RoundedCornerShape(sx(12)))
+                                    // Selected (not focused): white border (thinner)
+                                    isSelected -> Modifier
+                                        .border(2.dp, Color.White, RoundedCornerShape(sx(12)))
+                                    // Other posters: no border
+                                    else -> Modifier
+                                }
+                            ),
+                        shape = RoundedCornerShape(sx(12)),
+                        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+                    ) {
+                        AsyncImage(
+                            model = item.posterUrl.ifEmpty { item.backgroundUrl },
+                            contentDescription = item.title,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(sy(8)))
+
+                    // Price under poster (from Supabase)
+                    Text(
+                        text = item.price,
+                        color = if (isSelected && isSliderFocused) Color(0xFF5AECD3)
+                               else if (isSelected) Color.White
+                               else Color(0xCCEEEEEE),
+                        fontSize = sy(18).value.sp,
+                        fontWeight = if (isSelected) FontWeight.W700 else FontWeight.W400
                     )
                 }
             }
         }
+        } // Close else block
     }
 }
 
@@ -10934,7 +12681,7 @@ private fun VodContentCard(
         }
         if (isFocused) {
             Text(
-                text = expiryText?.let { "oglądaj do: $expiryDay" } ?: "10,00 zł",
+                text = expiryText?.let { "oglądaj do: $expiryDay" } ?: vodContent.price ?: "Wypożycz",
                 color = Color(0xFFEEEEEE),
                 fontSize = (20 * (sy(1).value / 1.dp.value)).sp,
                 fontWeight = FontWeight.W700,
@@ -11126,7 +12873,7 @@ private fun Top10ContentCard(
             // Cena (tylko gdy jest fokus)
             if (isFocused) {
                 Text(
-                    text = "10,00 zł",
+                    text = vodContent.price ?: "Wypożycz",
                     textAlign = TextAlign.Center,
                     color = Color(0xFFEEEEEE),
                     fontSize = (20 * (sy(1).value / 1.dp.value)).sp,
@@ -11177,10 +12924,11 @@ private fun calculateVodChannelYPosition(
     }
 
     return when {
-        // When on menu (row 0) or slider (row 1) - channels peek 90px from bottom
+        // When on menu (row 0) or slider (row 1) - channels peek 40px above fold
         focusedRowIndex <= 1 -> {
             // Calculate cumulative height for all channels above this one
-            var cumulativeHeight = 990
+            // 1040 = screen height (1080) - 40px peek
+            var cumulativeHeight = 1040
             for (i in 0 until channelIndex) {
                 val prevChannelName = channels.getOrNull(i) ?: ""
                 val prevIsHorizontal = prevChannelName in emptyList<String>() // No horizontal channels anymore - all use vertical posters
@@ -11543,15 +13291,7 @@ fun VodFullscreenSlider(
         AsyncImage(
             model = currentItem.backgroundUrl,
             contentDescription = null,
-            modifier = Modifier
-                .fillMaxSize()
-                .let { modifier ->
-                    if (currentSlide == 1) {
-                        modifier.scale(scaleX = -1f, scaleY = 1f)
-                    } else {
-                        modifier
-                    }
-                },
+            modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.Crop
         )
         
@@ -11953,7 +13693,7 @@ private fun WideoChannelsScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF48227C))
+            .background(Color(0xFF281443))
             .onPreviewKeyEvent { event ->
                 handleWideoChannelsNavigation(
                     event = event,
@@ -12526,15 +14266,30 @@ private fun calculateWideoRowYPosition(
 @Composable
 private fun PointsHistoryScreenContent(
     globalFocusState: MutableState<GlobalFocusState>,
+    onPrepareReturnFocus: () -> Unit = {},  // Set button focus state BEFORE returning
     sx: (Int) -> Dp,
     sy: (Int) -> Dp
 ) {
+    // Focus requester for the main button
+    val buttonFocusRequester = remember { FocusRequester() }
+    var isButtonFocused by remember { mutableStateOf(false) }
+
+    // Auto-focus the button when entering content
+    LaunchedEffect(globalFocusState.value.currentRow) {
+        if (globalFocusState.value.currentRow > 0 && globalFocusState.value.sectionId == "POINTS_HISTORY") {
+            delay(150)
+            buttonFocusRequester.requestFocus()
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF48227C))
+            .background(Color(0xFF281443))
             .onPreviewKeyEvent { event ->
                 if (event.type == KeyEventType.KeyDown && event.key == Key.Back) {
+                    // Set button focus state FIRST to prevent "through Start" flash
+                    onPrepareReturnFocus()
                     globalFocusState.value = GlobalFocusManager.returnToMenu(globalFocusState.value)
                     return@onPreviewKeyEvent true
                 }
@@ -12561,15 +14316,32 @@ private fun PointsHistoryScreenContent(
                 fontSize = sy(32).value.sp
             )
 
-            // Current points display
+            // Focusable button (main interaction point)
             Box(
                 modifier = Modifier
                     .width(sx(400))
                     .height(sy(120))
                     .background(
-                        color = Color(0xFF5AECD3),
+                        color = if (isButtonFocused) Color(0xFF5AECD3) else Color(0x33EEEEEE),
                         shape = RoundedCornerShape(sx(60))
-                    ),
+                    )
+                    .border(
+                        width = if (isButtonFocused) 4.dp else 0.dp,
+                        color = if (isButtonFocused) Color.White else Color.Transparent,
+                        shape = RoundedCornerShape(sx(60))
+                    )
+                    .focusRequester(buttonFocusRequester)
+                    .onFocusChanged { isButtonFocused = it.isFocused }
+                    .focusable()
+                    .onPreviewKeyEvent { event ->
+                        if (event.type == KeyEventType.KeyDown &&
+                            (event.key == Key.Enter || event.key == Key.DirectionCenter)) {
+                            // TODO: Handle button click - show points history details
+                            true
+                        } else {
+                            false
+                        }
+                    },
                 contentAlignment = Alignment.Center
             ) {
                 Row(
@@ -12579,12 +14351,12 @@ private fun PointsHistoryScreenContent(
                     Icon(
                         painter = painterResource(id = R.drawable.ic_wallet),
                         contentDescription = null,
-                        tint = Color(0xFF48227C),
+                        tint = if (isButtonFocused) Color(0xFF48227C) else Color.White,
                         modifier = Modifier.size(sx(48), sy(48))
                     )
                     Text(
                         text = "40 pkt / 21 dni",
-                        color = Color(0xFF48227C),
+                        color = if (isButtonFocused) Color(0xFF48227C) else Color.White,
                         fontSize = sy(32).value.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -12602,10 +14374,197 @@ private fun PointsHistoryScreenContent(
     }
 }
 
+/**
+ * Pakiety section placeholder
+ * Shows channel packages available for subscription
+ * TODO: Implement actual content with channel package cards
+ */
+@Composable
+private fun PakietyScreenContent(
+    globalFocusState: MutableState<GlobalFocusState>,
+    onPrepareReturnFocus: () -> Unit = {},  // Set button focus state BEFORE returning
+    sx: (Int) -> Dp,
+    sy: (Int) -> Dp
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF281443))
+            .onPreviewKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown && event.key == Key.Back) {
+                    // Set button focus state FIRST to prevent "through Start" flash
+                    onPrepareReturnFocus()
+                    globalFocusState.value = GlobalFocusManager.returnToMenu(globalFocusState.value)
+                    return@onPreviewKeyEvent true
+                }
+                false
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(sy(40))
+        ) {
+            // Icon from drawable
+            Image(
+                painter = painterResource(id = R.drawable.ic_packages),
+                contentDescription = "Pakiety",
+                modifier = Modifier.size(sx(120), sy(120)),
+                colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(TopMenuDesign.COLOR_FOCUS_BORDER)
+            )
+
+            // Title
+            Text(
+                text = "Pakiety kanałów",
+                color = Color.White,
+                fontSize = (48 * sy(1).value / 1).sp,  // Layout Engineer pattern
+                fontWeight = FontWeight.Bold
+            )
+
+            // Placeholder info
+            Text(
+                text = "Ekran w przygotowaniu",
+                color = Color(0xCCEEEEEE),
+                fontSize = (32 * sy(1).value / 1).sp
+            )
+
+            // Description
+            Text(
+                text = "Tutaj znajdziesz dostępne pakiety kanałów\ndo wyboru i aktywacji",
+                color = Color(0x99EEEEEE),
+                fontSize = (24 * sy(1).value / 1).sp,
+                textAlign = TextAlign.Center,
+                lineHeight = (36 * sy(1).value / 1).sp
+            )
+
+            // Navigation hint
+            Text(
+                text = "Naciśnij BACK aby wrócić do menu",
+                color = Color(0x80EEEEEE),
+                fontSize = (24 * sy(1).value / 1).sp,
+                modifier = Modifier.padding(top = sy(60))
+            )
+        }
+    }
+}
+
+/**
+ * Profile section - for switching between user profiles
+ * Figma: Shows available profiles with avatars
+ */
+@Composable
+private fun ProfileScreenContent(
+    globalFocusState: MutableState<GlobalFocusState>,
+    onPrepareReturnFocus: () -> Unit = {},  // Set button focus state BEFORE returning
+    sx: (Int) -> Dp,
+    sy: (Int) -> Dp
+) {
+    // Focus requester for the main button
+    val buttonFocusRequester = remember { FocusRequester() }
+    var isButtonFocused by remember { mutableStateOf(false) }
+
+    // Auto-focus the button when entering content
+    LaunchedEffect(globalFocusState.value.currentRow) {
+        if (globalFocusState.value.currentRow > 0 && globalFocusState.value.sectionId == "PROFILE") {
+            delay(150)
+            buttonFocusRequester.requestFocus()
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF281443))
+            .onPreviewKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown && event.key == Key.Back) {
+                    // Set button focus state FIRST to prevent "through Start" flash
+                    onPrepareReturnFocus()
+                    globalFocusState.value = GlobalFocusManager.returnToMenu(globalFocusState.value)
+                    return@onPreviewKeyEvent true
+                }
+                false
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(sy(40))
+        ) {
+            // Profile icon
+            Icon(
+                imageVector = Icons.Default.Person,
+                contentDescription = "Profil",
+                tint = TopMenuDesign.COLOR_FOCUS_BORDER,
+                modifier = Modifier.size(sx(120), sy(120))
+            )
+
+            // Title
+            Text(
+                text = "Zmień profil",
+                color = Color.White,
+                fontSize = (48 * sy(1).value / 1).sp,
+                fontWeight = FontWeight.Bold
+            )
+
+            // Placeholder info
+            Text(
+                text = "Ekran w przygotowaniu",
+                color = Color(0xCCEEEEEE),
+                fontSize = (32 * sy(1).value / 1).sp
+            )
+
+            // Focusable button (main interaction point)
+            Box(
+                modifier = Modifier
+                    .width(sx(400))
+                    .height(sy(100))
+                    .background(
+                        color = if (isButtonFocused) Color(0xFF5AECD3) else Color(0x33EEEEEE),
+                        shape = RoundedCornerShape(sx(50))
+                    )
+                    .border(
+                        width = if (isButtonFocused) 4.dp else 0.dp,
+                        color = if (isButtonFocused) Color.White else Color.Transparent,
+                        shape = RoundedCornerShape(sx(50))
+                    )
+                    .focusRequester(buttonFocusRequester)
+                    .onFocusChanged { isButtonFocused = it.isFocused }
+                    .focusable()
+                    .onPreviewKeyEvent { event ->
+                        if (event.type == KeyEventType.KeyDown &&
+                            (event.key == Key.Enter || event.key == Key.DirectionCenter)) {
+                            // TODO: Handle button click - show profile selection
+                            true
+                        } else {
+                            false
+                        }
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Wybierz profil",
+                    color = if (isButtonFocused) Color(0xFF48227C) else Color.White,
+                    fontSize = sy(28).value.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+
+            // Navigation hint
+            Text(
+                text = "Naciśnij BACK aby wrócić do menu",
+                color = Color(0x80EEEEEE),
+                fontSize = (24 * sy(1).value / 1).sp,
+                modifier = Modifier.padding(top = sy(40))
+            )
+        }
+    }
+}
+
 @Composable
 private fun AccountScreenContent(
     globalFocusState: MutableState<GlobalFocusState>,
     onNavigateToStartupMode: () -> Unit,
+    onPrepareReturnFocus: () -> Unit = {},  // Set button focus state BEFORE returning
     sx: (Int) -> Dp,
     sy: (Int) -> Dp
 ) {
@@ -12620,7 +14579,9 @@ private fun AccountScreenContent(
 
     AccountChannelsScreen(
         onReturnToMenu = {
-            // Return to menu (LaunchedEffect will auto-focus Profile button)
+            // Set button focus state FIRST to prevent "through Start" flash
+            onPrepareReturnFocus()
+            // Then return to menu
             globalFocusState.value = globalFocusState.value.copy(
                 currentRow = 0,
                 isActive = true
@@ -12734,6 +14695,12 @@ private fun AccountChannelsScreen(
                 icon = Icons.Default.Settings
             ),
             AccountMenuItem(
+                id = "remote_config",
+                title = "Pobierz parametry",
+                subtitle = "Zaktualizuj konfigurację aplikacji z serwera",
+                icon = Icons.Default.Refresh
+            ),
+            AccountMenuItem(
                 id = "channel_search",
                 title = "Wyszukiwanie kanałów TV",
                 subtitle = "Podłącz kabel DVB i wyszukaj kanały naziemnej telewizji cyfrowej",
@@ -12750,16 +14717,16 @@ private fun AccountChannelsScreen(
 
     // 2-level focus state (Profile, Menu List)
     var focusLevel by remember { mutableStateOf(AccountFocusLevel.PROFILE) }
-    var menuListIndex by remember { mutableStateOf(0) } // 0-9 for menu items (10 total)
+    var menuListIndex by remember { mutableStateOf(0) } // 0-10 for menu items (11 total)
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
 
     // FocusRequesters for 2 levels
     val profileFocusRequester = remember { FocusRequester() }
 
-    // FocusRequesters for Menu List (10 items: Powiadomienia + Ekran startowy + 8 others)
+    // FocusRequesters for Menu List (11 items: Powiadomienia + Ekran startowy + Pobierz parametry + others)
     val menuListFocusRequesters = remember {
-        (0 until 10).associateWith { FocusRequester() }
+        (0 until 11).associateWith { FocusRequester() }
     }
 
     // Auto-focus PROFILE when entering content (follows Focus Architect pattern)
@@ -12860,6 +14827,26 @@ private fun AccountChannelsScreen(
                             "startup_mode" -> {
                                 Log.d("ACCOUNT", "Navigate to Startup Mode Selection")
                                 onNavigateToStartupMode()
+                            }
+                            "remote_config" -> {
+                                Log.d("ACCOUNT", "Pobierz parametry clicked - fetching config from Supabase")
+                                coroutineScope.launch {
+                                    val result = ConfigManager.refreshConfig(context)
+                                    result.onSuccess { config ->
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            "Pobrano konfigurację v${config.version}",
+                                            android.widget.Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                    result.onFailure { error ->
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            "Błąd: ${error.message}",
+                                            android.widget.Toast.LENGTH_LONG
+                                        ).show()
+                                    }
+                                }
                             }
                             else -> {
                                 Log.d("ACCOUNT", "Clicked: ${item.title}")

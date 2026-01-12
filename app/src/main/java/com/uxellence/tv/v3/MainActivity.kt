@@ -40,6 +40,7 @@ import com.uxellence.tv.v3.version001.VodContent
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.uxellence.tv.v3.ui.theme.figmaRadialBackground
+import com.uxellence.tv.v3.config.ConfigManager
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -50,6 +51,8 @@ class MainActivity : ComponentActivity() {
         VodDataCache.initialize(this)
         // Initialize ChannelManager with TV channels database
         ChannelManager.initialize(this)
+        // Initialize ConfigManager - load cached config from Supabase
+        ConfigManager.initialize(this)
         setContent { TvRoot() }
     }
 
@@ -69,7 +72,7 @@ class MainActivity : ComponentActivity() {
 }
 
 enum class NavigationScreen {
-    HOME, LIVE, COMPONENT_SHOWCASE, TOP_MENU, TOP_MENU2, SHORTCUT, CHANNELE, VIDEOSLIDER, SLIDER, SLIDER_MIX, EPG, EPG_DAY, FOCUS_MINI_CARD, VOICE_TEST, SPLASH, WHATS_NEW, STARTUP_MODE_SELECTION, LAUNCHER_SETUP, ZAPPING_BAR, CHANNEL_GRID, WIDEO_GRID, KINO_GRID, VOD_GRID
+    HOME, LIVE, COMPONENT_SHOWCASE, TOP_MENU, TOP_MENU2, SHORTCUT, CHANNELE, VIDEOSLIDER, SLIDER, SLIDER_MIX, EPG, EPG_DAY, FOCUS_MINI_CARD, VOICE_TEST, SPLASH, WHATS_NEW, STARTUP_MODE_SELECTION, LAUNCHER_SETUP, ZAPPING_BAR, CHANNEL_GRID, WIDEO_GRID, KINO_GRID, VOD_GRID, RECORDINGS_GRID, SERIES_EPISODES
 }
 
 // Helper functions for launcher setup
@@ -337,6 +340,13 @@ fun TvRoot(
     var kinoGridTitle by remember { mutableStateOf("Lista Kino") }
     var kinoGridPrefiltered by remember { mutableStateOf<List<VodContent>?>(null) }  // Prefiltered KINO data
     var kinoGridSourceSection by remember { mutableStateOf<String?>(null) }  // "KINO_PLAY"
+
+    // RecordingsGridScreen navigation parameters
+    var recordingsGridSourceSection by remember { mutableStateOf<String?>(null) }  // "MOJE"
+
+    // SeriesEpisodesGridScreen navigation parameters
+    var seriesEpisodesId by remember { mutableStateOf("") }
+    var seriesEpisodesTitle by remember { mutableStateOf("") }
 
     // Save TELEWIZJA focus state for smart BACK navigation (ID-based)
     var savedTelewizjaFocus by remember { mutableStateOf<FocusState?>(null) }
@@ -780,6 +790,32 @@ fun TvRoot(
                     preloadedData = kinoGridPrefiltered
                 )
             }
+            NavigationScreen.RECORDINGS_GRID -> {
+                RecordingsGridScreen(
+                    onBackPressed = {
+                        // Return to MOJE section in TOP_MENU2
+                        currentScreen = NavigationScreen.TOP_MENU2
+                        savedTelewizjaSection = recordingsGridSourceSection ?: "MOJE"
+                    },
+                    onSeriesClick = { seriesId, title ->
+                        // Navigate to series episodes drill-down
+                        seriesEpisodesId = seriesId
+                        seriesEpisodesTitle = title
+                        previousScreen = NavigationScreen.RECORDINGS_GRID
+                        currentScreen = NavigationScreen.SERIES_EPISODES
+                    }
+                )
+            }
+            NavigationScreen.SERIES_EPISODES -> {
+                SeriesEpisodesGridScreen(
+                    seriesId = seriesEpisodesId,
+                    seriesTitle = seriesEpisodesTitle,
+                    onBackPressed = {
+                        // Return to recordings grid
+                        currentScreen = NavigationScreen.RECORDINGS_GRID
+                    }
+                )
+            }
             NavigationScreen.SLIDER -> {
                 SliderScreen()
             }
@@ -901,6 +937,12 @@ fun TvRoot(
                         kinoGridSourceSection = sourceSection
                         previousScreen = NavigationScreen.TOP_MENU2
                         currentScreen = NavigationScreen.KINO_GRID
+                    },
+                    onNavigateToRecordingsGrid = { _, sourceSection ->
+                        // Navigate to Recordings grid (title is now dynamic based on filter)
+                        recordingsGridSourceSection = sourceSection
+                        previousScreen = NavigationScreen.TOP_MENU2
+                        currentScreen = NavigationScreen.RECORDINGS_GRID
                     }
                 )
 
