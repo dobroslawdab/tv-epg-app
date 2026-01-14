@@ -26,6 +26,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.LazyColumn
@@ -11576,6 +11578,9 @@ private fun SliderActionButtonV2(
  * VodHeroSlider V2 - Carousel with V2 visual style (like V1 but with new card design)
  * Toggled with Key.Nine
  *
+ * Uses Row + horizontalScroll instead of LazyRow to avoid Compose's auto-scroll on focus.
+ * This gives full control over scrolling behavior.
+ *
  * @param items List of VodSlideData to display (passed from parent for section-specific content)
  */
 @Composable
@@ -11589,40 +11594,31 @@ private fun VodHeroSliderV2(
 ) {
     val sliderItems = items
     var lastFocusedIndex by remember { mutableStateOf(0) }
-    val listState = rememberLazyListState()
+    val scrollState = rememberScrollState()
     val scope = rememberCoroutineScope()
     val focusRequesters = remember(sliderItems.size) { List(sliderItems.size.coerceAtLeast(1)) { FocusRequester() } }
-
-    // Scroll target - like V1 pattern (separate from focus restoration)
-    var scrollTargetIndex by remember { mutableStateOf<Int?>(null) }
 
     // Track if we're returning from menu (to skip scroll in that case)
     var isRestoringFocus by remember { mutableStateOf(false) }
 
-    // Scroll handler - like V1: separate LaunchedEffect watching scrollTargetIndex
-    LaunchedEffect(scrollTargetIndex) {
-        scrollTargetIndex?.let { targetIndex ->
-            kotlinx.coroutines.delay(50)
-            listState.scrollToItem(targetIndex)
-        }
-    }
+    // Calculate scroll position for given index (card at 60px from left edge)
+    val cardWidth = sx(1468).value.toInt()
+    val spacing = sx(20).value.toInt()
+    fun calculateScrollPosition(index: Int): Int = index * (cardWidth + spacing)
 
-    // When slider becomes focused: FOCUS FIRST, then OVERRIDE Compose's auto-scroll
+    // When slider becomes focused: Scroll to position (instant) then focus
     LaunchedEffect(isFocused) {
         if (isFocused && sliderItems.isNotEmpty()) {
             isRestoringFocus = true
             val targetIndex = lastFocusedIndex.coerceIn(0, sliderItems.size - 1)
 
-            // 1. Focus (Compose scrolluje do prawej)
+            // 1. Scroll to correct position (instant, no animation) - card at 60px from left
+            scrollState.scrollTo(calculateScrollPosition(targetIndex))
+
+            // 2. Then focus - no auto-scroll since Row doesn't have bring-into-view
             focusRequesters.getOrNull(targetIndex)?.requestFocus()
 
-            // 2. Czekaj na Compose auto-scroll
-            kotlinx.coroutines.delay(150)
-
-            // 3. NADPISZ pozycję na 60px od lewej
-            listState.scrollToItem(targetIndex)
-
-            kotlinx.coroutines.delay(100)
+            kotlinx.coroutines.delay(50)
             isRestoringFocus = false
         }
     }
@@ -11645,13 +11641,20 @@ private fun VodHeroSliderV2(
                 )
             }
         } else {
-            LazyRow(
-                state = listState,
-                contentPadding = PaddingValues(start = sx(60), end = sx(800)), // X=60px from left + extra space at end
-                horizontalArrangement = Arrangement.spacedBy(sx(20)),
-                modifier = Modifier.fillMaxWidth()
+            // Box with 60px left padding - this stays fixed, Row scrolls inside
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = sx(60)) // 60px from left - FIXED, doesn't scroll
             ) {
-                itemsIndexed(sliderItems) { index, item ->
+                // Row + horizontalScroll - no auto-scroll on focus
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(sx(20)),
+                    modifier = Modifier
+                        .horizontalScroll(scrollState)
+                        .padding(end = sx(800)) // Extra space at end for last card
+                ) {
+                    sliderItems.forEachIndexed { index, item ->
                     SliderV2Card(
                         item = item,
                         sectionType = sectionType,
@@ -11663,15 +11666,18 @@ private fun VodHeroSliderV2(
                         itemCount = sliderItems.size,
                         onCardFocused = { cardFocused ->
                             if (cardFocused) {
-                                // Scroll for LEFT/RIGHT navigation (not menu return)
+                                // Scroll only for LEFT/RIGHT navigation, not menu return
                                 if (!isRestoringFocus) {
-                                    scrollTargetIndex = index
+                                    scope.launch {
+                                        scrollState.animateScrollTo(calculateScrollPosition(index))
+                                    }
                                 }
                                 lastFocusedIndex = index
                                 onSlideChanged(index)
                             }
                         }
                     )
+                    }
                 }
             }
         }
