@@ -137,6 +137,7 @@ import android.content.Context
 import com.uxellence.tv.v3.utils.VersionTracker
 import com.uxellence.tv.v3.config.ConfigManager
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.PlayArrow
 
 // PIP Dialog Constants
 private val DIALOG_ALLOWED_KEYS = setOf(
@@ -653,7 +654,8 @@ data class VodSlideData(
     val price: String,
     val backgroundUrl: String,
     val posterUrl: String = "", // Poster for thumbnail view
-    val youtubeUrl: String? = null // YouTube trailer URL for auto-play
+    val youtubeUrl: String? = null, // YouTube trailer URL for auto-play
+    val channelLogoUrl: String? = null // Channel logo URL for WIDEO section
 )
 
 /**
@@ -671,7 +673,8 @@ fun VodContent.toVodSlideData(): VodSlideData = VodSlideData(
     price = price ?: "Bezpłatne",
     backgroundUrl = imageUrl,
     posterUrl = imageUrl,
-    youtubeUrl = null
+    youtubeUrl = null,
+    channelLogoUrl = channelLogoUrl // Logo kanału z VodContent
 )
 
 data class PackageItem(
@@ -11535,29 +11538,31 @@ private fun SliderActionButtonV2(
     text: String,
     isFocused: Boolean,
     showIcon: Boolean = true,
+    usePlayIcon: Boolean = false,
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp
 ) {
-    // Only show button when slider is focused
-    if (!isFocused) return
+    // Colors based on focus state
+    val backgroundColor = if (isFocused) Color(0xFF5FEDD4) else Color(0xFF6B4D99) // Aqua or Purple
+    val contentColor = if (isFocused) Color(0xFF48227C) else Color(0xFFEEEEEE) // Purple or White
 
     Row(
         modifier = Modifier
             .height(sy(72))
             .background(
-                color = Color(0xFF5FEDD4), // Aqua
+                color = backgroundColor,
                 shape = RoundedCornerShape(sx(8))
             )
             .padding(horizontal = sx(32)),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(sx(8))
     ) {
-        // Shopping cart icon
+        // Icon - Play for WIDEO, ShoppingCart for others
         if (showIcon) {
             Icon(
-                imageVector = Icons.Default.ShoppingCart,
+                imageVector = if (usePlayIcon) Icons.Default.PlayArrow else Icons.Default.ShoppingCart,
                 contentDescription = null,
-                tint = Color(0xFF48227C), // Purple
+                tint = contentColor,
                 modifier = Modifier.size(sy(32))
             )
         }
@@ -11565,7 +11570,7 @@ private fun SliderActionButtonV2(
         // Button text
         Text(
             text = text,
-            color = Color(0xFF48227C), // Purple
+            color = contentColor,
             fontSize = sy(24).value.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = (-0.48).sp,
@@ -11677,6 +11682,7 @@ private fun VodHeroSliderV2(
                     SliderV2CardStateBased(
                         item = item,
                         sectionType = sectionType,
+                        slideIndex = index,
                         isSelected = isSelected,
                         isSliderFocused = isFocused,
                         sx = sx,
@@ -11898,6 +11904,7 @@ private fun SliderV2Card(
 private fun SliderV2CardStateBased(
     item: VodSlideData,
     sectionType: String,
+    slideIndex: Int,          // Index slajdu (0, 1, 2, ...)
     isSelected: Boolean,      // Czy ta karta jest wybrana (currentSlide)
     isSliderFocused: Boolean, // Czy slider ma fokus
     sx: (Int) -> androidx.compose.ui.unit.Dp,
@@ -11912,7 +11919,7 @@ private fun SliderV2CardStateBased(
             .height(sy(675)),
         shape = RoundedCornerShape(sx(16)),
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF2A1B3D)
+            containerColor = Color(0xFF281443)
         ),
         border = if (isCardFocused) BorderStroke(4.dp, Color(0xFF5FEDD4)) else null,
         elevation = CardDefaults.cardElevation(
@@ -11933,20 +11940,19 @@ private fun SliderV2CardStateBased(
                 )
             }
 
-            // Left gradient overlay
+            // Left gradient overlay - 590px wide, starting from image left edge (~270px from card edge)
             Box(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .fillMaxHeight()
+                    .width(sx(590))
+                    .align(Alignment.CenterStart)
+                    .offset(x = sx(266))  // Start from image left edge
                     .background(
                         brush = Brush.horizontalGradient(
                             colors = listOf(
-                                Color(0xFF2A1B3D), // Solid purple
-                                Color(0xE62A1B3D), // 90%
-                                Color(0xB32A1B3D), // 70%
-                                Color(0x662A1B3D), // 40%
-                                Color.Transparent
-                            ),
-                            endX = sx(900).value
+                                Color(0xFF281443),    // 100% #281443
+                                Color.Transparent     // 0% transparent
+                            )
                         )
                     )
             )
@@ -11968,98 +11974,134 @@ private fun SliderV2CardStateBased(
                 )
             }
 
-            // Content column
-            Column(
+            // Content area - Box for absolute positioning
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(start = sx(48), top = sy(32), bottom = sy(32))
+                    .padding(start = sx(50), bottom = sy(40))
             ) {
-                // Top row: Section logo + Content labels
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(sx(16))
-                ) {
-                    // Section logo text
-                    Text(
-                        text = when (sectionType) {
-                            "KINO_PLAY" -> "KINO PLAY"
-                            else -> sectionType
-                        },
-                        color = Color(0xFF5FEDD4),
-                        fontSize = sy(20).value.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-
-                    // Content labels
-                    ContentLabelV2(
-                        label = "Premiera premium",
-                        show4K = true,
-                        sx = sx,
-                        sy = sy
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(sy(32)))
-
-                // Title
-                Text(
-                    text = item.title,
-                    color = Color(0xFFEEEEEE),
-                    fontSize = sy(48).value.sp,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    lineHeight = sy(56).value.sp,
-                    modifier = Modifier.widthIn(max = sx(600))
-                )
-
-                Spacer(modifier = Modifier.height(sy(16)))
-
-                // Metadata row
-                SliderMetadataRowV2(
-                    genre = item.genre,
-                    duration = item.duration,
-                    ageRating = item.ageRating,
-                    krritLabels = setOf(
-                        com.uxellence.tv.v3.model.KrritLabel.S,
-                        com.uxellence.tv.v3.model.KrritLabel.W
-                    ),
-                    sx = sx,
-                    sy = sy
-                )
-
-                Spacer(modifier = Modifier.height(sy(16)))
-
-                // Description (max 3 lines)
-                Text(
-                    text = item.description,
-                    color = Color(0xCCEEEEEE),
-                    fontSize = sy(24).value.sp,
-                    fontWeight = FontWeight.Normal,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis,
-                    lineHeight = sy(32).value.sp,
+                // EMBLEM: Logo + labels - centered vertically in 0-160px space
+                // zIndex ensures it floats above, doesn't affect title position
+                Box(
                     modifier = Modifier
-                        .widthIn(max = sx(550))
-                        .heightIn(max = sy(100))
-                )
+                        .height(sy(160))
+                        .zIndex(1f),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(sx(30))
+                    ) {
+                    when (sectionType) {
+                        "KINO_PLAY" -> {
+                            // Logo KINO PAY - oryginalna wielkość
+                            Image(
+                                painter = painterResource(id = R.drawable.logo_kino_pay),
+                                contentDescription = "KINO PLAY"
+                            )
+                            // Content labels (Premiera premium + 4K)
+                            ContentLabelV2(
+                                label = "Premiera premium",
+                                show4K = true,
+                                sx = sx,
+                                sy = sy
+                            )
+                        }
+                        "WIDEO" -> {
+                            // Logo kanału z JSON - max 100px height, centered in 160px space
+                            if (!item.channelLogoUrl.isNullOrEmpty()) {
+                                AsyncImage(
+                                    model = item.channelLogoUrl,
+                                    contentDescription = "Channel logo",
+                                    modifier = Modifier.heightIn(max = sy(100)),
+                                    contentScale = ContentScale.Fit
+                                )
+                            }
+                        }
+                        else -> {
+                            Text(
+                                text = sectionType,
+                                color = Color(0xFF5FEDD4),
+                                fontSize = sy(20).value.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            ContentLabelV2(
+                                label = "Premiera premium",
+                                show4K = true,
+                                sx = sx,
+                                sy = sy
+                            )
+                        }
+                    }
+                    } // Close Row
+                } // Close Box (emblem container)
 
-                Spacer(modifier = Modifier.weight(1f))
+                // CONTENT: Title and rest - starts at fixed 160px from top
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(top = sy(160))
+                ) {
+                    // Title
+                    Text(
+                        text = item.title,
+                        color = Color(0xFFEEEEEE),
+                        fontSize = sy(48).value.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        lineHeight = sy(56).value.sp,
+                        modifier = Modifier.widthIn(max = sx(600))
+                    )
 
-                // Action button (visible only when card is focused)
-                if (isCardFocused) {
-                    SliderActionButtonV2(
-                        text = "Wypożycz: ${item.price}",
-                        isFocused = true,
-                        showIcon = true,
+                    Spacer(modifier = Modifier.height(sy(16)))
+
+                    // Metadata row
+                    SliderMetadataRowV2(
+                        genre = item.genre,
+                        duration = item.duration,
+                        ageRating = item.ageRating,
+                        krritLabels = setOf(
+                            com.uxellence.tv.v3.model.KrritLabel.S,
+                            com.uxellence.tv.v3.model.KrritLabel.W
+                        ),
                         sx = sx,
                         sy = sy
                     )
-                }
-            }
-        }
-    }
-}
+
+                    Spacer(modifier = Modifier.height(sy(16)))
+
+                    // Description (max 3 lines) - color #EEEEEE without transparency
+                    Text(
+                        text = item.description,
+                        color = Color(0xFFEEEEEE),
+                        fontSize = sy(24).value.sp,
+                        fontWeight = FontWeight.Normal,
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis,
+                        lineHeight = sy(32).value.sp,
+                        modifier = Modifier
+                            .widthIn(max = sx(550))
+                            .heightIn(max = sy(100))
+                    )
+
+                    Spacer(modifier = Modifier.weight(1f))
+
+                    // Action button (always visible, style depends on focus)
+                    // WIDEO: Play icon + "Oglądaj", KINO_PLAY: Shopping cart + "Wypożycz: price"
+                    SliderActionButtonV2(
+                        text = if (sectionType == "WIDEO") "Oglądaj" else "Wypożycz: ${item.price}",
+                        isFocused = isCardFocused,
+                        showIcon = true,
+                        usePlayIcon = sectionType == "WIDEO",
+                        sx = sx,
+                        sy = sy
+                    )
+                } // Close inner Column (content)
+            } // Close Box (content area)
+        } // Close Box (main container)
+    } // Close Card
+} // Close function
 
 @Composable
 private fun VodChannelRows(
