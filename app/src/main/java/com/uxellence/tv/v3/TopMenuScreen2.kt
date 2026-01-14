@@ -11578,8 +11578,9 @@ private fun SliderActionButtonV2(
  * VodHeroSlider V2 - Carousel with V2 visual style (like V1 but with new card design)
  * Toggled with Key.Nine
  *
- * Uses Row + horizontalScroll instead of LazyRow to avoid Compose's auto-scroll on focus.
- * This gives full control over scrolling behavior.
+ * Uses STATE-BASED navigation (like V1) with LazyRow + animateScrollToItem.
+ * This avoids Compose's "bring into view" auto-scroll by using a single FocusRequester
+ * for the entire slider, not per-card FocusRequesters.
  *
  * @param items List of VodSlideData to display (passed from parent for section-specific content)
  */
@@ -11593,33 +11594,32 @@ private fun VodHeroSliderV2(
     onSlideChanged: (Int) -> Unit = {}
 ) {
     val sliderItems = items
-    var lastFocusedIndex by remember { mutableStateOf(0) }
-    val scrollState = rememberScrollState()
-    val scope = rememberCoroutineScope()
-    val focusRequesters = remember(sliderItems.size) { List(sliderItems.size.coerceAtLeast(1)) { FocusRequester() } }
+    var currentSlide by remember { mutableStateOf(0) }
+    val focusRequester = remember { FocusRequester() } // JEDEN dla całego slidera
+    val listState = rememberLazyListState()
 
-    // Track if we're returning from menu (to skip scroll in that case)
-    var isRestoringFocus by remember { mutableStateOf(false) }
+    // Reset currentSlide if out of bounds after data loads
+    LaunchedEffect(sliderItems.size) {
+        if (currentSlide >= sliderItems.size && sliderItems.isNotEmpty()) {
+            currentSlide = 0
+        }
+    }
 
-    // Calculate scroll position for given index (card at 60px from left edge)
-    val cardWidth = sx(1468).value.toInt()
-    val spacing = sx(20).value.toInt()
-    fun calculateScrollPosition(index: Int): Int = index * (cardWidth + spacing)
-
-    // When slider becomes focused: Scroll to position (instant) then focus
+    // Focus restoration when slider becomes focused
     LaunchedEffect(isFocused) {
-        if (isFocused && sliderItems.isNotEmpty()) {
-            isRestoringFocus = true
-            val targetIndex = lastFocusedIndex.coerceIn(0, sliderItems.size - 1)
+        if (isFocused) {
+            focusRequester.requestFocus()
+        }
+    }
 
-            // 1. Scroll to correct position (instant, no animation) - card at 60px from left
-            scrollState.scrollTo(calculateScrollPosition(targetIndex))
-
-            // 2. Then focus - no auto-scroll since Row doesn't have bring-into-view
-            focusRequesters.getOrNull(targetIndex)?.requestFocus()
-
-            kotlinx.coroutines.delay(50)
-            isRestoringFocus = false
+    // Scroll to current slide (60px from left edge via contentPadding)
+    LaunchedEffect(currentSlide) {
+        if (sliderItems.isNotEmpty()) {
+            listState.animateScrollToItem(
+                index = currentSlide,
+                scrollOffset = 0 // contentPadding handles 60px positioning
+            )
+            onSlideChanged(currentSlide)
         }
     }
 
@@ -11627,6 +11627,29 @@ private fun VodHeroSliderV2(
         modifier = Modifier
             .fillMaxSize()
             .padding(top = sy(200)) // 200px below top menu
+            .focusRequester(focusRequester)
+            .focusable()
+            .onPreviewKeyEvent { event ->
+                if (!isFocused) return@onPreviewKeyEvent false
+                if (event.type != androidx.compose.ui.input.key.KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                if (sliderItems.isEmpty()) return@onPreviewKeyEvent false
+
+                when (event.key) {
+                    androidx.compose.ui.input.key.Key.DirectionLeft -> {
+                        if (currentSlide > 0) {
+                            currentSlide--
+                        }
+                        true
+                    }
+                    androidx.compose.ui.input.key.Key.DirectionRight -> {
+                        if (currentSlide < sliderItems.size - 1) {
+                            currentSlide++
+                        }
+                        true
+                    }
+                    else -> false
+                }
+            }
     ) {
         if (sliderItems.isEmpty()) {
             // Loading state
@@ -11641,43 +11664,24 @@ private fun VodHeroSliderV2(
                 )
             }
         } else {
-            // Box with 60px left padding - this stays fixed, Row scrolls inside
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = sx(60)) // 60px from left - FIXED, doesn't scroll
+            // LazyRow with contentPadding for 60px left edge positioning
+            LazyRow(
+                state = listState,
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(sx(20)),
+                contentPadding = PaddingValues(start = sx(60), end = sx(400))
             ) {
-                // Row + horizontalScroll - no auto-scroll on focus
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(sx(20)),
-                    modifier = Modifier
-                        .horizontalScroll(scrollState)
-                        .padding(end = sx(800)) // Extra space at end for last card
-                ) {
-                    sliderItems.forEachIndexed { index, item ->
-                    SliderV2Card(
+                itemsIndexed(sliderItems) { index, item ->
+                    val isSelected = index == currentSlide
+
+                    SliderV2CardStateBased(
                         item = item,
                         sectionType = sectionType,
-                        focusRequester = focusRequesters[index],
+                        isSelected = isSelected,
+                        isSliderFocused = isFocused,
                         sx = sx,
-                        sy = sy,
-                        enabled = isFocused,
-                        index = index,
-                        itemCount = sliderItems.size,
-                        onCardFocused = { cardFocused ->
-                            if (cardFocused) {
-                                // Scroll only for LEFT/RIGHT navigation, not menu return
-                                if (!isRestoringFocus) {
-                                    scope.launch {
-                                        scrollState.animateScrollTo(calculateScrollPosition(index))
-                                    }
-                                }
-                                lastFocusedIndex = index
-                                onSlideChanged(index)
-                            }
-                        }
+                        sy = sy
                     )
-                    }
                 }
             }
         }
@@ -11731,6 +11735,181 @@ private fun SliderV2Card(
                 }
             }
             .focusable(enabled = enabled),
+        shape = RoundedCornerShape(sx(16)),
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xFF2A1B3D)
+        ),
+        border = if (isCardFocused) BorderStroke(4.dp, Color(0xFF5FEDD4)) else null,
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = if (isCardFocused) 16.dp else 4.dp
+        )
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Background image (aligned to right, scaled to fit height)
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.CenterEnd
+            ) {
+                AsyncImage(
+                    model = item.backgroundUrl,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxHeight(),
+                    contentScale = ContentScale.FillHeight
+                )
+            }
+
+            // Left gradient overlay
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        brush = Brush.horizontalGradient(
+                            colors = listOf(
+                                Color(0xFF2A1B3D), // Solid purple
+                                Color(0xE62A1B3D), // 90%
+                                Color(0xB32A1B3D), // 70%
+                                Color(0x662A1B3D), // 40%
+                                Color.Transparent
+                            ),
+                            endX = sx(900).value
+                        )
+                    )
+            )
+
+            // Glow effect when focused
+            if (isCardFocused) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    Color(0x1A5FEDD4), // 10% aqua glow
+                                    Color.Transparent
+                                ),
+                                radius = sx(800).value
+                            )
+                        )
+                )
+            }
+
+            // Content column
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(start = sx(48), top = sy(32), bottom = sy(32))
+            ) {
+                // Top row: Section logo + Content labels
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(sx(16))
+                ) {
+                    // Section logo text
+                    Text(
+                        text = when (sectionType) {
+                            "KINO_PLAY" -> "KINO PLAY"
+                            else -> sectionType
+                        },
+                        color = Color(0xFF5FEDD4),
+                        fontSize = sy(20).value.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    // Content labels
+                    ContentLabelV2(
+                        label = "Premiera premium",
+                        show4K = true,
+                        sx = sx,
+                        sy = sy
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(sy(32)))
+
+                // Title
+                Text(
+                    text = item.title,
+                    color = Color(0xFFEEEEEE),
+                    fontSize = sy(48).value.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    lineHeight = sy(56).value.sp,
+                    modifier = Modifier.widthIn(max = sx(600))
+                )
+
+                Spacer(modifier = Modifier.height(sy(16)))
+
+                // Metadata row
+                SliderMetadataRowV2(
+                    genre = item.genre,
+                    duration = item.duration,
+                    ageRating = item.ageRating,
+                    krritLabels = setOf(
+                        com.uxellence.tv.v3.model.KrritLabel.S,
+                        com.uxellence.tv.v3.model.KrritLabel.W
+                    ),
+                    sx = sx,
+                    sy = sy
+                )
+
+                Spacer(modifier = Modifier.height(sy(16)))
+
+                // Description (max 3 lines)
+                Text(
+                    text = item.description,
+                    color = Color(0xCCEEEEEE),
+                    fontSize = sy(24).value.sp,
+                    fontWeight = FontWeight.Normal,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                    lineHeight = sy(32).value.sp,
+                    modifier = Modifier
+                        .widthIn(max = sx(550))
+                        .heightIn(max = sy(100))
+                )
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                // Action button (visible only when card is focused)
+                if (isCardFocused) {
+                    SliderActionButtonV2(
+                        text = "Wypożycz: ${item.price}",
+                        isFocused = true,
+                        showIcon = true,
+                        sx = sx,
+                        sy = sy
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * State-based card for V2 Slider carousel (no individual FocusRequester)
+ * Width: 1468px, Height: 675px
+ * V2 visual style: aqua border, logo, metadata, button
+ *
+ * Used by VodHeroSliderV2 with state-based navigation.
+ * Focus is controlled by parent via isSelected/isSliderFocused props, not per-card focus.
+ */
+@Composable
+private fun SliderV2CardStateBased(
+    item: VodSlideData,
+    sectionType: String,
+    isSelected: Boolean,      // Czy ta karta jest wybrana (currentSlide)
+    isSliderFocused: Boolean, // Czy slider ma fokus
+    sx: (Int) -> androidx.compose.ui.unit.Dp,
+    sy: (Int) -> androidx.compose.ui.unit.Dp
+) {
+    // Card is "focused" when it's both selected AND the slider has focus
+    val isCardFocused = isSelected && isSliderFocused
+
+    Card(
+        modifier = Modifier
+            .width(sx(1468))
+            .height(sy(675)),
         shape = RoundedCornerShape(sx(16)),
         colors = CardDefaults.cardColors(
             containerColor = Color(0xFF2A1B3D)
