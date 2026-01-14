@@ -12,12 +12,95 @@ The application follows modern Android architecture patterns with Jetpack Compos
 
 ### Core Components
 - `EpgScreen.kt` - Main screen with program grid
-- `EpgModels.kt` - Data models (EpgProgram, EpgChannel, EpgGuide)  
+- `EpgModels.kt` - Data models (EpgProgram, EpgChannel, EpgGuide)
 - `XmlTvParser.kt` - EPG data parser for XML-TV format
 - `TimeUtils.kt` - Time formatting utilities
 - **`Version001Screen.kt`** - Channel row interface with enhanced UX (v0.06)
 - **`SliderScreen.kt`** - Statistics dashboard with interactive analytics (v0.06)
 - **`MainActivity.kt`** - Main navigation hub with 3 screen options
+- **`YouTubeTrailerPlayer.kt`** - Video trailer player for KINO PLAY slider (2025-12-16)
+
+## Trailer Auto-Play System (KINO PLAY Slider)
+
+### Overview
+Automatic trailer playback when user focuses on movie poster in KINO PLAY slider for 2+ seconds.
+
+### Architecture
+```
+TopMenuScreen2.kt (VodHeroSlider)
+    └── YouTubeTrailerPlayer.kt
+            └── ExoPlayer + TextureView (Compose AndroidView)
+                    └── YouTubeStreamExtractor.kt (URL extraction)
+```
+
+### Key Implementation Details
+
+**1. Direct TextureView (NOT PlayerView/StyledPlayerView)**
+```kotlin
+// ❌ NIE DZIAŁA w Compose:
+PlayerView(ctx)  // Używa SurfaceView - problemy z z-order
+
+// ✅ DZIAŁA w Compose:
+AndroidView(factory = { ctx ->
+    android.view.TextureView(ctx).also { textureView ->
+        exoPlayer.setVideoTextureView(textureView)
+    }
+})
+```
+
+**2. Obsługiwane formaty URL**
+- **Direct MP4/M3U8**: `*.mp4`, `*.m3u8` → Natychmiastowe odtwarzanie
+- **Supabase Storage**: `supabase.co/storage/*` → Natychmiastowe odtwarzanie
+- **YouTube**: `youtube.com/watch?v=*` → Wymaga ekstrakcji przez Vercel API
+
+**3. Data source**
+- URL trailera: `youtube_url` pole w tabeli `movies` (Supabase)
+- Dla direct URLs (MP4/Supabase): No extraction, instant playback
+- Dla YouTube: Extraction via `yt-extract-api.vercel.app`
+
+**4. Focus-based auto-play logic**
+```kotlin
+LaunchedEffect(stableItem.title) {
+    while (true) {
+        if (isFocused && !trailerUrl.isNullOrBlank() && !showTrailer) {
+            delay(2000)  // 2 sec delay
+            if (isFocused) showTrailer = true
+        } else if (!isFocused && showTrailer) {
+            showTrailer = false
+        }
+        delay(100)
+    }
+}
+```
+
+**5. Layer structure (z-order)**
+```
+Layer 1 (bottom): AsyncImage (backdrop)
+Layer 2: 20% black overlay (only when !showTrailer)
+Layer 3: Trailer video (zIndex=5, only when showTrailer)
+Layer 4: Gradient (zIndex=6)
+Layer 5 (top): Text, buttons (UI)
+```
+
+### Files
+| File | Purpose |
+|------|---------|
+| `TopMenuScreen2.kt:11001-11080` | VodHeroSlider trailer logic |
+| `YouTubeTrailerPlayer.kt` | ExoPlayer + TextureView composable |
+| `YouTubeStreamExtractor.kt` | URL detection & extraction |
+
+### Debugging
+```bash
+# Trailer logs
+adb logcat | grep -E "YouTubeTrailer|VodHeroSlider|ExoPlayer"
+```
+
+### Known Issues & Solutions
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| Black screen, no video | SurfaceView z-order in Compose | Use TextureView directly |
+| Purple background | Trailer under other layers | zIndex(5f) + render ON TOP |
+| URL extraction fails | YouTube rate limiting | Use Supabase Storage for direct MP4 |
 
 ### Architecture Patterns
 - **MVVM Pattern**: ViewModels manage UI state and business logic

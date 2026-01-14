@@ -81,7 +81,8 @@ data class VodContent(
     val category: String,
     val imageUrl: String,
     val channelLogoUrl: String,
-    val link: String
+    val link: String,
+    val price: String? = null  // Cena filmu (np. "19 zł/48h")
 )
 
 // Cache dla siatki treści - zapisuje losowe przypisania

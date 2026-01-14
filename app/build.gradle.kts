@@ -3,18 +3,19 @@ import java.util.Properties
 plugins {
   id("com.android.application")
   id("org.jetbrains.kotlin.android")
-  id("org.jetbrains.kotlin.plugin.serialization") version "1.9.24"
-  id("com.google.devtools.ksp") version "1.9.24-1.0.20"
+  id("org.jetbrains.kotlin.plugin.compose")
+  id("org.jetbrains.kotlin.plugin.serialization") version "2.0.21"
+  id("com.google.devtools.ksp") version "2.0.21-1.0.27"
 }
 
 android {
   namespace = "com.uxellence.tv.v3"
-  compileSdk = 35
+  compileSdk = 36
 
       defaultConfig {
           applicationId = "com.uxellence.tv.v3"
-          minSdk = 21
-          targetSdk = 35
+          minSdk = 23  // Compose 1.10.0 requires minSdk 23
+          targetSdk = 36
           versionCode = 33
           versionName = "4.0.0"
   
@@ -57,7 +58,7 @@ android {
     compose = true
     buildConfig = true
   }
-  composeOptions { kotlinCompilerExtensionVersion = "1.5.14" }
+  // composeOptions not needed with Kotlin 2.0+ (compose plugin manages compiler)
 
   packaging {
     resources {
@@ -70,12 +71,14 @@ android {
 }
 
 dependencies {
-  // Compose BOM to align versions
-  implementation(platform("androidx.compose:compose-bom:2024.06.00"))
+  // Compose BOM to align versions (2025.12.00 for dropShadow with spread = outside outline)
+  implementation(platform("androidx.compose:compose-bom:2025.12.00"))
 
   implementation("androidx.activity:activity-compose:1.9.0")
   implementation("androidx.compose.ui:ui")
   implementation("androidx.compose.material3:material3")
+  implementation("androidx.compose.material:material-icons-core")
+  implementation("androidx.compose.material:material-icons-extended")
   implementation("androidx.compose.ui:ui-tooling-preview")
   debugImplementation("androidx.compose.ui:ui-tooling")
 
@@ -122,7 +125,12 @@ dependencies {
   implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
   implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0")
 
-  // Core library desugaring for Java 8 Time API support on older Android versions
-  coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+  // Core library desugaring for Java 8+ API support (NIO version needed for NewPipe Extractor)
+  coreLibraryDesugaring("com.android.tools:desugar_jdk_libs_nio:2.0.4")
+
+  // Haze - blur background library by Chris Banes
+  implementation("dev.chrisbanes.haze:haze:1.0.0")
+
+  // NewPipe Extractor removed - using Vercel API with yt-dlp instead
 }
 

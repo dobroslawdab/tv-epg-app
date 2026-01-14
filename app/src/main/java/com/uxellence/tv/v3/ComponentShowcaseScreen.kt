@@ -518,7 +518,7 @@ private fun ComponentDetailModal(
                                 .padding(sx(24)),
                             contentAlignment = Alignment.Center
                         ) {
-                            component.content(isParentFocused = true)
+                            component.content(true)  // isParentFocused
                         }
                     }
                 }
@@ -633,7 +633,7 @@ private fun ComponentShowcaseItem(
                     )
                     .padding(sx(16))
             ) {
-                component.content(isParentFocused = isFocused)
+                component.content(isFocused)  // isParentFocused
             }
         }
     }

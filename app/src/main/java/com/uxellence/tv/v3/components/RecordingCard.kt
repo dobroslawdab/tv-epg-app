@@ -82,18 +82,17 @@ fun RecordingCard(
     val progressHeight = sy(8)
     val totalHeight = cardHeight + progressHeight + sy(4)  // Card + progress + gap
 
-    // Card opacity for ZAPLANOWANE (30%)
-    val cardAlpha = if (cardType == RecordingCardType.ZAPLANOWANE) 0.3f else 1f
+    // Card content opacity for ZAPLANOWANE: always 30% (border stays 100%)
+    val contentAlpha = if (cardType == RecordingCardType.ZAPLANOWANE) 0.3f else 1.0f
 
     Column(
         modifier = modifier.width(cardWidth)
     ) {
-        // Main card
+        // Main card - outer Box for border (no alpha), inner content has alpha
         Box(
             modifier = Modifier
                 .width(cardWidth)
                 .height(cardHeight)
-                .alpha(cardAlpha)
                 .clip(RoundedCornerShape(cornerRadius))
                 .then(
                     if (isFocused) Modifier.border(
@@ -116,6 +115,8 @@ fun RecordingCard(
                 }
                 .focusable()
         ) {
+            // Content wrapper with alpha (for ZAPLANOWANE 30% opacity)
+            Box(modifier = Modifier.fillMaxSize().alpha(contentAlpha)) {
             // Cover image
             AsyncImage(
                 model = recording.imageUrl ?: "https://via.placeholder.com/410x232",
@@ -203,6 +204,7 @@ fun RecordingCard(
                     .align(Alignment.TopStart)
                     .padding(start = sx(12), top = sy(12))
             )
+            } // End of content wrapper Box with alpha
         }
 
         // Progress bar (below card)

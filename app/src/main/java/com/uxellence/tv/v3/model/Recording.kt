@@ -30,6 +30,17 @@ enum class RecordingCardType {
 }
 
 /**
+ * KRRIT content rating labels
+ * S - Seks (Sexual content)
+ * W - Wulgaryzmy (Vulgar language)
+ * N - Narkotyki (Drug references)
+ * P - Przemoc (Violence)
+ */
+enum class KrritLabel {
+    S, W, N, P
+}
+
+/**
  * Individual recording (single movie or TV program episode)
  *
  * Generated from EPG data with status calculated based on time
@@ -112,7 +123,14 @@ data class SeriesBundle(
     val imageUrl: String?,             // Most recent episode thumbnail
     val channelLogoUrl: String?,       // Primary channel logo
     val episodes: List<Recording>,     // All episodes in bundle
-    val lastRecordedDate: Instant?     // For sorting "most recently recorded"
+    val lastRecordedDate: Instant?,    // For sorting "most recently recorded"
+    // NEW: Metadata for series info panel (Figma node 4661-7878)
+    val categories: List<String> = emptyList(),     // e.g., ["program informacyjny"]
+    val year: String? = null,                        // e.g., "2020 r."
+    val country: String? = null,                     // e.g., "Polska"
+    val ageRating: String? = null,                   // e.g., "7 lat"
+    val krritLabels: Set<KrritLabel> = emptySet(),  // e.g., {S, W, N, P}
+    val description: String? = null                  // Series description (max 2 lines)
 ) {
     /**
      * Total number of episodes
@@ -139,6 +157,12 @@ data class SeriesBundle(
         get() = episodes.count { it.status == RecordingStatus.SCHEDULED }
 
     /**
+     * Count of fully watched episodes (watchProgress >= 1.0)
+     */
+    val watchedCount: Int
+        get() = episodes.count { it.watchProgress >= 1.0f }
+
+    /**
      * Total duration of all episodes in minutes
      */
     val totalDurationMinutes: Long
@@ -157,6 +181,23 @@ data class SeriesBundle(
                 else -> "${mins} min"
             }
         }
+
+    /**
+     * Average episode duration formatted (e.g., "25 min")
+     * Used in series info panel metadata row
+     */
+    val averageEpisodeDuration: String
+        get() {
+            if (episodes.isEmpty()) return "0 min"
+            val avgMinutes = totalDurationMinutes / episodes.size
+            return "$avgMinutes min"
+        }
+
+    /**
+     * Primary category for display (first in list)
+     */
+    val primaryCategory: String?
+        get() = categories.firstOrNull()
 
     /**
      * Subtitle for card display: "20 odcinkow (11 h)"

@@ -1,9 +1,17 @@
 package com.uxellence.tv.v3
 
 import android.content.Context
+import android.util.Log
 import com.uxellence.tv.v3.version001.VodContent
 import com.uxellence.tv.v3.version001.VodItem
 import com.uxellence.tv.v3.PlayNowMovie
+import com.uxellence.tv.v3.model.SupabaseMovie
+import com.uxellence.tv.v3.model.toVodContent
+import com.uxellence.tv.v3.model.toVodSlideData
+import com.uxellence.tv.v3.repository.SupabaseMoviesRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.decodeFromString
 
@@ -17,13 +25,37 @@ import kotlinx.serialization.decodeFromString
  * - UI blocking and slow tab switching
  *
  * Solution: Load data once at app startup, cache in memory, reuse everywhere.
+ *
+ * NOWE: Obsługa danych z Supabase (Kino Play z bazy danych)
  */
 object VodDataCache {
+    private const val TAG = "VodDataCache"
+
     @Volatile
     private var vodContentList: List<VodContent>? = null
 
     @Volatile
     private var kinoPlayMovies: List<VodContent>? = null
+
+    // Nowe cache dla danych z Supabase
+    @Volatile
+    private var supabaseMovies: List<VodContent>? = null
+
+    @Volatile
+    private var top10Movies: List<VodContent>? = null
+
+    @Volatile
+    private var newestMovies: List<VodContent>? = null
+
+    @Volatile
+    private var moviesByGenre: Map<String, List<VodContent>> = emptyMap()
+
+    @Volatile
+    private var supabaseInitialized: Boolean = false
+
+    // Cache dla slider movies z Supabase (tabela slider_movies)
+    @Volatile
+    private var sliderMovies: List<VodSlideData>? = null
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -68,7 +100,151 @@ object VodDataCache {
     fun clear() {
         vodContentList = null
         kinoPlayMovies = null
+        supabaseMovies = null
+        top10Movies = null
+        newestMovies = null
+        moviesByGenre = emptyMap()
+        sliderMovies = null
+        supabaseInitialized = false
     }
+
+    // ===== NOWE METODY DLA SUPABASE =====
+
+    /**
+     * Inicjalizacja danych z Supabase
+     * Pobiera wszystkie filmy, Top 10, najnowsze i cache po gatunkach
+     * Fallback do lokalnego JSON jeśli Supabase nie działa
+     */
+    suspend fun initializeFromSupabase(context: Context) {
+        if (supabaseInitialized) {
+            Log.d(TAG, "Supabase already initialized, skipping...")
+            return
+        }
+
+        try {
+            Log.d(TAG, "Initializing from Supabase - SLIDER FIRST strategy...")
+
+            // ========================================
+            // 0. FALLBACK: Załaduj JSON natychmiast (channele mają dane od razu)
+            // ========================================
+            initialize(context)
+            Log.d(TAG, "JSON fallback loaded: ${kinoPlayMovies?.size ?: 0} movies")
+
+            // ========================================
+            // 1. SLIDER FIRST - jedyne na co user czeka
+            // Single Source of Truth: cena jest w tym samym rekordzie SupabaseMovie
+            // ========================================
+            val sliderData = SupabaseMoviesRepository.fetchSliderMovies()
+
+            sliderMovies = sliderData
+                .filter { movie -> movie.title.isNotBlank() && !movie.backdrop_url.isNullOrBlank() }
+                .map { movie -> movie.toVodSlideData() }
+            Log.d(TAG, "SLIDER READY: ${sliderMovies?.size ?: 0} movies (user can see slider now!)")
+
+            // ========================================
+            // 2. REMAINING DATA - fire-and-forget w tle (zastąpi JSON gdy gotowe)
+            // ========================================
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    Log.d(TAG, "Loading remaining data in background...")
+
+                    val allMovies = SupabaseMoviesRepository.fetchAllMovies()
+                    if (allMovies.isNotEmpty()) {
+                        supabaseMovies = allMovies.map { movie -> movie.toVodContent() }
+
+                        val top10 = SupabaseMoviesRepository.fetchTop10()
+                        top10Movies = top10.map { movie -> movie.toVodContent() }
+
+                        val newest = SupabaseMoviesRepository.fetchNewest(20)
+                        newestMovies = newest.map { movie -> movie.toVodContent() }
+
+                        // Cache po gatunkach
+                        val genres = listOf("Akcja", "Komedia", "Horror", "Dramat", "Biograficzny", "Thriller", "Sci-Fi", "Romans")
+                        moviesByGenre = genres.associateWith { genreName ->
+                            allMovies.filter { movie ->
+                                movie.genre?.contains(genreName, ignoreCase = true) == true
+                            }.map { filteredMovie -> filteredMovie.toVodContent() }
+                        }
+
+                        // Aktualizuj też kinoPlayMovies dla kompatybilności
+                        kinoPlayMovies = supabaseMovies
+
+                        supabaseInitialized = true
+                        Log.d(TAG, "Background data ready: ${allMovies.size} movies, ${top10.size} top10, ${newest.size} newest")
+
+                    } else {
+                        Log.w(TAG, "No movies from Supabase in background, falling back to JSON")
+                        initialize(context)
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Background loading failed, falling back to JSON", e)
+                    initialize(context)
+                }
+            }
+            // Funkcja zwraca NATYCHMIAST po załadowaniu slidera
+            // Pozostałe dane ładują się w tle
+
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to load slider from Supabase, falling back to JSON", e)
+            initialize(context)
+        }
+    }
+
+    /**
+     * Pobierz filmy Top 10 (z Supabase)
+     * Jeśli brak - zwraca pierwsze 10 z kinoPlayMovies
+     */
+    fun getTop10(): List<VodContent> {
+        return top10Movies?.takeIf { it.isNotEmpty() }
+            ?: kinoPlayMovies?.take(10)
+            ?: emptyList()
+    }
+
+    /**
+     * Pobierz najnowsze filmy (z Supabase)
+     * Jeśli brak - zwraca pierwsze 20 z kinoPlayMovies
+     */
+    fun getNewest(): List<VodContent> {
+        return newestMovies?.takeIf { it.isNotEmpty() }
+            ?: kinoPlayMovies?.take(20)
+            ?: emptyList()
+    }
+
+    /**
+     * Pobierz filmy po gatunku (z Supabase cache)
+     * Jeśli brak - filtruje kinoPlayMovies po kategorii
+     */
+    fun getByGenre(genre: String): List<VodContent> {
+        // Najpierw sprawdź cache z Supabase
+        moviesByGenre[genre]?.takeIf { it.isNotEmpty() }?.let { return it }
+
+        // Fallback: filtruj lokalny cache
+        return kinoPlayMovies?.filter { movie ->
+            movie.category.contains(genre, ignoreCase = true)
+        } ?: emptyList()
+    }
+
+    /**
+     * Sprawdź czy dane z Supabase są załadowane
+     */
+    fun isSupabaseInitialized(): Boolean = supabaseInitialized
+
+    /**
+     * Pobierz wszystkie filmy z Supabase (lub fallback)
+     */
+    fun getSupabaseMovies(): List<VodContent> {
+        return supabaseMovies ?: kinoPlayMovies ?: emptyList()
+    }
+
+    /**
+     * Pobierz slider movies z Supabase (bez fallbacku)
+     * Zwraca pustą listę jeśli dane nie są jeszcze załadowane
+     */
+    fun getSliderMovies(): List<VodSlideData> {
+        return sliderMovies ?: emptyList()
+    }
+
+    // ===== KONIEC NOWYCH METOD =====
 
     // Private loaders - same implementation as original functions
 

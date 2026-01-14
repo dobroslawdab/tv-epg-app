@@ -122,12 +122,26 @@ class RecordingRepository private constructor(private val context: Context) {
 
     /**
      * Get scheduled (future) recordings for "ZAPLANOWANE"
+     * Returns ALL scheduled recordings (individual films + series episodes)
      */
     suspend fun getScheduledRecordings(): List<Recording> {
         refreshCacheIfNeeded()
         return cachedRecordings
             ?.filter { it.status == RecordingStatus.SCHEDULED }
             ?.sortedBy { it.startUtc }
+            ?: emptyList()
+    }
+
+    /**
+     * Get watched (fully completed) recordings for "OBEJRZANE"
+     * Returns ALL watched recordings (individual films + series episodes)
+     * watchProgress >= 1.0 means fully watched
+     */
+    suspend fun getWatchedRecordings(): List<Recording> {
+        refreshCacheIfNeeded()
+        return cachedRecordings
+            ?.filter { it.watchProgress >= 1.0f }
+            ?.sortedByDescending { it.startUtc }
             ?: emptyList()
     }
 
@@ -365,8 +379,16 @@ class RecordingRepository private constructor(private val context: Context) {
         val status = Recording.calculateStatus(program.startUtc, program.endUtc, now)
 
         // Generate mock watch progress and expiration
+        // For RECORDED: 30% fully watched (1.0), 40% partial (0.1-0.9), 30% not started (0.0)
         val watchProgress = when (status) {
-            RecordingStatus.RECORDED -> Random.nextFloat() // 0.0 - 1.0
+            RecordingStatus.RECORDED -> {
+                val rand = Random.nextFloat()
+                when {
+                    rand < 0.30f -> 1.0f  // 30% fully watched
+                    rand < 0.70f -> 0.1f + Random.nextFloat() * 0.8f  // 40% partial (0.1-0.9)
+                    else -> 0f  // 30% not started
+                }
+            }
             RecordingStatus.RECORDING -> Random.nextFloat() * 0.5f // 0.0 - 0.5 (partial)
             RecordingStatus.SCHEDULED -> 0f
         }
@@ -448,13 +470,93 @@ class RecordingRepository private constructor(private val context: Context) {
             .filter { it.status == RecordingStatus.RECORDED }
             .maxOfOrNull { it.endUtc }
 
+        // Get categories from episodes (use most common)
+        val categories = episodes
+            .flatMap { it.categories }
+            .groupingBy { it }
+            .eachCount()
+            .entries
+            .sortedByDescending { it.value }
+            .take(3)
+            .map { it.key }
+
+        // Generate mock metadata for series info panel
+        val mockMetadata = generateMockSeriesMetadata(normalizedTitle, categories)
+
         return SeriesBundle(
             id = seriesId,
             title = originalTitle,
             imageUrl = imageUrl,
             channelLogoUrl = channelLogoUrl,
             episodes = episodes.sortedByDescending { it.startUtc },
-            lastRecordedDate = lastRecordedDate
+            lastRecordedDate = lastRecordedDate,
+            categories = categories,
+            year = mockMetadata.year,
+            country = mockMetadata.country,
+            ageRating = mockMetadata.ageRating,
+            krritLabels = mockMetadata.krritLabels,
+            description = mockMetadata.description
+        )
+    }
+
+    /**
+     * Mock metadata holder for series
+     */
+    private data class MockSeriesMetadata(
+        val year: String?,
+        val country: String?,
+        val ageRating: String?,
+        val krritLabels: Set<KrritLabel>,
+        val description: String?
+    )
+
+    /**
+     * Generate mock metadata based on title and categories
+     */
+    private fun generateMockSeriesMetadata(
+        normalizedTitle: String,
+        categories: List<String>
+    ): MockSeriesMetadata {
+        val random = Random(normalizedTitle.hashCode())
+
+        // Mock years (2018-2024)
+        val years = listOf("2018 r.", "2019 r.", "2020 r.", "2021 r.", "2022 r.", "2023 r.", "2024 r.")
+        val year = years[random.nextInt(years.size)]
+
+        // Mock countries
+        val countries = listOf("Polska", "USA", "Niemcy", "Wielka Brytania", "Francja")
+        val country = countries[random.nextInt(countries.size)]
+
+        // Mock age ratings
+        val ageRatings = listOf("7 lat", "12 lat", "16 lat", "18 lat", null)
+        val ageRating = ageRatings[random.nextInt(ageRatings.size)]
+
+        // Mock KRRIT labels (based on categories and random)
+        val krritLabels = mutableSetOf<KrritLabel>()
+        val hasDrama = categories.any { it.lowercase().contains("dramat") }
+        val hasCrime = categories.any { it.lowercase().contains("kryminalny") || it.lowercase().contains("sensacyjny") }
+
+        if (hasDrama && random.nextFloat() > 0.5f) krritLabels.add(KrritLabel.S)
+        if (hasCrime) krritLabels.add(KrritLabel.P)
+        if (random.nextFloat() > 0.7f) krritLabels.add(KrritLabel.W)
+        if (random.nextFloat() > 0.9f) krritLabels.add(KrritLabel.N)
+
+        // Mock descriptions
+        val descriptions = listOf(
+            "Emocjonująca historia pełna zwrotów akcji i nieoczekiwanych wydarzeń, która wciąga od pierwszego odcinka.",
+            "Serial przedstawia losy bohaterów zmagających się z codziennymi problemami w fascynujący sposób.",
+            "Wciągająca fabuła i świetni aktorzy tworzą niepowtarzalny klimat tego wyjątkowego serialu.",
+            "Historia, która porusza ważne tematy społeczne i zmusza do refleksji nad otaczającą nas rzeczywistością.",
+            null
+        )
+        val description = descriptions[random.nextInt(descriptions.size)]
+
+        return MockSeriesMetadata(
+            year = year,
+            country = country,
+            ageRating = ageRating,
+            krritLabels = krritLabels,
+            description = description
         )
     }
 }

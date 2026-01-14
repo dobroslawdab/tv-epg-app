@@ -654,6 +654,24 @@ data class VodSlideData(
     val youtubeUrl: String? = null // YouTube trailer URL for auto-play
 )
 
+/**
+ * Convert VodContent to VodSlideData for use in VodHeroSliderV2
+ * Used for WIDEO and START sections that have local VOD content
+ */
+fun VodContent.toVodSlideData(): VodSlideData = VodSlideData(
+    title = title,
+    genre = category,
+    duration = "90 min", // Default duration
+    year = "2024 r.",
+    country = "Polska",
+    ageRating = "12 lat",
+    description = description,
+    price = price ?: "Bezpłatne",
+    backgroundUrl = imageUrl,
+    posterUrl = imageUrl,
+    youtubeUrl = null
+)
+
 data class PackageItem(
     val title: String,
     val imageUrl: String,
@@ -1231,6 +1249,12 @@ fun TopMenuScreen2(
     var isEpgSectionExpanded by remember { mutableStateOf(com.uxellence.tv.v3.utils.VersionTracker.getEpgSectionExpanded(context)) }
     var showNagraniaV2 by remember { mutableStateOf(com.uxellence.tv.v3.utils.VersionTracker.getNagraniaVersion(context) == "v2") }
 
+    // Global state for slider version (1 = V1 with carousel, 2 = V2 with border)
+    // Toggled with Key.Nine, affects START, KINO_PLAY, WIDEO sections
+    // Persisted in SharedPreferences
+    val sliderPrefs = remember { context.getSharedPreferences("slider_prefs", android.content.Context.MODE_PRIVATE) }
+    var sliderVersion by remember { mutableIntStateOf(sliderPrefs.getInt("slider_version", 1)) }
+
     val menuItems = remember {
         listOf(
             MenuItem2("ODKRYWAJ", "Start"),       // Moved from position 1 to 0
@@ -1587,6 +1611,15 @@ fun TopMenuScreen2(
                     return@onPreviewKeyEvent true
                 }
 
+                // Global: Key "9" - Toggle Slider version (V1 with carousel ↔ V2 with border)
+                if (event.key == Key.Nine) {
+                    sliderVersion = if (sliderVersion == 1) 2 else 1
+                    // Save to SharedPreferences
+                    sliderPrefs.edit().putInt("slider_version", sliderVersion).apply()
+                    android.util.Log.d("TopMenuScreen2", "Key '9' pressed - Slider version toggled to: V$sliderVersion (saved to prefs)")
+                    return@onPreviewKeyEvent true
+                }
+
                 // ===== END GLOBAL SHORTCUTS =====
 
                 when (globalFocusState.value.currentRow) {
@@ -1845,7 +1878,8 @@ fun TopMenuScreen2(
                 showNagraniaV2 = showNagraniaV2,
                 onShowNagraniaV2Change = { v2 ->
                     showNagraniaV2 = v2
-                }
+                },
+                sliderVersion = sliderVersion
             )
         }
 
@@ -3339,7 +3373,8 @@ private fun FullPageContent(
     isEpgSectionExpanded: Boolean = false,
     onEpgSectionExpandedChange: (Boolean) -> Unit = {},
     showNagraniaV2: Boolean = false,
-    onShowNagraniaV2Change: (Boolean) -> Unit = {}
+    onShowNagraniaV2Change: (Boolean) -> Unit = {},
+    sliderVersion: Int = 1  // 1 = V1 with carousel, 2 = V2 with border
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
 
@@ -3402,7 +3437,8 @@ private fun FullPageContent(
                 onNavigateToVodGrid = onNavigateToVodGrid,
                 onNavigateToKinoGrid = onNavigateToKinoGrid,
                 sx = sx,
-                sy = sy
+                sy = sy,
+                sliderVersion = sliderVersion
             )
         }
         "WIDEO" -> {
@@ -3410,7 +3446,8 @@ private fun FullPageContent(
                 globalFocusState = globalFocusState,
                 onNavigateToVodGrid = onNavigateToVodGrid,
                 sx = sx,
-                sy = sy
+                sy = sy,
+                sliderVersion = sliderVersion
             )
         }
         "APLIKACJE" -> {
@@ -3449,7 +3486,8 @@ private fun FullPageContent(
                 onNavigateToKinoGrid = onNavigateToKinoGrid,
                 onNavigateToRecordingsGrid = onNavigateToRecordingsGrid,
                 sx = sx,
-                sy = sy
+                sy = sy,
+                sliderVersion = sliderVersion
             )
         }
         "PAKIETY" -> {
@@ -5048,17 +5086,18 @@ private fun StartScreenContent(
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> },
     sx: (Int) -> androidx.compose.ui.unit.Dp,
-    sy: (Int) -> androidx.compose.ui.unit.Dp
+    sy: (Int) -> androidx.compose.ui.unit.Dp,
+    sliderVersion: Int = 1
 ) {
     var resetTrigger by remember { mutableStateOf(0) }
-    
+
     // Detect when user returns to menu to trigger focus reset
     LaunchedEffect(globalFocusState.value.currentRow) {
         if (globalFocusState.value.currentRow == 0 && globalFocusState.value.sectionId == "START") {
             resetTrigger++
         }
     }
-    
+
     // New 3-row structure for START
     NewStartScreenContent(
         onReturnToMenu = {
@@ -5071,7 +5110,8 @@ private fun StartScreenContent(
         onNavigateToRecordingsGrid = onNavigateToRecordingsGrid,
         sx = sx,
         sy = sy,
-        resetTrigger = resetTrigger
+        resetTrigger = resetTrigger,
+        sliderVersion = sliderVersion
     )
 }
 
@@ -5929,7 +5969,8 @@ private fun NewStartScreenContent(
     onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> },
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
-    resetTrigger: Int = 0
+    resetTrigger: Int = 0,
+    sliderVersion: Int = 1
 ) {
     // Current focus state: Row (1=SliderMix, 2=Shortcuts, 3+=Channels), Position within row
     var currentRow by remember { mutableStateOf(1) }
@@ -5980,7 +6021,13 @@ private fun NewStartScreenContent(
             emptyMap()
         }
     }
-    
+
+    // Load START slider items for V2 (same source as V1 SliderMixScreen with isInTelewizjaSection=true)
+    val startSliderItems = remember {
+        val vodContent = com.uxellence.tv.v3.version001.loadVodContentFromAssets(context)
+        vodContent.shuffled().take(10).map { it.toVodSlideData() }
+    }
+
     val lazyListStates = remember(channels.size) {
         mutableMapOf<Int, LazyListState>().apply {
             repeat(channels.size) { rowIndex ->
@@ -6075,16 +6122,29 @@ private fun NewStartScreenContent(
         val shortcutHeight = sy(279) // From ShortcutCard height
         val channelsY = animatedShortcutsY + shortcutHeight + sy(40)
         
-        // SliderMix as Row 1 (focused component)
-        StartSliderMix(
-            shouldFocus = currentRow == 1,
-            onFocusChange = { isFocused ->
-                if (isFocused) currentRow = 1
-            },
-            offsetY = animatedSliderY,
-            currentRow = currentRow
-        )
-        
+        // Slider as Row 1 (focused component)
+        // Conditional rendering based on sliderVersion (toggled with Key.Nine)
+        if (sliderVersion == 1) {
+            StartSliderMix(
+                shouldFocus = currentRow == 1,
+                onFocusChange = { isFocused ->
+                    if (isFocused) currentRow = 1
+                },
+                offsetY = animatedSliderY,
+                currentRow = currentRow
+            )
+        } else {
+            Box(modifier = Modifier.offset(y = animatedSliderY)) {
+                VodHeroSliderV2(
+                    isFocused = currentRow == 1,
+                    items = startSliderItems,
+                    sectionType = "START",
+                    sx = sx,
+                    sy = sy
+                )
+            }
+        }
+
         StartShortcuts(
             focusRequesters = shortcutFocusRequesters,
             focusedIndex = shortcutFocusedIndex,
@@ -10582,7 +10642,8 @@ private fun VodScreenContent(
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     sx: (Int) -> androidx.compose.ui.unit.Dp,
-    sy: (Int) -> androidx.compose.ui.unit.Dp
+    sy: (Int) -> androidx.compose.ui.unit.Dp,
+    sliderVersion: Int = 1
 ) {
     var resetTrigger by remember { mutableStateOf(0) }
 
@@ -10603,7 +10664,8 @@ private fun VodScreenContent(
         sx = sx,
         sy = sy,
         resetTrigger = resetTrigger,
-        globalFocusState = globalFocusState
+        globalFocusState = globalFocusState,
+        sliderVersion = sliderVersion
     )
 }
 
@@ -10612,7 +10674,8 @@ private fun WideoScreenContent(
     globalFocusState: MutableState<GlobalFocusState>,
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     sx: (Int) -> androidx.compose.ui.unit.Dp,
-    sy: (Int) -> androidx.compose.ui.unit.Dp
+    sy: (Int) -> androidx.compose.ui.unit.Dp,
+    sliderVersion: Int = 1
 ) {
     var resetTrigger by remember { mutableStateOf(0) }
 
@@ -10631,7 +10694,9 @@ private fun WideoScreenContent(
         onNavigateToVodGrid = onNavigateToVodGrid,
         sx = sx,
         sy = sy,
-        resetTrigger = resetTrigger
+        resetTrigger = resetTrigger,
+        sliderVersion = sliderVersion,
+        globalFocusState = globalFocusState
     )
 }
 
@@ -10687,7 +10752,8 @@ private fun VodWithChannels(
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     resetTrigger: Int = 0,
-    globalFocusState: MutableState<GlobalFocusState>
+    globalFocusState: MutableState<GlobalFocusState>,
+    sliderVersion: Int = 1
 ) {
     val context = LocalContext.current
     val channels = listOf("Kino Play", "Skróty v3", "Polecane", "Top 10", "Ostatnio dodane", "Akcja", "Komedie", "Horror", "Biograficzne")
@@ -10831,7 +10897,8 @@ private fun VodWithChannels(
             lazyListStates = lazyListStates,
             globalFocusState = globalFocusState,
             sx = sx,
-            sy = sy
+            sy = sy,
+            sliderVersion = sliderVersion
         )
     }
 }
@@ -10849,8 +10916,15 @@ private fun VodLayoutWithSlider(
     lazyListStates: Map<Int, LazyListState>,
     globalFocusState: MutableState<GlobalFocusState>,
     sx: (Int) -> androidx.compose.ui.unit.Dp,
-    sy: (Int) -> androidx.compose.ui.unit.Dp
+    sy: (Int) -> androidx.compose.ui.unit.Dp,
+    sliderVersion: Int = 1
 ) {
+    // Load KINO_PLAY slider items from Supabase
+    val supabaseReady = VodDataCache.isSupabaseInitialized()
+    val kinoPlaySliderItems = remember(supabaseReady) {
+        VodDataCache.getSliderMovies()
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         // Slider (Row 1) - fullscreen with animation, z-index 1
         val sliderYOffset by animateDpAsState(
@@ -10865,11 +10939,22 @@ private fun VodLayoutWithSlider(
                 .offset(y = sliderYOffset)
                 .zIndex(1f)
         ) {
-            VodHeroSlider(
-                isFocused = focusedRowIndex == 1 && globalFocusState.value.currentRow > 0,
-                sx = sx,
-                sy = sy
-            )
+            // Conditional rendering based on sliderVersion (toggled with Key.Nine)
+            if (sliderVersion == 1) {
+                VodHeroSlider(
+                    isFocused = focusedRowIndex == 1 && globalFocusState.value.currentRow > 0,
+                    sx = sx,
+                    sy = sy
+                )
+            } else {
+                VodHeroSliderV2(
+                    isFocused = focusedRowIndex == 1 && globalFocusState.value.currentRow > 0,
+                    items = kinoPlaySliderItems,
+                    sectionType = "KINO_PLAY",
+                    sx = sx,
+                    sy = sy
+                )
+            }
         }
 
         // Gradient pod menu - widoczny gdy fokus na channelach (row >= 2)
@@ -11243,6 +11328,551 @@ private fun VodHeroSlider(
             }
         }
         } // Close else block
+    }
+}
+
+// ====== SLIDER V2 COMPONENTS ======
+
+/**
+ * Content Label component for V2 slider
+ * Shows "Premiera premium" label, optionally with "4K" badge
+ */
+@Composable
+private fun ContentLabelV2(
+    label: String = "Premiera premium",
+    show4K: Boolean = true,
+    sx: (Int) -> androidx.compose.ui.unit.Dp,
+    sy: (Int) -> androidx.compose.ui.unit.Dp
+) {
+    Row(
+        modifier = Modifier.height(sy(40)),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Main label - white background
+        Box(
+            modifier = Modifier
+                .height(sy(40))
+                .background(
+                    color = Color(0xFFEEEEEE),
+                    shape = if (show4K) {
+                        RoundedCornerShape(topStart = sx(4), bottomStart = sx(4))
+                    } else {
+                        RoundedCornerShape(sx(4))
+                    }
+                )
+                .padding(horizontal = sx(16)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = label,
+                color = Color(0xFF48227C), // Purple
+                fontSize = sy(20).value.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.4.sp
+            )
+        }
+
+        // 4K badge - purple background
+        if (show4K) {
+            Box(
+                modifier = Modifier
+                    .height(sy(40))
+                    .width(sx(58))
+                    .background(
+                        color = Color(0xFF5F2DA4), // Purple container
+                        shape = RoundedCornerShape(topEnd = sx(4), bottomEnd = sx(4))
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "4K",
+                    color = Color(0xFF5FEDD4), // Aqua
+                    fontSize = sy(20).value.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.4.sp
+                )
+            }
+        }
+    }
+}
+
+/**
+ * KRRIT Label badge for V2 slider
+ * Single label (S, W, N, P) with border
+ */
+@Composable
+private fun KrritLabelBadgeV2(
+    label: String,
+    sx: (Int) -> androidx.compose.ui.unit.Dp,
+    sy: (Int) -> androidx.compose.ui.unit.Dp
+) {
+    Box(
+        modifier = Modifier
+            .size(sy(20))
+            .border(
+                width = 2.dp,
+                color = Color(0xFFEEEEEE),
+                shape = RoundedCornerShape(sx(4))
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            color = Color(0xFFEEEEEE),
+            fontSize = sy(16).value.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 0.32.sp
+        )
+    }
+}
+
+/**
+ * Metadata row with dividers for V2 slider
+ * Shows: genre | duration | age | KRRIT labels
+ */
+@Composable
+private fun SliderMetadataRowV2(
+    genre: String?,
+    duration: String?,
+    ageRating: String?,
+    krritLabels: Set<com.uxellence.tv.v3.model.KrritLabel> = emptySet(),
+    sx: (Int) -> androidx.compose.ui.unit.Dp,
+    sy: (Int) -> androidx.compose.ui.unit.Dp
+) {
+    val metadataColor = Color(0x66EEEEEE) // 40% opacity white (disabled)
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(sx(16))
+    ) {
+        // Genre
+        if (!genre.isNullOrBlank()) {
+            Text(
+                text = genre,
+                color = metadataColor,
+                fontSize = sy(20).value.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.4.sp
+            )
+
+            // Divider
+            Box(
+                modifier = Modifier
+                    .width(1.dp)
+                    .height(sy(24))
+                    .background(Color(0xFFEEEEEE))
+            )
+        }
+
+        // Duration
+        if (!duration.isNullOrBlank()) {
+            Text(
+                text = duration,
+                color = metadataColor,
+                fontSize = sy(20).value.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.4.sp
+            )
+
+            // Divider
+            Box(
+                modifier = Modifier
+                    .width(1.dp)
+                    .height(sy(24))
+                    .background(Color(0xFFEEEEEE))
+            )
+        }
+
+        // Age rating
+        if (!ageRating.isNullOrBlank()) {
+            Text(
+                text = ageRating,
+                color = metadataColor,
+                fontSize = sy(20).value.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.4.sp
+            )
+
+            // Divider (only if KRRIT labels follow)
+            if (krritLabels.isNotEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .width(1.dp)
+                        .height(sy(24))
+                        .background(Color(0xFFEEEEEE))
+                )
+            }
+        }
+
+        // KRRIT Labels
+        if (krritLabels.isNotEmpty()) {
+            Row(horizontalArrangement = Arrangement.spacedBy(sx(8))) {
+                if (com.uxellence.tv.v3.model.KrritLabel.S in krritLabels) {
+                    KrritLabelBadgeV2("S", sx, sy)
+                }
+                if (com.uxellence.tv.v3.model.KrritLabel.W in krritLabels) {
+                    KrritLabelBadgeV2("W", sx, sy)
+                }
+                if (com.uxellence.tv.v3.model.KrritLabel.N in krritLabels) {
+                    KrritLabelBadgeV2("N", sx, sy)
+                }
+                if (com.uxellence.tv.v3.model.KrritLabel.P in krritLabels) {
+                    KrritLabelBadgeV2("P", sx, sy)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Action button for V2 slider
+ * Aqua background with shopping cart icon
+ */
+@Composable
+private fun SliderActionButtonV2(
+    text: String,
+    isFocused: Boolean,
+    showIcon: Boolean = true,
+    sx: (Int) -> androidx.compose.ui.unit.Dp,
+    sy: (Int) -> androidx.compose.ui.unit.Dp
+) {
+    // Only show button when slider is focused
+    if (!isFocused) return
+
+    Row(
+        modifier = Modifier
+            .height(sy(72))
+            .background(
+                color = Color(0xFF5FEDD4), // Aqua
+                shape = RoundedCornerShape(sx(8))
+            )
+            .padding(horizontal = sx(32)),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(sx(8))
+    ) {
+        // Shopping cart icon
+        if (showIcon) {
+            Icon(
+                imageVector = Icons.Default.ShoppingCart,
+                contentDescription = null,
+                tint = Color(0xFF48227C), // Purple
+                modifier = Modifier.size(sy(32))
+            )
+        }
+
+        // Button text
+        Text(
+            text = text,
+            color = Color(0xFF48227C), // Purple
+            fontSize = sy(24).value.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = (-0.48).sp,
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+/**
+ * VodHeroSlider V2 - Carousel with V2 visual style (like V1 but with new card design)
+ * Toggled with Key.Nine
+ *
+ * @param items List of VodSlideData to display (passed from parent for section-specific content)
+ */
+@Composable
+private fun VodHeroSliderV2(
+    isFocused: Boolean,
+    items: List<VodSlideData>, // Content items passed from parent (section-specific)
+    sectionType: String, // "KINO_PLAY", "START", "WIDEO"
+    sx: (Int) -> androidx.compose.ui.unit.Dp,
+    sy: (Int) -> androidx.compose.ui.unit.Dp,
+    onSlideChanged: (Int) -> Unit = {}
+) {
+    val sliderItems = items
+    var lastFocusedIndex by remember { mutableStateOf(0) }
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    val focusRequesters = remember(sliderItems.size) { List(sliderItems.size.coerceAtLeast(1)) { FocusRequester() } }
+
+    // Scroll target - like V1 pattern (separate from focus restoration)
+    var scrollTargetIndex by remember { mutableStateOf<Int?>(null) }
+
+    // Track if we're returning from menu (to skip scroll in that case)
+    var isRestoringFocus by remember { mutableStateOf(false) }
+
+    // Scroll handler - like V1: separate LaunchedEffect watching scrollTargetIndex
+    LaunchedEffect(scrollTargetIndex) {
+        scrollTargetIndex?.let { targetIndex ->
+            kotlinx.coroutines.delay(50)
+            listState.scrollToItem(targetIndex)
+        }
+    }
+
+    // When slider becomes focused: FOCUS FIRST, then OVERRIDE Compose's auto-scroll
+    LaunchedEffect(isFocused) {
+        if (isFocused && sliderItems.isNotEmpty()) {
+            isRestoringFocus = true
+            val targetIndex = lastFocusedIndex.coerceIn(0, sliderItems.size - 1)
+
+            // 1. Focus (Compose scrolluje do prawej)
+            focusRequesters.getOrNull(targetIndex)?.requestFocus()
+
+            // 2. Czekaj na Compose auto-scroll
+            kotlinx.coroutines.delay(150)
+
+            // 3. NADPISZ pozycję na 60px od lewej
+            listState.scrollToItem(targetIndex)
+
+            kotlinx.coroutines.delay(100)
+            isRestoringFocus = false
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(top = sy(200)) // 200px below top menu
+    ) {
+        if (sliderItems.isEmpty()) {
+            // Loading state
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(
+                    color = Color(0xFF5AECD3),
+                    modifier = Modifier.size(56.dp),
+                    strokeWidth = 4.dp
+                )
+            }
+        } else {
+            LazyRow(
+                state = listState,
+                contentPadding = PaddingValues(start = sx(60), end = sx(800)), // X=60px from left + extra space at end
+                horizontalArrangement = Arrangement.spacedBy(sx(20)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                itemsIndexed(sliderItems) { index, item ->
+                    SliderV2Card(
+                        item = item,
+                        sectionType = sectionType,
+                        focusRequester = focusRequesters[index],
+                        sx = sx,
+                        sy = sy,
+                        enabled = isFocused,
+                        index = index,
+                        itemCount = sliderItems.size,
+                        onCardFocused = { cardFocused ->
+                            if (cardFocused) {
+                                // Scroll for LEFT/RIGHT navigation (not menu return)
+                                if (!isRestoringFocus) {
+                                    scrollTargetIndex = index
+                                }
+                                lastFocusedIndex = index
+                                onSlideChanged(index)
+                            }
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Single card for V2 Slider carousel
+ * Width: 1468px, Height: 742px
+ * V2 visual style: aqua border, logo, metadata, button
+ */
+@Composable
+private fun SliderV2Card(
+    item: VodSlideData,
+    sectionType: String,
+    focusRequester: FocusRequester,
+    sx: (Int) -> androidx.compose.ui.unit.Dp,
+    sy: (Int) -> androidx.compose.ui.unit.Dp,
+    enabled: Boolean = true,
+    index: Int = 0,
+    itemCount: Int = 1,
+    onCardFocused: (Boolean) -> Unit
+) {
+    var isCardFocused by remember { mutableStateOf(false) }
+    val isFirstItem = index == 0
+    val isLastItem = index == itemCount - 1
+
+    Card(
+        modifier = Modifier
+            .width(sx(1468))
+            .height(sy(675))
+            .focusRequester(focusRequester)
+            .onFocusChanged { focusState ->
+                isCardFocused = focusState.isFocused
+                onCardFocused(focusState.isFocused)
+            }
+            .onPreviewKeyEvent { event ->
+                if (event.type == androidx.compose.ui.input.key.KeyEventType.KeyDown) {
+                    when (event.key) {
+                        // Only block at boundaries - let default focus system handle normal navigation
+                        androidx.compose.ui.input.key.Key.DirectionLeft -> {
+                            if (isFirstItem) true else false // Block only on first item
+                        }
+                        androidx.compose.ui.input.key.Key.DirectionRight -> {
+                            if (isLastItem) true else false // Block only on last item
+                        }
+                        else -> false
+                    }
+                } else {
+                    false
+                }
+            }
+            .focusable(enabled = enabled),
+        shape = RoundedCornerShape(sx(16)),
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xFF2A1B3D)
+        ),
+        border = if (isCardFocused) BorderStroke(4.dp, Color(0xFF5FEDD4)) else null,
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = if (isCardFocused) 16.dp else 4.dp
+        )
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Background image (aligned to right, scaled to fit height)
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.CenterEnd
+            ) {
+                AsyncImage(
+                    model = item.backgroundUrl,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxHeight(),
+                    contentScale = ContentScale.FillHeight
+                )
+            }
+
+            // Left gradient overlay
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        brush = Brush.horizontalGradient(
+                            colors = listOf(
+                                Color(0xFF2A1B3D), // Solid purple
+                                Color(0xE62A1B3D), // 90%
+                                Color(0xB32A1B3D), // 70%
+                                Color(0x662A1B3D), // 40%
+                                Color.Transparent
+                            ),
+                            endX = sx(900).value
+                        )
+                    )
+            )
+
+            // Glow effect when focused
+            if (isCardFocused) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    Color(0x1A5FEDD4), // 10% aqua glow
+                                    Color.Transparent
+                                ),
+                                radius = sx(800).value
+                            )
+                        )
+                )
+            }
+
+            // Content column
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(start = sx(48), top = sy(32), bottom = sy(32))
+            ) {
+                // Top row: Section logo + Content labels
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(sx(16))
+                ) {
+                    // Section logo text
+                    Text(
+                        text = when (sectionType) {
+                            "KINO_PLAY" -> "KINO PLAY"
+                            else -> sectionType
+                        },
+                        color = Color(0xFF5FEDD4),
+                        fontSize = sy(20).value.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    // Content labels
+                    ContentLabelV2(
+                        label = "Premiera premium",
+                        show4K = true,
+                        sx = sx,
+                        sy = sy
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(sy(32)))
+
+                // Title
+                Text(
+                    text = item.title,
+                    color = Color(0xFFEEEEEE),
+                    fontSize = sy(48).value.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    lineHeight = sy(56).value.sp,
+                    modifier = Modifier.widthIn(max = sx(600))
+                )
+
+                Spacer(modifier = Modifier.height(sy(16)))
+
+                // Metadata row
+                SliderMetadataRowV2(
+                    genre = item.genre,
+                    duration = item.duration,
+                    ageRating = item.ageRating,
+                    krritLabels = setOf(
+                        com.uxellence.tv.v3.model.KrritLabel.S,
+                        com.uxellence.tv.v3.model.KrritLabel.W
+                    ),
+                    sx = sx,
+                    sy = sy
+                )
+
+                Spacer(modifier = Modifier.height(sy(16)))
+
+                // Description (max 3 lines)
+                Text(
+                    text = item.description,
+                    color = Color(0xCCEEEEEE),
+                    fontSize = sy(24).value.sp,
+                    fontWeight = FontWeight.Normal,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                    lineHeight = sy(32).value.sp,
+                    modifier = Modifier
+                        .widthIn(max = sx(550))
+                        .heightIn(max = sy(100))
+                )
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                // Action button (visible only when card is focused)
+                if (isCardFocused) {
+                    SliderActionButtonV2(
+                        text = "Wypożycz: ${item.price}",
+                        isFocused = true,
+                        showIcon = true,
+                        sx = sx,
+                        sy = sy
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -13582,7 +14212,9 @@ private fun WideoChannelsScreen(
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
-    resetTrigger: Int = 0
+    resetTrigger: Int = 0,
+    sliderVersion: Int = 1,
+    globalFocusState: MutableState<GlobalFocusState>
 ) {
     val context = LocalContext.current
 
@@ -13727,7 +14359,9 @@ private fun WideoChannelsScreen(
             onNavigateToVodGrid = onNavigateToVodGrid,
             lazyListStates = lazyListStates,
             sx = sx,
-            sy = sy
+            sy = sy,
+            sliderVersion = sliderVersion,
+            globalFocusState = globalFocusState
         )
     }
 }
@@ -13897,10 +14531,19 @@ fun WideoChannelRowsLayout(
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     lazyListStates: Map<Int, LazyListState>,
     sx: (Int) -> androidx.compose.ui.unit.Dp,
-    sy: (Int) -> androidx.compose.ui.unit.Dp
+    sy: (Int) -> androidx.compose.ui.unit.Dp,
+    sliderVersion: Int = 1,
+    globalFocusState: MutableState<GlobalFocusState>
 ) {
+    // Load WIDEO slider items from local VOD content (same source as SliderMixScreen V1)
+    val context = LocalContext.current
+    val wideoSliderItems = remember {
+        val vodContent = com.uxellence.tv.v3.version001.loadVodContentFromAssets(context)
+        vodContent.shuffled().take(10).map { it.toVodSlideData() }
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
-        // Row 1: Slider Mix (like in START)
+        // Row 1: Slider (V1 = SliderMixScreen, V2 = VodHeroSliderV2)
         val sliderYOffset = calculateWideoSliderYOffset(focusedRowIndex, sy)
         val animatedSliderY by animateDpAsState(
             targetValue = sliderYOffset,
@@ -13912,14 +14555,27 @@ fun WideoChannelRowsLayout(
                 .fillMaxWidth()
                 .offset(y = animatedSliderY)
         ) {
-            SliderMixScreen(
-                shouldAutoFocus = focusedRowIndex == 1,
-                isInTelewizjaSection = false, // VOD only - no TV live
-                shouldShowFocusBorder = focusedRowIndex == 1 && focusedColIndex >= 0,
-                isShortcutsFocused = focusedRowIndex == 2,
-                externalSx = sx,
-                externalSy = sy
-            )
+            // Conditional rendering based on sliderVersion (toggled with Key.Nine)
+            // Add globalFocusState.value.currentRow > 0 check to prevent dual focus with menu
+            val isNotOnMenu = globalFocusState.value.currentRow > 0
+            if (sliderVersion == 1) {
+                SliderMixScreen(
+                    shouldAutoFocus = focusedRowIndex == 1 && isNotOnMenu,
+                    isInTelewizjaSection = false, // VOD only - no TV live
+                    shouldShowFocusBorder = focusedRowIndex == 1 && focusedColIndex >= 0 && isNotOnMenu,
+                    isShortcutsFocused = focusedRowIndex == 2,
+                    externalSx = sx,
+                    externalSy = sy
+                )
+            } else {
+                VodHeroSliderV2(
+                    isFocused = focusedRowIndex == 1 && isNotOnMenu,
+                    items = wideoSliderItems,
+                    sectionType = "WIDEO",
+                    sx = sx,
+                    sy = sy
+                )
+            }
         }
 
         // Row 2+: All channels (Skróty v2 + horizontal channels) using unified component

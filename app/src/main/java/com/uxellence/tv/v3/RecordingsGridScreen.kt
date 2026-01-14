@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
@@ -55,31 +56,35 @@ import kotlinx.coroutines.launch
 // Grid layout constants (Figma: 4 columns, 40px/64px gap)
 private const val GRID_COLUMNS = 4
 private const val GRID_HORIZONTAL_GAP = 40
-private const val GRID_VERTICAL_GAP = 64
+private const val GRID_VERTICAL_GAP = 45
 private const val GRID_PADDING = 80
-private const val GRADIENT_OVERLAY_HEIGHT = 300
+private const val GRADIENT_OVERLAY_HEIGHT = 100
 
-// Sorting options
+// Sorting options (Figma: node 7204-46378)
 private enum class SortOption(val label: String) {
-    NEWEST_FIRST("od najnowszych"),
-    OLDEST_FIRST("od najstarszych"),
-    TITLE_AZ("tytuł A-Z"),
-    TITLE_ZA("tytuł Z-A")
+    OLDEST_FIRST("Najstarsze"),
+    NEWEST_FIRST("Najnowsze"),
+    ALPHABETICAL("Alfabetycznie"),
+    LARGEST_FIRST("Zajmujące najwięcej miejsca")
 }
 
-// Filter options for content type - each with display label and screen title
+// Filter options for content type (Figma: node 7204-46387)
 private enum class ContentFilter(val label: String, val screenTitle: String) {
-    ALL("Wszystkie", "Nagrania wszystkie"),
-    INDIVIDUAL("Pojedyncze", "Pojedyncze nagrania"),
-    SERIES("Serie", "Nagrane serie"),
-    SCHEDULED("Zaplanowane", "Zaplanowane")
+    ALL("Wszystkie nagrania", "Wszystkie nagrania"),
+    INDIVIDUAL("Pojedyncze nagrania", "Pojedyncze nagrania"),
+    SERIES("Serie", "Serie"),
+    SCHEDULED("Zaplanowane", "Zaplanowane"),
+    RECORDED("Nagrane", "Nagrane"),
+    WATCHED("Obejrzane", "Obejrzane")
 }
 
 // Focus levels
 private enum class RecordingFocusLevel {
-    SORT_CHIP,     // Sort dropdown (left)
-    FILTER_CHIP,   // Filter dropdown (right)
-    GRID           // Recording cards
+    SORT_CHIP,       // Sort dropdown (left)
+    FILTER_CHIP,     // Filter dropdown (right)
+    DELETE_BUTTON,   // "Opcje usuwania" button (left section)
+    STORAGE_BUTTON,  // "Dokup przestrzeń" button (right section)
+    GRID             // Recording cards
 }
 
 private const val TAG = "RecordingsGridScreen"
@@ -115,30 +120,42 @@ fun RecordingsGridScreen(
     var isFilterDropdownExpanded by remember { mutableStateOf(false) }
 
     // Focus management
-    var currentFocusLevel by remember { mutableStateOf(RecordingFocusLevel.SORT_CHIP) }
+    var currentFocusLevel by remember { mutableStateOf(RecordingFocusLevel.GRID) }
     var focusedRow by remember { mutableStateOf(0) }
     var focusedCol by remember { mutableStateOf(0) }
     val gridFocusRequesters = remember { mutableMapOf<Pair<Int, Int>, FocusRequester>() }
     val sortChipFocusRequester = remember { FocusRequester() }
     val filterChipFocusRequester = remember { FocusRequester() }
+    val deleteButtonFocusRequester = remember { FocusRequester() }
+    val storageButtonFocusRequester = remember { FocusRequester() }
     val coroutineScope = rememberCoroutineScope()
 
     // Grid state
     val lazyGridState = rememberLazyGridState()
 
-    // Initial focus on sort dropdown
-    LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(100)
-        sortChipFocusRequester.requestFocus()
+    // Initial focus on first grid item (after data loads)
+    var initialFocusSet by remember { mutableStateOf(false) }
+    LaunchedEffect(displayedRecordings, initialFocusSet) {
+        if (displayedRecordings.isNotEmpty() && !initialFocusSet) {
+            kotlinx.coroutines.delay(150)
+            gridFocusRequesters[Pair(0, 0)]?.requestFocus()
+            initialFocusSet = true
+        }
     }
+
+    // Raw recordings for SCHEDULED and WATCHED filters (includes series episodes)
+    var scheduledRecordings by remember { mutableStateOf<List<Recording>>(emptyList()) }
+    var watchedRecordings by remember { mutableStateOf<List<Recording>>(emptyList()) }
 
     // Load recordings on first composition
     LaunchedEffect(Unit) {
         isLoading = true
         try {
             allRecordings = recordingRepository.getAllRecordings()
+            scheduledRecordings = recordingRepository.getScheduledRecordings()
+            watchedRecordings = recordingRepository.getWatchedRecordings()
             storageInfo = recordingRepository.getStorageInfo()
-            Log.d(TAG, "Loaded ${allRecordings.size} recordings")
+            Log.d(TAG, "Loaded ${allRecordings.size} recordings, ${scheduledRecordings.size} scheduled, ${watchedRecordings.size} watched")
         } catch (e: Exception) {
             Log.e(TAG, "Error loading recordings", e)
         } finally {
@@ -147,74 +164,48 @@ fun RecordingsGridScreen(
     }
 
     // Apply filter and sorting
-    LaunchedEffect(selectedFilter, selectedSort, allRecordings) {
+    LaunchedEffect(selectedFilter, selectedSort, allRecordings, scheduledRecordings, watchedRecordings) {
         // Step 1: Filter by content type
-        val filtered = when (selectedFilter) {
+        val filtered: List<RecordingContent> = when (selectedFilter) {
             ContentFilter.ALL -> allRecordings
+            // INDIVIDUAL: Only RECORDED individual recordings (no scheduled)
             ContentFilter.INDIVIDUAL -> allRecordings.filterIsInstance<RecordingContent.Individual>()
+                .filter { it.recording.status == RecordingStatus.RECORDED }
             ContentFilter.SERIES -> allRecordings.filterIsInstance<RecordingContent.Series>()
-            ContentFilter.SCHEDULED -> allRecordings.filter { content ->
+            // SCHEDULED: All scheduled programs (individual films + series episodes)
+            ContentFilter.SCHEDULED -> scheduledRecordings.map { RecordingContent.Individual(it) }
+            ContentFilter.RECORDED -> allRecordings.filter { content ->
                 when (content) {
                     is RecordingContent.Individual ->
-                        content.recording.status == RecordingStatus.SCHEDULED
+                        content.recording.status == RecordingStatus.RECORDED
                     is RecordingContent.Series ->
-                        content.bundle.scheduledCount > 0
+                        content.bundle.recordedCount > 0
                 }
             }
+            // WATCHED: All watched programs (individual films + series episodes with watchProgress >= 1.0)
+            ContentFilter.WATCHED -> watchedRecordings.map { RecordingContent.Individual(it) }
         }
 
-        // Step 2: For SCHEDULED filter, just sort and display. For others, separate recorded from scheduled
-        val finalList = if (selectedFilter == ContentFilter.SCHEDULED) {
-            // Only scheduled items - just sort them
-            when (selectedSort) {
-                SortOption.NEWEST_FIRST -> filtered.sortedByDescending { getContentDate(it) }
-                SortOption.OLDEST_FIRST -> filtered.sortedBy { getContentDate(it) }
-                SortOption.TITLE_AZ -> filtered.sortedBy { getContentTitle(it).lowercase() }
-                SortOption.TITLE_ZA -> filtered.sortedByDescending { getContentTitle(it).lowercase() }
-            }
-        } else {
-            // Separate recorded/recording from scheduled
-            val recordedItems = filtered.filter { content ->
-                when (content) {
-                    is RecordingContent.Individual ->
-                        content.recording.status == RecordingStatus.RECORDED ||
-                        content.recording.status == RecordingStatus.RECORDING
-                    is RecordingContent.Series ->
-                        content.bundle.recordedCount > 0 || content.bundle.recordingCount > 0
+        // Step 2: Sort the filtered list
+        val sortedList = when (selectedSort) {
+            SortOption.NEWEST_FIRST -> {
+                // Partition: RECORDED first, then SCHEDULED
+                val (recorded, scheduled) = filtered.partition { content ->
+                    when (content) {
+                        is RecordingContent.Individual -> content.recording.status != RecordingStatus.SCHEDULED
+                        is RecordingContent.Series -> content.bundle.scheduledCount == 0
+                    }
                 }
+                // Sort each group by date (newest first), then combine
+                recorded.sortedByDescending { getContentDate(it) } +
+                    scheduled.sortedByDescending { getContentDate(it) }
             }
-
-            val scheduledItems = filtered.filter { content ->
-                when (content) {
-                    is RecordingContent.Individual ->
-                        content.recording.status == RecordingStatus.SCHEDULED
-                    is RecordingContent.Series ->
-                        content.bundle.scheduledCount > 0 &&
-                        content.bundle.recordedCount == 0 &&
-                        content.bundle.recordingCount == 0
-                }
-            }
-
-            // Sort each group
-            val sortedRecorded = when (selectedSort) {
-                SortOption.NEWEST_FIRST -> recordedItems.sortedByDescending { getContentDate(it) }
-                SortOption.OLDEST_FIRST -> recordedItems.sortedBy { getContentDate(it) }
-                SortOption.TITLE_AZ -> recordedItems.sortedBy { getContentTitle(it).lowercase() }
-                SortOption.TITLE_ZA -> recordedItems.sortedByDescending { getContentTitle(it).lowercase() }
-            }
-
-            val sortedScheduled = when (selectedSort) {
-                SortOption.NEWEST_FIRST -> scheduledItems.sortedByDescending { getContentDate(it) }
-                SortOption.OLDEST_FIRST -> scheduledItems.sortedBy { getContentDate(it) }
-                SortOption.TITLE_AZ -> scheduledItems.sortedBy { getContentTitle(it).lowercase() }
-                SortOption.TITLE_ZA -> scheduledItems.sortedByDescending { getContentTitle(it).lowercase() }
-            }
-
-            // Combine - recorded first, scheduled at the end
-            sortedRecorded + sortedScheduled
+            SortOption.OLDEST_FIRST -> filtered.sortedBy { getContentDate(it) }
+            SortOption.ALPHABETICAL -> filtered.sortedBy { getContentTitle(it).lowercase() }
+            SortOption.LARGEST_FIRST -> filtered.sortedByDescending { getContentDuration(it) }
         }
 
-        displayedRecordings = finalList
+        displayedRecordings = sortedList
 
         Log.d(TAG, "Displaying ${displayedRecordings.size} recordings for filter ${selectedFilter.label}")
 
@@ -244,8 +235,21 @@ fun RecordingsGridScreen(
                     } else {
                         when (event.key) {
                             Key.Back, Key.Escape -> {
-                                onBackPressed()
-                                true
+                                // First BACK: scroll to top + focus first item (if not already there)
+                                if (currentFocusLevel == RecordingFocusLevel.GRID && (focusedRow > 0 || focusedCol > 0)) {
+                                    focusedRow = 0
+                                    focusedCol = 0
+                                    coroutineScope.launch {
+                                        lazyGridState.animateScrollToItem(0)
+                                        kotlinx.coroutines.delay(50)
+                                        gridFocusRequesters[Pair(0, 0)]?.requestFocus()
+                                    }
+                                    true
+                                } else {
+                                    // Second BACK (already at 0,0) or from other focus levels: exit
+                                    onBackPressed()
+                                    true
+                                }
                             }
 
                             Key.DirectionUp -> {
@@ -258,12 +262,28 @@ fun RecordingsGridScreen(
                                                 gridFocusRequesters[Pair(focusedRow, focusedCol)]?.requestFocus()
                                             }
                                         } else {
-                                            // First row - move to chips
-                                            currentFocusLevel = RecordingFocusLevel.SORT_CHIP
+                                            // First row - move to delete button
+                                            currentFocusLevel = RecordingFocusLevel.DELETE_BUTTON
                                             coroutineScope.launch {
                                                 kotlinx.coroutines.delay(50)
-                                                sortChipFocusRequester.requestFocus()
+                                                deleteButtonFocusRequester.requestFocus()
                                             }
+                                        }
+                                    }
+                                    RecordingFocusLevel.DELETE_BUTTON -> {
+                                        // Move from delete button to sort chip
+                                        currentFocusLevel = RecordingFocusLevel.SORT_CHIP
+                                        coroutineScope.launch {
+                                            kotlinx.coroutines.delay(50)
+                                            sortChipFocusRequester.requestFocus()
+                                        }
+                                    }
+                                    RecordingFocusLevel.STORAGE_BUTTON -> {
+                                        // Move from storage button to filter chip
+                                        currentFocusLevel = RecordingFocusLevel.FILTER_CHIP
+                                        coroutineScope.launch {
+                                            kotlinx.coroutines.delay(50)
+                                            filterChipFocusRequester.requestFocus()
                                         }
                                     }
                                     RecordingFocusLevel.SORT_CHIP, RecordingFocusLevel.FILTER_CHIP -> {
@@ -276,13 +296,38 @@ fun RecordingsGridScreen(
                             Key.DirectionDown -> {
                                 when (currentFocusLevel) {
                                     RecordingFocusLevel.SORT_CHIP, RecordingFocusLevel.FILTER_CHIP -> {
+                                        // Move to delete button first
+                                        currentFocusLevel = RecordingFocusLevel.DELETE_BUTTON
+                                        coroutineScope.launch {
+                                            kotlinx.coroutines.delay(50)
+                                            deleteButtonFocusRequester.requestFocus()
+                                        }
+                                    }
+                                    RecordingFocusLevel.DELETE_BUTTON -> {
+                                        // Move from delete button to grid (first column)
                                         if (displayedRecordings.isNotEmpty()) {
                                             currentFocusLevel = RecordingFocusLevel.GRID
                                             focusedRow = 0
                                             focusedCol = 0
                                             coroutineScope.launch {
+                                                // Scroll to top first to prevent auto-scroll
+                                                lazyGridState.scrollToItem(0)
                                                 kotlinx.coroutines.delay(50)
                                                 gridFocusRequesters[Pair(0, 0)]?.requestFocus()
+                                            }
+                                        }
+                                    }
+                                    RecordingFocusLevel.STORAGE_BUTTON -> {
+                                        // Move from storage button to grid (last column)
+                                        if (displayedRecordings.isNotEmpty()) {
+                                            currentFocusLevel = RecordingFocusLevel.GRID
+                                            focusedRow = 0
+                                            focusedCol = minOf(GRID_COLUMNS - 1, displayedRecordings.size - 1)
+                                            coroutineScope.launch {
+                                                // Scroll to top first to prevent auto-scroll
+                                                lazyGridState.scrollToItem(0)
+                                                kotlinx.coroutines.delay(50)
+                                                gridFocusRequesters[Pair(0, focusedCol)]?.requestFocus()
                                             }
                                         }
                                     }
@@ -315,8 +360,16 @@ fun RecordingsGridScreen(
                                             sortChipFocusRequester.requestFocus()
                                         }
                                     }
-                                    RecordingFocusLevel.SORT_CHIP -> {
-                                        // Already at leftmost chip
+                                    RecordingFocusLevel.STORAGE_BUTTON -> {
+                                        // Move from storage button to delete button
+                                        currentFocusLevel = RecordingFocusLevel.DELETE_BUTTON
+                                        coroutineScope.launch {
+                                            kotlinx.coroutines.delay(50)
+                                            deleteButtonFocusRequester.requestFocus()
+                                        }
+                                    }
+                                    RecordingFocusLevel.SORT_CHIP, RecordingFocusLevel.DELETE_BUTTON -> {
+                                        // Already at leftmost position, do nothing
                                     }
                                     RecordingFocusLevel.GRID -> {
                                         if (focusedCol > 0) {
@@ -340,8 +393,16 @@ fun RecordingsGridScreen(
                                             filterChipFocusRequester.requestFocus()
                                         }
                                     }
-                                    RecordingFocusLevel.FILTER_CHIP -> {
-                                        // At rightmost chip
+                                    RecordingFocusLevel.DELETE_BUTTON -> {
+                                        // Move from delete button to storage button
+                                        currentFocusLevel = RecordingFocusLevel.STORAGE_BUTTON
+                                        coroutineScope.launch {
+                                            kotlinx.coroutines.delay(50)
+                                            storageButtonFocusRequester.requestFocus()
+                                        }
+                                    }
+                                    RecordingFocusLevel.FILTER_CHIP, RecordingFocusLevel.STORAGE_BUTTON -> {
+                                        // At rightmost position, do nothing
                                     }
                                     RecordingFocusLevel.GRID -> {
                                         val numRows = (displayedRecordings.size + GRID_COLUMNS - 1) / GRID_COLUMNS
@@ -351,7 +412,16 @@ fun RecordingsGridScreen(
                                             GRID_COLUMNS - 1
                                         }
                                         if (focusedCol < maxCol) {
+                                            // Move right within same row
                                             focusedCol++
+                                            coroutineScope.launch {
+                                                kotlinx.coroutines.delay(50)
+                                                gridFocusRequesters[Pair(focusedRow, focusedCol)]?.requestFocus()
+                                            }
+                                        } else if (focusedRow < numRows - 1) {
+                                            // At last column, wrap to first column of next row
+                                            focusedRow++
+                                            focusedCol = 0
                                             coroutineScope.launch {
                                                 kotlinx.coroutines.delay(50)
                                                 gridFocusRequesters[Pair(focusedRow, focusedCol)]?.requestFocus()
@@ -378,12 +448,74 @@ fun RecordingsGridScreen(
             contentPadding = PaddingValues(
                 start = sx(GRID_PADDING),
                 end = sx(GRID_PADDING),
-                top = sy(200),  // Space for dropdowns + title
+                top = sy(140),  // Space for dropdown chips + 40px lower header
                 bottom = sy(40)
             ),
             horizontalArrangement = Arrangement.spacedBy(sx(GRID_HORIZONTAL_GAP)),
             verticalArrangement = Arrangement.spacedBy(sy(GRID_VERTICAL_GAP))
         ) {
+            // HEADER: Title + Button + Storage Info (scrolls with grid)
+            item(span = { GridItemSpan(GRID_COLUMNS) }) {
+                Column {
+                    // Two sections - LEFT (title + button) and RIGHT (storage panel)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        // LEFT SECTION: Title + Delete button (vertical layout)
+                        Column {
+                            // Title with count (Figma: 64sp)
+                            Text(
+                                text = buildAnnotatedString {
+                                    append(selectedFilter.screenTitle)
+                                    withStyle(SpanStyle(color = Color(0xFFEEEEEE).copy(alpha = 0.6f))) {
+                                        append(" ${displayedRecordings.size}")
+                                    }
+                                },
+                                fontSize = (64 * scaleY).sp,
+                                fontWeight = FontWeight.Medium,
+                                color = Color(0xFFEEEEEE),
+                                lineHeight = (72 * scaleY).sp
+                            )
+
+                            Spacer(modifier = Modifier.height(sy(24)))
+
+                            // "Opcje usuwania" button UNDER title (Figma-styled)
+                            FigmaButton(
+                                text = "Opcje usuwania",
+                                isFocused = currentFocusLevel == RecordingFocusLevel.DELETE_BUTTON,
+                                focusRequester = deleteButtonFocusRequester,
+                                onFocusChange = { currentFocusLevel = RecordingFocusLevel.DELETE_BUTTON },
+                                onClick = {
+                                    Log.d(TAG, "Opcje usuwania clicked")
+                                    // TODO: Open delete options dialog
+                                },
+                                sx = ::sx,
+                                sy = ::sy
+                            )
+                        }
+
+                        // RIGHT SECTION: Storage info panel
+                        StorageInfoPanel(
+                            usedHours = 220,  // TODO: Get from repository
+                            totalHours = 300, // TODO: Get from repository
+                            isBuyButtonFocused = currentFocusLevel == RecordingFocusLevel.STORAGE_BUTTON,
+                            buyButtonFocusRequester = storageButtonFocusRequester,
+                            onBuyButtonFocusChange = { currentFocusLevel = RecordingFocusLevel.STORAGE_BUTTON },
+                            onBuyButtonClick = {
+                                Log.d(TAG, "Dokup przestrzeń clicked")
+                                // TODO: Open storage purchase dialog
+                            },
+                            sx = ::sx,
+                            sy = ::sy,
+                            scaleY = scaleY
+                        )
+                    }
+
+                }
+            }
+
             // GRID ITEMS: Recording cards
             itemsIndexed(displayedRecordings) { index, content ->
                 val row = index / GRID_COLUMNS
@@ -479,22 +611,12 @@ fun RecordingsGridScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(sy(32)))
-
-            // ROW 2: Dynamic title based on selected filter
-            Text(
-                text = selectedFilter.screenTitle,
-                fontSize = (48 * scaleY).sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFFEEEEEE),
-                lineHeight = (56 * scaleY).sp,
-                modifier = Modifier.padding(horizontal = sx(GRID_PADDING))
-            )
         }
 
-        // LAYER 4: Sort Dropdown Menu (when expanded)
+        // LAYER 4: Sort FullScreen Picker (when expanded)
         if (isSortDropdownExpanded) {
-            DropdownMenu(
+            FullScreenPicker(
+                title = "Sortuj",
                 options = SortOption.values().map { it.label },
                 selectedIndex = SortOption.values().indexOf(selectedSort),
                 onSelect = { index ->
@@ -504,16 +626,14 @@ fun RecordingsGridScreen(
                 onDismiss = { isSortDropdownExpanded = false },
                 sx = ::sx,
                 sy = ::sy,
-                modifier = Modifier
-                    .padding(top = sy(100))
-                    .align(Alignment.TopCenter)
-                    .offset(x = sx(-120))
+                scaleY = scaleY
             )
         }
 
-        // LAYER 5: Filter Dropdown Menu (when expanded)
+        // LAYER 5: Filter FullScreen Picker (when expanded)
         if (isFilterDropdownExpanded) {
-            DropdownMenu(
+            FullScreenPicker(
+                title = "Filtruj",
                 options = ContentFilter.values().map { it.label },
                 selectedIndex = ContentFilter.values().indexOf(selectedFilter),
                 onSelect = { index ->
@@ -523,10 +643,7 @@ fun RecordingsGridScreen(
                 onDismiss = { isFilterDropdownExpanded = false },
                 sx = ::sx,
                 sy = ::sy,
-                modifier = Modifier
-                    .padding(top = sy(100))
-                    .align(Alignment.TopCenter)
-                    .offset(x = sx(120))
+                scaleY = scaleY
             )
         }
 
@@ -561,14 +678,17 @@ fun RecordingsGridScreen(
         }
     }
 
-    // Scroll to focused item
-    LaunchedEffect(focusedRow, focusedCol, currentFocusLevel) {
-        if (currentFocusLevel == RecordingFocusLevel.GRID && displayedRecordings.isNotEmpty()) {
-            val targetIndex = focusedRow * GRID_COLUMNS + focusedCol
-            if (targetIndex in displayedRecordings.indices) {
+    // Scroll to focused row (only when row changes, not on left/right navigation)
+    // Don't scroll for row 0 - header and first row should be visible without scrolling
+    LaunchedEffect(focusedRow, currentFocusLevel) {
+        if (currentFocusLevel == RecordingFocusLevel.GRID && displayedRecordings.isNotEmpty() && focusedRow > 0) {
+            // Scroll to first item of the focused row
+            // +1 because header item is at index 0
+            val targetIndex = focusedRow * GRID_COLUMNS + 1
+            if (focusedRow * GRID_COLUMNS in displayedRecordings.indices) {
                 lazyGridState.animateScrollToItem(
                     index = targetIndex,
-                    scrollOffset = -400
+                    scrollOffset = -200
                 )
             }
         }
@@ -666,17 +786,24 @@ private fun FigmaDropdownChip(
 }
 
 /**
- * Dropdown Menu Component
+ * Full Screen Picker Component (Figma: nodes 7204-46378, 7204-46387)
+ *
+ * Pełnoekranowy wybór sortowania/filtrowania z:
+ * - Label po lewej stronie (X=194, Y=344)
+ * - Lista opcji jako pill buttons po prawej (X=582, Y=344)
+ * - Selected item: checkmark + aqua border
+ * - Pill: 80px height, 100px border-radius, rgba(0,0,0,0.2) background
  */
 @Composable
-private fun DropdownMenu(
+private fun FullScreenPicker(
+    title: String,
     options: List<String>,
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
     onDismiss: () -> Unit,
     sx: (Int) -> Dp,
     sy: (Int) -> Dp,
-    modifier: Modifier = Modifier
+    scaleY: Float
 ) {
     var focusedIndex by remember { mutableStateOf(selectedIndex) }
     val focusRequesters = remember { options.map { FocusRequester() } }
@@ -687,11 +814,17 @@ private fun DropdownMenu(
         focusRequesters.getOrNull(selectedIndex)?.requestFocus()
     }
 
-    Column(
-        modifier = modifier
-            .width(sx(300))
-            .background(Color(0xFF2A1450), RoundedCornerShape(sx(16)))
-            .padding(vertical = sy(8))
+    // Full screen overlay with gradient background
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                brush = Brush.verticalGradient(
+                    0.0f to Color(0xFF48227C),
+                    0.5f to Color(0xFF48227C),
+                    1.0f to Color(0xFF2A1245)
+                )
+            )
             .onPreviewKeyEvent { event ->
                 if (event.type == KeyEventType.KeyDown) {
                     when (event.key) {
@@ -717,61 +850,135 @@ private fun DropdownMenu(
                     }
                 } else false
             }
-            .zIndex(100f)
+            .zIndex(200f)
     ) {
-        options.forEachIndexed { index, option ->
-            val isSelected = index == selectedIndex
-            val isItemFocused = index == focusedIndex
+        // Layout: Label on left (X=194), Options on right (X=582)
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(start = sx(194), top = sy(344))
+        ) {
+            // Title label on left
+            Text(
+                text = title,
+                color = Color(0xFFEEEEEE),
+                fontSize = (32 * scaleY).sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.width(sx(368))
+            )
 
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(sy(56))
-                    .background(
-                        when {
-                            isItemFocused -> Color(0xFF5AECD3)
-                            isSelected -> Color.White.copy(alpha = 0.1f)
-                            else -> Color.Transparent
-                        }
-                    )
-                    .focusRequester(focusRequesters[index])
-                    .onFocusChanged { if (it.isFocused) focusedIndex = index }
-                    .onPreviewKeyEvent { event ->
-                        if (event.type == KeyEventType.KeyDown &&
-                            (event.key == Key.Enter || event.key == Key.DirectionCenter)
-                        ) {
-                            onSelect(index)
-                            true
-                        } else false
-                    }
-                    .focusable()
-                    .padding(horizontal = sx(24)),
-                contentAlignment = Alignment.CenterStart
+            Spacer(modifier = Modifier.width(sx(20)))
+
+            // Options list
+            Column(
+                verticalArrangement = Arrangement.spacedBy(sy(24))
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(sx(12))
-                ) {
-                    // Checkmark for selected item
-                    if (isSelected) {
-                        Text(
-                            text = "✓",
-                            color = if (isItemFocused) Color(0xFF48227C) else Color(0xFF5AECD3),
-                            fontSize = (20 * sy(1).value / 1.dp.value).sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    } else {
-                        Spacer(modifier = Modifier.width(sx(20)))
-                    }
+                options.forEachIndexed { index, option ->
+                    val isSelected = index == selectedIndex
+                    val isItemFocused = index == focusedIndex
 
-                    Text(
+                    PillOption(
                         text = option,
-                        color = if (isItemFocused) Color(0xFF48227C) else Color.White,
-                        fontSize = (20 * sy(1).value / 1.dp.value).sp,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                        isSelected = isSelected,
+                        isFocused = isItemFocused,
+                        focusRequester = focusRequesters[index],
+                        onFocusChange = { focusedIndex = index },
+                        onClick = { onSelect(index) },
+                        sx = sx,
+                        sy = sy,
+                        scaleY = scaleY
                     )
                 }
             }
+        }
+    }
+}
+
+/**
+ * Pill Option Component (Figma design)
+ *
+ * - Height: 80px
+ * - Border-radius: 100px (fully rounded)
+ * - Background: rgba(0,0,0,0.2)
+ * - Selected: checkmark icon + aqua border 8px
+ * - Font: Manrope Medium 28sp
+ */
+@Composable
+private fun PillOption(
+    text: String,
+    isSelected: Boolean,
+    isFocused: Boolean,
+    focusRequester: FocusRequester,
+    onFocusChange: () -> Unit,
+    onClick: () -> Unit,
+    sx: (Int) -> Dp,
+    sy: (Int) -> Dp,
+    scaleY: Float
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(sx(24)),
+        modifier = Modifier
+            .focusRequester(focusRequester)
+            .onFocusChanged { if (it.isFocused) onFocusChange() }
+            .onPreviewKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown &&
+                    (event.key == Key.Enter || event.key == Key.DirectionCenter)
+                ) {
+                    onClick()
+                    true
+                } else false
+            }
+            .focusable()
+    ) {
+        // Checkmark for selected item (or spacer for alignment)
+        if (isSelected) {
+            // Checkmark icon (48x48)
+            Box(
+                modifier = Modifier.size(sx(48)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "✓",
+                    color = Color(0xFF5AECD3),
+                    fontSize = (32 * scaleY).sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        } else {
+            // Spacer to maintain alignment (72px = 48 icon + 24 gap)
+            Spacer(modifier = Modifier.width(sx(72)))
+        }
+
+        // Pill button
+        Box(
+            modifier = Modifier
+                .width(sx(684))
+                .height(sy(80))
+                .background(
+                    color = Color(0x33000000),  // rgba(0,0,0,0.2)
+                    shape = RoundedCornerShape(percent = 50)  // Fully rounded (100px)
+                )
+                .then(
+                    if (isFocused) {
+                        Modifier.border(
+                            width = sx(8),
+                            color = Color(0xFF5AECD3),  // Aqua border
+                            shape = RoundedCornerShape(percent = 50)
+                        )
+                    } else {
+                        Modifier
+                    }
+                )
+                .padding(horizontal = sx(48)),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            Text(
+                text = text,
+                color = Color(0xFFEEEEEE),
+                fontSize = (28 * scaleY).sp,
+                fontWeight = FontWeight.Medium
+            )
         }
     }
 }
@@ -788,5 +995,190 @@ private fun getContentTitle(content: RecordingContent): String {
     return when (content) {
         is RecordingContent.Individual -> content.recording.title
         is RecordingContent.Series -> content.bundle.title
+    }
+}
+
+private fun getContentDuration(content: RecordingContent): Long {
+    return when (content) {
+        is RecordingContent.Individual -> content.recording.durationMinutes.toLong()
+        is RecordingContent.Series -> content.bundle.totalDurationMinutes.toLong()
+    }
+}
+
+/**
+ * Figma-styled Button (Figma design token: container-button-default)
+ *
+ * Used for "Opcje usuwania" and "Dokup przestrzeń" buttons
+ * - Unfocused: rgba(238,238,238,0.2) background, white text
+ * - Focused: #5AECD3 (aqua) background, #48227C (purple) text
+ * - Height: 72px, border-radius: 8px, padding: 32px horizontal
+ * - Font: Manrope Bold 24sp, letter-spacing: -0.48
+ */
+@Composable
+private fun FigmaButton(
+    text: String,
+    isFocused: Boolean,
+    focusRequester: FocusRequester,
+    onFocusChange: () -> Unit,
+    onClick: () -> Unit,
+    sx: (Int) -> Dp,
+    sy: (Int) -> Dp,
+    modifier: Modifier = Modifier
+) {
+    val backgroundColor = if (isFocused)
+        Color(0xFF5AECD3)  // Aqua when focused
+    else
+        Color(0x33EEEEEE)  // rgba(238,238,238,0.2) default
+
+    val textColor = if (isFocused)
+        Color(0xFF48227C)  // Purple when focused
+    else
+        Color(0xFFEEEEEE)  // White default
+
+    Box(
+        modifier = modifier
+            .height(sy(72))
+            .background(backgroundColor, RoundedCornerShape(sx(8)))
+            .focusRequester(focusRequester)
+            .onFocusChanged { if (it.isFocused) onFocusChange() }
+            .onPreviewKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown &&
+                    (event.key == Key.Enter || event.key == Key.DirectionCenter)
+                ) {
+                    onClick()
+                    true
+                } else {
+                    false
+                }
+            }
+            .focusable()
+            .padding(horizontal = sx(32)),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            color = textColor,
+            fontSize = (24 * sy(1).value / 1.dp.value).sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = (-0.48).sp
+        )
+    }
+}
+
+/**
+ * Storage Info Panel (from Figma)
+ *
+ * Container: #1a0c2c background, border-radius: 32px, padding: 24px
+ * Contains:
+ * - "Dokup przestrzeń" button (FigmaButton style)
+ * - "Miejsce na Twoje nagrania" label
+ * - Progress bar (527px width, 8px height)
+ * - "220 h zajęte" / "pozostało 80 h" labels
+ */
+@Composable
+private fun StorageInfoPanel(
+    usedHours: Int,
+    totalHours: Int,
+    isBuyButtonFocused: Boolean,
+    buyButtonFocusRequester: FocusRequester,
+    onBuyButtonFocusChange: () -> Unit,
+    onBuyButtonClick: () -> Unit,
+    sx: (Int) -> Dp,
+    sy: (Int) -> Dp,
+    scaleY: Float,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .background(Color(0xFF1A0C2C), RoundedCornerShape(sx(32)))
+            .padding(sx(24)),
+        horizontalArrangement = Arrangement.spacedBy(sx(32)),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // "Dokup przestrzeń" button
+        FigmaButton(
+            text = "Dokup przestrzeń",
+            isFocused = isBuyButtonFocused,
+            focusRequester = buyButtonFocusRequester,
+            onFocusChange = onBuyButtonFocusChange,
+            onClick = onBuyButtonClick,
+            sx = sx,
+            sy = sy
+        )
+
+        // Storage info text + progress bar
+        Column(
+            modifier = Modifier.width(sx(527)),
+            verticalArrangement = Arrangement.spacedBy(sy(16))
+        ) {
+            // Label
+            Text(
+                text = "Miejsce na Twoje nagrania",
+                color = Color(0xFFEEEEEE),
+                fontSize = (24 * scaleY).sp,
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 0.48.sp
+            )
+
+            // Progress bar
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(sy(8))
+                    .background(Color(0x66EEEEEE), RoundedCornerShape(sy(8)))
+            ) {
+                val progress = usedHours.toFloat() / totalHours
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .fillMaxWidth(progress)
+                        .background(Color(0xFFEEEEEE), RoundedCornerShape(sy(8)))
+                )
+            }
+
+            // Labels row: "220 h zajęte" / "pozostało 80 h"
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                // "220 h zajęte"
+                Text(
+                    text = buildAnnotatedString {
+                        withStyle(SpanStyle(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = (32 * scaleY).sp,
+                            letterSpacing = 0.64.sp
+                        )) {
+                            append("$usedHours h ")
+                        }
+                        withStyle(SpanStyle(
+                            fontSize = (24 * scaleY).sp
+                        )) {
+                            append("zajęte")
+                        }
+                    },
+                    color = Color(0xFFEEEEEE)
+                )
+
+                // "pozostało 80 h"
+                Text(
+                    text = buildAnnotatedString {
+                        withStyle(SpanStyle(
+                            fontSize = (24 * scaleY).sp
+                        )) {
+                            append("pozostało ")
+                        }
+                        withStyle(SpanStyle(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = (32 * scaleY).sp,
+                            letterSpacing = 0.64.sp
+                        )) {
+                            append("${totalHours - usedHours} h")
+                        }
+                    },
+                    color = Color(0xFFEEEEEE).copy(alpha = 0.8f)
+                )
+            }
+        }
     }
 }
