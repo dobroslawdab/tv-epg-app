@@ -1231,7 +1231,9 @@ fun TopMenuScreen2(
     onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },  // Navigate to VOD grid (Nagrania, Wypożyczone, Do obejrzenia, etc.)
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },  // Navigate to KINO grid (Akcja, Horror - vertical posters)
-    onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> }  // Navigate to Recordings grid (Zarządzaj nagraniami)
+    onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> },  // Navigate to Recordings grid (Zarządzaj nagraniami)
+    onNavigateToMovieDetail: (VodSlideData) -> Unit = {},  // Navigate to MovieDetailScreen from KINO PLAY slider
+    onNavigateToPurchase: (VodSlideData) -> Unit = {}  // Navigate directly to PurchaseScreen (quick mode)
 ) {
     val configuration = LocalConfiguration.current
     val scaleX = configuration.screenWidthDp / 1920f
@@ -1255,6 +1257,9 @@ fun TopMenuScreen2(
     // Persisted in SharedPreferences
     val sliderPrefs = remember { context.getSharedPreferences("slider_prefs", android.content.Context.MODE_PRIVATE) }
     var sliderVersion by remember { mutableIntStateOf(sliderPrefs.getInt("slider_version", 2)) }
+
+    // Quick purchase mode - Key.Six toggles: Slider → MovieDetail → Purchase (default) vs Slider → Purchase (quick)
+    var quickPurchaseMode by remember { mutableStateOf(sliderPrefs.getBoolean("quick_purchase_mode", false)) }
 
     val menuItems = remember {
         listOf(
@@ -1589,11 +1594,11 @@ fun TopMenuScreen2(
                     return@onPreviewKeyEvent true
                 }
 
-                // Global: Key "6" - Toggle notification badge
+                // Global: Key "6" - Toggle quick purchase mode (Slider → Purchase directly, skipping MovieDetail)
                 if (event.key == Key.Six) {
-                    showProfileNotificationBadge = !showProfileNotificationBadge
-                    com.uxellence.tv.v3.utils.VersionTracker.setNotificationBadge(context, showProfileNotificationBadge)
-                    android.util.Log.d("TopMenuScreen2", "Key '6' pressed - Notification badge toggled: $showProfileNotificationBadge (saved to prefs)")
+                    quickPurchaseMode = !quickPurchaseMode
+                    sliderPrefs.edit().putBoolean("quick_purchase_mode", quickPurchaseMode).apply()
+                    android.util.Log.d("TopMenuScreen2", "Key '6' pressed - Quick purchase mode: $quickPurchaseMode (saved to prefs)")
                     return@onPreviewKeyEvent true
                 }
 
@@ -1872,6 +1877,9 @@ fun TopMenuScreen2(
                 onNavigateToChannelGrid = onNavigateToChannelGrid,
                 onNavigateToVodGrid = onNavigateToVodGrid,
                 onNavigateToKinoGrid = onNavigateToKinoGrid,
+                onNavigateToMovieDetail = onNavigateToMovieDetail,
+                onNavigateToPurchase = onNavigateToPurchase,
+                quickPurchaseMode = quickPurchaseMode,
                 onNavigateToRecordingsGrid = onNavigateToRecordingsGrid,
                 isEpgSectionExpanded = isEpgSectionExpanded,
                 onEpgSectionExpandedChange = { expanded ->
@@ -2537,6 +2545,7 @@ internal fun TopMenuBar2(
                                     onFocused = { onMenuItemFocused(item.id) },
                                     currentSelectedSection = currentSelectedSection,
                                     isInStartContent = isInStartContent,
+                                    isMenuFocused = menuState.isMenuFocused,  // CRITICAL: Pass menu focus state for border logic
                                     onBoundsChanged = { bounds ->
                                         focusBoundsMap["menu_${item.id}"] = bounds
                                     },
@@ -3266,12 +3275,15 @@ private fun MenuButton2(
     val useClassicFill = focusType == FocusType.CLASSIC_FILL
     // FLOATING_FILL mode - transparent tabs with floating aqua indicator
     val useFloatingFill = focusType == FocusType.FLOATING_FILL
+    // FLOATING_INDICATOR mode - AnimatedFocusIndicator handles both focus AND selected states
+    val useFloatingIndicator = focusType == FocusType.FLOATING_INDICATOR
 
     // Background color depends on focus type
     val backgroundColor = when {
-        // CLASSIC_FILL: aqua fill on focus, white fill on selected, transparent default
-        useClassicFill && isFocused && !isInStartContent -> Color(0xFF5AECD3)  // Aqua fill
-        useClassicFill && isSelected -> Color.White
+        // CLASSIC_FILL: aqua fill ONLY when menu focused AND element focused
+        useClassicFill && isFocused && !isInStartContent && isMenuFocused -> Color(0xFF5AECD3)  // Aqua fill
+        // CLASSIC_FILL: white fill ONLY when content focused AND element selected
+        useClassicFill && isSelected && !isMenuFocused -> Color.White
         useClassicFill -> Color(0x0AEEEEEE)  // Transparent default
         // FLOATING_FILL: always transparent (floating indicator handles both focus and selected)
         useFloatingFill -> Color.Transparent
@@ -3281,9 +3293,10 @@ private fun MenuButton2(
 
     // Text color depends on focus type
     val textColor = when {
-        // CLASSIC_FILL: purple text on focus/selected, white default
-        useClassicFill && (isFocused && !isInStartContent) -> Color(0xFF48227C)  // Purple
-        useClassicFill && isSelected -> Color(0xFF48227C)  // Purple
+        // CLASSIC_FILL: purple text ONLY when menu focused AND element focused
+        useClassicFill && isFocused && !isInStartContent && isMenuFocused -> Color(0xFF48227C)  // Purple
+        // CLASSIC_FILL: purple text ONLY when content focused AND element selected
+        useClassicFill && isSelected && !isMenuFocused -> Color(0xFF48227C)  // Purple
         useClassicFill -> Color(0xFFEEEEEE)  // White
         // FLOATING_FILL: purple text when indicator is behind (focused OR selected when menu not focused)
         useFloatingFill && isFocused && !isInStartContent -> Color(0xFF48227C)  // Purple (focused - aqua indicator)
@@ -3297,8 +3310,11 @@ private fun MenuButton2(
     val showOwnFocusBorder = isFocused && !isInStartContent && focusType == FocusType.BORDER_INSIDE
 
     // Border: for selected state OR for BORDER_INSIDE focus type
-    // CLASSIC_FILL and FLOATING_FILL use fill instead of border, so no border needed
-    val showSelectedBorder = isSelected && !(isFocused && !isInStartContent) && !useClassicFill && !useFloatingFill
+    // CLASSIC_FILL, FLOATING_FILL, FLOATING_INDICATOR use fill/indicator instead of border
+    // CRITICAL: Only show selected border when content has focus (!isMenuFocused)
+    // When menu is focused, we show focus indicator only, no selected border
+    // FLOATING_INDICATOR uses AnimatedFocusIndicator for selected state (white), so no border needed
+    val showSelectedBorder = isSelected && !(isFocused && !isInStartContent) && !useClassicFill && !useFloatingFill && !useFloatingIndicator && !isMenuFocused
     val borderWidth = when {
         showOwnFocusBorder -> sx(TopMenuDesign.FOCUS_BORDER_WIDTH)  // 8px aqua for focus
         showSelectedBorder -> sx(TopMenuDesign.SELECTED_BORDER_WIDTH)  // 4px white for selected
@@ -3389,6 +3405,9 @@ private fun FullPageContent(
     onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToMovieDetail: (VodSlideData) -> Unit = {},  // Navigate to MovieDetailScreen from KINO PLAY slider
+    onNavigateToPurchase: (VodSlideData) -> Unit = {},  // Navigate directly to PurchaseScreen (quick mode)
+    quickPurchaseMode: Boolean = false,  // When true, skip MovieDetail and go directly to Purchase
     onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> },
     isEpgSectionExpanded: Boolean = false,
     onEpgSectionExpandedChange: (Boolean) -> Unit = {},
@@ -3457,6 +3476,9 @@ private fun FullPageContent(
                 globalFocusState = globalFocusState,
                 onNavigateToVodGrid = onNavigateToVodGrid,
                 onNavigateToKinoGrid = onNavigateToKinoGrid,
+                onNavigateToMovieDetail = onNavigateToMovieDetail,
+                onNavigateToPurchase = onNavigateToPurchase,
+                quickPurchaseMode = quickPurchaseMode,
                 sx = sx,
                 sy = sy,
                 sliderVersion = sliderVersion
@@ -3808,11 +3830,21 @@ private fun OdkrywajChannelsScreen(
         if (vodContentList.isNotEmpty() || supabaseNewest.isNotEmpty()) {
             // Kolekcje dla "Kolekcje KINA PLAY"
             val collections = listOf(
-                VodContent("col_horrory", "Horrory", "Kolekcja horrorów na Halloween", "Horror", "https://images6.alphacoders.com/140/1400473.jpg", "", ""),
-                VodContent("col_thrillery", "Thrillery", "Ekscytujące thrillery", "Thriller", "https://images6.alphacoders.com/135/1356452.jpeg", "", ""),
-                VodContent("col_komedie", "Komedie", "Najlepsze komedie", "Komedia", "https://images6.alphacoders.com/135/1356452.jpeg", "", ""),
-                VodContent("col_dokumenty", "Dokumenty", "Fascynujące dokumenty", "Dokumentalny", "https://images6.alphacoders.com/135/1356452.jpeg", "", ""),
-                VodContent("col_scifi", "Sci-Fi", "Fantastyka naukowa", "Sci-Fi", "https://images4.alphacoders.com/135/1353792.png", "", "")
+                VodContent("col_1", "Kolekcja 1", "Kolekcja filmów", "Kolekcja", "android.resource://com.uxellence.tv.v3/${R.drawable.kolekcja_1}", "", ""),
+                VodContent("col_2", "Kolekcja 2", "Kolekcja filmów", "Kolekcja", "android.resource://com.uxellence.tv.v3/${R.drawable.kolekcja_2}", "", ""),
+                VodContent("col_3", "Kolekcja 3", "Kolekcja filmów", "Kolekcja", "android.resource://com.uxellence.tv.v3/${R.drawable.kolekcja_3}", "", ""),
+                VodContent("col_4", "Kolekcja 4", "Kolekcja filmów", "Kolekcja", "android.resource://com.uxellence.tv.v3/${R.drawable.kolekcja_4}", "", ""),
+                VodContent("col_5", "Kolekcja 5", "Kolekcja filmów", "Kolekcja", "android.resource://com.uxellence.tv.v3/${R.drawable.kolekcja_5}", "", ""),
+                VodContent("col_6", "Kolekcja 6", "Kolekcja filmów", "Kolekcja", "android.resource://com.uxellence.tv.v3/${R.drawable.kolekcja_6}", "", "")
+            )
+
+            // Pakiety dla kanału "Pakiety"
+            val pakiety = listOf(
+                VodContent("pakiet_kids", "KIDS", "Pakiet dla dzieci", "Pakiet", "android.resource://com.uxellence.tv.v3/${R.drawable.pakiet_kids}", "", ""),
+                VodContent("pakiet_disney", "Disney+", "Pakiet Disney+", "Pakiet", "android.resource://com.uxellence.tv.v3/${R.drawable.pakiet_disney}", "", ""),
+                VodContent("pakiet_extra", "EXTRA", "Pakiet Extra", "Pakiet", "android.resource://com.uxellence.tv.v3/${R.drawable.pakiet_extra}", "", ""),
+                VodContent("pakiet_news", "NEWS", "Pakiet wiadomości", "Pakiet", "android.resource://com.uxellence.tv.v3/${R.drawable.pakiet_news}", "", ""),
+                VodContent("pakiet_prime", "Prime Video", "Pakiet Prime Video", "Pakiet", "android.resource://com.uxellence.tv.v3/${R.drawable.pakiet_prime}", "", "")
             )
 
             channels.associateWith { channelName ->
@@ -3826,7 +3858,7 @@ private fun OdkrywajChannelsScreen(
                     "Disney+" -> vodContentList.shuffled().take(10)
                     "Top 10" -> VodDataCache.getTop10().ifEmpty { kinoPlayMovies.take(10) }
                     "Kolekcje KINA PLAY" -> collections
-                    "Pakiety" -> vodContentList.shuffled().take(10)
+                    "Pakiety" -> pakiety
                     // Polecane w KINIE PLAY - dane z Supabase z cenami!
                     "Polecane w KINIE PLAY" -> supabaseNewest.ifEmpty { kinoPlayMovies.take(10) }
                     "Ostatnio dodane w Wideo" -> vodContentList.shuffled().take(10)
@@ -9886,8 +9918,7 @@ fun OdkrywajUnifiedChannelRow(
                     isOnChannelsBelow = focusedRowIndex > rowIndex,
                     // === Infinity loop: Shared state for ghost slider synchronization ===
                     externalCurrentSlide = sharedCurrentSlide,
-                    onCurrentSlideChange = { slide -> onSharedCurrentSlideChange(slide) },
-                    externalProgress = sharedProgress
+                    onCurrentSlideChange = { slide -> onSharedCurrentSlideChange(slide) }
                 )
             }
             "shortcuts" -> {
@@ -10129,7 +10160,8 @@ fun OdkrywajUnifiedChannelRow(
                                 focusRequester = focusRequester,
                                 onFocusChange = { onChannelContentFocusChange(rowIndex, colIndex) },
                                 sx = sx,
-                                sy = sy
+                                sy = sy,
+                                showChannelNumber = false  // Hide number badge in ODKRYWAJ
                             )
                         }
                     }
@@ -10220,7 +10252,7 @@ fun OdkrywajUnifiedChannelRow(
                                 sx = sx,
                                 sy = sy,
                                 lazyListState = lazyListState,
-                                // No onClick for ODKRYWAJ section
+                                showChannelNumber = false  // Hide number badge in ODKRYWAJ
                             )
                         }
 
@@ -11301,6 +11333,9 @@ private fun VodScreenContent(
     globalFocusState: MutableState<GlobalFocusState>,
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToMovieDetail: (VodSlideData) -> Unit = {},  // Navigate to MovieDetailScreen from KINO PLAY slider
+    onNavigateToPurchase: (VodSlideData) -> Unit = {},  // Navigate directly to PurchaseScreen (quick mode)
+    quickPurchaseMode: Boolean = false,  // When true, skip MovieDetail and go directly to Purchase
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     sliderVersion: Int = 1
@@ -11321,6 +11356,9 @@ private fun VodScreenContent(
         shouldAutoFocus = globalFocusState.value.sectionId == "KINO_PLAY" && globalFocusState.value.currentRow > 0,
         onNavigateToVodGrid = onNavigateToVodGrid,
         onNavigateToKinoGrid = onNavigateToKinoGrid,
+        onNavigateToMovieDetail = onNavigateToMovieDetail,
+        onNavigateToPurchase = onNavigateToPurchase,
+        quickPurchaseMode = quickPurchaseMode,
         sx = sx,
         sy = sy,
         resetTrigger = resetTrigger,
@@ -11409,6 +11447,9 @@ private fun VodWithChannels(
     shouldAutoFocus: Boolean = false,
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToMovieDetail: (VodSlideData) -> Unit = {},  // Navigate to MovieDetailScreen from KINO PLAY slider
+    onNavigateToPurchase: (VodSlideData) -> Unit = {},  // Navigate directly to PurchaseScreen (quick mode)
+    quickPurchaseMode: Boolean = false,  // When true, skip MovieDetail and go directly to Purchase
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     resetTrigger: Int = 0,
@@ -11554,6 +11595,9 @@ private fun VodWithChannels(
             },
             onNavigateToVodGrid = onNavigateToVodGrid,
             onNavigateToKinoGrid = onNavigateToKinoGrid,
+            onNavigateToMovieDetail = onNavigateToMovieDetail,
+            onNavigateToPurchase = onNavigateToPurchase,
+            quickPurchaseMode = quickPurchaseMode,
             lazyListStates = lazyListStates,
             globalFocusState = globalFocusState,
             sx = sx,
@@ -11573,6 +11617,9 @@ private fun VodLayoutWithSlider(
     onChannelContentFocusChange: (Int, Int) -> Unit,
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToMovieDetail: (VodSlideData) -> Unit = {},  // Navigate to MovieDetailScreen from KINO PLAY slider
+    onNavigateToPurchase: (VodSlideData) -> Unit = {},  // Navigate directly to PurchaseScreen (quick mode)
+    quickPurchaseMode: Boolean = false,  // When true, skip MovieDetail and go directly to Purchase
     lazyListStates: Map<Int, LazyListState>,
     globalFocusState: MutableState<GlobalFocusState>,
     sx: (Int) -> androidx.compose.ui.unit.Dp,
@@ -11612,7 +11659,15 @@ private fun VodLayoutWithSlider(
                     items = kinoPlaySliderItems,
                     sectionType = "KINO_PLAY",
                     sx = sx,
-                    sy = sy
+                    sy = sy,
+                    onSlideClicked = { item ->
+                        // Quick purchase mode: go directly to PurchaseScreen, skipping MovieDetailScreen
+                        if (quickPurchaseMode) {
+                            onNavigateToPurchase(item)
+                        } else {
+                            onNavigateToMovieDetail(item)
+                        }
+                    }
                 )
             }
         }
@@ -12249,6 +12304,7 @@ private fun VodHeroSliderV2(
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     topPadding: Int = 200, // Default 200px, ODKRYWAJ uses 0 (parent handles positioning)
     onSlideChanged: (Int) -> Unit = {},
+    onSlideClicked: ((VodSlideData) -> Unit)? = null,  // Callback when OK/Enter pressed on slide (KINO_PLAY)
     // Auto-rotation parameters (only for ODKRYWAJ)
     enableAutoRotate: Boolean = false,
     autoRotateIntervalMs: Long = 8000L,
@@ -12396,6 +12452,18 @@ private fun VodHeroSliderV2(
                             }
                         }
                         true
+                    }
+                    androidx.compose.ui.input.key.Key.Enter,
+                    androidx.compose.ui.input.key.Key.DirectionCenter -> {
+                        // Handle OK/Enter press - invoke callback if provided (for KINO_PLAY)
+                        if (onSlideClicked != null && sectionType == "KINO_PLAY") {
+                            sliderItems.getOrNull(currentSlide)?.let { item ->
+                                onSlideClicked.invoke(item)
+                            }
+                            true
+                        } else {
+                            false // Let parent handle
+                        }
                     }
                     else -> false
                 }
@@ -12717,6 +12785,21 @@ private fun SliderV2CardStateBased(
                         .fillMaxHeight()
                         .offset(x = if (isNextSlide) sx(-755) else 0.dp),
                     contentScale = ContentScale.FillHeight
+                )
+            }
+
+            // Glow overlay (slide_glow_left.png) - pod tekstem, nad ilustracją
+            // Only for KINO_PLAY, WIDEO, ODKRYWAJ sections
+            // Original image: 1151x675px - positioned at left edge of slide
+            if (!isNextSlide && sectionType in listOf("KINO_PLAY", "WIDEO", "ODKRYWAJ")) {
+                Image(
+                    painter = painterResource(id = R.drawable.slide_glow_left),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .width(sx(1151))
+                        .height(sy(675))
+                        .align(Alignment.TopStart),
+                    contentScale = ContentScale.FillBounds
                 )
             }
 
@@ -13207,7 +13290,8 @@ private fun ContentCard(
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     lazyListState: LazyListState,
-    onClick: () -> Unit = {}
+    onClick: () -> Unit = {},
+    showChannelNumber: Boolean = true
 ) {
     val itemWidth = sx(368)
     val itemHeight = sy(208)
@@ -13265,21 +13349,23 @@ private fun ContentCard(
                 )
         )
 
-        // Channel number
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(end = sx(12), top = sy(12))
-                .border(width = sx(1), color = Color.White.copy(alpha = 0.4f), shape = RoundedCornerShape(sx(4)))
-                .padding(horizontal = sx(12), vertical = sy(8)),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = channelNumber,
-                color = Color.White,
-                fontSize = (20 * (sy(1).value / 1.dp.value)).sp,
-                fontWeight = FontWeight.Medium
-            )
+        // Channel number (only show if showChannelNumber is true)
+        if (showChannelNumber) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(end = sx(12), top = sy(12))
+                    .border(width = sx(1), color = Color.White.copy(alpha = 0.4f), shape = RoundedCornerShape(sx(4)))
+                    .padding(horizontal = sx(12), vertical = sy(8)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = channelNumber,
+                    color = Color.White,
+                    fontSize = (20 * (sy(1).value / 1.dp.value)).sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
         }
 
         // Title
@@ -14129,7 +14215,8 @@ private fun VerticalContentCard(
     focusRequester: FocusRequester,
     onFocusChange: () -> Unit,
     sx: (Int) -> androidx.compose.ui.unit.Dp,
-    sy: (Int) -> androidx.compose.ui.unit.Dp
+    sy: (Int) -> androidx.compose.ui.unit.Dp,
+    showChannelNumber: Boolean = true
 ) {
     val itemWidth = sx(220)
     val itemHeight = sy(280)
@@ -14178,21 +14265,23 @@ private fun VerticalContentCard(
                 )
         )
 
-        // Channel number
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(end = sx(12), top = sy(12))
-                .border(width = sx(1), color = Color.White.copy(alpha = 0.4f), shape = RoundedCornerShape(sx(4)))
-                .padding(horizontal = sx(12), vertical = sy(8)),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = channelNumber,
-                color = Color.White,
-                fontSize = (20 * (sy(1).value / 1.dp.value)).sp,
-                fontWeight = FontWeight.Medium
-            )
+        // Channel number (only show if showChannelNumber is true)
+        if (showChannelNumber) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(end = sx(12), top = sy(12))
+                    .border(width = sx(1), color = Color.White.copy(alpha = 0.4f), shape = RoundedCornerShape(sx(4)))
+                    .padding(horizontal = sx(12), vertical = sy(8)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = channelNumber,
+                    color = Color.White,
+                    fontSize = (20 * (sy(1).value / 1.dp.value)).sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
         }
 
         // Title
@@ -15733,7 +15822,8 @@ fun WideoUnifiedChannelRow(
                         onFocusChange = { onChannelContentFocusChange(rowIndex, colIndex) },
                         sx = sx,
                         sy = sy,
-                        lazyListState = lazyListState
+                        lazyListState = lazyListState,
+                        showChannelNumber = false  // Hide number badge in WIDEO
                     )
                 }
 
