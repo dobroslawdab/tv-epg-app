@@ -896,6 +896,30 @@ SafeNavigationScope(
 - **Pattern**: Always use dynamic calculations (`menuItems.size - 1`) instead of hardcoded positions for edge case logic
 - **Anti-pattern Warning**: Hardcoding position checks (`currentPosition == MenuPositions.APLIKACJE`) creates fragile navigation that breaks when menu order changes
 
+#### **Issue #8: TOP MENU V1 Duplicate Selected Indicators** (2026-01-16)
+- **Issue**: MenuButton2 showed duplicate indicators when content had focus - both AnimatedFocusIndicator (white) AND internal border
+- **Symptoms**:
+  1. During LEFT/RIGHT navigation in menu, white "selected" border appeared on previous tab
+  2. When focus moved to content (DOWN), TWO indicators appeared around selected tab (inner border + outer floating indicator)
+  3. Inner gray/white border shouldn't display when AnimatedFocusIndicator handles selected state
+- **Root Cause**: Multiple issues in MenuButton2:
+  1. `showSelectedBorder` didn't check `isMenuFocused` - border showed during menu navigation
+  2. `showSelectedBorder` didn't exclude `FLOATING_INDICATOR` type - both border AND floating indicator showed
+  3. Second MenuButton2 call (line 2540) was missing `isMenuFocused` parameter
+- **Solution**: Three targeted fixes in MenuButton2 function:
+  1. **Added `&& !isMenuFocused`** to showSelectedBorder condition - border only shows when content has focus
+  2. **Added `useFloatingIndicator` variable** and excluded it from showSelectedBorder - for V1, AnimatedFocusIndicator handles both focus AND selected states
+  3. **Added `isMenuFocused = menuState.isMenuFocused`** to second MenuButton2 call
+  4. **CLASSIC_FILL fixes**: backgroundColor and textColor now respect isMenuFocused (aqua/purple only when menu focused)
+- **Result**:
+  - ✅ Menu focused + LEFT/RIGHT: ONLY aqua floating indicator (no white border on previous tab)
+  - ✅ Content focused: ONLY white floating indicator (no inner border)
+  - ✅ NEVER two indicators at once
+  - ✅ CLASSIC_FILL mode also fixed (aqua fill only when menu focused)
+- **Files**: `TopMenuScreen2.kt:3275-3317` (MenuButton2 function), `TopMenuScreen2.kt:2548` (isMenuFocused parameter)
+- **Pattern**: For focus types using external indicators (FLOATING_INDICATOR, FLOATING_FILL), the button component should NOT show its own border/fill for selected state
+- **Commit**: `fc104e4`
+
 #### **Key Learnings**
 1. **Delegation Pattern**: Sections with complex multi-row navigation (MOJE, START, APLIKACJE, VOD) should delegate ALL keys to child components
 2. **Callback Pattern**: Child components use `onReturnToMenu` callback for menu transitions instead of parent intercepting keys
@@ -903,6 +927,7 @@ SafeNavigationScope(
 4. **Documentation**: Critical patterns must be documented in CLAUDE.md with examples and checklists
 5. **Monolithic Handlers Are Anti-patterns**: Extract to specialized controllers (Focus Architect principle) - prevents conflicts, improves maintainability, reduces bugs
 6. **Modal Dialogs Require Input Gating**: Never delegate ALL keys blindly - use whitelist validation to prevent unexpected keys from leaking to background (PIP Dialog pattern)
+7. **External Indicator Pattern**: When using external indicators (AnimatedFocusIndicator), the button component should NOT render its own border/fill for focus/selected states - prevents duplicate indicators
 
 ---
 
