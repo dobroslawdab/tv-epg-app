@@ -136,6 +136,7 @@ import android.widget.Toast
 import android.content.Context
 import com.uxellence.tv.v3.utils.VersionTracker
 import com.uxellence.tv.v3.config.ConfigManager
+import com.uxellence.tv.v3.repository.toVodSlideData
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.PlayArrow
 
@@ -195,12 +196,12 @@ internal data class TopMenuVariantConfig(
 
 /** Predefiniowane 4 warianty designu TopMenu */
 internal val MENU_VARIANTS = listOf(
-    // V1: Floating Focus + Blur (obecny design)
+    // V1: Floating Focus + Solid (bez blur, solid colors)
     TopMenuVariantConfig(
         id = 1,
-        name = "Floating + Blur",
+        name = "Floating + Solid",
         focusType = FocusType.FLOATING_INDICATOR,
-        focusBorderWidth = 8,
+        focusBorderWidth = 4,
         focusBorderColor = Color(0xFF5FEDD4),
         focusGlowColor = Color(0xE65FEDD4),
         focusAnimationDuration = 200,
@@ -209,9 +210,9 @@ internal val MENU_VARIANTS = listOf(
         containerPaddingH = 16,
         containerPaddingV = 10,
         itemBorderRadius = 64,
-        backgroundType = BackgroundType.BLUR,
-        backgroundColor = Color(0x1AEEEEEE),
-        blurEnabled = true
+        backgroundType = BackgroundType.SOLID,
+        backgroundColor = Color(0xFF3C2A54),
+        blurEnabled = false
     ),
     // V2: Border Inside + Solid
     TopMenuVariantConfig(
@@ -442,14 +443,8 @@ private fun AnimatedFocusIndicator(
                         shape = RoundedCornerShape(with(density) { animatedCornerRadius.toDp() })
                     )
                 } else {
-                    // FLOATING_INDICATOR: shadow + border (bez fill)
+                    // FLOATING_INDICATOR: border only (bez shadow/glow)
                     Modifier
-                        .shadow(
-                            elevation = sx(24),
-                            shape = RoundedCornerShape(with(density) { animatedCornerRadius.toDp() }),
-                            ambientColor = TopMenuDesign.COLOR_FOCUS_GLOW,
-                            spotColor = TopMenuDesign.COLOR_FOCUS_GLOW
-                        )
                         .border(
                             width = borderWidth,
                             color = indicatorColor,
@@ -655,7 +650,8 @@ data class VodSlideData(
     val backgroundUrl: String,
     val posterUrl: String = "", // Poster for thumbnail view
     val youtubeUrl: String? = null, // YouTube trailer URL for auto-play
-    val channelLogoUrl: String? = null // Channel logo URL for WIDEO section
+    val channelLogoUrl: String? = null, // Channel logo URL for WIDEO section
+    val showKrrit: Boolean = false // Show KRRIT labels for movie/vod content
 )
 
 /**
@@ -1258,7 +1254,7 @@ fun TopMenuScreen2(
     // Toggled with Key.Nine, affects START, KINO_PLAY, WIDEO sections
     // Persisted in SharedPreferences
     val sliderPrefs = remember { context.getSharedPreferences("slider_prefs", android.content.Context.MODE_PRIVATE) }
-    var sliderVersion by remember { mutableIntStateOf(sliderPrefs.getInt("slider_version", 1)) }
+    var sliderVersion by remember { mutableIntStateOf(sliderPrefs.getInt("slider_version", 2)) }
 
     val menuItems = remember {
         listOf(
@@ -1309,7 +1305,8 @@ fun TopMenuScreen2(
     val rightButtonFocusRequesters = remember {
         mapOf(
             0 to FocusRequester(), // Konto (account icon)
-            1 to FocusRequester()  // Ustawienia (settings gear)
+            1 to FocusRequester(), // Ustawienia (settings gear)
+            2 to FocusRequester()  // Profile (avatar)
         )
     }
 
@@ -1632,9 +1629,9 @@ fun TopMenuScreen2(
                         when (event.key) {
                             Key.DirectionLeft -> {
                                 if (focusedRightButton >= 0) {
-                                    // In right section - navigate left: Ustawienia(1) -> Konto(0) -> Pakiety/CandyBar -> menu
+                                    // In right section - navigate left: Profile(2) -> Ustawienia(1) -> Konto(0) -> Pakiety/CandyBar -> menu
                                     if (focusedRightButton > 0) {
-                                        // Move to previous button (Ustawienia->Konto)
+                                        // Move to previous button (Profile->Ustawienia->Konto)
                                         focusedRightButton--
                                     } else {
                                         // From Konto(0) -> Pakiety/CandyBar (center element)
@@ -1664,21 +1661,21 @@ fun TopMenuScreen2(
                             /**
                              * RIGHT KEY NAVIGATION (Row 0: Menu)
                              *
-                             * v4.0.0 Layout: Profil (left) | [Start ... SEARCH] | CandyBar | Konto | Ustawienia | Clock
+                             * v4.0.0 Layout: Profil (left) | [Start ... SEARCH] | CandyBar | Konto | Ustawienia | Profile | Clock
                              * - Profil → Start (first menu item)
                              * - Last item (SEARCH) → Pakiety/CandyBar
-                             * - Pakiety/CandyBar → Konto(0) → Ustawienia(1)
+                             * - Pakiety/CandyBar → Konto(0) → Ustawienia(1) → Profile(2)
                              * - Other items → Continue normal menu navigation via GlobalFocusManager
                              *
                              * @see GlobalFocusManager.navigateRow for normal menu navigation
                              */
                             Key.DirectionRight -> {
                                 if (focusedRightButton >= 0) {
-                                    // In right section - navigate right: Konto(0) -> Ustawienia(1)
-                                    if (focusedRightButton < 1) {
+                                    // In right section - navigate right: Konto(0) -> Ustawienia(1) -> Profile(2)
+                                    if (focusedRightButton < 2) {
                                         focusedRightButton++
                                     }
-                                    // else: already at Ustawienia(1), stay there
+                                    // else: already at Profile(2), stay there
                                 } else if (isPakietyFocused) {
                                     // From Pakiety/CandyBar -> first right section button (Konto)
                                     isPakietyFocused = false
@@ -2439,14 +2436,30 @@ internal fun TopMenuBar2(
                 var containerRootX by remember { mutableFloatStateOf(0f) }
                 var containerRootY by remember { mutableFloatStateOf(0f) }
 
-                // Determine current focused element key
-                val currentFocusKey: String? = when {
-                    menuState.isMenuFocused && menuState.focusedItemId != null -> "menu_${menuState.focusedItemId}"
-                    isPakietyFocused -> "pakiety"
-                    focusedRightButton == 0 -> "konto"
-                    focusedRightButton == 1 -> "settings"
-                    focusedRightButton == 2 -> "profile"
-                    else -> null
+                // Determine current focused/selected element key and indicator color
+                // V1 selected state: pokazuj selected (biały) TYLKO gdy menu nie jest focused
+                val (currentFocusKey: String?, indicatorColor: Color) = when {
+                    // Menu focused - pokazuj fokus (aqua)
+                    menuState.isMenuFocused && menuState.focusedItemId != null ->
+                        "menu_${menuState.focusedItemId}" to TopMenuDesign.COLOR_FOCUS_BORDER
+                    // Inne elementy focused (pakiety, right buttons) - aqua
+                    isPakietyFocused -> "pakiety" to TopMenuDesign.COLOR_FOCUS_BORDER
+                    focusedRightButton == 0 -> "konto" to TopMenuDesign.COLOR_FOCUS_BORDER
+                    focusedRightButton == 1 -> "settings" to TopMenuDesign.COLOR_FOCUS_BORDER
+                    focusedRightButton == 2 -> "profile" to TopMenuDesign.COLOR_FOCUS_BORDER
+                    // Pakiety/CandyBar selected (biały) - gdy jesteśmy w POINTS_HISTORY lub PAKIETY content
+                    !menuState.isMenuFocused && (currentSelectedSection == "POINTS_HISTORY" || currentSelectedSection == "PAKIETY") ->
+                        "pakiety" to Color.White
+                    // Konto selected (biały) - gdy jesteśmy w ACCOUNT content
+                    !menuState.isMenuFocused && currentSelectedSection == "ACCOUNT" ->
+                        "konto" to Color.White
+                    // Profile selected (biały) - gdy jesteśmy w PROFILE content
+                    !menuState.isMenuFocused && currentSelectedSection == "PROFILE" ->
+                        "profile" to Color.White
+                    // Menu NIE focused - pokazuj selected (biały) dla V1
+                    !menuState.isMenuFocused && menuState.selectedItemId != null ->
+                        "menu_${menuState.selectedItemId}" to Color.White
+                    else -> null to Color.Transparent
                 }
 
                 // Show floating indicator for FLOATING_INDICATOR and FLOATING_FILL focus types
@@ -2475,9 +2488,10 @@ internal fun TopMenuBar2(
                                 )
                             }
                         },
-                        borderWidth = sx(TopMenuDesign.FOCUS_BORDER_WIDTH),  // 8px
+                        borderWidth = sx(variantConfig.focusBorderWidth),  // V1: 4px
                         isVisible = showFocusIndicator,
-                        focusType = variantConfig.focusType,  // NEW: Pass focus type for fill decision
+                        focusType = variantConfig.focusType,
+                        indicatorColor = indicatorColor,  // Aqua dla focus, biały dla selected
                         sx = sx,
                         sy = sy
                     )
@@ -3065,11 +3079,12 @@ private fun ProfilButton(
         contentAlignment = Alignment.Center
     ) {
         Box {
-            // Avatar/profile icon
-            Image(
-                painter = painterResource(id = R.drawable.lamp),  // Use existing lamp or add profile icon
-                contentDescription = "Profil",
-                modifier = Modifier.size(sx(48), sy(48))
+            // Avatar/profile letter "A"
+            Text(
+                text = "A",
+                color = contentColor,
+                fontSize = (36 * sy(1).value / 1).sp,
+                fontWeight = FontWeight.Bold
             )
 
             // Notification badge
@@ -3416,7 +3431,8 @@ private fun FullPageContent(
                 onNavigateToVodGrid = onNavigateToVodGrid,
                 appIconsData = emptyMap(),  // TODO: Pass real appIconsData
                 sx = sx,
-                sy = sy
+                sy = sy,
+                sliderVersion = sliderVersion  // V3 shortcuts when sliderVersion == 2
             )
         }
         "TELEWIZJA" -> {
@@ -3605,7 +3621,8 @@ private fun OdkrywajScreenContent(
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     appIconsData: Map<String, List<TvChannel>> = emptyMap(),
     sx: (Int) -> androidx.compose.ui.unit.Dp,
-    sy: (Int) -> androidx.compose.ui.unit.Dp
+    sy: (Int) -> androidx.compose.ui.unit.Dp,
+    sliderVersion: Int = 2  // 2 = V3 shortcuts (bigger cards), 1 = V2 shortcuts (smaller cards)
 ) {
     var resetTrigger by remember { mutableIntStateOf(0) }
 
@@ -3631,7 +3648,8 @@ private fun OdkrywajScreenContent(
         appIconsData = appIconsData,
         sx = sx,
         sy = sy,
-        resetTrigger = resetTrigger
+        resetTrigger = resetTrigger,
+        sliderVersion = sliderVersion  // V3 shortcuts when sliderVersion == 2
     )
 }
 
@@ -3701,9 +3719,30 @@ private fun OdkrywajChannelsScreen(
     appIconsData: Map<String, List<TvChannel>> = emptyMap(),
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
-    resetTrigger: Int = 0
+    resetTrigger: Int = 0,
+    sliderVersion: Int = 2  // 2 = V3 shortcuts (bigger cards), 1 = V2 shortcuts (smaller cards)
 ) {
     val context = LocalContext.current
+
+    // === Config for auto-rotation settings ===
+    val appConfig by ConfigManager.configState.collectAsState()
+
+    // === Slider data from Supabase ===
+    var odkrywajSliderItems by remember { mutableStateOf<List<VodSlideData>>(emptyList()) }
+    var sliderLoading by remember { mutableStateOf(true) }
+
+    // Load slider data from Supabase
+    LaunchedEffect(Unit) {
+        try {
+            val items = com.uxellence.tv.v3.repository.SupabaseOdkrywajRepository.fetchOdkrywajSlider()
+            odkrywajSliderItems = items.map { it.toVodSlideData() }
+            Log.d("ODKRYWAJ_DEBUG", "Loaded ${odkrywajSliderItems.size} slider items from Supabase")
+        } catch (e: Exception) {
+            Log.e("ODKRYWAJ_DEBUG", "Failed to load slider items", e)
+        } finally {
+            sliderLoading = false
+        }
+    }
 
     // Row 0: Slider Mix, Row 1: Skróty, Row 2: Popularne,
     // Row 3: Nowości, Row 4: Nowe filmy, Row 5: Top 10, Row 6: Kolekcje
@@ -3717,11 +3756,11 @@ private fun OdkrywajChannelsScreen(
         "Kolekcje"
     )
 
-    // Define channel types
-    val channelTypes = remember {
+    // Define channel types - shortcuts-v3 when sliderVersion == 2, shortcuts otherwise
+    val channelTypes = remember(sliderVersion) {
         mapOf(
             "Slider Mix" to "slider-max",
-            "Skróty" to "shortcuts",
+            "Skróty" to if (sliderVersion == 2) "shortcuts-v3" else "shortcuts",
             "Popularne" to "horizontal",
             "Nowości" to "horizontal",
             "Nowe filmy" to "vertical",
@@ -3762,7 +3801,7 @@ private fun OdkrywajChannelsScreen(
         }
     }
 
-    // Shortcuts data
+    // Shortcuts data (V2 - smaller cards 210x279)
     val shortcuts = remember {
         listOf(
             ShortcutItem("1", "Moja lista kanałów", ShortcutIcon.LottieIcon("tvaa.lottie")),
@@ -3770,6 +3809,19 @@ private fun OdkrywajChannelsScreen(
             ShortcutItem("3", "Wypożyczone", ShortcutIcon.LottieIcon("wypozyczone.lottie")),
             ShortcutItem("4", "Disney Plus", ShortcutIcon.VectorIcon(R.drawable.disney_plus_logo)),
             ShortcutItem("5", "Do obejrzenia", ShortcutIcon.LottieIcon("doobejzenia.lottie"))
+        )
+    }
+
+    // Shortcuts V3 data (bigger cards 300x314 with two-line text at top)
+    // Design: Figma V3 shortcuts with PNG icons (no plus button)
+    val shortcutsV3 = remember {
+        listOf(
+            ShortcutItem("1", "Fifa World Cup\n2026", ShortcutIcon.VectorIcon(R.drawable.ic_fifa)),
+            ShortcutItem("2", "Netflix", ShortcutIcon.VectorIcon(R.drawable.netflix_logo)),
+            ShortcutItem("3", "Disney+\nstreaming", ShortcutIcon.VectorIcon(R.drawable.disney_plus_logo)),
+            ShortcutItem("4", "Nagrania", ShortcutIcon.VectorIcon(R.drawable.ic_nagrania)),
+            ShortcutItem("5", "Moja\nlista kanałów", ShortcutIcon.VectorIcon(R.drawable.ic_moja_lista_kanalow)),
+            ShortcutItem("6", "Do obejrzenia", ShortcutIcon.VectorIcon(R.drawable.ic_do_obejrzenia))
         )
     }
 
@@ -3883,6 +3935,8 @@ private fun OdkrywajChannelsScreen(
             channelTypes = channelTypes,
             gridContent = gridContent,
             shortcuts = shortcuts,
+            shortcutsV3 = shortcutsV3,  // V3 shortcuts with bigger cards
+            sliderItems = odkrywajSliderItems,
             focusedRowIndex = focusedRowIndex,
             focusedColIndex = focusedColIndex,
             channelFocusRequesters = channelFocusRequesters,
@@ -3897,7 +3951,10 @@ private fun OdkrywajChannelsScreen(
             appIconsData = appIconsData,
             lazyListStates = lazyListStates,
             sx = sx,
-            sy = sy
+            sy = sy,
+            // Auto-rotation settings from admin config
+            autoRotateIntervalMs = appConfig.slider_auto_rotate_interval_ms,
+            pauseAfterInteractionMs = appConfig.slider_pause_after_interaction_ms
         )
     }
 }
@@ -5930,6 +5987,245 @@ private fun ShortcutCardV2(
     }
 }
 
+/**
+ * ShortcutCardV3 - Bigger shortcut card (300×314px) with text at top and logo centered
+ * Design: Figma V3 shortcuts - toggled with Key.Nine when sliderVersion == 2
+ *
+ * Layout:
+ * ┌─────────────────────────┐
+ * │     Tekst linia 1       │  ← Y: 24px, font 28px medium, centered
+ * │     Tekst linia 2       │  ← line-height: 40px
+ * │                         │
+ * │        [LOGO]           │  ← 144×144px, centered, Y: ~128px
+ * │                         │
+ * └─────────────────────────┘
+ */
+@Composable
+private fun ShortcutCardV3(
+    shortcut: ShortcutItem,
+    isFocused: Boolean,
+    focusRequester: FocusRequester,
+    onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
+    onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> },
+    appIconsData: Map<String, List<TvChannel>> = emptyMap(),
+    sx: (Int) -> androidx.compose.ui.unit.Dp,
+    sy: (Int) -> androidx.compose.ui.unit.Dp,
+    onFocusChange: (Boolean) -> Unit
+) {
+    val cardWidth = sx(300)
+    val cardHeight = sy(314)
+    val borderColor = if (isFocused) Color(0xFF5FEDD4) else Color.Transparent  // V3: #5FEDD4 aqua
+
+    Box(
+        modifier = Modifier
+            .width(cardWidth)
+            .height(cardHeight)
+            .border(
+                width = sx(4),  // V3: 4px border
+                color = borderColor,
+                shape = RoundedCornerShape(sx(16))  // V3: 16px border radius
+            )
+            .clip(RoundedCornerShape(sx(16)))
+            .background(Color(0x33000000))  // V3: rgba(0,0,0,0.2)
+            .focusRequester(focusRequester)
+            .onPreviewKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown &&
+                    (event.key == Key.Enter || event.key == Key.DirectionCenter)) {
+                    android.util.Log.d("SHORTCUT_V3", "=== Enter/OK pressed for: ${shortcut.title} ===")
+                    // Extract plain title (without newlines) for navigation
+                    val plainTitle = shortcut.title.replace("\n", " ")
+                    when {
+                        plainTitle.contains("lista kanałów", ignoreCase = true) -> {
+                            android.util.Log.d("SHORTCUT_V3", "Nawigacja do ChannelGrid - Moja lista kanałów")
+                            onNavigateToChannelGrid(
+                                "Moja lista kanałów",
+                                "Wszystkie",
+                                null,
+                                appIconsData["Moja lista kanałów"]
+                            )
+                        }
+                        plainTitle.contains("Nagrania", ignoreCase = true) -> {
+                            android.util.Log.d("SHORTCUT_V3", "Nawigacja do RecordingsGrid - Nagrania")
+                            onNavigateToRecordingsGrid("Zarządzaj nagraniami", "ODKRYWAJ")
+                        }
+                        plainTitle.contains("Wypożyczone", ignoreCase = true) -> {
+                            android.util.Log.d("SHORTCUT_V3", "Nawigacja do KinoGrid - Wypożyczone")
+                            val kinoList = VodDataCache.getKinoPlayMovies()
+                            val randomMovies = kinoList.shuffled().take(2)
+                            onNavigateToKinoGrid("Wypożyczone", randomMovies, "ODKRYWAJ")
+                        }
+                        plainTitle.contains("obejrzenia", ignoreCase = true) -> {
+                            android.util.Log.d("SHORTCUT_V3", "Nawigacja do VodGrid - Do obejrzenia")
+                            val vodList = VodDataCache.getVodContentList()
+                            val randomFilms = vodList.shuffled().take(20)
+                            onNavigateToVodGrid("Do obejrzenia", randomFilms, "ODKRYWAJ")
+                        }
+                    }
+                    true
+                } else {
+                    false
+                }
+            }
+            .focusable()
+            .clickable {
+                android.util.Log.d("SHORTCUT_V3", "=== clickable triggered for: ${shortcut.title} ===")
+                val plainTitle = shortcut.title.replace("\n", " ")
+                when {
+                    plainTitle.contains("lista kanałów", ignoreCase = true) -> {
+                        onNavigateToChannelGrid(
+                            "Moja lista kanałów",
+                            "Wszystkie",
+                            null,
+                            appIconsData["Moja lista kanałów"]
+                        )
+                    }
+                    plainTitle.contains("Nagrania", ignoreCase = true) -> {
+                        onNavigateToRecordingsGrid("Zarządzaj nagraniami", "ODKRYWAJ")
+                    }
+                    plainTitle.contains("Wypożyczone", ignoreCase = true) -> {
+                        val kinoList = VodDataCache.getKinoPlayMovies()
+                        val randomMovies = kinoList.shuffled().take(2)
+                        onNavigateToKinoGrid("Wypożyczone", randomMovies, "ODKRYWAJ")
+                    }
+                    plainTitle.contains("obejrzenia", ignoreCase = true) -> {
+                        val vodList = VodDataCache.getVodContentList()
+                        val randomFilms = vodList.shuffled().take(20)
+                        onNavigateToVodGrid("Do obejrzenia", randomFilms, "ODKRYWAJ")
+                    }
+                }
+            }
+            .onFocusChanged { focusState ->
+                onFocusChange(focusState.isFocused)
+            }
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    if (isFocused) Color(0x4D000000) else Color.Transparent
+                )
+        ) {
+            // Text at top (can be 2 lines)
+            Text(
+                text = shortcut.title,
+                color = Color(0xFFEEEEEE),
+                fontSize = (28 * sx(1).value / 1.dp.value).sp,  // V3: 28px font
+                fontWeight = FontWeight.Medium,
+                textAlign = TextAlign.Center,
+                lineHeight = (40 * sy(1).value / 1.dp.value).sp,  // V3: 40px line-height
+                maxLines = 2,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = sy(24))
+                    .width(sx(268))  // Padding from edges
+            )
+
+            // Logo/icon centered in lower area (Y: ~128px from top)
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = sy(128))
+                    .size(sx(144))  // V3: 144×144px logo
+            ) {
+                when (shortcut.icon) {
+                    is ShortcutIcon.VectorIcon -> {
+                        // Use Image without tint for PNG icons (full color)
+                        Image(
+                            painter = painterResource(shortcut.icon.iconRes),
+                            contentDescription = shortcut.title,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Fit
+                        )
+                    }
+                    is ShortcutIcon.LottieIcon -> {
+                        val composition by rememberLottieComposition(LottieCompositionSpec.Asset(shortcut.icon.fileName))
+                        val progress by animateLottieCompositionAsState(
+                            composition = composition,
+                            isPlaying = isFocused,
+                            restartOnPlay = true,
+                            iterations = if (isFocused) 1 else 1
+                        )
+
+                        LottieAnimation(
+                            composition = composition,
+                            progress = { if (isFocused) progress else 1f },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                    is ShortcutIcon.MaterialIcon -> {
+                        val materialIcon = when (shortcut.icon.iconName) {
+                            "add" -> Icons.Default.Add
+                            "star" -> Icons.Default.Star
+                            "search" -> Icons.Default.Search
+                            "person" -> Icons.Default.Person
+                            "settings" -> Icons.Default.Settings
+                            "video_library" -> Icons.Default.PlayArrow
+                            "live_tv" -> Icons.Default.PlayArrow  // Using PlayArrow as fallback for live_tv
+                            "schedule" -> Icons.Default.DateRange  // Using DateRange as fallback for schedule
+                            "favorite" -> Icons.Default.Star  // Using Star as fallback for favorite
+                            else -> Icons.Default.Star
+                        }
+                        Icon(
+                            imageVector = materialIcon,
+                            contentDescription = shortcut.title,
+                            modifier = Modifier.fillMaxSize(),
+                            tint = Color(0xFFEEEEEE)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * ShortcutAddButtonV3 - Plus button for V3 shortcuts row (matching 300×314px height)
+ */
+@Composable
+private fun ShortcutAddButtonV3(
+    isFocused: Boolean,
+    focusRequester: FocusRequester,
+    onFocusChange: (Boolean) -> Unit,
+    sx: (Int) -> androidx.compose.ui.unit.Dp,
+    sy: (Int) -> androidx.compose.ui.unit.Dp
+) {
+    val cardWidth = sx(300)  // Match V3 card width
+    val cardHeight = sy(314)  // Match V3 card height
+
+    // Container Box (transparent, no border, no background)
+    Box(
+        modifier = Modifier
+            .width(cardWidth)
+            .height(cardHeight)
+    ) {
+        // Plus icon in circle (centered) - ONLY THIS is focusable
+        Box(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .size(sx(144), sy(144))  // Bigger circle for V3
+                .background(
+                    color = if (isFocused) Color(0xFF5FEDD4) else Color(0x1AEEEEEE),
+                    shape = CircleShape
+                )
+                .focusRequester(focusRequester)
+                .focusable()
+                .onFocusChanged { focusState ->
+                    onFocusChange(focusState.isFocused)
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = "Add Shortcut",
+                tint = if (isFocused) Color(0xFF48227C) else Color(0xFFEEEEEE),
+                modifier = Modifier.size(sx(72), sy(72))  // Bigger icon for V3
+            )
+        }
+    }
+}
+
 // Shortcuts v2 data for APLIKACJE section
 val aplikacjeShortcutsV2 = listOf(
     ShortcutItem("1", "Nowe", ShortcutIcon.MaterialIcon("add")),
@@ -7310,11 +7606,13 @@ private const val APLIKACJE_APP_ICONS_EXPANDED_ROW_HEIGHT = 286 // With focus (o
 private const val APLIKACJE_CONTENT_FOCUS_EXTRA_SPACING = 100 // Extra spacing above focused content row
 
 // ODKRYWAJ section constants
-private const val ODKRYWAJ_FIXED_FOCUS_Y = 170 // Focused channel always at this height (140 menu + 30 spacing)
+private const val ODKRYWAJ_FIXED_FOCUS_Y = 180 // Focused channel always at this height (140 menu + 40 spacing)
 private const val ODKRYWAJ_SLIDER_MAX_NORMAL_ROW_HEIGHT = 782 // Big slider (742px) + spacing (40px)
 private const val ODKRYWAJ_SLIDER_MAX_EXPANDED_ROW_HEIGHT = 782 // Same as normal (no expansion needed)
-private const val ODKRYWAJ_SHORTCUTS_NORMAL_ROW_HEIGHT = 406 // Shortcuts base height (no extra spacing in constant)
-private const val ODKRYWAJ_SHORTCUTS_EXPANDED_ROW_HEIGHT = 406 // NO expansion for shortcuts
+private const val ODKRYWAJ_SHORTCUTS_NORMAL_ROW_HEIGHT = 406 // Shortcuts V2 base height (279px cards + spacing)
+private const val ODKRYWAJ_SHORTCUTS_EXPANDED_ROW_HEIGHT = 406 // NO expansion for shortcuts V2
+private const val ODKRYWAJ_SHORTCUTS_V3_NORMAL_ROW_HEIGHT = 450 // Shortcuts V3 (314px cards + spacing)
+private const val ODKRYWAJ_SHORTCUTS_V3_EXPANDED_ROW_HEIGHT = 450 // NO expansion for shortcuts V3
 private const val ODKRYWAJ_TOP10_NORMAL_ROW_HEIGHT = 406 // CategoryIcon (216px) + spacing (130px) + 60px extra
 private const val ODKRYWAJ_TOP10_EXPANDED_ROW_HEIGHT = 696 // CategoryIcon (216px) + miniatures (290px) + spacing (130px) + 60px extra
 private const val ODKRYWAJ_VERTICAL_NORMAL_ROW_HEIGHT = 320 // CategoryIcon (216px) + vertical card (280px) - slight overlap
@@ -7963,16 +8261,9 @@ fun handleOdkrywajNavigation(
         Key.DirectionLeft -> {
             if (focusedColIndex == -2) return false
 
-            // Row 0 (slider-max) has scrolling, row 1 (shortcuts) has fixed position
+            // Row 0 (slider-max) - delegate to VodHeroSliderV2 (it handles its own navigation)
             if (focusedRowIndex == 0) {
-                // Slider-max: use scroll
-                val lazyListState = lazyListStates[focusedRowIndex]
-                if (lazyListState != null && lazyListState.firstVisibleItemIndex > 0) {
-                    coroutineScope.launch {
-                        lazyListState.animateScrollToItem(lazyListState.firstVisibleItemIndex - 1)
-                    }
-                }
-                return true
+                return false // Let VodHeroSliderV2 handle LEFT key
             } else if (focusedRowIndex == 1) {
                 // Shortcuts: direct focus navigation (NO scrolling, items 0-5)
                 if (focusedColIndex > 0) {
@@ -8007,20 +8298,9 @@ fun handleOdkrywajNavigation(
         Key.DirectionRight -> {
             if (focusedColIndex == -2) return false
 
-            // Row 0 (slider-max) has scrolling, row 1 (shortcuts) has fixed position
+            // Row 0 (slider-max) - delegate to VodHeroSliderV2 (it handles its own navigation)
             if (focusedRowIndex == 0) {
-                // Slider-max: use scroll
-                val lazyListState = lazyListStates[focusedRowIndex]
-                val channelName = channels.getOrNull(focusedRowIndex) ?: ""
-                val rowContent = gridContent[channelName] ?: emptyList()
-                val maxIndex = rowContent.size - 1
-
-                if (lazyListState != null && lazyListState.firstVisibleItemIndex < maxIndex) {
-                    coroutineScope.launch {
-                        lazyListState.animateScrollToItem(lazyListState.firstVisibleItemIndex + 1)
-                    }
-                }
-                return true
+                return false // Let VodHeroSliderV2 handle RIGHT key
             } else if (focusedRowIndex == 1) {
                 // Shortcuts: direct focus navigation (NO scrolling, items 0-5, item 5 = plus button)
                 if (focusedColIndex < 5) {
@@ -8600,10 +8880,10 @@ private fun calculateOdkrywajChannelYPosition(
     return when {
         rowIndex == focusedRowIndex -> sy(ODKRYWAJ_FIXED_FOCUS_Y)
         rowIndex < focusedRowIndex -> {
-            // Apply extra spacing: 40px for shortcuts, 100px for other channels
-            val extraSpacing = if (focusedChannelType == "shortcuts" && focusedColIndex >= 0) {
+            // Apply extra spacing: 40px for shortcuts/shortcuts-v3, 100px for other channels
+            val extraSpacing = if (focusedChannelType in listOf("shortcuts", "shortcuts-v3") && focusedColIndex >= 0) {
                 40 // Smaller spacing for shortcuts (only add spacing from top)
-            } else if (focusedChannelType != "shortcuts" && focusedColIndex >= 0) {
+            } else if (focusedChannelType !in listOf("shortcuts", "shortcuts-v3") && focusedColIndex >= 0) {
                 ODKRYWAJ_CONTENT_FOCUS_EXTRA_SPACING // 100px for other channels
             } else 0
 
@@ -8614,6 +8894,7 @@ private fun calculateOdkrywajChannelYPosition(
                 cumulativeHeight -= when (betweenType) {
                     "slider-max" -> ODKRYWAJ_SLIDER_MAX_NORMAL_ROW_HEIGHT
                     "shortcuts" -> ODKRYWAJ_SHORTCUTS_NORMAL_ROW_HEIGHT
+                    "shortcuts-v3" -> ODKRYWAJ_SHORTCUTS_V3_NORMAL_ROW_HEIGHT
                     "top10" -> ODKRYWAJ_TOP10_NORMAL_ROW_HEIGHT
                     "collection-slider" -> ODKRYWAJ_COLLECTION_SLIDER_NORMAL_ROW_HEIGHT
                     "vertical" -> {
@@ -8634,6 +8915,7 @@ private fun calculateOdkrywajChannelYPosition(
                 when (focusedChannelType) {
                     "slider-max" -> ODKRYWAJ_SLIDER_MAX_EXPANDED_ROW_HEIGHT
                     "shortcuts" -> ODKRYWAJ_SHORTCUTS_EXPANDED_ROW_HEIGHT
+                    "shortcuts-v3" -> ODKRYWAJ_SHORTCUTS_V3_EXPANDED_ROW_HEIGHT
                     "top10" -> ODKRYWAJ_TOP10_EXPANDED_ROW_HEIGHT
                     "collection-slider" -> ODKRYWAJ_COLLECTION_SLIDER_EXPANDED_ROW_HEIGHT
                     "vertical" -> {
@@ -8650,6 +8932,7 @@ private fun calculateOdkrywajChannelYPosition(
                 when (focusedChannelType) {
                     "slider-max" -> ODKRYWAJ_SLIDER_MAX_NORMAL_ROW_HEIGHT
                     "shortcuts" -> ODKRYWAJ_SHORTCUTS_EXPANDED_ROW_HEIGHT
+                    "shortcuts-v3" -> ODKRYWAJ_SHORTCUTS_V3_EXPANDED_ROW_HEIGHT
                     "top10" -> ODKRYWAJ_TOP10_NORMAL_ROW_HEIGHT
                     "collection-slider" -> ODKRYWAJ_COLLECTION_SLIDER_NORMAL_ROW_HEIGHT
                     "vertical" -> {
@@ -8672,6 +8955,7 @@ private fun calculateOdkrywajChannelYPosition(
                 cumulativeHeight += when (betweenType) {
                     "slider-max" -> ODKRYWAJ_SLIDER_MAX_NORMAL_ROW_HEIGHT
                     "shortcuts" -> ODKRYWAJ_SHORTCUTS_NORMAL_ROW_HEIGHT
+                    "shortcuts-v3" -> ODKRYWAJ_SHORTCUTS_V3_NORMAL_ROW_HEIGHT
                     "top10" -> ODKRYWAJ_TOP10_NORMAL_ROW_HEIGHT
                     "collection-slider" -> ODKRYWAJ_COLLECTION_SLIDER_NORMAL_ROW_HEIGHT
                     "vertical" -> {
@@ -9184,6 +9468,8 @@ fun OdkrywajChannelRowsLayout(
     channelTypes: Map<String, String>,
     gridContent: Map<String, List<VodContent>>,
     shortcuts: List<ShortcutItem>,
+    shortcutsV3: List<ShortcutItem> = emptyList(),  // V3 shortcuts with bigger cards
+    sliderItems: List<VodSlideData> = emptyList(),
     focusedRowIndex: Int,
     focusedColIndex: Int,
     channelFocusRequesters: Map<Pair<Int, Int>, FocusRequester>,
@@ -9194,7 +9480,10 @@ fun OdkrywajChannelRowsLayout(
     appIconsData: Map<String, List<TvChannel>> = emptyMap(),
     lazyListStates: Map<Int, LazyListState>,
     sx: (Int) -> androidx.compose.ui.unit.Dp,
-    sy: (Int) -> androidx.compose.ui.unit.Dp
+    sy: (Int) -> androidx.compose.ui.unit.Dp,
+    // Auto-rotation parameters for slider-max
+    autoRotateIntervalMs: Long = 8000L,
+    pauseAfterInteractionMs: Long = 10000L
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         channels.forEachIndexed { rowIndex, channelName ->
@@ -9226,6 +9515,8 @@ fun OdkrywajChannelRowsLayout(
                     rowIndex = rowIndex,
                     rowContent = rowContent,
                     shortcuts = shortcuts,
+                    shortcutsV3 = shortcutsV3,  // V3 shortcuts with bigger cards
+                    sliderItems = sliderItems,
                     focusedRowIndex = focusedRowIndex,
                     focusedColIndex = focusedColIndex,
                     channelFocusRequesters = channelFocusRequesters,
@@ -9236,7 +9527,9 @@ fun OdkrywajChannelRowsLayout(
                     appIconsData = appIconsData,
                     sx = sx,
                     sy = sy,
-                    lazyListState = lazyListState
+                    lazyListState = lazyListState,
+                    autoRotateIntervalMs = autoRotateIntervalMs,
+                    pauseAfterInteractionMs = pauseAfterInteractionMs
                 )
             }
         }
@@ -9250,6 +9543,8 @@ fun OdkrywajUnifiedChannelRow(
     rowIndex: Int,
     rowContent: List<VodContent>,
     shortcuts: List<ShortcutItem>,
+    shortcutsV3: List<ShortcutItem> = emptyList(),  // V3 shortcuts with bigger cards
+    sliderItems: List<VodSlideData> = emptyList(),
     focusedRowIndex: Int,
     focusedColIndex: Int,
     channelFocusRequesters: Map<Pair<Int, Int>, FocusRequester>,
@@ -9260,7 +9555,10 @@ fun OdkrywajUnifiedChannelRow(
     appIconsData: Map<String, List<TvChannel>> = emptyMap(),
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
-    lazyListState: LazyListState
+    lazyListState: LazyListState,
+    // Auto-rotation parameters for slider-max
+    autoRotateIntervalMs: Long = 8000L,
+    pauseAfterInteractionMs: Long = 10000L
 ) {
     // ODKRYWAJ section - no onClick to EPG Day needed here
     val isCurrentRow = rowIndex == focusedRowIndex
@@ -9289,40 +9587,26 @@ fun OdkrywajUnifiedChannelRow(
 
         when (channelType) {
             "slider-max" -> {
-                // Big slider row (NO CategoryIcon, starts from x=120)
-                LazyRow(
-                    modifier = Modifier
-                        .fillMaxWidth(),
-                    state = lazyListState,
-                    contentPadding = PaddingValues(start = sx(120), end = sx(20)),
-                    horizontalArrangement = Arrangement.spacedBy(sx(20))
-                ) {
-                    items(rowContent.size) { colIndex ->
-                        val vodContent = rowContent[colIndex]
-                        val isItemFocused = rowIndex == focusedRowIndex &&
-                                           colIndex == lazyListState.firstVisibleItemIndex &&
-                                           focusedColIndex == 0
-                        val focusRequester = channelFocusRequesters[Pair(rowIndex, colIndex)] ?: FocusRequester()
-
-                        SliderMaxCard(
-                            vodContent = vodContent,
-                            isFocused = isItemFocused,
-                            focusRequester = focusRequester,
-                            onFocusChange = { onChannelContentFocusChange(rowIndex, colIndex) },
-                            sx = sx,
-                            sy = sy
-                        )
-                    }
-
-                    // Spacer items (ensure scrollable area)
-                    items(5) {
-                        Spacer(
-                            modifier = Modifier
-                                .width(sx(1326))
-                                .height(sy(742))
-                        )
-                    }
-                }
+                // VodHeroSliderV2 with data from Supabase odkrywaj_slider table
+                // topPadding = 0 because parent handles Y positioning via calculateOdkrywajChannelYPosition
+                VodHeroSliderV2(
+                    isFocused = rowIndex == focusedRowIndex && focusedColIndex >= 0,
+                    items = sliderItems,
+                    sectionType = "ODKRYWAJ",
+                    sx = sx,
+                    sy = sy,
+                    topPadding = 0, // Parent handles positioning (40px below menu)
+                    onSlideChanged = { slideIndex ->
+                        // Update focus state when slide changes
+                        onChannelContentFocusChange(rowIndex, 0)
+                    },
+                    // Auto-rotation enabled for ODKRYWAJ slider
+                    enableAutoRotate = true,
+                    autoRotateIntervalMs = autoRotateIntervalMs,
+                    pauseAfterInteractionMs = pauseAfterInteractionMs,
+                    // Detect if user is on channels below slider (row > 0) to trigger pause
+                    isOnChannelsBelow = focusedRowIndex > rowIndex
+                )
             }
             "shortcuts" -> {
                 // Shortcuts row (starts from x=120, NO SCROLLING - fixed position)
@@ -9368,6 +9652,51 @@ fun OdkrywajUnifiedChannelRow(
                         sx = sx,
                         sy = sy
                     )
+                }
+            }
+            "shortcuts-v3" -> {
+                // Shortcuts V3 row - bigger cards (300x314px) with text at top and logo centered
+                // Design: Figma V3 shortcuts - toggled with Key.Nine when sliderVersion == 2
+                // No plus button in V3 - just 6 shortcuts with PNG icons
+                // Scrollable LazyRow starting 64px from left - scrolls to show focused item full size
+                val coroutineScope = rememberCoroutineScope()
+
+                // Auto-scroll to focused item when focus changes
+                LaunchedEffect(focusedColIndex, focusedRowIndex) {
+                    if (rowIndex == focusedRowIndex && focusedColIndex >= 0) {
+                        // Scroll to make focused item visible at full size
+                        lazyListState.animateScrollToItem(focusedColIndex)
+                    }
+                }
+
+                LazyRow(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    state = lazyListState,
+                    contentPadding = PaddingValues(start = sx(64), end = sx(64)),
+                    horizontalArrangement = Arrangement.spacedBy(sx(32))  // V3: 32px gap
+                ) {
+                    items(shortcutsV3.size) { colIndex ->
+                        val shortcut = shortcutsV3[colIndex]
+                        // Direct focus tracking - focus follows focusedColIndex
+                        val isItemFocused = rowIndex == focusedRowIndex && colIndex == focusedColIndex
+                        val focusRequester = channelFocusRequesters[Pair(rowIndex, colIndex)] ?: FocusRequester()
+
+                        ShortcutCardV3(
+                            shortcut = shortcut,
+                            isFocused = isItemFocused,
+                            focusRequester = focusRequester,
+                            onNavigateToChannelGrid = onNavigateToChannelGrid,
+                            onNavigateToVodGrid = onNavigateToVodGrid,
+                            onNavigateToKinoGrid = onNavigateToKinoGrid,
+                            appIconsData = appIconsData,
+                            sx = sx,
+                            sy = sy,
+                            onFocusChange = { isFocused ->
+                                if (isFocused) onChannelContentFocusChange(rowIndex, colIndex)
+                            }
+                        )
+                    }
                 }
             }
             "collection-slider" -> {
@@ -9662,8 +9991,8 @@ fun OdkrywajUnifiedChannelRow(
         // CategoryIcon zIndex: app-icons below LazyRow, others normal
         val categoryZIndex = if (channelType == "app-icons") -1f else 0f
 
-        // CategoryIcon (skip for slider-max/shortcuts/collection-slider - they don't have CategoryIcon)
-        if (channelType !in listOf("slider-max", "shortcuts", "collection-slider")) {
+        // CategoryIcon (skip for slider-max/shortcuts/shortcuts-v3/collection-slider - they don't have CategoryIcon)
+        if (channelType !in listOf("slider-max", "shortcuts", "shortcuts-v3", "collection-slider")) {
             Box(
                 modifier = Modifier
                     .offset(x = sx(80), y = sy(0))
@@ -11433,18 +11762,20 @@ private fun KrritLabelBadgeV2(
 
 /**
  * Metadata row with dividers for V2 slider
- * Shows: genre | duration | age | KRRIT labels
+ * Shows: genre | duration | age | KRRIT labels (image for KINO_PLAY/WIDEO)
  */
 @Composable
 private fun SliderMetadataRowV2(
     genre: String?,
     duration: String?,
     ageRating: String?,
-    krritLabels: Set<com.uxellence.tv.v3.model.KrritLabel> = emptySet(),
+    sectionType: String = "", // "KINO_PLAY", "WIDEO", "ODKRYWAJ"
+    showKrritImage: Boolean = false, // Show KRRIT image for KINO_PLAY/WIDEO
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp
 ) {
     val metadataColor = Color(0x66EEEEEE) // 40% opacity white (disabled)
+    val dividerColor = Color(0x66EEEEEE) // Same as text - 40% opacity white
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -11465,7 +11796,7 @@ private fun SliderMetadataRowV2(
                 modifier = Modifier
                     .width(1.dp)
                     .height(sy(24))
-                    .background(Color(0xFFEEEEEE))
+                    .background(dividerColor)
             )
         }
 
@@ -11479,13 +11810,15 @@ private fun SliderMetadataRowV2(
                 letterSpacing = 0.4.sp
             )
 
-            // Divider
-            Box(
-                modifier = Modifier
-                    .width(1.dp)
-                    .height(sy(24))
-                    .background(Color(0xFFEEEEEE))
-            )
+            // Divider (only if more content follows)
+            if (!ageRating.isNullOrBlank() || showKrritImage) {
+                Box(
+                    modifier = Modifier
+                        .width(1.dp)
+                        .height(sy(24))
+                        .background(dividerColor)
+                )
+            }
         }
 
         // Age rating
@@ -11498,33 +11831,25 @@ private fun SliderMetadataRowV2(
                 letterSpacing = 0.4.sp
             )
 
-            // Divider (only if KRRIT labels follow)
-            if (krritLabels.isNotEmpty()) {
+            // Divider (only if KRRIT image follows)
+            if (showKrritImage) {
                 Box(
                     modifier = Modifier
                         .width(1.dp)
                         .height(sy(24))
-                        .background(Color(0xFFEEEEEE))
+                        .background(dividerColor)
                 )
             }
         }
 
-        // KRRIT Labels
-        if (krritLabels.isNotEmpty()) {
-            Row(horizontalArrangement = Arrangement.spacedBy(sx(8))) {
-                if (com.uxellence.tv.v3.model.KrritLabel.S in krritLabels) {
-                    KrritLabelBadgeV2("S", sx, sy)
-                }
-                if (com.uxellence.tv.v3.model.KrritLabel.W in krritLabels) {
-                    KrritLabelBadgeV2("W", sx, sy)
-                }
-                if (com.uxellence.tv.v3.model.KrritLabel.N in krritLabels) {
-                    KrritLabelBadgeV2("N", sx, sy)
-                }
-                if (com.uxellence.tv.v3.model.KrritLabel.P in krritLabels) {
-                    KrritLabelBadgeV2("P", sx, sy)
-                }
-            }
+        // KRRIT Labels - use image for KINO_PLAY and WIDEO
+        if (showKrritImage) {
+            Image(
+                painter = painterResource(id = R.drawable.krrit_label_set),
+                contentDescription = "KRRIT Labels",
+                modifier = Modifier.height(sy(24)),
+                contentScale = ContentScale.FillHeight
+            )
         }
     }
 }
@@ -11543,7 +11868,7 @@ private fun SliderActionButtonV2(
     sy: (Int) -> androidx.compose.ui.unit.Dp
 ) {
     // Colors based on focus state
-    val backgroundColor = if (isFocused) Color(0xFF5FEDD4) else Color(0xFF6B4D99) // Aqua or Purple
+    val backgroundColor = if (isFocused) Color(0xFF5FEDD4) else Color(0x1AEEEEEE) // Aqua or White 10%
     val contentColor = if (isFocused) Color(0xFF48227C) else Color(0xFFEEEEEE) // Purple or White
 
     Row(
@@ -11593,15 +11918,29 @@ private fun SliderActionButtonV2(
 private fun VodHeroSliderV2(
     isFocused: Boolean,
     items: List<VodSlideData>, // Content items passed from parent (section-specific)
-    sectionType: String, // "KINO_PLAY", "START", "WIDEO"
+    sectionType: String, // "KINO_PLAY", "START", "WIDEO", "ODKRYWAJ"
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
-    onSlideChanged: (Int) -> Unit = {}
+    topPadding: Int = 200, // Default 200px, ODKRYWAJ uses 0 (parent handles positioning)
+    onSlideChanged: (Int) -> Unit = {},
+    // Auto-rotation parameters (only for ODKRYWAJ)
+    enableAutoRotate: Boolean = false,
+    autoRotateIntervalMs: Long = 8000L,
+    pauseAfterInteractionMs: Long = 10000L,
+    // For detecting if user went to channels below (to start pause) vs menu (to reset pause)
+    isOnChannelsBelow: Boolean = false
 ) {
     val sliderItems = items
     var currentSlide by remember { mutableStateOf(0) }
     val focusRequester = remember { FocusRequester() } // JEDEN dla całego slidera
     val listState = rememberLazyListState()
+
+    // Auto-rotation states - using timestamp to prevent reset on recomposition
+    var pauseUntilTime by remember { mutableLongStateOf(0L) }
+    var progress by remember { mutableFloatStateOf(0f) }
+
+    // Derived pause state for UI
+    val isPaused = pauseUntilTime > System.currentTimeMillis()
 
     // Reset currentSlide if out of bounds after data loads
     LaunchedEffect(sliderItems.size) {
@@ -11611,27 +11950,83 @@ private fun VodHeroSliderV2(
     }
 
     // Focus restoration when slider becomes focused
-    LaunchedEffect(isFocused) {
+    // Handle pause based on where user navigated
+    LaunchedEffect(isFocused, isOnChannelsBelow) {
         if (isFocused) {
             focusRequester.requestFocus()
+        } else if (enableAutoRotate) {
+            if (isOnChannelsBelow) {
+                // User went DOWN to channels below - START pause
+                pauseUntilTime = System.currentTimeMillis() + pauseAfterInteractionMs
+            } else {
+                // User went UP to top menu - RESET pause, resume auto-rotation
+                pauseUntilTime = 0L
+            }
         }
     }
 
     // Scroll to current slide (60px from left edge via contentPadding)
+    // Only notify focus change when user is actually focused on slider (not during auto-rotation on top menu)
     LaunchedEffect(currentSlide) {
         if (sliderItems.isNotEmpty()) {
             listState.animateScrollToItem(
                 index = currentSlide,
                 scrollOffset = 0 // contentPadding handles 60px positioning
             )
-            onSlideChanged(currentSlide)
+            // Only update focus state when slider is focused (one focus rule)
+            if (isFocused) {
+                onSlideChanged(currentSlide)
+            }
+        }
+    }
+
+    // Auto-rotation - only when enableAutoRotate = true
+    // Runs always (even when on top menu), pause persists through navigation
+    if (enableAutoRotate && sliderItems.isNotEmpty()) {
+        LaunchedEffect(currentSlide) {
+            // Main animation loop
+            while (true) {
+                val now = System.currentTimeMillis()
+
+                // Check if still in pause period
+                if (now < pauseUntilTime) {
+                    progress = 0f
+                    kotlinx.coroutines.delay(100) // Check pause status every 100ms
+                    continue
+                }
+
+                // Animate progress bar
+                val startTime = System.currentTimeMillis()
+                var interrupted = false
+
+                while (!interrupted) {
+                    val currentTime = System.currentTimeMillis()
+
+                    // Check if pause was triggered during animation
+                    if (currentTime < pauseUntilTime) {
+                        progress = 0f
+                        interrupted = true
+                        continue
+                    }
+
+                    val elapsed = currentTime - startTime
+                    progress = (elapsed.toFloat() / autoRotateIntervalMs).coerceIn(0f, 1f)
+
+                    if (elapsed >= autoRotateIntervalMs) {
+                        // Go to next slide (or back to first)
+                        currentSlide = (currentSlide + 1) % sliderItems.size
+                        return@LaunchedEffect // Exit to restart with new currentSlide
+                    }
+                    kotlinx.coroutines.delay(16) // ~60 FPS
+                }
+            }
         }
     }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(top = sy(200)) // 200px below top menu
+            .padding(top = sy(topPadding)) // Configurable top padding (200px default, 0 for ODKRYWAJ)
             .focusRequester(focusRequester)
             .focusable()
             .onPreviewKeyEvent { event ->
@@ -11643,12 +12038,20 @@ private fun VodHeroSliderV2(
                     androidx.compose.ui.input.key.Key.DirectionLeft -> {
                         if (currentSlide > 0) {
                             currentSlide--
+                            if (enableAutoRotate) {
+                                pauseUntilTime = System.currentTimeMillis() + pauseAfterInteractionMs
+                                progress = 0f
+                            }
                         }
                         true
                     }
                     androidx.compose.ui.input.key.Key.DirectionRight -> {
                         if (currentSlide < sliderItems.size - 1) {
                             currentSlide++
+                            if (enableAutoRotate) {
+                                pauseUntilTime = System.currentTimeMillis() + pauseAfterInteractionMs
+                                progress = 0f
+                            }
                         }
                         true
                     }
@@ -11683,11 +12086,53 @@ private fun VodHeroSliderV2(
                         item = item,
                         sectionType = sectionType,
                         slideIndex = index,
+                        currentSlide = currentSlide,
                         isSelected = isSelected,
                         isSliderFocused = isFocused,
                         sx = sx,
                         sy = sy
                     )
+                }
+            }
+
+            // Bullet indicators with progress bar for active slide (20px below slider)
+            Row(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .offset(y = sy(695)),
+                horizontalArrangement = Arrangement.spacedBy(sx(12)),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                sliderItems.forEachIndexed { index, _ ->
+                    val isActive = index == currentSlide
+
+                    if (isActive && enableAutoRotate && !isPaused) {
+                        // Progress bar for active slide (45px × 8px) - only when not paused
+                        Box(
+                            modifier = Modifier
+                                .width(sx(45))
+                                .height(sy(8))
+                                .clip(RoundedCornerShape(sy(4)))
+                                .background(Color(0x80EEEEEE)) // Background
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxHeight()
+                                    .fillMaxWidth(progress)
+                                    .background(Color.White)
+                            )
+                        }
+                    } else {
+                        // Standard bullet for inactive slides OR when paused (dot replaces progress bar)
+                        Box(
+                            modifier = Modifier
+                                .size(if (isActive) sx(12) else sx(8))
+                                .background(
+                                    color = if (isActive) Color.White else Color(0x80EEEEEE),
+                                    shape = CircleShape
+                                )
+                        )
+                    }
                 }
             }
         }
@@ -11745,7 +12190,7 @@ private fun SliderV2Card(
         colors = CardDefaults.cardColors(
             containerColor = Color(0xFF2A1B3D)
         ),
-        border = if (isCardFocused) BorderStroke(4.dp, Color(0xFF5FEDD4)) else null,
+        border = if (isCardFocused) BorderStroke(sx(4), Color(0xFF5FEDD4)) else null,
         elevation = CardDefaults.cardElevation(
             defaultElevation = if (isCardFocused) 16.dp else 4.dp
         )
@@ -11782,23 +12227,6 @@ private fun SliderV2Card(
                     )
             )
 
-            // Glow effect when focused
-            if (isCardFocused) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            brush = Brush.radialGradient(
-                                colors = listOf(
-                                    Color(0x1A5FEDD4), // 10% aqua glow
-                                    Color.Transparent
-                                ),
-                                radius = sx(800).value
-                            )
-                        )
-                )
-            }
-
             // Content column
             Column(
                 modifier = Modifier
@@ -11832,13 +12260,13 @@ private fun SliderV2Card(
 
                 Spacer(modifier = Modifier.height(sy(32)))
 
-                // Title
+                // Title (max 3 lines)
                 Text(
                     text = item.title,
                     color = Color(0xFFEEEEEE),
                     fontSize = sy(48).value.sp,
                     fontWeight = FontWeight.Medium,
-                    maxLines = 2,
+                    maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
                     lineHeight = sy(56).value.sp,
                     modifier = Modifier.widthIn(max = sx(600))
@@ -11846,15 +12274,13 @@ private fun SliderV2Card(
 
                 Spacer(modifier = Modifier.height(sy(16)))
 
-                // Metadata row
+                // Metadata row - KRRIT image for KINO_PLAY, WIDEO, or ODKRYWAJ movie/vod content
                 SliderMetadataRowV2(
                     genre = item.genre,
                     duration = item.duration,
                     ageRating = item.ageRating,
-                    krritLabels = setOf(
-                        com.uxellence.tv.v3.model.KrritLabel.S,
-                        com.uxellence.tv.v3.model.KrritLabel.W
-                    ),
+                    sectionType = sectionType,
+                    showKrritImage = sectionType in listOf("KINO_PLAY", "WIDEO") || item.showKrrit,
                     sx = sx,
                     sy = sy
                 )
@@ -11905,6 +12331,7 @@ private fun SliderV2CardStateBased(
     item: VodSlideData,
     sectionType: String,
     slideIndex: Int,          // Index slajdu (0, 1, 2, ...)
+    currentSlide: Int,        // Aktualnie wybrany slajd (do określenia następnego)
     isSelected: Boolean,      // Czy ta karta jest wybrana (currentSlide)
     isSliderFocused: Boolean, // Czy slider ma fokus
     sx: (Int) -> androidx.compose.ui.unit.Dp,
@@ -11913,21 +12340,30 @@ private fun SliderV2CardStateBased(
     // Card is "focused" when it's both selected AND the slider has focus
     val isCardFocused = isSelected && isSliderFocused
 
+    // Czy to następny/poprzedni slajd (do specjalnej wizualizacji)
+    val isNextSlide = slideIndex == currentSlide + 1
+    val isPrevSlide = slideIndex == currentSlide - 1
+
+    // Opacity: 30% dla następnego i poprzedniego slajdu
+    val cardOpacity = if (isNextSlide || isPrevSlide) 0.3f else 1f
+
     Card(
         modifier = Modifier
             .width(sx(1468))
-            .height(sy(675)),
+            .height(sy(675))
+            .alpha(cardOpacity),
         shape = RoundedCornerShape(sx(16)),
         colors = CardDefaults.cardColors(
             containerColor = Color(0xFF281443)
         ),
-        border = if (isCardFocused) BorderStroke(4.dp, Color(0xFF5FEDD4)) else null,
+        border = if (isCardFocused) BorderStroke(sx(4), Color(0xFF5FEDD4)) else null,
         elevation = CardDefaults.cardElevation(
             defaultElevation = if (isCardFocused) 16.dp else 4.dp
         )
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             // Background image (aligned to right, scaled to fit height)
+            // Dla następnego slajdu: przesunięcie -487px (w lewo)
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.CenterEnd
@@ -11935,51 +12371,39 @@ private fun SliderV2CardStateBased(
                 AsyncImage(
                     model = item.backgroundUrl,
                     contentDescription = null,
-                    modifier = Modifier.fillMaxHeight(),
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .offset(x = if (isNextSlide) sx(-755) else 0.dp),
                     contentScale = ContentScale.FillHeight
                 )
             }
 
-            // Left gradient overlay - 590px wide, starting from image left edge (~270px from card edge)
-            Box(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .width(sx(590))
-                    .align(Alignment.CenterStart)
-                    .offset(x = sx(266))  // Start from image left edge
-                    .background(
-                        brush = Brush.horizontalGradient(
-                            colors = listOf(
-                                Color(0xFF281443),    // 100% #281443
-                                Color.Transparent     // 0% transparent
-                            )
-                        )
-                    )
-            )
-
-            // Glow effect when focused
-            if (isCardFocused) {
+            // Left gradient overlay - ukryty dla następnego slajdu
+            if (!isNextSlide) {
                 Box(
                     modifier = Modifier
-                        .fillMaxSize()
+                        .fillMaxHeight()
+                        .width(sx(590))
+                        .align(Alignment.CenterStart)
+                        .offset(x = sx(266))  // Start from image left edge
                         .background(
-                            brush = Brush.radialGradient(
+                            brush = Brush.horizontalGradient(
                                 colors = listOf(
-                                    Color(0x1A5FEDD4), // 10% aqua glow
-                                    Color.Transparent
-                                ),
-                                radius = sx(800).value
+                                    Color(0xFF281443),    // 100% #281443
+                                    Color.Transparent     // 0% transparent
+                                )
                             )
                         )
                 )
             }
 
-            // Content area - Box for absolute positioning
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(start = sx(50), bottom = sy(40))
-            ) {
+            // Content area - ukryty dla następnego slajdu (tylko ilustracja widoczna)
+            if (!isNextSlide) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(start = sx(50), bottom = sy(40))
+                ) {
                 // EMBLEM: Logo + labels - centered vertically in 0-160px space
                 // zIndex ensures it floats above, doesn't affect title position
                 Box(
@@ -12018,6 +12442,17 @@ private fun SliderV2CardStateBased(
                                 )
                             }
                         }
+                        "ODKRYWAJ" -> {
+                            // Logo from odkrywaj_slider (Kino Play logo or channel logo)
+                            if (!item.channelLogoUrl.isNullOrEmpty()) {
+                                AsyncImage(
+                                    model = item.channelLogoUrl,
+                                    contentDescription = "Logo",
+                                    modifier = Modifier.heightIn(max = sy(100)),
+                                    contentScale = ContentScale.Fit
+                                )
+                            }
+                        }
                         else -> {
                             Text(
                                 text = sectionType,
@@ -12042,13 +12477,13 @@ private fun SliderV2CardStateBased(
                         .fillMaxSize()
                         .padding(top = sy(160))
                 ) {
-                    // Title
+                    // Title (max 3 lines)
                     Text(
                         text = item.title,
                         color = Color(0xFFEEEEEE),
                         fontSize = sy(48).value.sp,
                         fontWeight = FontWeight.Medium,
-                        maxLines = 2,
+                        maxLines = 3,
                         overflow = TextOverflow.Ellipsis,
                         lineHeight = sy(56).value.sp,
                         modifier = Modifier.widthIn(max = sx(600))
@@ -12056,15 +12491,13 @@ private fun SliderV2CardStateBased(
 
                     Spacer(modifier = Modifier.height(sy(16)))
 
-                    // Metadata row
+                    // Metadata row - KRRIT image only for KINO_PLAY and WIDEO (not ODKRYWAJ)
                     SliderMetadataRowV2(
                         genre = item.genre,
                         duration = item.duration,
                         ageRating = item.ageRating,
-                        krritLabels = setOf(
-                            com.uxellence.tv.v3.model.KrritLabel.S,
-                            com.uxellence.tv.v3.model.KrritLabel.W
-                        ),
+                        sectionType = sectionType,
+                        showKrritImage = sectionType in listOf("KINO_PLAY", "WIDEO"),
                         sx = sx,
                         sy = sy
                     )
@@ -12089,16 +12522,33 @@ private fun SliderV2CardStateBased(
 
                     // Action button (always visible, style depends on focus)
                     // WIDEO: Play icon + "Oglądaj", KINO_PLAY: Shopping cart + "Wypożycz: price"
+                    // ODKRYWAJ: Uses item.price which contains full button text from Supabase
+                    val buttonText = when (sectionType) {
+                        "WIDEO" -> "Oglądaj"
+                        "ODKRYWAJ" -> item.price // Contains text like "Oglądaj" or "Wypożycz: 19.99 zł / 48h" or custom
+                        else -> "Wypożycz: ${item.price}"
+                    }
+
+                    // Determine icon visibility and type for ODKRYWAJ
+                    // - "Oglądaj" -> show play icon
+                    // - "Wypożycz:..." -> show cart icon
+                    // - custom text -> NO icon
+                    val isStandardButton = item.price.startsWith("Oglądaj") || item.price.startsWith("Wypożycz")
+                    val showIcon = sectionType != "ODKRYWAJ" || isStandardButton
+                    val usePlayIcon = sectionType == "WIDEO" ||
+                        (sectionType == "ODKRYWAJ" && item.price.startsWith("Oglądaj"))
+
                     SliderActionButtonV2(
-                        text = if (sectionType == "WIDEO") "Oglądaj" else "Wypożycz: ${item.price}",
+                        text = buttonText,
                         isFocused = isCardFocused,
-                        showIcon = true,
-                        usePlayIcon = sectionType == "WIDEO",
+                        showIcon = showIcon,
+                        usePlayIcon = usePlayIcon,
                         sx = sx,
                         sy = sy
                     )
                 } // Close inner Column (content)
-            } // Close Box (content area)
+                } // Close Box (content area)
+            } // Close if (!isNextSlide)
         } // Close Box (main container)
     } // Close Card
 } // Close function
