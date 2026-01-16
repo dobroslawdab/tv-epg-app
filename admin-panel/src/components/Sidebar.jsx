@@ -27,12 +27,27 @@ function Sidebar({ onLogout }) {
 
         <NavLink to="/slider" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
           <span className="nav-icon">🖼️</span>
-          Slider
+          Slider KINO
+        </NavLink>
+
+        <NavLink to="/odkrywaj-slider" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
+          <span className="nav-icon">🌟</span>
+          Slider ODKRYWAJ
+        </NavLink>
+
+        <NavLink to="/vod-content" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
+          <span className="nav-icon">📺</span>
+          Wideo (VOD)
         </NavLink>
 
         <NavLink to="/colors" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
           <span className="nav-icon">🎨</span>
           Colors
+        </NavLink>
+
+        <NavLink to="/settings" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
+          <span className="nav-icon">⚙️</span>
+          Ustawienia
         </NavLink>
       </nav>
 

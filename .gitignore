@@ -25,3 +25,4 @@ app-debug-*.apk
 # Local properties
 local.properties
 uxellence-tv-privacy/
+.kotlin/

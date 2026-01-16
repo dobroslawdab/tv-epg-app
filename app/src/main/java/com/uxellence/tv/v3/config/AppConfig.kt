@@ -52,7 +52,11 @@ data class AppConfig(
     val layout_item_height: Int = 80,
     val layout_item_gap: Int = 20,
     val layout_focus_border_width: Int = 8,
-    val layout_icon_size: Int = 80
+    val layout_icon_size: Int = 80,
+
+    // === SLIDER AUTO-ROTATION ===
+    val slider_auto_rotate_interval_ms: Long = 5000L,  // 5 seconds default
+    val slider_pause_after_interaction_ms: Long = 10000L  // 10 seconds pause after user interaction
 ) {
     companion object {
         val DEFAULT = AppConfig()

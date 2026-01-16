@@ -7,7 +7,10 @@ import Movies from './pages/Movies';
 import Colors from './pages/Colors';
 import MovieDetails from './pages/MovieDetails';
 import Slider from './pages/Slider';
+import OdkrywajSlider from './pages/OdkrywajSlider';
+import VodContent from './pages/VodContent';
 import HomepageEditor from './pages/HomepageEditor';
+import Settings from './pages/Settings';
 import Sidebar from './components/Sidebar';
 import './App.css';
 
@@ -56,7 +59,10 @@ function App() {
             <Route path="/movies/:id" element={<MovieDetails />} />
             <Route path="/colors" element={<Colors />} />
             <Route path="/slider" element={<Slider />} />
+            <Route path="/odkrywaj-slider" element={<OdkrywajSlider />} />
+            <Route path="/vod-content" element={<VodContent />} />
             <Route path="/homepage" element={<HomepageEditor />} />
+            <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>

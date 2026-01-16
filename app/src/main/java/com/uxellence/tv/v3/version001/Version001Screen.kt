@@ -687,12 +687,12 @@ fun CategoryIcon(
                     ) {
                         when {
                             logoDrawableId != null -> {
-                                // Pokazuj lokalne SVG drawable
+                                // Pokazuj lokalne SVG drawable (bez tint - zachowaj oryginalne kolory)
                                 Icon(
                                     painter = painterResource(id = logoDrawableId),
                                     contentDescription = text,
                                     modifier = Modifier.size(sx(68)),
-                                    tint = Color(0xFFEEEEEE)
+                                    tint = Color.Unspecified
                                 )
                             }
                             logoUrl != null -> {

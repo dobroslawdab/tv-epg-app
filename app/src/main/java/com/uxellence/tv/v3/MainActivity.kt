@@ -41,6 +41,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.uxellence.tv.v3.ui.theme.figmaRadialBackground
 import com.uxellence.tv.v3.config.ConfigManager
+import com.uxellence.tv.v3.moviedetail.MovieDetailScreen
+import com.uxellence.tv.v3.moviedetail.PurchaseScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -72,7 +74,7 @@ class MainActivity : ComponentActivity() {
 }
 
 enum class NavigationScreen {
-    HOME, LIVE, COMPONENT_SHOWCASE, TOP_MENU, TOP_MENU2, SHORTCUT, CHANNELE, VIDEOSLIDER, SLIDER, SLIDER_MIX, EPG, EPG_DAY, FOCUS_MINI_CARD, VOICE_TEST, SPLASH, WHATS_NEW, STARTUP_MODE_SELECTION, LAUNCHER_SETUP, ZAPPING_BAR, CHANNEL_GRID, WIDEO_GRID, KINO_GRID, VOD_GRID, RECORDINGS_GRID, SERIES_EPISODES
+    HOME, LIVE, COMPONENT_SHOWCASE, TOP_MENU, TOP_MENU2, SHORTCUT, CHANNELE, VIDEOSLIDER, SLIDER, SLIDER_MIX, EPG, EPG_DAY, FOCUS_MINI_CARD, VOICE_TEST, SPLASH, WHATS_NEW, STARTUP_MODE_SELECTION, LAUNCHER_SETUP, ZAPPING_BAR, CHANNEL_GRID, WIDEO_GRID, KINO_GRID, VOD_GRID, RECORDINGS_GRID, SERIES_EPISODES, MOVIE_DETAIL, PURCHASE
 }
 
 // Helper functions for launcher setup
@@ -347,6 +349,10 @@ fun TvRoot(
     // SeriesEpisodesGridScreen navigation parameters
     var seriesEpisodesId by remember { mutableStateOf("") }
     var seriesEpisodesTitle by remember { mutableStateOf("") }
+
+    // MovieDetailScreen navigation parameters
+    var selectedMovieData by remember { mutableStateOf<VodSlideData?>(null) }
+    var cameFromQuickPurchase by remember { mutableStateOf(false) }  // Track if we used quick purchase mode
 
     // Save TELEWIZJA focus state for smart BACK navigation (ID-based)
     var savedTelewizjaFocus by remember { mutableStateOf<FocusState?>(null) }
@@ -816,6 +822,82 @@ fun TvRoot(
                     }
                 )
             }
+            NavigationScreen.MOVIE_DETAIL -> {
+                selectedMovieData?.let { movieData ->
+                    MovieDetailScreen(
+                        item = movieData,
+                        onBackPressed = {
+                            // Return to KINO_PLAY section in TOP_MENU2
+                            currentScreen = NavigationScreen.TOP_MENU2
+                            savedTelewizjaSection = "KINO_PLAY"
+                        },
+                        onRentClicked = {
+                            // Navigate to PurchaseScreen (normal flow from MovieDetail)
+                            cameFromQuickPurchase = false  // Normal flow, not quick purchase
+                            currentScreen = NavigationScreen.PURCHASE
+                        },
+                        onTrailerClicked = {
+                            // TODO: Play trailer
+                            android.util.Log.d("MOVIE_DETAIL", "Trailer clicked: ${movieData.title}")
+                        },
+                        onPreviewClicked = {
+                            // TODO: Play preview
+                            android.util.Log.d("MOVIE_DETAIL", "Preview clicked: ${movieData.title}")
+                        },
+                        onMoreInfoClicked = {
+                            // TODO: Show more info
+                            android.util.Log.d("MOVIE_DETAIL", "More info clicked: ${movieData.title}")
+                        }
+                    )
+                } ?: run {
+                    // Fallback if no movie data - return to TOP_MENU2
+                    LaunchedEffect(Unit) {
+                        currentScreen = NavigationScreen.TOP_MENU2
+                    }
+                }
+            }
+            NavigationScreen.PURCHASE -> {
+                selectedMovieData?.let { movieData ->
+                    PurchaseScreen(
+                        item = movieData,
+                        userEmail = "adres@domena.pl",
+                        userPhoneNumber = "690100003",
+                        onBackPressed = {
+                            // Return based on how we got here
+                            if (cameFromQuickPurchase) {
+                                // Quick purchase mode: go back to slider (KINO_PLAY)
+                                currentScreen = NavigationScreen.TOP_MENU2
+                                savedTelewizjaSection = "KINO_PLAY"
+                            } else {
+                                // Normal flow: go back to MovieDetailScreen
+                                currentScreen = NavigationScreen.MOVIE_DETAIL
+                            }
+                        },
+                        onConfirmPurchase = {
+                            // TODO: Implement purchase confirmation
+                            android.util.Log.d("PURCHASE", "Purchase confirmed: ${movieData.title}")
+                        },
+                        onChangeEmail = {
+                            // TODO: Implement email change
+                            android.util.Log.d("PURCHASE", "Change email clicked")
+                        },
+                        onShowRegulations = {
+                            // TODO: Show regulations
+                            android.util.Log.d("PURCHASE", "Show regulations clicked")
+                        }
+                    )
+                } ?: run {
+                    // Fallback if no movie data - return based on how we got here
+                    LaunchedEffect(Unit) {
+                        if (cameFromQuickPurchase) {
+                            currentScreen = NavigationScreen.TOP_MENU2
+                            savedTelewizjaSection = "KINO_PLAY"
+                        } else {
+                            currentScreen = NavigationScreen.MOVIE_DETAIL
+                        }
+                    }
+                }
+            }
             NavigationScreen.SLIDER -> {
                 SliderScreen()
             }
@@ -943,6 +1025,19 @@ fun TvRoot(
                         recordingsGridSourceSection = sourceSection
                         previousScreen = NavigationScreen.TOP_MENU2
                         currentScreen = NavigationScreen.RECORDINGS_GRID
+                    },
+                    onNavigateToMovieDetail = { movieData ->
+                        // Navigate to MovieDetailScreen from KINO PLAY slider
+                        selectedMovieData = movieData
+                        previousScreen = NavigationScreen.TOP_MENU2
+                        currentScreen = NavigationScreen.MOVIE_DETAIL
+                    },
+                    onNavigateToPurchase = { movieData ->
+                        // Navigate directly to PurchaseScreen (quick purchase mode)
+                        selectedMovieData = movieData
+                        cameFromQuickPurchase = true  // Mark that we skipped MovieDetailScreen
+                        previousScreen = NavigationScreen.TOP_MENU2
+                        currentScreen = NavigationScreen.PURCHASE
                     }
                 )
 
