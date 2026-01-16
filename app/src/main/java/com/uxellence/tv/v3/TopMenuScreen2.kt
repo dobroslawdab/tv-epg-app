@@ -3731,6 +3731,17 @@ private fun OdkrywajChannelsScreen(
     var odkrywajSliderItems by remember { mutableStateOf<List<VodSlideData>>(emptyList()) }
     var sliderLoading by remember { mutableStateOf(true) }
 
+    // === Supabase initialization state for recomposition ===
+    var supabaseInitialized by remember { mutableStateOf(VodDataCache.isSupabaseInitialized()) }
+
+    // Initialize Supabase data when ODKRYWAJ section is loaded
+    LaunchedEffect(Unit) {
+        if (!VodDataCache.isSupabaseInitialized()) {
+            VodDataCache.initializeFromSupabase(context)
+            supabaseInitialized = VodDataCache.isSupabaseInitialized()
+        }
+    }
+
     // Load slider data from Supabase
     LaunchedEffect(Unit) {
         try {
@@ -3744,16 +3755,26 @@ private fun OdkrywajChannelsScreen(
         }
     }
 
-    // Row 0: Slider Mix, Row 1: Skróty, Row 2: Popularne,
-    // Row 3: Nowości, Row 4: Nowe filmy, Row 5: Top 10, Row 6: Kolekcje
+    // Row 0: Slider Mix, Row 1: Skróty, Row 2: Aplikacje, Row 3: Oglądaj dalej,
+    // Row 4: Popularne teraz w telewizji, Row 5: Netflix, Row 6: Disney+, Row 7: Top 10,
+    // Row 8: Kolekcje KINA PLAY, Row 9: Pakiety, Row 10: Polecane w KINIE PLAY,
+    // Row 11: Ostatnio dodane w Wideo, Row 12: HBO Max, Row 13: SkyShowtime, Row 14: Amazon Prime
     val channels = listOf(
-        "Slider Mix",
-        "Skróty",
-        "Popularne",
-        "Nowości",
-        "Nowe filmy",
-        "Top 10",
-        "Kolekcje"
+        "Slider Mix",                   // Row 0 - slider-max
+        "Skróty",                       // Row 1 - shortcuts-v3
+        "Aplikacje",                    // Row 2 - app-icons (NEW)
+        "Oglądaj dalej",                // Row 3 - horizontal (NEW)
+        "Popularne teraz w telewizji",  // Row 4 - horizontal (RENAMED)
+        "Netflix",                      // Row 5 - horizontal (NEW)
+        "Disney+",                      // Row 6 - horizontal (NEW)
+        "Top 10",                       // Row 7 - top10 (MOVED)
+        "Kolekcje KINA PLAY",           // Row 8 - horizontal (NEW)
+        "Pakiety",                      // Row 9 - horizontal (NEW)
+        "Polecane w KINIE PLAY",        // Row 10 - horizontal (NEW)
+        "Ostatnio dodane w Wideo",      // Row 11 - horizontal (NEW)
+        "HBO Max",                      // Row 12 - horizontal (NEW)
+        "SkyShowtime",                  // Row 13 - horizontal (NEW)
+        "Amazon Prime"                  // Row 14 - horizontal (NEW)
     )
 
     // Define channel types - shortcuts-v3 when sliderVersion == 2, shortcuts otherwise
@@ -3761,39 +3782,58 @@ private fun OdkrywajChannelsScreen(
         mapOf(
             "Slider Mix" to "slider-max",
             "Skróty" to if (sliderVersion == 2) "shortcuts-v3" else "shortcuts",
-            "Popularne" to "horizontal",
-            "Nowości" to "horizontal",
-            "Nowe filmy" to "vertical",
+            "Aplikacje" to "app-icons",
+            "Oglądaj dalej" to "horizontal",
+            "Popularne teraz w telewizji" to "horizontal",
+            "Netflix" to "horizontal",
+            "Disney+" to "horizontal",
             "Top 10" to "top10",
-            "Kolekcje" to "collection-slider"
+            "Kolekcje KINA PLAY" to "horizontal",
+            "Pakiety" to "horizontal",
+            "Polecane w KINIE PLAY" to "vertical",
+            "Ostatnio dodane w Wideo" to "horizontal",
+            "HBO Max" to "horizontal",
+            "SkyShowtime" to "horizontal",
+            "Amazon Prime" to "horizontal"
         )
     }
 
-    val gridContent = remember {
+    // Grid content - recomposes when Supabase data becomes available
+    val gridContent = remember(supabaseInitialized) {
         val vodContentList = VodDataCache.getVodContentList()
         val kinoPlayMovies = VodDataCache.getKinoPlayMovies()
+        // Pobierz filmy z Supabase (z cenami!)
+        val supabaseNewest = VodDataCache.getNewest()
 
-        if (vodContentList.isNotEmpty() && kinoPlayMovies.isNotEmpty()) {
-            // Group VOD by category for collections
-            val vodByCategory = vodContentList.groupBy { it.category }
+        if (vodContentList.isNotEmpty() || supabaseNewest.isNotEmpty()) {
+            // Kolekcje dla "Kolekcje KINA PLAY"
             val collections = listOf(
-                VodContent("test_horrory", "Horrory", "Kolekcja horrorów na Halloween", "Horror", "https://images6.alphacoders.com/140/1400473.jpg", "", ""),
-                VodContent("test_thrillery", "Thrillery", "Ekscytujące thrillery", "Thriller", "https://images6.alphacoders.com/135/1356452.jpeg", "", ""),
-                VodContent("test_komedie", "Komedie", "Najlepsze komedie", "Komedia", "https://images6.alphacoders.com/135/1356452.jpeg", "", ""),
-                VodContent("test_dokumenty", "Dokumenty", "Fascynujące dokumenty", "Dokumentalny", "https://images6.alphacoders.com/135/1356452.jpeg", "", ""),
-                VodContent("test_scifi", "Sci-Fi", "Fantastyka naukowa", "Sci-Fi", "https://images4.alphacoders.com/135/1353792.png", "", "")
+                VodContent("col_horrory", "Horrory", "Kolekcja horrorów na Halloween", "Horror", "https://images6.alphacoders.com/140/1400473.jpg", "", ""),
+                VodContent("col_thrillery", "Thrillery", "Ekscytujące thrillery", "Thriller", "https://images6.alphacoders.com/135/1356452.jpeg", "", ""),
+                VodContent("col_komedie", "Komedie", "Najlepsze komedie", "Komedia", "https://images6.alphacoders.com/135/1356452.jpeg", "", ""),
+                VodContent("col_dokumenty", "Dokumenty", "Fascynujące dokumenty", "Dokumentalny", "https://images6.alphacoders.com/135/1356452.jpeg", "", ""),
+                VodContent("col_scifi", "Sci-Fi", "Fantastyka naukowa", "Sci-Fi", "https://images4.alphacoders.com/135/1353792.png", "", "")
             )
 
             channels.associateWith { channelName ->
                 when (channelName) {
-                    "Slider Mix" -> vodContentList.shuffled().take(10) // VOD Play content for big slider
-                    "Teraz w TV" -> vodContentList.shuffled().take(10) // Horizontal VOD content
-                    "Najczęściej oglądane" -> vodContentList.shuffled().take(10) // Horizontal VOD content
-                    "Skróty" -> emptyList() // Special type, no grid content
-                    "Dla dzieci", "Dokumenty", "Filmy i seriale HBO", "Informacyjne" -> emptyList() // App-icons type, no VOD grid content
-                    "Top 10", "Nowe filmy" -> kinoPlayMovies.shuffled().take(10) // Top 10 and vertical channels
-                    "Kolekcje" -> collections // Collections slider
-                    else -> vodContentList.shuffled().take(10) // Horizontal
+                    "Slider Mix" -> vodContentList.shuffled().take(10)
+                    "Skróty" -> emptyList() // shortcuts-v3, osobna lista
+                    "Aplikacje" -> emptyList() // app-icons, osobna lista apps
+                    "Oglądaj dalej" -> vodContentList.shuffled().take(10)
+                    "Popularne teraz w telewizji" -> vodContentList.shuffled().take(10)
+                    "Netflix" -> vodContentList.shuffled().take(10)
+                    "Disney+" -> vodContentList.shuffled().take(10)
+                    "Top 10" -> VodDataCache.getTop10().ifEmpty { kinoPlayMovies.take(10) }
+                    "Kolekcje KINA PLAY" -> collections
+                    "Pakiety" -> vodContentList.shuffled().take(10)
+                    // Polecane w KINIE PLAY - dane z Supabase z cenami!
+                    "Polecane w KINIE PLAY" -> supabaseNewest.ifEmpty { kinoPlayMovies.take(10) }
+                    "Ostatnio dodane w Wideo" -> vodContentList.shuffled().take(10)
+                    "HBO Max" -> vodContentList.shuffled().take(10)
+                    "SkyShowtime" -> vodContentList.shuffled().take(10)
+                    "Amazon Prime" -> vodContentList.shuffled().take(10)
+                    else -> vodContentList.shuffled().take(10)
                 }
             }
         } else {
@@ -3825,6 +3865,18 @@ private fun OdkrywajChannelsScreen(
         )
     }
 
+    // Apps dla kanału "Aplikacje" (app-icons) - skopiowane z APLIKACJE tab
+    val odkrywajApps = remember {
+        listOf(
+            AppItem("1", "Netflix", R.drawable.imgi_57_netflix_2x),
+            AppItem("2", "YouTube", R.drawable.imgi_58_youtube_2x),
+            AppItem("3", "Prime Video", R.drawable.imgi_59_prime_video_2x),
+            AppItem("4", "Spotify", R.drawable.imgi_61_spotify_2x),
+            AppItem("5", "Disney+", R.drawable.imgi_63_disney_2x),
+            AppItem("6", "Apple TV", R.drawable.imgi_68_apple_tv_2x)
+        )
+    }
+
     var focusedRowIndex by remember { mutableStateOf(0) }
     var focusedColIndex by remember { mutableStateOf(-2) } // -2 = brak fokusa na starcie
 
@@ -3852,6 +3904,12 @@ private fun OdkrywajChannelsScreen(
             repeat(channels.size) { rowIndex ->
                 if (rowIndex == 1) {
                     // Row 1 (shortcuts): create FocusRequesters for items 0-5 (5 shortcuts + plus button)
+                    repeat(6) { colIndex ->
+                        put(Pair(rowIndex, colIndex), FocusRequester())
+                    }
+                } else if (rowIndex == 2) {
+                    // Row 2 (app-icons "Aplikacje"): create FocusRequesters for CategoryIcon + items 0-5 (6 apps)
+                    put(Pair(rowIndex, -1), FocusRequester()) // CategoryIcon
                     repeat(6) { colIndex ->
                         put(Pair(rowIndex, colIndex), FocusRequester())
                     }
@@ -3937,6 +3995,7 @@ private fun OdkrywajChannelsScreen(
             shortcuts = shortcuts,
             shortcutsV3 = shortcutsV3,  // V3 shortcuts with bigger cards
             sliderItems = odkrywajSliderItems,
+            odkrywajApps = odkrywajApps,  // Apps for "Aplikacje" channel
             focusedRowIndex = focusedRowIndex,
             focusedColIndex = focusedColIndex,
             channelFocusRequesters = channelFocusRequesters,
@@ -7606,7 +7665,7 @@ private const val APLIKACJE_APP_ICONS_EXPANDED_ROW_HEIGHT = 286 // With focus (o
 private const val APLIKACJE_CONTENT_FOCUS_EXTRA_SPACING = 100 // Extra spacing above focused content row
 
 // ODKRYWAJ section constants
-private const val ODKRYWAJ_FIXED_FOCUS_Y = 180 // Focused channel always at this height (140 menu + 40 spacing)
+private const val ODKRYWAJ_FIXED_FOCUS_Y = 200 // Focused channel always at this height (140 menu + 60 spacing)
 private const val ODKRYWAJ_SLIDER_MAX_NORMAL_ROW_HEIGHT = 782 // Big slider (742px) + spacing (40px)
 private const val ODKRYWAJ_SLIDER_MAX_EXPANDED_ROW_HEIGHT = 782 // Same as normal (no expansion needed)
 private const val ODKRYWAJ_SHORTCUTS_NORMAL_ROW_HEIGHT = 406 // Shortcuts V2 base height (279px cards + spacing)
@@ -7623,6 +7682,8 @@ private const val ODKRYWAJ_HORIZONTAL_NORMAL_ROW_HEIGHT = 256 // Same as APLIKAC
 private const val ODKRYWAJ_HORIZONTAL_EXPANDED_ROW_HEIGHT = 546 // Same as APLIKACJE
 private const val ODKRYWAJ_COLLECTION_SLIDER_NORMAL_ROW_HEIGHT = 544 // Collection slider (464px) + spacing (80px)
 private const val ODKRYWAJ_COLLECTION_SLIDER_EXPANDED_ROW_HEIGHT = 544 // NO expansion for collection slider
+private const val ODKRYWAJ_APP_ICONS_NORMAL_ROW_HEIGHT = 256 // App icons (220px) + spacing (36px) - like TELEWIZJA
+private const val ODKRYWAJ_APP_ICONS_EXPANDED_ROW_HEIGHT = 256 // NO expansion for app-icons (same as normal)
 private const val ODKRYWAJ_CONTENT_FOCUS_EXTRA_SPACING = 100 // Extra spacing above focused content row
 
 // TELEWIZJA section constants
@@ -8216,10 +8277,11 @@ fun handleOdkrywajNavigation(
             } else if (focusedRowIndex > 0) {
                 val newRowIndex = focusedRowIndex - 1
                 // Row 0 (slider-max) and row 1 (shortcuts) have no CategoryIcon - always go to col=0
-                val targetColIndex = if (newRowIndex <= 1) {
-                    0 // No CategoryIcon, go to content
-                } else {
-                    if (focusedColIndex == -1) -1 else 0 // Preserve type for rows with CategoryIcon
+                // Row 2+ (including app-icons) have CategoryIcon - preserve type
+                val targetColIndex = when (newRowIndex) {
+                    0, 1 -> 0 // No CategoryIcon, go to content
+                    2 -> if (focusedColIndex == -1) -1 else 0 // app-icons has CategoryIcon
+                    else -> if (focusedColIndex == -1) -1 else 0 // Preserve type for rows with CategoryIcon
                 }
                 onFocusChange(newRowIndex, targetColIndex)
                 channelFocusRequesters[Pair(newRowIndex, targetColIndex)]?.requestFocus()
@@ -8247,10 +8309,11 @@ fun handleOdkrywajNavigation(
             } else if (focusedRowIndex < channels.size - 1) {
                 val newRowIndex = focusedRowIndex + 1
                 // Row 0 (slider-max) and row 1 (shortcuts) have no CategoryIcon - always go to col=0
-                val targetColIndex = if (newRowIndex <= 1) {
-                    0 // No CategoryIcon, go to content
-                } else {
-                    if (focusedColIndex == -1) -1 else 0 // Preserve type for rows with CategoryIcon
+                // Row 2+ (including app-icons) have CategoryIcon - preserve type
+                val targetColIndex = when (newRowIndex) {
+                    0, 1 -> 0 // No CategoryIcon, go to content
+                    2 -> if (focusedColIndex == -1) -1 else 0 // app-icons has CategoryIcon
+                    else -> if (focusedColIndex == -1) -1 else 0 // Preserve type for rows with CategoryIcon
                 }
                 onFocusChange(newRowIndex, targetColIndex)
                 channelFocusRequesters[Pair(newRowIndex, targetColIndex)]?.requestFocus()
@@ -8272,9 +8335,23 @@ fun handleOdkrywajNavigation(
                     channelFocusRequesters[Pair(focusedRowIndex, newColIndex)]?.requestFocus()
                 }
                 return true
+            } else if (focusedRowIndex == 2) {
+                // Row 2 (app-icons "Aplikacje"): direct focus navigation with CategoryIcon
+                if (focusedColIndex > 0) {
+                    // Move to previous app
+                    val newColIndex = focusedColIndex - 1
+                    onFocusChange(focusedRowIndex, newColIndex)
+                    channelFocusRequesters[Pair(focusedRowIndex, newColIndex)]?.requestFocus()
+                } else if (focusedColIndex == 0) {
+                    // From first app, go to CategoryIcon
+                    onFocusChange(focusedRowIndex, -1)
+                    channelFocusRequesters[Pair(focusedRowIndex, -1)]?.requestFocus()
+                }
+                // If on CategoryIcon (-1), do nothing
+                return true
             }
 
-            // For rows 2+: navigation like MOJE (scroll first, then CategoryIcon)
+            // For rows 3+: navigation like MOJE (scroll first, then CategoryIcon)
             if (focusedColIndex == -1) {
                 // Already on CategoryIcon - do nothing
                 return true
@@ -8309,9 +8386,22 @@ fun handleOdkrywajNavigation(
                     channelFocusRequesters[Pair(focusedRowIndex, newColIndex)]?.requestFocus()
                 }
                 return true
+            } else if (focusedRowIndex == 2) {
+                // Row 2 (app-icons "Aplikacje"): direct focus navigation with CategoryIcon
+                if (focusedColIndex == -1) {
+                    // From CategoryIcon, go to first app (col 0)
+                    onFocusChange(focusedRowIndex, 0)
+                    channelFocusRequesters[Pair(focusedRowIndex, 0)]?.requestFocus()
+                } else if (focusedColIndex < 5) {
+                    // Move to next app (items 0-5)
+                    val newColIndex = focusedColIndex + 1
+                    onFocusChange(focusedRowIndex, newColIndex)
+                    channelFocusRequesters[Pair(focusedRowIndex, newColIndex)]?.requestFocus()
+                }
+                return true
             }
 
-            // For rows 2+: normal navigation with CategoryIcon
+            // For rows 3+: normal navigation with CategoryIcon
             if (focusedColIndex == -1) {
                 // From CategoryIcon, go to content (col 0)
                 onFocusChange(focusedRowIndex, 0)
@@ -8897,9 +8987,10 @@ private fun calculateOdkrywajChannelYPosition(
                     "shortcuts-v3" -> ODKRYWAJ_SHORTCUTS_V3_NORMAL_ROW_HEIGHT
                     "top10" -> ODKRYWAJ_TOP10_NORMAL_ROW_HEIGHT
                     "collection-slider" -> ODKRYWAJ_COLLECTION_SLIDER_NORMAL_ROW_HEIGHT
+                    "app-icons" -> ODKRYWAJ_APP_ICONS_NORMAL_ROW_HEIGHT
                     "vertical" -> {
-                        // Use VOD heights for Nowe filmy (VodContentCard)
-                        if (betweenChannelName == "Nowe filmy") {
+                        // Use VOD heights for Nowe filmy and Polecane w KINIE PLAY (VodContentCard)
+                        if (betweenChannelName in listOf("Nowe filmy", "Polecane w KINIE PLAY")) {
                             ODKRYWAJ_VERTICAL_VOD_NORMAL_ROW_HEIGHT
                         } else {
                             ODKRYWAJ_VERTICAL_NORMAL_ROW_HEIGHT
@@ -8918,9 +9009,10 @@ private fun calculateOdkrywajChannelYPosition(
                     "shortcuts-v3" -> ODKRYWAJ_SHORTCUTS_V3_EXPANDED_ROW_HEIGHT
                     "top10" -> ODKRYWAJ_TOP10_EXPANDED_ROW_HEIGHT
                     "collection-slider" -> ODKRYWAJ_COLLECTION_SLIDER_EXPANDED_ROW_HEIGHT
+                    "app-icons" -> ODKRYWAJ_APP_ICONS_EXPANDED_ROW_HEIGHT
                     "vertical" -> {
-                        // Use VOD heights for Nowe filmy (VodContentCard)
-                        if (focusedChannelName == "Nowe filmy") {
+                        // Use VOD heights for Nowe filmy and Polecane w KINIE PLAY (VodContentCard)
+                        if (focusedChannelName in listOf("Nowe filmy", "Polecane w KINIE PLAY")) {
                             ODKRYWAJ_VERTICAL_VOD_EXPANDED_ROW_HEIGHT
                         } else {
                             ODKRYWAJ_VERTICAL_EXPANDED_ROW_HEIGHT
@@ -8935,9 +9027,10 @@ private fun calculateOdkrywajChannelYPosition(
                     "shortcuts-v3" -> ODKRYWAJ_SHORTCUTS_V3_EXPANDED_ROW_HEIGHT
                     "top10" -> ODKRYWAJ_TOP10_NORMAL_ROW_HEIGHT
                     "collection-slider" -> ODKRYWAJ_COLLECTION_SLIDER_NORMAL_ROW_HEIGHT
+                    "app-icons" -> ODKRYWAJ_APP_ICONS_NORMAL_ROW_HEIGHT
                     "vertical" -> {
-                        // Use VOD heights for Nowe filmy (VodContentCard)
-                        if (focusedChannelName == "Nowe filmy") {
+                        // Use VOD heights for Nowe filmy and Polecane w KINIE PLAY (VodContentCard)
+                        if (focusedChannelName in listOf("Nowe filmy", "Polecane w KINIE PLAY")) {
                             ODKRYWAJ_VERTICAL_VOD_NORMAL_ROW_HEIGHT
                         } else {
                             ODKRYWAJ_VERTICAL_NORMAL_ROW_HEIGHT
@@ -8958,9 +9051,10 @@ private fun calculateOdkrywajChannelYPosition(
                     "shortcuts-v3" -> ODKRYWAJ_SHORTCUTS_V3_NORMAL_ROW_HEIGHT
                     "top10" -> ODKRYWAJ_TOP10_NORMAL_ROW_HEIGHT
                     "collection-slider" -> ODKRYWAJ_COLLECTION_SLIDER_NORMAL_ROW_HEIGHT
+                    "app-icons" -> ODKRYWAJ_APP_ICONS_NORMAL_ROW_HEIGHT
                     "vertical" -> {
-                        // Use VOD heights for Nowe filmy (VodContentCard)
-                        if (betweenChannelName == "Nowe filmy") {
+                        // Use VOD heights for Nowe filmy and Polecane w KINIE PLAY (VodContentCard)
+                        if (betweenChannelName in listOf("Nowe filmy", "Polecane w KINIE PLAY")) {
                             ODKRYWAJ_VERTICAL_VOD_NORMAL_ROW_HEIGHT
                         } else {
                             ODKRYWAJ_VERTICAL_NORMAL_ROW_HEIGHT
@@ -9470,6 +9564,7 @@ fun OdkrywajChannelRowsLayout(
     shortcuts: List<ShortcutItem>,
     shortcutsV3: List<ShortcutItem> = emptyList(),  // V3 shortcuts with bigger cards
     sliderItems: List<VodSlideData> = emptyList(),
+    odkrywajApps: List<AppItem> = emptyList(),  // Apps for "Aplikacje" channel (app-icons type)
     focusedRowIndex: Int,
     focusedColIndex: Int,
     channelFocusRequesters: Map<Pair<Int, Int>, FocusRequester>,
@@ -9517,6 +9612,7 @@ fun OdkrywajChannelRowsLayout(
                     shortcuts = shortcuts,
                     shortcutsV3 = shortcutsV3,  // V3 shortcuts with bigger cards
                     sliderItems = sliderItems,
+                    odkrywajApps = odkrywajApps,  // Apps for "Aplikacje" channel
                     focusedRowIndex = focusedRowIndex,
                     focusedColIndex = focusedColIndex,
                     channelFocusRequesters = channelFocusRequesters,
@@ -9545,6 +9641,7 @@ fun OdkrywajUnifiedChannelRow(
     shortcuts: List<ShortcutItem>,
     shortcutsV3: List<ShortcutItem> = emptyList(),  // V3 shortcuts with bigger cards
     sliderItems: List<VodSlideData> = emptyList(),
+    odkrywajApps: List<AppItem> = emptyList(),  // Apps for "Aplikacje" channel (app-icons type)
     focusedRowIndex: Int,
     focusedColIndex: Int,
     channelFocusRequesters: Map<Pair<Int, Int>, FocusRequester>,
@@ -9735,6 +9832,42 @@ fun OdkrywajUnifiedChannelRow(
                     }
                 }
             }
+            "app-icons" -> {
+                // App icons row for "Aplikacje" channel - direct focus model (like TELEWIZJA)
+                LazyRow(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    state = lazyListState,
+                    contentPadding = PaddingValues(start = sx(380), end = sx(20)),
+                    horizontalArrangement = Arrangement.spacedBy(sx(12))  // 12px spacing like APLIKACJE app-icons
+                ) {
+                    items(odkrywajApps.size) { colIndex ->
+                        val app = odkrywajApps[colIndex]
+                        // Direct focus check: item is focused when its indices match
+                        val isItemFocused = rowIndex == focusedRowIndex && colIndex == focusedColIndex
+                        // Each item gets its own FocusRequester
+                        val focusRequester = channelFocusRequesters[Pair(rowIndex, colIndex)] ?: FocusRequester()
+
+                        AppIconCard(
+                            app = app,
+                            isFocused = isItemFocused,
+                            focusRequester = focusRequester,
+                            onFocusChange = { onChannelContentFocusChange(rowIndex, colIndex) },
+                            sx = sx,
+                            sy = sy
+                        )
+                    }
+
+                    // Spacer items (App icon card size: 320x220)
+                    items(8) {
+                        Spacer(
+                            modifier = Modifier
+                                .width(sx(320))
+                                .height(sy(220))
+                        )
+                    }
+                }
+            }
             "top10" -> {
                 // Top 10 row (like VOD Top 10 with ranking numbers)
                 LazyRow(
@@ -9775,7 +9908,7 @@ fun OdkrywajUnifiedChannelRow(
             }
             "vertical" -> {
                 // Vertical miniatures row (Filmy/Seriale use VodContentCard with price)
-                val useVodCardWithPrice = channel in listOf("Filmy", "Seriale")
+                val useVodCardWithPrice = channel in listOf("Filmy", "Seriale", "Polecane w KINIE PLAY")
 
                 LazyRow(
                     modifier = Modifier
@@ -10004,11 +10137,19 @@ fun OdkrywajUnifiedChannelRow(
 
                 // Logo dla channeli
                 val logoDrawableId = when (channel) {
+                    "Aplikacje" -> R.drawable.appli
+                    "Oglądaj dalej" -> R.drawable.ic_keep_watching
+                    "Popularne teraz w telewizji" -> R.drawable.tv_icon
+                    "Netflix" -> R.drawable.netflix_logo
+                    "Disney+" -> R.drawable.disney_plus_logo
                     "Top 10" -> R.drawable.kinoplay2
-                    "Popularne" -> R.drawable.tv_icon
-                    "Nowości" -> R.drawable.tv_icon
-                    "Nowe filmy" -> R.drawable.kinoplay2
-                    "Teraz w TV" -> R.drawable.tv_icon
+                    "Kolekcje KINA PLAY" -> R.drawable.kinoplay2
+                    "Pakiety" -> R.drawable.ic_packages
+                    "Polecane w KINIE PLAY" -> R.drawable.kinoplay2
+                    "Ostatnio dodane w Wideo" -> R.drawable.wideo_kat
+                    "HBO Max" -> R.drawable.hbo_max_logo
+                    "SkyShowtime" -> R.drawable.skyshowtime_logo
+                    "Amazon Prime" -> R.drawable.prime_video_logo
                     else -> null
                 }
 
@@ -10588,7 +10729,7 @@ fun TelewizjaUnifiedChannelRow(
             }
             "vertical" -> {
                 // Vertical miniatures row (Filmy/Seriale use VodContentCard with price)
-                val useVodCardWithPrice = channel in listOf("Filmy", "Seriale")
+                val useVodCardWithPrice = channel in listOf("Filmy", "Seriale", "Polecane w KINIE PLAY")
 
                 LazyRow(
                     modifier = Modifier
