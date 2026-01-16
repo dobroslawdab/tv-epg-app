@@ -3880,6 +3880,13 @@ private fun OdkrywajChannelsScreen(
     var focusedRowIndex by remember { mutableStateOf(0) }
     var focusedColIndex by remember { mutableStateOf(-2) } // -2 = brak fokusa na starcie
 
+    // === Infinity loop transition guard ===
+    var isInGhostTransition by remember { mutableStateOf(false) }
+
+    // === Shared slider state for synchronization between main slider and ghost slider ===
+    var sharedCurrentSlide by remember { mutableStateOf(0) }
+    var sharedProgress by remember { mutableFloatStateOf(0f) }
+
     // Track if user has navigated (for PIP mode)
     var hasNavigated by remember { mutableStateOf(false) }
 
@@ -3983,7 +3990,10 @@ private fun OdkrywajChannelsScreen(
                     lazyListStates = lazyListStates,
                     coroutineScope = coroutineScope,
                     gridContent = gridContent,
-                    onReturnToMenu = onReturnToMenu
+                    onReturnToMenu = onReturnToMenu,
+                    // === Infinity loop parameters ===
+                    isInGhostTransition = isInGhostTransition,
+                    onGhostTransitionChange = { inTransition -> isInGhostTransition = inTransition }
                 )
             }
             .focusable()
@@ -4013,7 +4023,11 @@ private fun OdkrywajChannelsScreen(
             sy = sy,
             // Auto-rotation settings from admin config
             autoRotateIntervalMs = appConfig.slider_auto_rotate_interval_ms,
-            pauseAfterInteractionMs = appConfig.slider_pause_after_interaction_ms
+            pauseAfterInteractionMs = appConfig.slider_pause_after_interaction_ms,
+            // === Infinity loop: Shared slider state for ghost slider synchronization ===
+            sharedCurrentSlide = sharedCurrentSlide,
+            onSharedCurrentSlideChange = { slide -> sharedCurrentSlide = slide },
+            sharedProgress = sharedProgress
         )
     }
 }
@@ -7686,6 +7700,10 @@ private const val ODKRYWAJ_APP_ICONS_NORMAL_ROW_HEIGHT = 256 // App icons (220px
 private const val ODKRYWAJ_APP_ICONS_EXPANDED_ROW_HEIGHT = 256 // NO expansion for app-icons (same as normal)
 private const val ODKRYWAJ_CONTENT_FOCUS_EXTRA_SPACING = 100 // Extra spacing above focused content row
 
+// ODKRYWAJ infinity loop constants
+private const val GHOST_SLIDER_ROW_INDEX = 15 // Virtual row for infinity loop animation
+private const val INFINITY_LOOP_ANIMATION_DELAY_MS = 550L // Delay before jumping to Row 0
+
 // TELEWIZJA section constants
 // Note: Wszystkie focusable rows at Y:270px, wszystko scrolluje razem
 private const val TELEWIZJA_FIXED_FOCUS_Y = 270 // 270px offset from top of screen
@@ -8261,7 +8279,10 @@ fun handleOdkrywajNavigation(
     lazyListStates: Map<Int, LazyListState>,
     coroutineScope: CoroutineScope,
     gridContent: Map<String, List<VodContent>>,
-    onReturnToMenu: () -> Unit
+    onReturnToMenu: () -> Unit,
+    // === Infinity loop parameters ===
+    isInGhostTransition: Boolean = false,
+    onGhostTransitionChange: (Boolean) -> Unit = {}
 ): Boolean {
     android.util.Log.d("ODKRYWAJ_NAV", "handleOdkrywajNavigation: key=${event.key}, focusedRow=$focusedRowIndex, focusedCol=$focusedColIndex")
     if (event.nativeKeyEvent.action != android.view.KeyEvent.ACTION_DOWN) return false
@@ -8269,6 +8290,16 @@ fun handleOdkrywajNavigation(
     when (event.key) {
         Key.DirectionUp -> {
             android.util.Log.d("ODKRYWAJ_NAV", "UP pressed: focusedRow=$focusedRowIndex, focusedCol=$focusedColIndex")
+
+            // === Cancel infinity loop if user presses UP during ghost transition ===
+            if (focusedRowIndex == GHOST_SLIDER_ROW_INDEX) {
+                android.util.Log.d("ODKRYWAJ_NAV", "UP during ghost transition - canceling, returning to last channel")
+                onFocusChange(channels.size - 1, 0)  // Return to Row 14 (last real channel)
+                onGhostTransitionChange(false)
+                channelFocusRequesters[Pair(channels.size - 1, 0)]?.requestFocus()
+                return true
+            }
+
             if (focusedColIndex == -2) {
                 // First movement from "no focus" - go to first slide (0, 0)
                 onFocusChange(0, 0)
@@ -8306,7 +8337,29 @@ fun handleOdkrywajNavigation(
                 onFocusChange(0, 0)
                 channelFocusRequesters[Pair(0, 0)]?.requestFocus()
                 return true
-            } else if (focusedRowIndex < channels.size - 1) {
+            }
+
+            // === INFINITY LOOP: From last channel (Row 14) → Ghost Slider → Row 0 ===
+            if (focusedRowIndex == channels.size - 1 && !isInGhostTransition) {
+                android.util.Log.d("ODKRYWAJ_NAV", "INFINITY LOOP: Starting ghost transition from Row ${channels.size - 1}")
+                onGhostTransitionChange(true)
+
+                // Phase 1: Animate to ghost slider (Row 15)
+                onFocusChange(GHOST_SLIDER_ROW_INDEX, 0)
+
+                // Phase 2: Jump to Row 0 after animation completes
+                coroutineScope.launch {
+                    kotlinx.coroutines.delay(INFINITY_LOOP_ANIMATION_DELAY_MS)
+                    android.util.Log.d("ODKRYWAJ_NAV", "INFINITY LOOP: Jumping to Row 0")
+                    onFocusChange(0, 0)
+                    channelFocusRequesters[Pair(0, 0)]?.requestFocus()
+                    onGhostTransitionChange(false)
+                }
+                return true
+            }
+
+            // Normal DOWN navigation
+            if (focusedRowIndex < channels.size - 1) {
                 val newRowIndex = focusedRowIndex + 1
                 // Row 0 (slider-max) and row 1 (shortcuts) have no CategoryIcon - always go to col=0
                 // Row 2+ (including app-icons) have CategoryIcon - preserve type
@@ -8967,6 +9020,78 @@ private fun calculateOdkrywajChannelYPosition(
     val focusedChannelName = channels.getOrNull(focusedRowIndex) ?: ""
     val focusedChannelType = channelTypes[focusedChannelName] ?: "horizontal"
 
+    // === GHOST SLIDER (Row 15) - Y position calculation ===
+    // When ghost slider is being rendered (rowIndex == GHOST_SLIDER_ROW_INDEX)
+    if (rowIndex == GHOST_SLIDER_ROW_INDEX) {
+        return when {
+            // Ghost slider is focused - it's at the fixed focus position
+            focusedRowIndex == GHOST_SLIDER_ROW_INDEX -> sy(ODKRYWAJ_FIXED_FOCUS_Y)
+            // Ghost slider is below current focus - position it just below the last channel (Row 14)
+            focusedRowIndex < GHOST_SLIDER_ROW_INDEX -> {
+                // Calculate position below Row 14 (last real channel)
+                val row14Y = calculateOdkrywajChannelYPosition(
+                    rowIndex = channels.size - 1,
+                    focusedRowIndex = focusedRowIndex,
+                    focusedColIndex = focusedColIndex,
+                    channels = channels,
+                    channelTypes = channelTypes,
+                    sy = sy
+                )
+                // Get the last channel's type to determine its height
+                val lastChannelName = channels.getOrNull(channels.size - 1) ?: ""
+                val lastChannelType = channelTypes[lastChannelName] ?: "horizontal"
+
+                // If Row 14 is focused on content (expanded), use expanded height; otherwise normal
+                val lastChannelHeight = if (focusedRowIndex == channels.size - 1 && focusedColIndex >= 0) {
+                    // Row 14 is expanded - use expanded height
+                    when (lastChannelType) {
+                        "slider-max" -> ODKRYWAJ_SLIDER_MAX_EXPANDED_ROW_HEIGHT
+                        "shortcuts" -> ODKRYWAJ_SHORTCUTS_EXPANDED_ROW_HEIGHT
+                        "shortcuts-v3" -> ODKRYWAJ_SHORTCUTS_V3_EXPANDED_ROW_HEIGHT
+                        "top10" -> ODKRYWAJ_TOP10_EXPANDED_ROW_HEIGHT
+                        "collection-slider" -> ODKRYWAJ_COLLECTION_SLIDER_EXPANDED_ROW_HEIGHT
+                        "app-icons" -> ODKRYWAJ_APP_ICONS_EXPANDED_ROW_HEIGHT
+                        "vertical" -> ODKRYWAJ_VERTICAL_EXPANDED_ROW_HEIGHT
+                        else -> ODKRYWAJ_HORIZONTAL_EXPANDED_ROW_HEIGHT
+                    }
+                } else {
+                    // Row 14 is collapsed - use normal height
+                    ODKRYWAJ_HORIZONTAL_NORMAL_ROW_HEIGHT
+                }
+
+                row14Y + sy(lastChannelHeight)
+            }
+            else -> sy(2000) // Off-screen
+        }
+    }
+
+    // === When GHOST SLIDER is focused - all channels move up ===
+    if (focusedRowIndex == GHOST_SLIDER_ROW_INDEX) {
+        // Calculate cumulative height going backwards from Row 14 to this row
+        var cumulativeHeight = ODKRYWAJ_FIXED_FOCUS_Y - ODKRYWAJ_SLIDER_MAX_NORMAL_ROW_HEIGHT
+        for (i in (channels.size - 1) downTo rowIndex) {
+            val betweenChannelName = channels.getOrNull(i) ?: ""
+            val betweenType = channelTypes[betweenChannelName] ?: "horizontal"
+            cumulativeHeight -= when (betweenType) {
+                "slider-max" -> ODKRYWAJ_SLIDER_MAX_NORMAL_ROW_HEIGHT
+                "shortcuts" -> ODKRYWAJ_SHORTCUTS_NORMAL_ROW_HEIGHT
+                "shortcuts-v3" -> ODKRYWAJ_SHORTCUTS_V3_NORMAL_ROW_HEIGHT
+                "top10" -> ODKRYWAJ_TOP10_NORMAL_ROW_HEIGHT
+                "collection-slider" -> ODKRYWAJ_COLLECTION_SLIDER_NORMAL_ROW_HEIGHT
+                "app-icons" -> ODKRYWAJ_APP_ICONS_NORMAL_ROW_HEIGHT
+                "vertical" -> {
+                    if (betweenChannelName in listOf("Nowe filmy", "Polecane w KINIE PLAY")) {
+                        ODKRYWAJ_VERTICAL_VOD_NORMAL_ROW_HEIGHT
+                    } else {
+                        ODKRYWAJ_VERTICAL_NORMAL_ROW_HEIGHT
+                    }
+                }
+                else -> ODKRYWAJ_HORIZONTAL_NORMAL_ROW_HEIGHT
+            }
+        }
+        return sy(cumulativeHeight)
+    }
+
     return when {
         rowIndex == focusedRowIndex -> sy(ODKRYWAJ_FIXED_FOCUS_Y)
         rowIndex < focusedRowIndex -> {
@@ -9578,8 +9703,21 @@ fun OdkrywajChannelRowsLayout(
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     // Auto-rotation parameters for slider-max
     autoRotateIntervalMs: Long = 8000L,
-    pauseAfterInteractionMs: Long = 10000L
+    pauseAfterInteractionMs: Long = 10000L,
+    // === Infinity loop: Shared slider state for ghost slider synchronization ===
+    sharedCurrentSlide: Int = 0,
+    onSharedCurrentSlideChange: (Int) -> Unit = {},
+    sharedProgress: Float = 0f
 ) {
+    // === Track previous focusedRowIndex to detect instant jump from ghost slider ===
+    var previousFocusedRowIndex by remember { mutableStateOf(focusedRowIndex) }
+    val isInstantJumpFromGhost = previousFocusedRowIndex == GHOST_SLIDER_ROW_INDEX && focusedRowIndex == 0
+
+    // Update previous focusedRowIndex after rendering
+    LaunchedEffect(focusedRowIndex) {
+        previousFocusedRowIndex = focusedRowIndex
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         channels.forEachIndexed { rowIndex, channelName ->
             val rowContent = gridContent[channelName] ?: emptyList()
@@ -9595,9 +9733,10 @@ fun OdkrywajChannelRowsLayout(
                 sy = sy
             )
 
+            // Instant (0ms) when jumping from ghost slider to Row 0, otherwise normal animation (500ms)
             val channelYOffset by animateDpAsState(
                 targetValue = targetY,
-                animationSpec = tween(durationMillis = 500),
+                animationSpec = tween(durationMillis = if (isInstantJumpFromGhost) 0 else 500),
                 label = "odkrywaj_channel_y_offset_$rowIndex"
             )
 
@@ -9625,7 +9764,45 @@ fun OdkrywajChannelRowsLayout(
                     sy = sy,
                     lazyListState = lazyListState,
                     autoRotateIntervalMs = autoRotateIntervalMs,
-                    pauseAfterInteractionMs = pauseAfterInteractionMs
+                    pauseAfterInteractionMs = pauseAfterInteractionMs,
+                    // === Infinity loop: Shared state for ghost slider synchronization ===
+                    sharedCurrentSlide = sharedCurrentSlide,
+                    onSharedCurrentSlideChange = onSharedCurrentSlideChange,
+                    sharedProgress = sharedProgress
+                )
+            }
+        }
+
+        // === GHOST SLIDER (Row 15) - Renders only when close to bottom for performance ===
+        // Render when focusedRowIndex >= channels.size - 4 (rows 11-14 = Ostatnio dodane, HBO Max, SkyShowtime, Amazon Prime) or when ghost slider is focused
+        if (focusedRowIndex >= channels.size - 4 || focusedRowIndex == GHOST_SLIDER_ROW_INDEX) {
+            val ghostTargetY = calculateOdkrywajChannelYPosition(
+                rowIndex = GHOST_SLIDER_ROW_INDEX,
+                focusedRowIndex = focusedRowIndex,
+                focusedColIndex = focusedColIndex,
+                channels = channels,
+                channelTypes = channelTypes,
+                sy = sy
+            )
+
+            val ghostYOffset by animateDpAsState(
+                targetValue = ghostTargetY,
+                animationSpec = tween(durationMillis = 500),
+                label = "odkrywaj_ghost_slider_y_offset"
+            )
+
+            Box(modifier = Modifier.offset(y = ghostYOffset)) {
+                // Ghost slider uses same VodHeroSliderV2 with synchronized state (mirrors main slider)
+                VodHeroSliderV2(
+                    isFocused = false,  // Ghost slider never has direct focus
+                    items = sliderItems,
+                    sectionType = "ODKRYWAJ",
+                    sx = sx,
+                    sy = sy,
+                    topPadding = 0,
+                    enableAutoRotate = false,  // No auto-rotate - just mirrors main slider
+                    externalCurrentSlide = sharedCurrentSlide,
+                    externalProgress = sharedProgress
                 )
             }
         }
@@ -9655,7 +9832,11 @@ fun OdkrywajUnifiedChannelRow(
     lazyListState: LazyListState,
     // Auto-rotation parameters for slider-max
     autoRotateIntervalMs: Long = 8000L,
-    pauseAfterInteractionMs: Long = 10000L
+    pauseAfterInteractionMs: Long = 10000L,
+    // === Infinity loop: Shared slider state for ghost slider synchronization ===
+    sharedCurrentSlide: Int = 0,
+    onSharedCurrentSlideChange: (Int) -> Unit = {},
+    sharedProgress: Float = 0f
 ) {
     // ODKRYWAJ section - no onClick to EPG Day needed here
     val isCurrentRow = rowIndex == focusedRowIndex
@@ -9702,7 +9883,11 @@ fun OdkrywajUnifiedChannelRow(
                     autoRotateIntervalMs = autoRotateIntervalMs,
                     pauseAfterInteractionMs = pauseAfterInteractionMs,
                     // Detect if user is on channels below slider (row > 0) to trigger pause
-                    isOnChannelsBelow = focusedRowIndex > rowIndex
+                    isOnChannelsBelow = focusedRowIndex > rowIndex,
+                    // === Infinity loop: Shared state for ghost slider synchronization ===
+                    externalCurrentSlide = sharedCurrentSlide,
+                    onCurrentSlideChange = { slide -> onSharedCurrentSlideChange(slide) },
+                    externalProgress = sharedProgress
                 )
             }
             "shortcuts" -> {
@@ -12069,16 +12254,25 @@ private fun VodHeroSliderV2(
     autoRotateIntervalMs: Long = 8000L,
     pauseAfterInteractionMs: Long = 10000L,
     // For detecting if user went to channels below (to start pause) vs menu (to reset pause)
-    isOnChannelsBelow: Boolean = false
+    isOnChannelsBelow: Boolean = false,
+    // === External state synchronization for ghost slider (infinity loop) ===
+    externalCurrentSlide: Int? = null,  // When provided, use this instead of internal state
+    onCurrentSlideChange: ((Int) -> Unit)? = null,  // Notify parent of slide changes
+    externalProgress: Float? = null  // When provided, use this for progress indicator
 ) {
     val sliderItems = items
-    var currentSlide by remember { mutableStateOf(0) }
+
+    // Use external state if provided (for ghost slider synchronization), otherwise internal state
+    var internalCurrentSlide by remember { mutableStateOf(0) }
+    val currentSlide = externalCurrentSlide ?: internalCurrentSlide
+
     val focusRequester = remember { FocusRequester() } // JEDEN dla całego slidera
     val listState = rememberLazyListState()
 
     // Auto-rotation states - using timestamp to prevent reset on recomposition
     var pauseUntilTime by remember { mutableLongStateOf(0L) }
-    var progress by remember { mutableFloatStateOf(0f) }
+    var internalProgress by remember { mutableFloatStateOf(0f) }
+    val progress = externalProgress ?: internalProgress
 
     // Derived pause state for UI
     val isPaused = pauseUntilTime > System.currentTimeMillis()
@@ -12086,7 +12280,8 @@ private fun VodHeroSliderV2(
     // Reset currentSlide if out of bounds after data loads
     LaunchedEffect(sliderItems.size) {
         if (currentSlide >= sliderItems.size && sliderItems.isNotEmpty()) {
-            currentSlide = 0
+            internalCurrentSlide = 0
+            onCurrentSlideChange?.invoke(0)
         }
     }
 
@@ -12131,7 +12326,7 @@ private fun VodHeroSliderV2(
 
                 // Check if still in pause period
                 if (now < pauseUntilTime) {
-                    progress = 0f
+                    internalProgress = 0f
                     kotlinx.coroutines.delay(100) // Check pause status every 100ms
                     continue
                 }
@@ -12145,17 +12340,19 @@ private fun VodHeroSliderV2(
 
                     // Check if pause was triggered during animation
                     if (currentTime < pauseUntilTime) {
-                        progress = 0f
+                        internalProgress = 0f
                         interrupted = true
                         continue
                     }
 
                     val elapsed = currentTime - startTime
-                    progress = (elapsed.toFloat() / autoRotateIntervalMs).coerceIn(0f, 1f)
+                    internalProgress = (elapsed.toFloat() / autoRotateIntervalMs).coerceIn(0f, 1f)
 
                     if (elapsed >= autoRotateIntervalMs) {
                         // Go to next slide (or back to first)
-                        currentSlide = (currentSlide + 1) % sliderItems.size
+                        val nextSlide = (currentSlide + 1) % sliderItems.size
+                        internalCurrentSlide = nextSlide
+                        onCurrentSlideChange?.invoke(nextSlide)
                         return@LaunchedEffect // Exit to restart with new currentSlide
                     }
                     kotlinx.coroutines.delay(16) // ~60 FPS
@@ -12178,20 +12375,24 @@ private fun VodHeroSliderV2(
                 when (event.key) {
                     androidx.compose.ui.input.key.Key.DirectionLeft -> {
                         if (currentSlide > 0) {
-                            currentSlide--
+                            val newSlide = currentSlide - 1
+                            internalCurrentSlide = newSlide
+                            onCurrentSlideChange?.invoke(newSlide)
                             if (enableAutoRotate) {
                                 pauseUntilTime = System.currentTimeMillis() + pauseAfterInteractionMs
-                                progress = 0f
+                                internalProgress = 0f
                             }
                         }
                         true
                     }
                     androidx.compose.ui.input.key.Key.DirectionRight -> {
                         if (currentSlide < sliderItems.size - 1) {
-                            currentSlide++
+                            val newSlide = currentSlide + 1
+                            internalCurrentSlide = newSlide
+                            onCurrentSlideChange?.invoke(newSlide)
                             if (enableAutoRotate) {
                                 pauseUntilTime = System.currentTimeMillis() + pauseAfterInteractionMs
-                                progress = 0f
+                                internalProgress = 0f
                             }
                         }
                         true
