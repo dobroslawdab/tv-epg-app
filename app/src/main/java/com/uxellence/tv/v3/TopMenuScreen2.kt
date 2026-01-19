@@ -651,7 +651,13 @@ data class VodSlideData(
     val posterUrl: String = "", // Poster for thumbnail view
     val youtubeUrl: String? = null, // YouTube trailer URL for auto-play
     val channelLogoUrl: String? = null, // Channel logo URL for WIDEO section
-    val showKrrit: Boolean = false // Show KRRIT labels for movie/vod content
+    val showKrrit: Boolean = false, // Show KRRIT labels for movie/vod content
+    // Nowe pola dla MovieDetailScreen (Figma design)
+    val filmwebRating: Double? = null,     // Ocena Filmweb (np. 6.7)
+    val audioLanguages: String? = null,    // Dźwięk: "angielski | polski | hiszpański"
+    val subtitleLanguages: String? = null, // Napisy: "angielski | polski"
+    val director: String? = null,          // Reżyser: "Álex Pina"
+    val cast: String? = null               // Obsada: "Úrsula Corberó, Álvaro Morte..."
 )
 
 /**
@@ -3088,9 +3094,9 @@ private fun ProfilButton(
         contentAlignment = Alignment.Center
     ) {
         Box {
-            // Avatar/profile letter "A"
+            // Avatar/profile letter "P"
             Text(
-                text = "A",
+                text = "P",
                 color = contentColor,
                 fontSize = (36 * sy(1).value / 1).sp,
                 fontWeight = FontWeight.Bold
@@ -3749,6 +3755,11 @@ private fun OdkrywajChannelsScreen(
     // === Config for auto-rotation settings ===
     val appConfig by ConfigManager.configState.collectAsState()
 
+    // Log config values when they change (useful for debugging slider timing)
+    LaunchedEffect(appConfig.slider_auto_rotate_interval_ms) {
+        Log.d("ODKRYWAJ", "Slider config: rotate=${appConfig.slider_auto_rotate_interval_ms}ms, pause=${appConfig.slider_pause_after_interaction_ms}ms")
+    }
+
     // === Slider data from Supabase ===
     var odkrywajSliderItems by remember { mutableStateOf<List<VodSlideData>>(emptyList()) }
     var sliderLoading by remember { mutableStateOf(true) }
@@ -3888,7 +3899,7 @@ private fun OdkrywajChannelsScreen(
     // Design: Figma V3 shortcuts with PNG icons (no plus button)
     val shortcutsV3 = remember {
         listOf(
-            ShortcutItem("1", "Fifa World Cup\n2026", ShortcutIcon.VectorIcon(R.drawable.ic_fifa)),
+            ShortcutItem("1", "Igrzyska\nOlimpijskie 2026", ShortcutIcon.VectorIcon(R.drawable.ic_olympics_2026)),
             ShortcutItem("2", "Netflix", ShortcutIcon.VectorIcon(R.drawable.netflix_logo)),
             ShortcutItem("3", "Disney+\nstreaming", ShortcutIcon.VectorIcon(R.drawable.disney_plus_logo)),
             ShortcutItem("4", "Nagrania", ShortcutIcon.VectorIcon(R.drawable.ic_nagrania)),
@@ -7712,8 +7723,8 @@ private const val APLIKACJE_CONTENT_FOCUS_EXTRA_SPACING = 100 // Extra spacing a
 
 // ODKRYWAJ section constants
 private const val ODKRYWAJ_FIXED_FOCUS_Y = 200 // Focused channel always at this height (140 menu + 60 spacing)
-private const val ODKRYWAJ_SLIDER_MAX_NORMAL_ROW_HEIGHT = 782 // Big slider (742px) + spacing (40px)
-private const val ODKRYWAJ_SLIDER_MAX_EXPANDED_ROW_HEIGHT = 782 // Same as normal (no expansion needed)
+private const val ODKRYWAJ_SLIDER_MAX_NORMAL_ROW_HEIGHT = 742 // Big slider (742px) + spacing (0px)
+private const val ODKRYWAJ_SLIDER_MAX_EXPANDED_ROW_HEIGHT = 742 // Same as normal (no expansion needed)
 private const val ODKRYWAJ_SHORTCUTS_NORMAL_ROW_HEIGHT = 406 // Shortcuts V2 base height (279px cards + spacing)
 private const val ODKRYWAJ_SHORTCUTS_EXPANDED_ROW_HEIGHT = 406 // NO expansion for shortcuts V2
 private const val ODKRYWAJ_SHORTCUTS_V3_NORMAL_ROW_HEIGHT = 450 // Shortcuts V3 (314px cards + spacing)
@@ -11457,7 +11468,7 @@ private fun VodWithChannels(
     sliderVersion: Int = 1
 ) {
     val context = LocalContext.current
-    val channels = listOf("Kino Play", "Skróty v3", "Polecane", "Top 10", "Ostatnio dodane", "Akcja", "Komedie", "Horror", "Biograficzne")
+    val channels = listOf("Kino Play", "Skróty v3", "Polecane", "Top 10", "Ostatnio dodane\nwideo", "Akcja", "Komedie", "Horror", "Biograficzne")
 
     // State to track Supabase initialization for recomposition
     var supabaseInitialized by remember { mutableStateOf(VodDataCache.isSupabaseInitialized()) }
@@ -11479,7 +11490,7 @@ private fun VodWithChannels(
                 "Kino Play" -> VodDataCache.getSupabaseMovies().take(10) // Hero slider
                 "Polecane" -> VodDataCache.getNewest() // Recommended (newest movies)
                 "Top 10" -> VodDataCache.getTop10() // Top 10 from Supabase (is_top10=true, ORDER BY top10_order)
-                "Ostatnio dodane" -> VodDataCache.getNewest() // Recently added (ORDER BY created_at DESC)
+                "Ostatnio dodane\nwideo" -> VodDataCache.getNewest() // Recently added (ORDER BY created_at DESC)
                 "Akcja" -> VodDataCache.getByGenre("Akcja")
                 "Komedie" -> VodDataCache.getByGenre("Komedia")
                 "Horror" -> VodDataCache.getByGenre("Horror")
@@ -12600,7 +12611,7 @@ private fun SliderV2Card(
         colors = CardDefaults.cardColors(
             containerColor = Color(0xFF2A1B3D)
         ),
-        border = if (isCardFocused) BorderStroke(sx(4), Color(0xFF5FEDD4)) else null,
+        border = if (isCardFocused) BorderStroke(sx(4), Color(0xFF5FEDD4)) else BorderStroke(sx(2), Color(0xFFEEEEEE).copy(alpha = 0.2f)),
         elevation = CardDefaults.cardElevation(
             defaultElevation = if (isCardFocused) 16.dp else 4.dp
         )
@@ -12766,7 +12777,7 @@ private fun SliderV2CardStateBased(
         colors = CardDefaults.cardColors(
             containerColor = Color(0xFF281443)
         ),
-        border = if (isCardFocused) BorderStroke(sx(4), Color(0xFF5FEDD4)) else null,
+        border = if (isCardFocused) BorderStroke(sx(4), Color(0xFF5FEDD4)) else BorderStroke(sx(2), Color(0xFFEEEEEE).copy(alpha = 0.2f)),
         elevation = CardDefaults.cardElevation(
             defaultElevation = if (isCardFocused) 16.dp else 4.dp
         )
@@ -13236,7 +13247,7 @@ private fun VodUnifiedChannelRow(
             } else null
 
             val logoDrawableId = when (channel) {
-                "Kino Play", "Polecane", "Top 10", "Ostatnio dodane" -> R.drawable.kinoplay2
+                "Kino Play", "Polecane", "Top 10", "Ostatnio dodane\nwideo" -> R.drawable.kinoplay2
                 "Seriale", "Filmy fabularne" -> R.drawable.wideo_kat
                 else -> null
             }
@@ -14625,7 +14636,7 @@ private fun Top10ContentCard(
 
 // VOD Screen spacing constants
 private const val VOD_FIXED_FOCUS_Y = 340 // Focused channel always at this height
-// Vertical posters (Kino Play, Polecane, Top 10, Ostatnio dodane) - large spacing
+// Vertical posters (Kino Play, Polecane, Top 10, Ostatnio dodane wideo) - large spacing
 private const val VOD_VERTICAL_NORMAL_ROW_HEIGHT = 346 // CategoryIcon (216px) + spacing (130px)
 private const val VOD_VERTICAL_EXPANDED_ROW_HEIGHT = 636 // CategoryIcon (216px) + miniatures (290px) + spacing (130px)
 // Horizontal miniatures (Seriale, Filmy fabularne, Cinemax) - small spacing like MOJE
@@ -14665,8 +14676,8 @@ private fun calculateVodChannelYPosition(
         // When on menu (row 0) or slider (row 1) - channels peek 40px above fold
         focusedRowIndex <= 1 -> {
             // Calculate cumulative height for all channels above this one
-            // 1040 = screen height (1080) - 40px peek
-            var cumulativeHeight = 1040
+            // 926 = slider bottom (742px) + spacing (184px)
+            var cumulativeHeight = 926
             for (i in 0 until channelIndex) {
                 val prevChannelName = channels.getOrNull(i) ?: ""
                 val prevIsHorizontal = prevChannelName in emptyList<String>() // No horizontal channels anymore - all use vertical posters
@@ -15962,7 +15973,7 @@ private fun calculateWideoRowYPosition(
     sy: (Int) -> androidx.compose.ui.unit.Dp
 ): androidx.compose.ui.unit.Dp {
     val FIXED_FOCUS_Y = 340
-    val SLIDER_MIX_HEIGHT = 640 // Height for 238px spacing: slider ends at 742px, shortcuts at 980px (742+238=980; 980-340=640)
+    val SLIDER_MIX_HEIGHT = 586 // Height for 184px spacing (742+184=926; 926-340=586)
     val SHORTCUTS_V2_HEIGHT = 246 // Height for horizontal shortcuts row (like APLIKACJE)
     val HORIZONTAL_NORMAL_HEIGHT = 256 // CategoryIcon (216px) + spacing (40px)
     val HORIZONTAL_EXPANDED_HEIGHT = 546 // CategoryIcon (216px) + miniatures (290px) + spacing (40px)
@@ -16361,29 +16372,26 @@ private fun AccountScreenContent(
 }
 
 /**
- * Focus levels for Account section (simplified to 2 levels)
+ * Focus levels for Account section
  * Level 1: Top Menu (handled by GlobalFocusManager)
- * Level 2: Profile button ("Profil: Andrzej")
- * Level 3: Menu List (9 menu items: Powiadomienia + 8 others)
+ * Level 2: Menu List (10 menu items: Powiadomienia + 9 others)
  */
 private enum class AccountFocusLevel {
-    PROFILE,      // "Profil: Andrzej"
+    PROFILE,      // Unused - kept for compatibility
     MENU_LIST     // Lista menu (starts with Powiadomienia)
 }
 
 /**
- * AccountChannelsScreen - Main Account section component with simplified 2-level focus hierarchy
+ * AccountChannelsScreen - Main Account section component
  *
- * Simplified Design:
- * - Profile button ("Profil: Andrzej") - Level 1
- * - Menu List: 9 menu items (Powiadomienia + 8 others) - Level 2
+ * Design:
+ * - Menu List: 10 menu items (Powiadomienia as first item)
  *
  * Focus Hierarchy:
- * 1. Top Menu → PROFILE (auto-focus on entry)
- * 2. PROFILE → DOWN → MENU_LIST (Powiadomienia)
- * 3. MENU_LIST → UP (from Powiadomienia) → PROFILE
- * 4. MENU_LIST → UP/DOWN within list (9 items)
- * 5. Any level → BACK/LEFT → return to top menu
+ * 1. Top Menu → MENU_LIST (auto-focus on Powiadomienia)
+ * 2. MENU_LIST → UP/DOWN within list (10 items)
+ * 3. MENU_LIST → UP (from Powiadomienia) → return to top menu
+ * 4. Any level → BACK/LEFT → return to top menu
  */
 
 /**
@@ -16494,42 +16502,34 @@ private fun AccountChannelsScreen(
         (0 until 11).associateWith { FocusRequester() }
     }
 
-    // Auto-focus PROFILE when entering content (follows Focus Architect pattern)
+    // Auto-focus first menu item (Powiadomienia) when entering content (follows Focus Architect pattern)
     LaunchedEffect(shouldAutoFocus, resetTrigger) {
         if (shouldAutoFocus) {
             delay(100)
-            focusLevel = AccountFocusLevel.PROFILE
-            profileFocusRequester.requestFocus()
+            focusLevel = AccountFocusLevel.MENU_LIST
+            menuListIndex = 0
+            menuListFocusRequesters[0]?.requestFocus()
         }
     }
 
     // Reset focus when resetTrigger changes
     LaunchedEffect(resetTrigger) {
         if (resetTrigger > 0) {
-            focusLevel = AccountFocusLevel.PROFILE
+            focusLevel = AccountFocusLevel.MENU_LIST
             menuListIndex = 0
         }
     }
 
     // Auto-scroll to keep focused item centered
-    // LazyColumn structure: [0] Profile, [1-9] Menu items (Powiadomienia + 8 others)
+    // LazyColumn structure: [0-9] Menu items (Powiadomienia + 8 others)
     LaunchedEffect(menuListIndex, focusLevel) {
         coroutineScope.launch {
-            when (focusLevel) {
-                AccountFocusLevel.PROFILE -> {
-                    // Scroll to Profile (item 0)
-                    listState.animateScrollToItem(
-                        index = 0,
-                        scrollOffset = -sy(200).value.toInt()
-                    )
-                }
-                AccountFocusLevel.MENU_LIST -> {
-                    // Scroll to menu item (items 1-9, so menuListIndex + 1)
-                    listState.animateScrollToItem(
-                        index = menuListIndex + 1,
-                        scrollOffset = -sy(200).value.toInt()
-                    )
-                }
+            if (focusLevel == AccountFocusLevel.MENU_LIST) {
+                // Scroll to menu item
+                listState.animateScrollToItem(
+                    index = menuListIndex,
+                    scrollOffset = -sy(200).value.toInt()
+                )
             }
         }
     }
@@ -16561,19 +16561,7 @@ private fun AccountChannelsScreen(
             verticalArrangement = Arrangement.spacedBy(sy(24)),
             contentPadding = PaddingValues(bottom = sy(150))
         ) {
-            // Item 0: Profile button
-            item {
-                ProfileButton(
-                    isFocused = shouldAutoFocus && focusLevel == AccountFocusLevel.PROFILE,
-                    focusRequester = profileFocusRequester,
-                    onFocused = { focusLevel = AccountFocusLevel.PROFILE },
-                    onClick = { Log.d("ACCOUNT", "Profile clicked") },
-                    sx = sx,
-                    sy = sy
-                )
-            }
-
-            // Items 1-10: Menu List (Powiadomienia + Ekran startowy + 8 others)
+            // Menu List (Powiadomienia + Ekran startowy + 8 others)
             itemsIndexed(menuItems) { index, item ->
                 AccountMenuItemCard(
                     item = item,
@@ -16791,14 +16779,6 @@ private fun ProfileButton(
                 modifier = Modifier.size(sx(66), sy(66)),
                 tint = colorTextPrimary
             )
-            Text(
-                text = "Profil: Andrzej",
-                style = TextStyle(
-                    fontSize = (28 * sy(1).value / 1).sp,
-                    fontWeight = FontWeight.Medium,
-                    color = colorTextPrimary
-                )
-            )
         }
     }
 }
@@ -16945,14 +16925,10 @@ private fun ActionButton(
     }
 }
 /**
- * handleAccountNavigation - Navigation logic for Account section with simplified 2-level hierarchy
+ * handleAccountNavigation - Navigation logic for Account section
  *
- * Level 1 (PROFILE): "Profil: Andrzej"
- * - DOWN: Move to MENU_LIST (first item = Powiadomienia)
- * - UP/BACK/LEFT: Return to top menu
- *
- * Level 2 (MENU_LIST): 9 menu items (Powiadomienia + 8 others)
- * - UP: Previous item, or return to PROFILE if at first item (Powiadomienia)
+ * MENU_LIST: 10 menu items (Powiadomienia + 9 others)
+ * - UP: Previous item, or return to top menu if at first item (Powiadomienia)
  * - DOWN: Next item (stay in place if at last item)
  * - BACK/LEFT: Return to top menu
  */
@@ -16997,9 +16973,8 @@ private fun handleAccountNavigation(
                         menuListFocusRequesters[newIndex]?.requestFocus()
                         true
                     } else {
-                        // From first item (Powiadomienia), return to PROFILE
-                        onFocusLevelChange(AccountFocusLevel.PROFILE)
-                        profileFocusRequester.requestFocus()
+                        // From first item (Powiadomienia), return to top menu
+                        onReturnToMenu()
                         true
                     }
                 }
