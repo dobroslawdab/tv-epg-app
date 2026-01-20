@@ -3899,11 +3899,11 @@ private fun OdkrywajChannelsScreen(
     // Design: Figma V3 shortcuts with PNG icons (no plus button)
     val shortcutsV3 = remember {
         listOf(
-            ShortcutItem("1", "Igrzyska\nOlimpijskie 2026", ShortcutIcon.VectorIcon(R.drawable.ic_olympics_2026)),
+            ShortcutItem("1", "Igrzyska zimowe", ShortcutIcon.VectorIcon(R.drawable.ic_olympics_2026)),
             ShortcutItem("2", "Netflix", ShortcutIcon.VectorIcon(R.drawable.netflix_logo)),
-            ShortcutItem("3", "Disney+\nstreaming", ShortcutIcon.VectorIcon(R.drawable.disney_plus_logo)),
+            ShortcutItem("3", "Disney+", ShortcutIcon.VectorIcon(R.drawable.disney_plus_logo)),
             ShortcutItem("4", "Nagrania", ShortcutIcon.VectorIcon(R.drawable.ic_nagrania)),
-            ShortcutItem("5", "Moja\nlista kanałów", ShortcutIcon.VectorIcon(R.drawable.ic_moja_lista_kanalow)),
+            ShortcutItem("5", "Moja lista kanałów", ShortcutIcon.VectorIcon(R.drawable.ic_moja_lista_kanalow)),
             ShortcutItem("6", "Do obejrzenia", ShortcutIcon.VectorIcon(R.drawable.ic_do_obejrzenia))
         )
     }
@@ -6242,7 +6242,7 @@ private fun ShortcutCardV3(
             Box(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .padding(top = sy(128))
+                    .padding(top = sy(78))
                     .size(sx(144))  // V3: 144×144px logo
             ) {
                 when (shortcut.icon) {
