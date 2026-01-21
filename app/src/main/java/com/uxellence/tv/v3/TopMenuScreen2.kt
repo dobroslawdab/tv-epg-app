@@ -652,6 +652,7 @@ data class VodSlideData(
     val youtubeUrl: String? = null, // YouTube trailer URL for auto-play
     val channelLogoUrl: String? = null, // Channel logo URL for WIDEO section
     val showKrrit: Boolean = false, // Show KRRIT labels for movie/vod content
+    val isKinoPlay: Boolean = false, // True if item is from KINO PLAY (sourceType == "movie")
     // Nowe pola dla MovieDetailScreen (Figma design)
     val filmwebRating: Double? = null,     // Ocena Filmweb (np. 6.7)
     val audioLanguages: String? = null,    // Dźwięk: "angielski | polski | hiszpański"
@@ -1258,8 +1259,11 @@ fun TopMenuScreen2(
     var isEpgSectionExpanded by remember { mutableStateOf(com.uxellence.tv.v3.utils.VersionTracker.getEpgSectionExpanded(context)) }
     var showNagraniaV2 by remember { mutableStateOf(com.uxellence.tv.v3.utils.VersionTracker.getNagraniaVersion(context) == "v2") }
 
-    // Global state for slider version (1 = V1 with carousel, 2 = V2 with border)
-    // Toggled with Key.Nine, affects START, KINO_PLAY, WIDEO sections
+    // Global state for slider version:
+    // 1 = V1 (original carousel slider)
+    // 2 = V2 (bullets + auto-rotation)
+    // 3 = V3 (no bullets, no auto-rotation, shuffled order)
+    // Cycled with Key.Nine (V1 → V2 → V3 → V1), affects ODKRYWAJ, KINO_PLAY, WIDEO sections
     // Persisted in SharedPreferences
     val sliderPrefs = remember { context.getSharedPreferences("slider_prefs", android.content.Context.MODE_PRIVATE) }
     var sliderVersion by remember { mutableIntStateOf(sliderPrefs.getInt("slider_version", 2)) }
@@ -1316,8 +1320,8 @@ fun TopMenuScreen2(
     val rightButtonFocusRequesters = remember {
         mapOf(
             0 to FocusRequester(), // Konto (account icon)
-            1 to FocusRequester(), // Ustawienia (settings gear)
-            2 to FocusRequester()  // Profile (avatar)
+            1 to FocusRequester()  // Ustawienia (settings gear)
+            // Profile usunięty z prawej strony - teraz jest tylko na LEWEJ stronie przed Start
         )
     }
 
@@ -1624,12 +1628,20 @@ fun TopMenuScreen2(
                     return@onPreviewKeyEvent true
                 }
 
-                // Global: Key "9" - Toggle Slider version (V1 with carousel ↔ V2 with border)
+                // Global: Key "9" - Cycle Slider version (V1 → V2 → V3 → V1)
+                // V1: Original carousel slider
+                // V2: Full slider with bullets and auto-rotation
+                // V3: Simplified slider - no bullets, no auto-rotation, shuffled order
                 if (event.key == Key.Nine) {
-                    sliderVersion = if (sliderVersion == 1) 2 else 1
+                    sliderVersion = when (sliderVersion) {
+                        1 -> 2
+                        2 -> 3
+                        3 -> 1
+                        else -> 2
+                    }
                     // Save to SharedPreferences
                     sliderPrefs.edit().putInt("slider_version", sliderVersion).apply()
-                    android.util.Log.d("TopMenuScreen2", "Key '9' pressed - Slider version toggled to: V$sliderVersion (saved to prefs)")
+                    android.util.Log.d("TopMenuScreen2", "Key '9' pressed - Slider version cycled to: V$sliderVersion (saved to prefs)")
                     return@onPreviewKeyEvent true
                 }
 
@@ -1640,9 +1652,10 @@ fun TopMenuScreen2(
                         when (event.key) {
                             Key.DirectionLeft -> {
                                 if (focusedRightButton >= 0) {
-                                    // In right section - navigate left: Profile(2) -> Ustawienia(1) -> Konto(0) -> Pakiety/CandyBar -> menu
+                                    // In right section - navigate left: Ustawienia(1) -> Konto(0) -> Pakiety/CandyBar -> menu
+                                    // Profile usunięty z prawej - teraz jest na LEWEJ stronie
                                     if (focusedRightButton > 0) {
-                                        // Move to previous button (Profile->Ustawienia->Konto)
+                                        // Move to previous button (Ustawienia->Konto)
                                         focusedRightButton--
                                     } else {
                                         // From Konto(0) -> Pakiety/CandyBar (center element)
@@ -1672,21 +1685,22 @@ fun TopMenuScreen2(
                             /**
                              * RIGHT KEY NAVIGATION (Row 0: Menu)
                              *
-                             * v4.0.0 Layout: Profil (left) | [Start ... SEARCH] | CandyBar | Konto | Ustawienia | Profile | Clock
+                             * Layout: Profil (left) | [Start ... SEARCH] | CandyBar | Konto | Ustawienia | Clock
                              * - Profil → Start (first menu item)
                              * - Last item (SEARCH) → Pakiety/CandyBar
-                             * - Pakiety/CandyBar → Konto(0) → Ustawienia(1) → Profile(2)
+                             * - Pakiety/CandyBar → Konto(0) → Ustawienia(1)
                              * - Other items → Continue normal menu navigation via GlobalFocusManager
                              *
                              * @see GlobalFocusManager.navigateRow for normal menu navigation
                              */
                             Key.DirectionRight -> {
                                 if (focusedRightButton >= 0) {
-                                    // In right section - navigate right: Konto(0) -> Ustawienia(1) -> Profile(2)
-                                    if (focusedRightButton < 2) {
+                                    // In right section - navigate right: Konto(0) -> Ustawienia(1)
+                                    // Profile usunięty z prawej - max = 1 (Ustawienia)
+                                    if (focusedRightButton < 1) {
                                         focusedRightButton++
                                     }
-                                    // else: already at Profile(2), stay there
+                                    // else: already at Ustawienia(1), stay there
                                 } else if (isPakietyFocused) {
                                     // From Pakiety/CandyBar -> first right section button (Konto)
                                     isPakietyFocused = false
@@ -2453,6 +2467,8 @@ internal fun TopMenuBar2(
                 // Determine current focused/selected element key and indicator color
                 // V1 selected state: pokazuj selected (biały) TYLKO gdy menu nie jest focused
                 val (currentFocusKey: String?, indicatorColor: Color) = when {
+                    // Left Profil focused - aqua (v4.0.0: Profil is inside container on left)
+                    isLeftProfilFocused -> "profile" to TopMenuDesign.COLOR_FOCUS_BORDER
                     // Menu focused - pokazuj fokus (aqua)
                     menuState.isMenuFocused && menuState.focusedItemId != null ->
                         "menu_${menuState.focusedItemId}" to TopMenuDesign.COLOR_FOCUS_BORDER
@@ -2460,7 +2476,6 @@ internal fun TopMenuBar2(
                     isPakietyFocused -> "pakiety" to TopMenuDesign.COLOR_FOCUS_BORDER
                     focusedRightButton == 0 -> "konto" to TopMenuDesign.COLOR_FOCUS_BORDER
                     focusedRightButton == 1 -> "settings" to TopMenuDesign.COLOR_FOCUS_BORDER
-                    focusedRightButton == 2 -> "profile" to TopMenuDesign.COLOR_FOCUS_BORDER
                     // Pakiety/CandyBar selected (biały) - gdy jesteśmy w POINTS_HISTORY lub PAKIETY content
                     !menuState.isMenuFocused && (currentSelectedSection == "POINTS_HISTORY" || currentSelectedSection == "PAKIETY") ->
                         "pakiety" to Color.White
@@ -2520,11 +2535,28 @@ internal fun TopMenuBar2(
                         .padding(horizontal = sx(TopMenuDesign.CONTAINER_PADDING_H), vertical = sy(TopMenuDesign.CONTAINER_PADDING_V))  // Figma: 16px H, 10px V
                         .height(sy(TopMenuDesign.ITEM_HEIGHT))  // Figma: 80px
                 ) {
-                    // === LEFT SECTION: Menu items (Start, Moje, Telewizja, etc.) ===
+                    // === LEFT SECTION: Profil + Menu items (Start, Moje, Telewizja, etc.) ===
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(sx(TopMenuDesign.ITEM_GAP)),  // Figma: 20px gap
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        // Profil button (inside container, before menu items - v4.0.0)
+                        if (leftProfilFocusRequester != null) {
+                            ProfilButton(
+                                isFocused = isLeftProfilFocused,
+                                isSelected = currentSelectedSection == "PROFILE",
+                                focusRequester = leftProfilFocusRequester,
+                                onClick = onProfileClick,
+                                showBadge = showProfileNotificationBadge,
+                                onBoundsChanged = { bounds ->
+                                    focusBoundsMap["profile"] = bounds
+                                },
+                                focusType = variantConfig.focusType,
+                                sx = sx,
+                                sy = sy
+                            )
+                        }
+
                         // Menu items (Start, Moje, Telewizja, Kino Play, Wideo, Aplikacje, Search)
                         menuItems.forEach { item ->
                             if (item.id == "SEARCH") {
@@ -2629,23 +2661,7 @@ internal fun TopMenuBar2(
                                 sy = sy
                             )
                         }
-
-                        // Profil icon (avatar)
-                        if (rightButtonFocusRequesters.containsKey(2)) {
-                            ProfilButton(
-                                isFocused = focusedRightButton == 2,
-                                isSelected = currentSelectedSection == "PROFILE",
-                                focusRequester = rightButtonFocusRequesters[2]!!,
-                                onClick = onProfileClick,
-                                showBadge = showProfileNotificationBadge,
-                                onBoundsChanged = { bounds ->
-                                    focusBoundsMap["profile"] = bounds
-                                },
-                                focusType = variantConfig.focusType,
-                                sx = sx,
-                                sy = sy
-                            )
-                        }
+                        // NOTE: Profil button usunięty z prawej strony - teraz jest tylko na LEWEJ stronie przed Start
                     }
                 }
                 }  // End centering Box
@@ -3752,6 +3768,27 @@ private fun OdkrywajChannelsScreen(
 ) {
     val context = LocalContext.current
 
+    // === EPG Repository for "Teraz w TV" channel ===
+    val epgRepository = remember {
+        Log.d("ODKRYWAJ_EPG", "Creating EPG Repository...")
+        com.uxellence.tv.v3.repository.EpgRepository.getInstance(context)
+    }
+
+    // State for "Teraz w TV" - current programs from EPG
+    var terazWTvPrograms by remember { mutableStateOf<List<VodContent>>(emptyList()) }
+
+    // Load EPG data for "Teraz w TV"
+    LaunchedEffect(Unit) {
+        try {
+            Log.d("ODKRYWAJ_EPG", "Loading current programs from EPG...")
+            epgRepository.startBackgroundRefresh()
+            terazWTvPrograms = com.uxellence.tv.v3.utils.EpgAdapter.getCurrentProgramsAsVodContent(epgRepository, context)
+            Log.d("ODKRYWAJ_EPG", "Loaded ${terazWTvPrograms.size} current TV programs")
+        } catch (e: Exception) {
+            Log.e("ODKRYWAJ_EPG", "Failed to load EPG", e)
+        }
+    }
+
     // === Config for auto-rotation settings ===
     val appConfig by ConfigManager.configState.collectAsState()
 
@@ -3762,6 +3799,8 @@ private fun OdkrywajChannelsScreen(
 
     // === Slider data from Supabase ===
     var odkrywajSliderItems by remember { mutableStateOf<List<VodSlideData>>(emptyList()) }
+    // V3: Shuffled once for both main and ghost slider synchronization
+    var shuffledOdkrywajSliderItems by remember { mutableStateOf<List<VodSlideData>>(emptyList()) }
     var sliderLoading by remember { mutableStateOf(true) }
 
     // === Supabase initialization state for recomposition ===
@@ -3780,7 +3819,9 @@ private fun OdkrywajChannelsScreen(
         try {
             val items = com.uxellence.tv.v3.repository.SupabaseOdkrywajRepository.fetchOdkrywajSlider()
             odkrywajSliderItems = items.map { it.toVodSlideData() }
-            Log.d("ODKRYWAJ_DEBUG", "Loaded ${odkrywajSliderItems.size} slider items from Supabase")
+            // V3: Shuffle once here for both main and ghost slider sync
+            shuffledOdkrywajSliderItems = odkrywajSliderItems.shuffled()
+            Log.d("ODKRYWAJ_DEBUG", "Loaded ${odkrywajSliderItems.size} slider items from Supabase (shuffled for V3)")
         } catch (e: Exception) {
             Log.e("ODKRYWAJ_DEBUG", "Failed to load slider items", e)
         } finally {
@@ -3789,35 +3830,40 @@ private fun OdkrywajChannelsScreen(
     }
 
     // Row 0: Slider Mix, Row 1: Skróty, Row 2: Aplikacje, Row 3: Oglądaj dalej,
-    // Row 4: Popularne teraz w telewizji, Row 5: Netflix, Row 6: Disney+, Row 7: Top 10,
-    // Row 8: Kolekcje KINA PLAY, Row 9: Pakiety, Row 10: Polecane w KINIE PLAY,
-    // Row 11: Ostatnio dodane w Wideo, Row 12: HBO Max, Row 13: SkyShowtime, Row 14: Amazon Prime
+    // Row 4: Teraz w TV (EPG), Row 5: Netflix, Row 6: Disney+, Row 7: Top 10,
+    // Row 8: Kolekcje KINA PLAY, Row 9: Polecane w KINIE PLAY, Row 10: Ostatnio dodane w Wideo,
+    // Row 11: HBO Max, Row 12: SkyShowtime, Row 13: Amazon Prime, Row 14: Pakiety (LAST)
     val channels = listOf(
         "Slider Mix",                   // Row 0 - slider-max
         "Skróty",                       // Row 1 - shortcuts-v3
-        "Aplikacje",                    // Row 2 - app-icons (NEW)
-        "Oglądaj dalej",                // Row 3 - horizontal (NEW)
-        "Popularne teraz w telewizji",  // Row 4 - horizontal (RENAMED)
-        "Netflix",                      // Row 5 - horizontal (NEW)
-        "Disney+",                      // Row 6 - horizontal (NEW)
-        "Top 10",                       // Row 7 - top10 (MOVED)
-        "Kolekcje KINA PLAY",           // Row 8 - horizontal (NEW)
-        "Pakiety",                      // Row 9 - horizontal (NEW)
-        "Polecane w KINIE PLAY",        // Row 10 - horizontal (NEW)
-        "Ostatnio dodane w Wideo",      // Row 11 - horizontal (NEW)
-        "HBO Max",                      // Row 12 - horizontal (NEW)
-        "SkyShowtime",                  // Row 13 - horizontal (NEW)
-        "Amazon Prime"                  // Row 14 - horizontal (NEW)
+        "Aplikacje",                    // Row 2 - app-icons
+        "Oglądaj dalej",                // Row 3 - horizontal
+        "Teraz w TV",                   // Row 4 - horizontal (EPG current programs)
+        "Netflix",                      // Row 5 - horizontal
+        "Disney+",                      // Row 6 - horizontal
+        "Top 10",                       // Row 7 - top10
+        "Kolekcje KINA PLAY",           // Row 8 - horizontal
+        "Polecane w KINIE PLAY",        // Row 9 - vertical
+        "Ostatnio dodane w Wideo",      // Row 10 - horizontal
+        "HBO Max",                      // Row 11 - horizontal
+        "SkyShowtime",                  // Row 12 - horizontal
+        "Amazon Prime",                 // Row 13 - horizontal
+        "Pakiety"                       // Row 14 - horizontal (MOVED TO LAST)
     )
 
-    // Define channel types - shortcuts-v3 when sliderVersion == 2, shortcuts otherwise
+    // Define channel types - shortcuts version depends on sliderVersion
+    // V1: shortcuts (small), V2: shortcuts-v3 (big, text top), V3: shortcuts-v4 (Figma quick links)
     val channelTypes = remember(sliderVersion) {
         mapOf(
             "Slider Mix" to "slider-max",
-            "Skróty" to if (sliderVersion == 2) "shortcuts-v3" else "shortcuts",
+            "Skróty" to when (sliderVersion) {
+                1 -> "shortcuts"
+                3 -> "shortcuts-v4"
+                else -> "shortcuts-v3"
+            },
             "Aplikacje" to "app-icons",
             "Oglądaj dalej" to "horizontal",
-            "Popularne teraz w telewizji" to "horizontal",
+            "Teraz w TV" to "horizontal",
             "Netflix" to "horizontal",
             "Disney+" to "horizontal",
             "Top 10" to "top10",
@@ -3831,8 +3877,8 @@ private fun OdkrywajChannelsScreen(
         )
     }
 
-    // Grid content - recomposes when Supabase data becomes available
-    val gridContent = remember(supabaseInitialized) {
+    // Grid content - recomposes when Supabase data or EPG data becomes available
+    val gridContent = remember(supabaseInitialized, terazWTvPrograms) {
         val vodContentList = VodDataCache.getVodContentList()
         val kinoPlayMovies = VodDataCache.getKinoPlayMovies()
         // Pobierz filmy z Supabase (z cenami!)
@@ -3864,7 +3910,7 @@ private fun OdkrywajChannelsScreen(
                     "Skróty" -> emptyList() // shortcuts-v3, osobna lista
                     "Aplikacje" -> emptyList() // app-icons, osobna lista apps
                     "Oglądaj dalej" -> vodContentList.shuffled().take(10)
-                    "Popularne teraz w telewizji" -> vodContentList.shuffled().take(10)
+                    "Teraz w TV" -> terazWTvPrograms.ifEmpty { vodContentList.shuffled().take(10) } // EPG current programs
                     "Netflix" -> vodContentList.shuffled().take(10)
                     "Disney+" -> vodContentList.shuffled().take(10)
                     "Top 10" -> VodDataCache.getTop10().ifEmpty { kinoPlayMovies.take(10) }
@@ -3905,6 +3951,19 @@ private fun OdkrywajChannelsScreen(
             ShortcutItem("4", "Nagrania", ShortcutIcon.VectorIcon(R.drawable.ic_nagrania)),
             ShortcutItem("5", "Moja lista kanałów", ShortcutIcon.VectorIcon(R.drawable.ic_moja_lista_kanalow)),
             ShortcutItem("6", "Do obejrzenia", ShortcutIcon.VectorIcon(R.drawable.ic_do_obejrzenia))
+        )
+    }
+
+    // Shortcuts V4 data - Figma "Quick links" design (222x244px cards, icon on top)
+    // Order: Nagrania, Moja lista kanałów, Do obejrzenia, Netflix, Disney+, Igrzyska Olimpijskie
+    val shortcutsV4 = remember {
+        listOf(
+            ShortcutItem("1", "Nagrania", ShortcutIcon.VectorIcon(R.drawable.ic_nagrania)),
+            ShortcutItem("2", "Moja lista\nkanałów", ShortcutIcon.VectorIcon(R.drawable.ic_moja_lista_kanalow)),
+            ShortcutItem("3", "Do\nobejrzenia", ShortcutIcon.VectorIcon(R.drawable.ic_do_obejrzenia)),
+            ShortcutItem("4", "Netflix", ShortcutIcon.VectorIcon(R.drawable.netflix_logo)),
+            ShortcutItem("5", "Disney+", ShortcutIcon.VectorIcon(R.drawable.disney_plus_logo)),
+            ShortcutItem("6", "Igrzyska\nZimowe", ShortcutIcon.VectorIcon(R.drawable.ic_olympics_2026))
         )
     }
 
@@ -4047,7 +4106,9 @@ private fun OdkrywajChannelsScreen(
             gridContent = gridContent,
             shortcuts = shortcuts,
             shortcutsV3 = shortcutsV3,  // V3 shortcuts with bigger cards
-            sliderItems = odkrywajSliderItems,
+            shortcutsV4 = shortcutsV4,  // V4 shortcuts (Figma design - 222x244px)
+            // V3: Use pre-shuffled items for sync between main and ghost slider
+            sliderItems = if (sliderVersion == 3) shuffledOdkrywajSliderItems else odkrywajSliderItems,
             odkrywajApps = odkrywajApps,  // Apps for "Aplikacje" channel
             focusedRowIndex = focusedRowIndex,
             focusedColIndex = focusedColIndex,
@@ -4070,7 +4131,8 @@ private fun OdkrywajChannelsScreen(
             // === Infinity loop: Shared slider state for ghost slider synchronization ===
             sharedCurrentSlide = sharedCurrentSlide,
             onSharedCurrentSlideChange = { slide -> sharedCurrentSlide = slide },
-            sharedProgress = sharedProgress
+            sharedProgress = sharedProgress,
+            sliderVersion = sliderVersion
         )
     }
 }
@@ -6297,6 +6359,179 @@ private fun ShortcutCardV3(
 }
 
 /**
+ * ShortcutCardV4 - Quick link card from Figma design (222×244px)
+ * Design: Icon at TOP (96px), text at BOTTOM (max 2 lines)
+ * Used in ODKRYWAJ section when sliderVersion == 3
+ *
+ * Layout:
+ * ┌─────────────────────────┐
+ * │      padding 32px       │
+ * │    ┌──────────────┐     │
+ * │    │   Icon 96px  │     │
+ * │    └──────────────┘     │
+ * │       gap 24px          │
+ * │    Text (max 2 lines)   │
+ * │      padding 40px       │
+ * └─────────────────────────┘
+ */
+@Composable
+private fun ShortcutCardV4(
+    shortcut: ShortcutItem,
+    isFocused: Boolean,
+    focusRequester: FocusRequester,
+    onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
+    onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> },
+    appIconsData: Map<String, List<TvChannel>> = emptyMap(),
+    sx: (Int) -> androidx.compose.ui.unit.Dp,
+    sy: (Int) -> androidx.compose.ui.unit.Dp,
+    onFocusChange: (Boolean) -> Unit
+) {
+    // Figma specs: 222x244px card
+    val cardWidth = sx(222)
+    val cardHeight = sy(244)
+
+    // Border: 8px aqua when focused, 2px gray when not
+    val borderWidth = if (isFocused) sx(8) else sx(2)
+    val borderColor = if (isFocused) Color(0xFF5FEDD4) else Color(0x33EEEEEE) // 20% white
+
+    Box(
+        modifier = Modifier
+            .width(cardWidth)
+            .height(cardHeight)
+            .border(
+                width = borderWidth,
+                color = borderColor,
+                shape = RoundedCornerShape(sx(16))
+            )
+            .clip(RoundedCornerShape(sx(16)))
+            .background(Color(0x66000000)) // 40% black
+            .focusRequester(focusRequester)
+            .onPreviewKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown &&
+                    (event.key == Key.Enter || event.key == Key.DirectionCenter)) {
+                    android.util.Log.d("SHORTCUT_V4", "=== Enter/OK pressed for: ${shortcut.title} ===")
+                    val plainTitle = shortcut.title.replace("\n", " ")
+                    when {
+                        plainTitle.contains("Nagrania", ignoreCase = true) -> {
+                            onNavigateToRecordingsGrid("Zarządzaj nagraniami", "ODKRYWAJ")
+                        }
+                        plainTitle.contains("lista kanałów", ignoreCase = true) -> {
+                            onNavigateToChannelGrid(
+                                "Moja lista kanałów",
+                                "Wszystkie",
+                                null,
+                                appIconsData["Moja lista kanałów"]
+                            )
+                        }
+                        plainTitle.contains("obejrzenia", ignoreCase = true) -> {
+                            val vodList = VodDataCache.getVodContentList()
+                            val randomFilms = vodList.shuffled().take(20)
+                            onNavigateToVodGrid("Do obejrzenia", randomFilms, "ODKRYWAJ")
+                        }
+                        plainTitle.contains("Netflix", ignoreCase = true) -> {
+                            // Launch Netflix app
+                            android.util.Log.d("SHORTCUT_V4", "Launching Netflix...")
+                        }
+                        plainTitle.contains("Disney", ignoreCase = true) -> {
+                            // Launch Disney+ app
+                            android.util.Log.d("SHORTCUT_V4", "Launching Disney+...")
+                        }
+                        plainTitle.contains("Igrzyska", ignoreCase = true) ||
+                        plainTitle.contains("Olimpijskie", ignoreCase = true) -> {
+                            // Navigate to Olympics content
+                            android.util.Log.d("SHORTCUT_V4", "Navigating to Olympics content...")
+                        }
+                    }
+                    true
+                } else {
+                    false
+                }
+            }
+            .focusable()
+            .onFocusChanged { focusState ->
+                onFocusChange(focusState.isFocused)
+            }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(
+                    top = sy(24),
+                    bottom = sy(16),
+                    start = sx(12),
+                    end = sx(12)
+                ),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            // Icon (96x96px)
+            Box(
+                modifier = Modifier.size(sx(96)),
+                contentAlignment = Alignment.Center
+            ) {
+                when (shortcut.icon) {
+                    is ShortcutIcon.VectorIcon -> {
+                        Image(
+                            painter = painterResource(shortcut.icon.iconRes),
+                            contentDescription = shortcut.title,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Fit
+                        )
+                    }
+                    is ShortcutIcon.LottieIcon -> {
+                        val composition by rememberLottieComposition(LottieCompositionSpec.Asset(shortcut.icon.fileName))
+                        val progress by animateLottieCompositionAsState(
+                            composition = composition,
+                            isPlaying = isFocused,
+                            restartOnPlay = true,
+                            iterations = 1
+                        )
+
+                        LottieAnimation(
+                            composition = composition,
+                            progress = { if (isFocused) progress else 1f },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                    is ShortcutIcon.MaterialIcon -> {
+                        val materialIcon = when (shortcut.icon.iconName) {
+                            "add" -> Icons.Default.Add
+                            "star" -> Icons.Default.Star
+                            "search" -> Icons.Default.Search
+                            "person" -> Icons.Default.Person
+                            "settings" -> Icons.Default.Settings
+                            else -> Icons.Default.Star
+                        }
+                        Icon(
+                            imageVector = materialIcon,
+                            contentDescription = shortcut.title,
+                            modifier = Modifier.fillMaxSize(),
+                            tint = Color(0xFFEEEEEE)
+                        )
+                    }
+                }
+            }
+
+            // Text (24sp, max 2 lines, centered)
+            Text(
+                text = shortcut.title,
+                color = Color(0xFFEEEEEE),
+                fontSize = (24 * sx(1).value / 1.dp.value).sp,
+                fontWeight = FontWeight.Medium,
+                textAlign = TextAlign.Center,
+                lineHeight = (32 * sy(1).value / 1.dp.value).sp,
+                maxLines = 2,
+                overflow = TextOverflow.Visible,
+                letterSpacing = 0.48.sp,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+
+/**
  * ShortcutAddButtonV3 - Plus button for V3 shortcuts row (matching 300×314px height)
  */
 @Composable
@@ -7729,6 +7964,8 @@ private const val ODKRYWAJ_SHORTCUTS_NORMAL_ROW_HEIGHT = 406 // Shortcuts V2 bas
 private const val ODKRYWAJ_SHORTCUTS_EXPANDED_ROW_HEIGHT = 406 // NO expansion for shortcuts V2
 private const val ODKRYWAJ_SHORTCUTS_V3_NORMAL_ROW_HEIGHT = 450 // Shortcuts V3 (314px cards + spacing)
 private const val ODKRYWAJ_SHORTCUTS_V3_EXPANDED_ROW_HEIGHT = 450 // NO expansion for shortcuts V3
+private const val ODKRYWAJ_SHORTCUTS_V4_NORMAL_ROW_HEIGHT = 390 // Shortcuts V4 (244px cards + spacing)
+private const val ODKRYWAJ_SHORTCUTS_V4_EXPANDED_ROW_HEIGHT = 390 // NO expansion for shortcuts V4
 private const val ODKRYWAJ_TOP10_NORMAL_ROW_HEIGHT = 406 // CategoryIcon (216px) + spacing (130px) + 60px extra
 private const val ODKRYWAJ_TOP10_EXPANDED_ROW_HEIGHT = 696 // CategoryIcon (216px) + miniatures (290px) + spacing (130px) + 60px extra
 private const val ODKRYWAJ_VERTICAL_NORMAL_ROW_HEIGHT = 320 // CategoryIcon (216px) + vertical card (280px) - slight overlap
@@ -9091,6 +9328,7 @@ private fun calculateOdkrywajChannelYPosition(
                         "slider-max" -> ODKRYWAJ_SLIDER_MAX_EXPANDED_ROW_HEIGHT
                         "shortcuts" -> ODKRYWAJ_SHORTCUTS_EXPANDED_ROW_HEIGHT
                         "shortcuts-v3" -> ODKRYWAJ_SHORTCUTS_V3_EXPANDED_ROW_HEIGHT
+                        "shortcuts-v4" -> ODKRYWAJ_SHORTCUTS_V4_EXPANDED_ROW_HEIGHT
                         "top10" -> ODKRYWAJ_TOP10_EXPANDED_ROW_HEIGHT
                         "collection-slider" -> ODKRYWAJ_COLLECTION_SLIDER_EXPANDED_ROW_HEIGHT
                         "app-icons" -> ODKRYWAJ_APP_ICONS_EXPANDED_ROW_HEIGHT
@@ -9119,6 +9357,7 @@ private fun calculateOdkrywajChannelYPosition(
                 "slider-max" -> ODKRYWAJ_SLIDER_MAX_NORMAL_ROW_HEIGHT
                 "shortcuts" -> ODKRYWAJ_SHORTCUTS_NORMAL_ROW_HEIGHT
                 "shortcuts-v3" -> ODKRYWAJ_SHORTCUTS_V3_NORMAL_ROW_HEIGHT
+                "shortcuts-v4" -> ODKRYWAJ_SHORTCUTS_V4_NORMAL_ROW_HEIGHT
                 "top10" -> ODKRYWAJ_TOP10_NORMAL_ROW_HEIGHT
                 "collection-slider" -> ODKRYWAJ_COLLECTION_SLIDER_NORMAL_ROW_HEIGHT
                 "app-icons" -> ODKRYWAJ_APP_ICONS_NORMAL_ROW_HEIGHT
@@ -9153,6 +9392,7 @@ private fun calculateOdkrywajChannelYPosition(
                     "slider-max" -> ODKRYWAJ_SLIDER_MAX_NORMAL_ROW_HEIGHT
                     "shortcuts" -> ODKRYWAJ_SHORTCUTS_NORMAL_ROW_HEIGHT
                     "shortcuts-v3" -> ODKRYWAJ_SHORTCUTS_V3_NORMAL_ROW_HEIGHT
+                    "shortcuts-v4" -> ODKRYWAJ_SHORTCUTS_V4_NORMAL_ROW_HEIGHT
                     "top10" -> ODKRYWAJ_TOP10_NORMAL_ROW_HEIGHT
                     "collection-slider" -> ODKRYWAJ_COLLECTION_SLIDER_NORMAL_ROW_HEIGHT
                     "app-icons" -> ODKRYWAJ_APP_ICONS_NORMAL_ROW_HEIGHT
@@ -9175,6 +9415,7 @@ private fun calculateOdkrywajChannelYPosition(
                     "slider-max" -> ODKRYWAJ_SLIDER_MAX_EXPANDED_ROW_HEIGHT
                     "shortcuts" -> ODKRYWAJ_SHORTCUTS_EXPANDED_ROW_HEIGHT
                     "shortcuts-v3" -> ODKRYWAJ_SHORTCUTS_V3_EXPANDED_ROW_HEIGHT
+                    "shortcuts-v4" -> ODKRYWAJ_SHORTCUTS_V4_EXPANDED_ROW_HEIGHT
                     "top10" -> ODKRYWAJ_TOP10_EXPANDED_ROW_HEIGHT
                     "collection-slider" -> ODKRYWAJ_COLLECTION_SLIDER_EXPANDED_ROW_HEIGHT
                     "app-icons" -> ODKRYWAJ_APP_ICONS_EXPANDED_ROW_HEIGHT
@@ -9193,6 +9434,7 @@ private fun calculateOdkrywajChannelYPosition(
                     "slider-max" -> ODKRYWAJ_SLIDER_MAX_NORMAL_ROW_HEIGHT
                     "shortcuts" -> ODKRYWAJ_SHORTCUTS_EXPANDED_ROW_HEIGHT
                     "shortcuts-v3" -> ODKRYWAJ_SHORTCUTS_V3_EXPANDED_ROW_HEIGHT
+                    "shortcuts-v4" -> ODKRYWAJ_SHORTCUTS_V4_EXPANDED_ROW_HEIGHT
                     "top10" -> ODKRYWAJ_TOP10_NORMAL_ROW_HEIGHT
                     "collection-slider" -> ODKRYWAJ_COLLECTION_SLIDER_NORMAL_ROW_HEIGHT
                     "app-icons" -> ODKRYWAJ_APP_ICONS_NORMAL_ROW_HEIGHT
@@ -9217,6 +9459,7 @@ private fun calculateOdkrywajChannelYPosition(
                     "slider-max" -> ODKRYWAJ_SLIDER_MAX_NORMAL_ROW_HEIGHT
                     "shortcuts" -> ODKRYWAJ_SHORTCUTS_NORMAL_ROW_HEIGHT
                     "shortcuts-v3" -> ODKRYWAJ_SHORTCUTS_V3_NORMAL_ROW_HEIGHT
+                    "shortcuts-v4" -> ODKRYWAJ_SHORTCUTS_V4_NORMAL_ROW_HEIGHT
                     "top10" -> ODKRYWAJ_TOP10_NORMAL_ROW_HEIGHT
                     "collection-slider" -> ODKRYWAJ_COLLECTION_SLIDER_NORMAL_ROW_HEIGHT
                     "app-icons" -> ODKRYWAJ_APP_ICONS_NORMAL_ROW_HEIGHT
@@ -9731,6 +9974,7 @@ fun OdkrywajChannelRowsLayout(
     gridContent: Map<String, List<VodContent>>,
     shortcuts: List<ShortcutItem>,
     shortcutsV3: List<ShortcutItem> = emptyList(),  // V3 shortcuts with bigger cards
+    shortcutsV4: List<ShortcutItem> = emptyList(),  // V4 Figma quick links (222x244px)
     sliderItems: List<VodSlideData> = emptyList(),
     odkrywajApps: List<AppItem> = emptyList(),  // Apps for "Aplikacje" channel (app-icons type)
     focusedRowIndex: Int,
@@ -9750,7 +9994,9 @@ fun OdkrywajChannelRowsLayout(
     // === Infinity loop: Shared slider state for ghost slider synchronization ===
     sharedCurrentSlide: Int = 0,
     onSharedCurrentSlideChange: (Int) -> Unit = {},
-    sharedProgress: Float = 0f
+    sharedProgress: Float = 0f,
+    // Slider version: 2 = V2 (bullets, auto-rotate), 3 = V3 (no bullets, no auto-rotate, shuffled)
+    sliderVersion: Int = 2
 ) {
     // === Track previous focusedRowIndex to detect instant jump from ghost slider ===
     var previousFocusedRowIndex by remember { mutableStateOf(focusedRowIndex) }
@@ -9793,6 +10039,7 @@ fun OdkrywajChannelRowsLayout(
                     rowContent = rowContent,
                     shortcuts = shortcuts,
                     shortcutsV3 = shortcutsV3,  // V3 shortcuts with bigger cards
+                    shortcutsV4 = shortcutsV4,  // V4 Figma quick links
                     sliderItems = sliderItems,
                     odkrywajApps = odkrywajApps,  // Apps for "Aplikacje" channel
                     focusedRowIndex = focusedRowIndex,
@@ -9811,7 +10058,8 @@ fun OdkrywajChannelRowsLayout(
                     // === Infinity loop: Shared state for ghost slider synchronization ===
                     sharedCurrentSlide = sharedCurrentSlide,
                     onSharedCurrentSlideChange = onSharedCurrentSlideChange,
-                    sharedProgress = sharedProgress
+                    sharedProgress = sharedProgress,
+                    sliderVersion = sliderVersion
                 )
             }
         }
@@ -9835,18 +10083,32 @@ fun OdkrywajChannelRowsLayout(
             )
 
             Box(modifier = Modifier.offset(y = ghostYOffset)) {
-                // Ghost slider uses same VodHeroSliderV2 with synchronized state (mirrors main slider)
-                VodHeroSliderV2(
-                    isFocused = false,  // Ghost slider never has direct focus
-                    items = sliderItems,
-                    sectionType = "ODKRYWAJ",
-                    sx = sx,
-                    sy = sy,
-                    topPadding = 0,
-                    enableAutoRotate = false,  // No auto-rotate - just mirrors main slider
-                    externalCurrentSlide = sharedCurrentSlide,
-                    externalProgress = sharedProgress
-                )
+                // Ghost slider uses same version as main slider (V2 or V3) for infinity loop sync
+                if (sliderVersion == 3) {
+                    VodHeroSliderV3(
+                        isFocused = false,  // Ghost slider never has direct focus
+                        items = sliderItems,
+                        sectionType = "ODKRYWAJ",
+                        sx = sx,
+                        sy = sy,
+                        topPadding = 0,
+                        externalCurrentSlide = sharedCurrentSlide,
+                        onCurrentSlideChange = { },  // Ghost doesn't control slide changes
+                        shouldShuffle = false  // Same order as main slider (synced)
+                    )
+                } else {
+                    VodHeroSliderV2(
+                        isFocused = false,  // Ghost slider never has direct focus
+                        items = sliderItems,
+                        sectionType = "ODKRYWAJ",
+                        sx = sx,
+                        sy = sy,
+                        topPadding = 0,
+                        enableAutoRotate = false,  // No auto-rotate - just mirrors main slider
+                        externalCurrentSlide = sharedCurrentSlide,
+                        externalProgress = sharedProgress
+                    )
+                }
             }
         }
     }
@@ -9860,6 +10122,7 @@ fun OdkrywajUnifiedChannelRow(
     rowContent: List<VodContent>,
     shortcuts: List<ShortcutItem>,
     shortcutsV3: List<ShortcutItem> = emptyList(),  // V3 shortcuts with bigger cards
+    shortcutsV4: List<ShortcutItem> = emptyList(),  // V4 Figma quick links (222x244px)
     sliderItems: List<VodSlideData> = emptyList(),
     odkrywajApps: List<AppItem> = emptyList(),  // Apps for "Aplikacje" channel (app-icons type)
     focusedRowIndex: Int,
@@ -9873,13 +10136,15 @@ fun OdkrywajUnifiedChannelRow(
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     lazyListState: LazyListState,
-    // Auto-rotation parameters for slider-max
+    // Auto-rotation parameters for slider-max (only used in V2)
     autoRotateIntervalMs: Long = 8000L,
     pauseAfterInteractionMs: Long = 10000L,
     // === Infinity loop: Shared slider state for ghost slider synchronization ===
     sharedCurrentSlide: Int = 0,
     onSharedCurrentSlideChange: (Int) -> Unit = {},
-    sharedProgress: Float = 0f
+    sharedProgress: Float = 0f,
+    // Slider version: 2 = V2 (bullets, auto-rotate), 3 = V3 (no bullets, no auto-rotate, shuffled)
+    sliderVersion: Int = 2
 ) {
     // ODKRYWAJ section - no onClick to EPG Day needed here
     val isCurrentRow = rowIndex == focusedRowIndex
@@ -9908,29 +10173,47 @@ fun OdkrywajUnifiedChannelRow(
 
         when (channelType) {
             "slider-max" -> {
-                // VodHeroSliderV2 with data from Supabase odkrywaj_slider table
+                // Slider V2 or V3 based on sliderVersion (toggled with Key.Nine)
+                // V2: bullets, auto-rotate | V3: no bullets, no auto-rotate, shuffled order
                 // topPadding = 0 because parent handles Y positioning via calculateOdkrywajChannelYPosition
-                VodHeroSliderV2(
-                    isFocused = rowIndex == focusedRowIndex && focusedColIndex >= 0,
-                    items = sliderItems,
-                    sectionType = "ODKRYWAJ",
-                    sx = sx,
-                    sy = sy,
-                    topPadding = 0, // Parent handles positioning (40px below menu)
-                    onSlideChanged = { slideIndex ->
-                        // Update focus state when slide changes
-                        onChannelContentFocusChange(rowIndex, 0)
-                    },
-                    // Auto-rotation enabled for ODKRYWAJ slider
-                    enableAutoRotate = true,
-                    autoRotateIntervalMs = autoRotateIntervalMs,
-                    pauseAfterInteractionMs = pauseAfterInteractionMs,
-                    // Detect if user is on channels below slider (row > 0) to trigger pause
-                    isOnChannelsBelow = focusedRowIndex > rowIndex,
-                    // === Infinity loop: Shared state for ghost slider synchronization ===
-                    externalCurrentSlide = sharedCurrentSlide,
-                    onCurrentSlideChange = { slide -> onSharedCurrentSlideChange(slide) }
-                )
+                if (sliderVersion == 3) {
+                    VodHeroSliderV3(
+                        isFocused = rowIndex == focusedRowIndex && focusedColIndex >= 0,
+                        items = sliderItems,
+                        sectionType = "ODKRYWAJ",
+                        sx = sx,
+                        sy = sy,
+                        topPadding = 0, // Parent handles positioning (40px below menu)
+                        onSlideChanged = { slideIndex ->
+                            onChannelContentFocusChange(rowIndex, 0)
+                        },
+                        externalCurrentSlide = sharedCurrentSlide,
+                        onCurrentSlideChange = { slide -> onSharedCurrentSlideChange(slide) },
+                        shouldShuffle = false  // Items already shuffled at parent level for sync
+                    )
+                } else {
+                    VodHeroSliderV2(
+                        isFocused = rowIndex == focusedRowIndex && focusedColIndex >= 0,
+                        items = sliderItems,
+                        sectionType = "ODKRYWAJ",
+                        sx = sx,
+                        sy = sy,
+                        topPadding = 0, // Parent handles positioning (40px below menu)
+                        onSlideChanged = { slideIndex ->
+                            // Update focus state when slide changes
+                            onChannelContentFocusChange(rowIndex, 0)
+                        },
+                        // Auto-rotation enabled for ODKRYWAJ slider
+                        enableAutoRotate = true,
+                        autoRotateIntervalMs = autoRotateIntervalMs,
+                        pauseAfterInteractionMs = pauseAfterInteractionMs,
+                        // Detect if user is on channels below slider (row > 0) to trigger pause
+                        isOnChannelsBelow = focusedRowIndex > rowIndex,
+                        // === Infinity loop: Shared state for ghost slider synchronization ===
+                        externalCurrentSlide = sharedCurrentSlide,
+                        onCurrentSlideChange = { slide -> onSharedCurrentSlideChange(slide) }
+                    )
+                }
             }
             "shortcuts" -> {
                 // Shortcuts row (starts from x=120, NO SCROLLING - fixed position)
@@ -10013,6 +10296,50 @@ fun OdkrywajUnifiedChannelRow(
                             onNavigateToChannelGrid = onNavigateToChannelGrid,
                             onNavigateToVodGrid = onNavigateToVodGrid,
                             onNavigateToKinoGrid = onNavigateToKinoGrid,
+                            appIconsData = appIconsData,
+                            sx = sx,
+                            sy = sy,
+                            onFocusChange = { isFocused ->
+                                if (isFocused) onChannelContentFocusChange(rowIndex, colIndex)
+                            }
+                        )
+                    }
+                }
+            }
+            "shortcuts-v4" -> {
+                // Shortcuts V4 - Figma "Quick links" design (222x244px cards, icon on top)
+                // 6 cards: Nagrania, Moja lista kanałów, Do obejrzenia, Netflix, Disney+, Igrzyska Olimpijskie
+                // Gap: 20px, start padding: 56px (from Figma XML marginLeft)
+                val coroutineScope = rememberCoroutineScope()
+
+                LaunchedEffect(focusedColIndex, focusedRowIndex) {
+                    if (rowIndex == focusedRowIndex && focusedColIndex >= 0) {
+                        lazyListState.animateScrollToItem(focusedColIndex)
+                    }
+                }
+
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    state = lazyListState,
+                    contentPadding = PaddingValues(start = sx(56), end = sx(56)),
+                    horizontalArrangement = Arrangement.spacedBy(sx(20))  // V4: 20px gap
+                ) {
+                    items(shortcutsV4.size) { colIndex ->
+                        val shortcut = shortcutsV4[colIndex]
+                        val isItemFocused = rowIndex == focusedRowIndex && colIndex == focusedColIndex
+                        val focusRequester = channelFocusRequesters[Pair(rowIndex, colIndex)] ?: FocusRequester()
+
+                        ShortcutCardV4(
+                            shortcut = shortcut,
+                            isFocused = isItemFocused,
+                            focusRequester = focusRequester,
+                            onNavigateToChannelGrid = onNavigateToChannelGrid,
+                            onNavigateToVodGrid = onNavigateToVodGrid,
+                            onNavigateToKinoGrid = onNavigateToKinoGrid,
+                            onNavigateToRecordingsGrid = { title, section ->
+                                // Navigate to recordings - needs to be passed from parent
+                                android.util.Log.d("SHORTCUTS_V4", "Navigate to recordings: $title")
+                            },
                             appIconsData = appIconsData,
                             sx = sx,
                             sy = sy,
@@ -10352,8 +10679,8 @@ fun OdkrywajUnifiedChannelRow(
         // CategoryIcon zIndex: app-icons below LazyRow, others normal
         val categoryZIndex = if (channelType == "app-icons") -1f else 0f
 
-        // CategoryIcon (skip for slider-max/shortcuts/shortcuts-v3/collection-slider - they don't have CategoryIcon)
-        if (channelType !in listOf("slider-max", "shortcuts", "shortcuts-v3", "collection-slider")) {
+        // CategoryIcon (skip for slider-max/shortcuts/shortcuts-v3/shortcuts-v4/collection-slider - they don't have CategoryIcon)
+        if (channelType !in listOf("slider-max", "shortcuts", "shortcuts-v3", "shortcuts-v4", "collection-slider")) {
             Box(
                 modifier = Modifier
                     .offset(x = sx(80), y = sy(0))
@@ -10367,7 +10694,7 @@ fun OdkrywajUnifiedChannelRow(
                 val logoDrawableId = when (channel) {
                     "Aplikacje" -> R.drawable.appli
                     "Oglądaj dalej" -> R.drawable.ic_keep_watching
-                    "Popularne teraz w telewizji" -> R.drawable.tv_icon
+                    "Teraz w TV" -> R.drawable.tv_icon
                     "Netflix" -> R.drawable.netflix_logo
                     "Disney+" -> R.drawable.disney_plus_logo
                     "Top 10" -> R.drawable.kinoplay2
@@ -11657,29 +11984,50 @@ private fun VodLayoutWithSlider(
                 .offset(y = sliderYOffset)
                 .zIndex(1f)
         ) {
-            // Conditional rendering based on sliderVersion (toggled with Key.Nine)
-            if (sliderVersion == 1) {
-                VodHeroSlider(
-                    isFocused = focusedRowIndex == 1 && globalFocusState.value.currentRow > 0,
-                    sx = sx,
-                    sy = sy
-                )
-            } else {
-                VodHeroSliderV2(
-                    isFocused = focusedRowIndex == 1 && globalFocusState.value.currentRow > 0,
-                    items = kinoPlaySliderItems,
-                    sectionType = "KINO_PLAY",
-                    sx = sx,
-                    sy = sy,
-                    onSlideClicked = { item ->
-                        // Quick purchase mode: go directly to PurchaseScreen, skipping MovieDetailScreen
-                        if (quickPurchaseMode) {
-                            onNavigateToPurchase(item)
-                        } else {
-                            onNavigateToMovieDetail(item)
+            // Conditional rendering based on sliderVersion (toggled with Key.Nine: V2 ↔ V3)
+            when (sliderVersion) {
+                1 -> {
+                    VodHeroSlider(
+                        isFocused = focusedRowIndex == 1 && globalFocusState.value.currentRow > 0,
+                        sx = sx,
+                        sy = sy
+                    )
+                }
+                3 -> {
+                    // V3: No bullets, no auto-rotation, shuffled order
+                    VodHeroSliderV3(
+                        isFocused = focusedRowIndex == 1 && globalFocusState.value.currentRow > 0,
+                        items = kinoPlaySliderItems,
+                        sectionType = "KINO_PLAY",
+                        sx = sx,
+                        sy = sy,
+                        onSlideClicked = { item ->
+                            if (quickPurchaseMode) {
+                                onNavigateToPurchase(item)
+                            } else {
+                                onNavigateToMovieDetail(item)
+                            }
                         }
-                    }
-                )
+                    )
+                }
+                else -> {
+                    // V2: Full slider with bullets and auto-rotation
+                    VodHeroSliderV2(
+                        isFocused = focusedRowIndex == 1 && globalFocusState.value.currentRow > 0,
+                        items = kinoPlaySliderItems,
+                        sectionType = "KINO_PLAY",
+                        sx = sx,
+                        sy = sy,
+                        onSlideClicked = { item ->
+                            // Quick purchase mode: go directly to PurchaseScreen, skipping MovieDetailScreen
+                            if (quickPurchaseMode) {
+                                onNavigateToPurchase(item)
+                            } else {
+                                onNavigateToMovieDetail(item)
+                            }
+                        }
+                    )
+                }
             }
         }
 
@@ -12561,6 +12909,159 @@ private fun VodHeroSliderV2(
 }
 
 /**
+ * VodHeroSlider V3 - Simplified version without bullets and auto-rotation
+ * Based on V2 but with:
+ * - ❌ No bullets (dot indicators removed)
+ * - ❌ No auto-rotation (manual navigation only)
+ * - 🔀 Shuffled slide order (randomized on each session)
+ *
+ * Toggled with Key.Nine (V2 ↔ V3)
+ *
+ * @param items List of VodSlideData to display (will be shuffled internally)
+ */
+@Composable
+private fun VodHeroSliderV3(
+    isFocused: Boolean,
+    items: List<VodSlideData>,
+    sectionType: String, // "KINO_PLAY", "WIDEO", "ODKRYWAJ"
+    sx: (Int) -> androidx.compose.ui.unit.Dp,
+    sy: (Int) -> androidx.compose.ui.unit.Dp,
+    topPadding: Int = 200,
+    onSlideChanged: (Int) -> Unit = {},
+    onSlideClicked: ((VodSlideData) -> Unit)? = null,
+    // External state synchronization (for ghost slider if needed)
+    externalCurrentSlide: Int? = null,
+    onCurrentSlideChange: ((Int) -> Unit)? = null,
+    // When false, use items in original order (for synchronized ghost slider)
+    shouldShuffle: Boolean = true
+) {
+    // Shuffle items once on first composition (randomize order for this session)
+    // When shouldShuffle = false, use items as-is (for ghost slider sync)
+    val sliderItems = remember(items, shouldShuffle) {
+        if (shouldShuffle) items.shuffled() else items
+    }
+
+    // Use external state if provided, otherwise internal state
+    var internalCurrentSlide by remember { mutableStateOf(0) }
+    val currentSlide = externalCurrentSlide ?: internalCurrentSlide
+
+    val focusRequester = remember { FocusRequester() }
+    val listState = rememberLazyListState()
+
+    // Reset currentSlide if out of bounds after data loads
+    LaunchedEffect(sliderItems.size) {
+        if (currentSlide >= sliderItems.size && sliderItems.isNotEmpty()) {
+            internalCurrentSlide = 0
+            onCurrentSlideChange?.invoke(0)
+        }
+    }
+
+    // Focus restoration when slider becomes focused
+    LaunchedEffect(isFocused) {
+        if (isFocused) {
+            focusRequester.requestFocus()
+        }
+    }
+
+    // Scroll to current slide
+    LaunchedEffect(currentSlide) {
+        if (sliderItems.isNotEmpty()) {
+            listState.animateScrollToItem(
+                index = currentSlide,
+                scrollOffset = 0
+            )
+            if (isFocused) {
+                onSlideChanged(currentSlide)
+            }
+        }
+    }
+
+    // NO auto-rotation in V3 - manual navigation only
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(top = sy(topPadding))
+            .focusRequester(focusRequester)
+            .focusable()
+            .onPreviewKeyEvent { event ->
+                if (!isFocused) return@onPreviewKeyEvent false
+                if (event.type != androidx.compose.ui.input.key.KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                if (sliderItems.isEmpty()) return@onPreviewKeyEvent false
+
+                when (event.key) {
+                    androidx.compose.ui.input.key.Key.DirectionLeft -> {
+                        if (currentSlide > 0) {
+                            val newSlide = currentSlide - 1
+                            internalCurrentSlide = newSlide
+                            onCurrentSlideChange?.invoke(newSlide)
+                        }
+                        true
+                    }
+                    androidx.compose.ui.input.key.Key.DirectionRight -> {
+                        if (currentSlide < sliderItems.size - 1) {
+                            val newSlide = currentSlide + 1
+                            internalCurrentSlide = newSlide
+                            onCurrentSlideChange?.invoke(newSlide)
+                        }
+                        true
+                    }
+                    androidx.compose.ui.input.key.Key.Enter,
+                    androidx.compose.ui.input.key.Key.DirectionCenter -> {
+                        if (onSlideClicked != null && sectionType == "KINO_PLAY") {
+                            sliderItems.getOrNull(currentSlide)?.let { item ->
+                                onSlideClicked.invoke(item)
+                            }
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                    else -> false
+                }
+            }
+    ) {
+        if (sliderItems.isEmpty()) {
+            // Loading state
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(
+                    color = Color(0xFF5AECD3),
+                    modifier = Modifier.size(56.dp),
+                    strokeWidth = 4.dp
+                )
+            }
+        } else {
+            // LazyRow with cards - NO bullets at bottom in V3
+            LazyRow(
+                state = listState,
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(sx(20)),
+                contentPadding = PaddingValues(start = sx(60), end = sx(400))
+            ) {
+                itemsIndexed(sliderItems) { index, item ->
+                    val isSelected = index == currentSlide
+
+                    SliderV2CardStateBased(
+                        item = item,
+                        sectionType = sectionType,
+                        slideIndex = index,
+                        currentSlide = currentSlide,
+                        isSelected = isSelected,
+                        isSliderFocused = isFocused,
+                        sx = sx,
+                        sy = sy
+                    )
+                }
+            }
+            // NO bullets in V3 - removed the Row with bullet indicators
+        }
+    }
+}
+
+/**
  * Single card for V2 Slider carousel
  * Width: 1468px, Height: 742px
  * V2 visual style: aqua border, logo, metadata, button
@@ -12879,8 +13380,22 @@ private fun SliderV2CardStateBased(
                             }
                         }
                         "ODKRYWAJ" -> {
-                            // Logo from odkrywaj_slider (Kino Play logo or channel logo)
-                            if (!item.channelLogoUrl.isNullOrEmpty()) {
+                            // KINO PLAY movie - ALWAYS show KINO PLAY logo (regardless of admin settings)
+                            if (item.isKinoPlay) {
+                                // Same display as KINO_PLAY section
+                                Image(
+                                    painter = painterResource(id = R.drawable.logo_kino_pay),
+                                    contentDescription = "KINO PLAY"
+                                )
+                                // Content labels (Premiera premium + 4K)
+                                ContentLabelV2(
+                                    label = "Premiera premium",
+                                    show4K = true,
+                                    sx = sx,
+                                    sy = sy
+                                )
+                            } else if (!item.channelLogoUrl.isNullOrEmpty()) {
+                                // Other content - show logo from admin
                                 AsyncImage(
                                     model = item.channelLogoUrl,
                                     contentDescription = "Logo",
@@ -15674,26 +16189,40 @@ fun WideoChannelRowsLayout(
                 .fillMaxWidth()
                 .offset(y = animatedSliderY)
         ) {
-            // Conditional rendering based on sliderVersion (toggled with Key.Nine)
+            // Conditional rendering based on sliderVersion (toggled with Key.Nine: V2 ↔ V3)
             // Add globalFocusState.value.currentRow > 0 check to prevent dual focus with menu
             val isNotOnMenu = globalFocusState.value.currentRow > 0
-            if (sliderVersion == 1) {
-                SliderMixScreen(
-                    shouldAutoFocus = focusedRowIndex == 1 && isNotOnMenu,
-                    isInTelewizjaSection = false, // VOD only - no TV live
-                    shouldShowFocusBorder = focusedRowIndex == 1 && focusedColIndex >= 0 && isNotOnMenu,
-                    isShortcutsFocused = focusedRowIndex == 2,
-                    externalSx = sx,
-                    externalSy = sy
-                )
-            } else {
-                VodHeroSliderV2(
-                    isFocused = focusedRowIndex == 1 && isNotOnMenu,
-                    items = wideoSliderItems,
-                    sectionType = "WIDEO",
-                    sx = sx,
-                    sy = sy
-                )
+            when (sliderVersion) {
+                1 -> {
+                    SliderMixScreen(
+                        shouldAutoFocus = focusedRowIndex == 1 && isNotOnMenu,
+                        isInTelewizjaSection = false, // VOD only - no TV live
+                        shouldShowFocusBorder = focusedRowIndex == 1 && focusedColIndex >= 0 && isNotOnMenu,
+                        isShortcutsFocused = focusedRowIndex == 2,
+                        externalSx = sx,
+                        externalSy = sy
+                    )
+                }
+                3 -> {
+                    // V3: No bullets, no auto-rotation, shuffled order
+                    VodHeroSliderV3(
+                        isFocused = focusedRowIndex == 1 && isNotOnMenu,
+                        items = wideoSliderItems,
+                        sectionType = "WIDEO",
+                        sx = sx,
+                        sy = sy
+                    )
+                }
+                else -> {
+                    // V2: Full slider with bullets (no auto-rotation in WIDEO by default)
+                    VodHeroSliderV2(
+                        isFocused = focusedRowIndex == 1 && isNotOnMenu,
+                        items = wideoSliderItems,
+                        sectionType = "WIDEO",
+                        sx = sx,
+                        sy = sy
+                    )
+                }
             }
         }
 

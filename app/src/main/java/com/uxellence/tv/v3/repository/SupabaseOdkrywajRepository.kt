@@ -141,5 +141,6 @@ fun OdkrywajSliderItem.toVodSlideData(): VodSlideData = VodSlideData(
     posterUrl = backdropUrl,
     youtubeUrl = youtubeUrl,
     channelLogoUrl = logoUrl,
-    showKrrit = sourceType in listOf("movie", "vod_json") // Show KRRIT for movie/vod content
+    showKrrit = sourceType in listOf("movie", "vod_json"), // Show KRRIT for movie/vod content
+    isKinoPlay = sourceType == "movie" // True for KINO PLAY movies
 )
