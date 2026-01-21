@@ -10862,8 +10862,8 @@ fun OdkrywajUnifiedChannelRow(
         // CategoryIcon zIndex: app-icons below LazyRow, others normal
         val categoryZIndex = if (channelType == "app-icons") -1f else 0f
 
-        // CategoryIcon (skip for slider-max/shortcuts/shortcuts-v3/shortcuts-v4/collection-slider - they don't have CategoryIcon)
-        if (channelType !in listOf("slider-max", "shortcuts", "shortcuts-v3", "shortcuts-v4", "collection-slider")) {
+        // CategoryIcon (skip for slider-max/shortcuts/shortcuts-v3/shortcuts-v4/collection-slider/banner-promo - they don't have CategoryIcon)
+        if (channelType !in listOf("slider-max", "shortcuts", "shortcuts-v3", "shortcuts-v4", "collection-slider", "banner-promo")) {
             Box(
                 modifier = Modifier
                     .offset(x = sx(80), y = sy(0))
