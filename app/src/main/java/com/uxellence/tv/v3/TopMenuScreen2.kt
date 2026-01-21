@@ -3233,6 +3233,59 @@ private fun MenuSearchIcon2(
     }
 }
 
+/**
+ * Banner Promo Button - Figma design button for promotional banners
+ * Normal: rgba(238,238,238,0.2) background, #EEEEEE text
+ * Focused: #5AECD3 (aqua) background, #48227C (purple) text
+ * Dimensions: auto-width, height 72px, border-radius 8px, padding 32px horizontal
+ */
+@Composable
+private fun BannerPromoButton(
+    text: String,
+    isFocused: Boolean,
+    focusRequester: FocusRequester,
+    onFocusChange: () -> Unit,
+    onClick: () -> Unit,
+    sx: (Int) -> androidx.compose.ui.unit.Dp,
+    sy: (Int) -> androidx.compose.ui.unit.Dp
+) {
+    val backgroundColor = if (isFocused) {
+        Color(0xFF5AECD3)  // Aqua when focused
+    } else {
+        Color(0x33EEEEEE)  // 20% white when not focused
+    }
+
+    val textColor = if (isFocused) {
+        Color(0xFF48227C)  // Purple when focused
+    } else {
+        Color(0xFFEEEEEE)  // White when not focused
+    }
+
+    Box(
+        modifier = Modifier
+            .focusRequester(focusRequester)
+            .onFocusChanged { if (it.isFocused) onFocusChange() }
+            .focusable()
+            .clip(RoundedCornerShape(sx(8)))
+            .background(backgroundColor)
+            .clickable { onClick() }
+            .padding(horizontal = sx(32), vertical = sy(20)),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            color = textColor,
+            style = TextStyle(
+                fontSize = with(LocalDensity.current) { sx(24).toSp() },
+                fontWeight = FontWeight.Bold,
+                lineHeight = with(LocalDensity.current) { sy(32).toSp() },
+                letterSpacing = (-0.48).sp
+            ),
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
 @Composable
 private fun ShortcutAddButton(
     isFocused: Boolean,
@@ -3845,13 +3898,14 @@ private fun OdkrywajChannelsScreen(
         "Oglądaj dalej",                // Row 4 - horizontal
         "Netflix",                      // Row 5 - horizontal
         "Disney+",                      // Row 6 - horizontal
-        "Top 10 w Kino Play",           // Row 7 - top10 (RENAMED!)
-        "Polecane w KINIE PLAY",        // Row 8 - vertical
-        "Kolekcje KINA PLAY",           // Row 9 - horizontal
-        "HBO Max",                      // Row 10 - horizontal
-        "SkyShowtime",                  // Row 11 - horizontal
-        "Amazon Prime",                 // Row 12 - horizontal
-        "Pakiety"                       // Row 13 - horizontal (LAST)
+        "Banner Promo",                 // Row 7 - banner-promo (Iluzja 3 - static banner)
+        "Top 10 w Kino Play",           // Row 8 - top10 (RENAMED!)
+        "Polecane w KINIE PLAY",        // Row 9 - vertical
+        "Kolekcje KINA PLAY",           // Row 10 - horizontal
+        "HBO Max",                      // Row 11 - horizontal
+        "SkyShowtime",                  // Row 12 - horizontal
+        "Amazon Prime",                 // Row 13 - horizontal
+        "Pakiety"                       // Row 14 - horizontal (LAST)
     )
 
     // Define channel types - shortcuts version depends on sliderVersion
@@ -3869,6 +3923,7 @@ private fun OdkrywajChannelsScreen(
             "Oglądaj dalej" to "horizontal",
             "Netflix" to "horizontal",
             "Disney+" to "horizontal",
+            "Banner Promo" to "banner-promo",
             "Top 10 w Kino Play" to "top10",
             "Polecane w KINIE PLAY" to "vertical",
             "Kolekcje KINA PLAY" to "horizontal",
@@ -3915,6 +3970,7 @@ private fun OdkrywajChannelsScreen(
                     "Oglądaj dalej" -> vodContentList.shuffled().take(10)
                     "Netflix" -> vodContentList.shuffled().take(10)
                     "Disney+" -> vodContentList.shuffled().take(10)
+                    "Banner Promo" -> emptyList() // Static banner, no grid content
                     "Top 10 w Kino Play" -> VodDataCache.getTop10().ifEmpty { kinoPlayMovies.take(10) }
                     // Polecane w KINIE PLAY - dane z Supabase z cenami!
                     "Polecane w KINIE PLAY" -> supabaseNewest.ifEmpty { kinoPlayMovies.take(10) }
@@ -4009,6 +4065,9 @@ private fun OdkrywajChannelsScreen(
         }
     }
 
+    // Calculate banner promo row index dynamically
+    val bannerPromoRowIndex = channels.indexOf("Banner Promo")
+
     val channelFocusRequesters = remember(channels.size) {
         mutableMapOf<Pair<Int, Int>, FocusRequester>().apply {
             repeat(channels.size) { rowIndex ->
@@ -4024,6 +4083,10 @@ private fun OdkrywajChannelsScreen(
                     repeat(6) { colIndex ->
                         put(Pair(rowIndex, colIndex), FocusRequester())
                     }
+                } else if (rowIndex == 7) {
+                    // Row 7 (banner-promo): 2 buttons (col 0 and 1), NO CategoryIcon
+                    put(Pair(rowIndex, 0), FocusRequester()) // Button 1: "Wypożycz"
+                    put(Pair(rowIndex, 1), FocusRequester()) // Button 2: "Więcej informacji"
                 } else {
                     // Other rows: CategoryIcon + Fixed focus position
                     put(Pair(rowIndex, -1), FocusRequester()) // CategoryIcon (or slider placeholder)
@@ -7980,6 +8043,8 @@ private const val ODKRYWAJ_COLLECTION_SLIDER_NORMAL_ROW_HEIGHT = 544 // Collecti
 private const val ODKRYWAJ_COLLECTION_SLIDER_EXPANDED_ROW_HEIGHT = 544 // NO expansion for collection slider
 private const val ODKRYWAJ_APP_ICONS_NORMAL_ROW_HEIGHT = 256 // App icons (220px) + spacing (36px) - like TELEWIZJA
 private const val ODKRYWAJ_APP_ICONS_EXPANDED_ROW_HEIGHT = 256 // NO expansion for app-icons (same as normal)
+private const val ODKRYWAJ_BANNER_PROMO_NORMAL_ROW_HEIGHT = 293 // Banner promo (253px content + 40px spacing)
+private const val ODKRYWAJ_BANNER_PROMO_EXPANDED_ROW_HEIGHT = 293 // Same - no expansion for banner promo
 private const val ODKRYWAJ_CONTENT_FOCUS_EXTRA_SPACING = 100 // Extra spacing above focused content row
 
 // ODKRYWAJ infinity loop constants
@@ -8589,11 +8654,11 @@ fun handleOdkrywajNavigation(
                 return true
             } else if (focusedRowIndex > 0) {
                 val newRowIndex = focusedRowIndex - 1
-                // Row 0 (slider-max) and row 1 (shortcuts) have no CategoryIcon - always go to col=0
+                // Row 0 (slider-max), row 1 (shortcuts), row 7 (banner-promo) have no CategoryIcon - always go to col=0
                 // Row 2 (Teraz w TV) - normal horizontal with CategoryIcon
-                // Row 3 (app-icons) has CategoryIcon - preserve type (ZMIANA z row 2!)
+                // Row 3 (app-icons) has CategoryIcon - preserve type
                 val targetColIndex = when (newRowIndex) {
-                    0, 1 -> 0 // No CategoryIcon, go to content
+                    0, 1, 7 -> 0 // No CategoryIcon, go to content (slider-max, shortcuts, banner-promo)
                     3 -> if (focusedColIndex == -1) -1 else 0 // Row 3 (app-icons) has CategoryIcon
                     else -> if (focusedColIndex == -1) -1 else 0 // Preserve type for rows with CategoryIcon
                 }
@@ -8644,11 +8709,11 @@ fun handleOdkrywajNavigation(
             // Normal DOWN navigation
             if (focusedRowIndex < channels.size - 1) {
                 val newRowIndex = focusedRowIndex + 1
-                // Row 0 (slider-max) and row 1 (shortcuts) have no CategoryIcon - always go to col=0
+                // Row 0 (slider-max), row 1 (shortcuts), row 7 (banner-promo) have no CategoryIcon - always go to col=0
                 // Row 2 (Teraz w TV) - normal horizontal with CategoryIcon
-                // Row 3 (app-icons) has CategoryIcon - preserve type (ZMIANA z row 2!)
+                // Row 3 (app-icons) has CategoryIcon - preserve type
                 val targetColIndex = when (newRowIndex) {
-                    0, 1 -> 0 // No CategoryIcon, go to content
+                    0, 1, 7 -> 0 // No CategoryIcon, go to content (slider-max, shortcuts, banner-promo)
                     3 -> if (focusedColIndex == -1) -1 else 0 // Row 3 (app-icons) has CategoryIcon
                     else -> if (focusedColIndex == -1) -1 else 0 // Preserve type for rows with CategoryIcon
                 }
@@ -8685,6 +8750,15 @@ fun handleOdkrywajNavigation(
                     channelFocusRequesters[Pair(focusedRowIndex, -1)]?.requestFocus()
                 }
                 // If on CategoryIcon (-1), do nothing
+                return true
+            } else if (focusedRowIndex == 7) {
+                // Row 7 (banner-promo): direct navigation between 2 buttons (NO CategoryIcon)
+                if (focusedColIndex > 0) {
+                    val newColIndex = focusedColIndex - 1
+                    onFocusChange(focusedRowIndex, newColIndex)
+                    channelFocusRequesters[Pair(focusedRowIndex, newColIndex)]?.requestFocus()
+                }
+                // If on first button (col 0), do nothing (no CategoryIcon)
                 return true
             }
 
@@ -8731,6 +8805,14 @@ fun handleOdkrywajNavigation(
                     channelFocusRequesters[Pair(focusedRowIndex, 0)]?.requestFocus()
                 } else if (focusedColIndex < 5) {
                     // Move to next app (items 0-5)
+                    val newColIndex = focusedColIndex + 1
+                    onFocusChange(focusedRowIndex, newColIndex)
+                    channelFocusRequesters[Pair(focusedRowIndex, newColIndex)]?.requestFocus()
+                }
+                return true
+            } else if (focusedRowIndex == 7) {
+                // Row 7 (banner-promo): direct navigation between 2 buttons (NO CategoryIcon)
+                if (focusedColIndex < 1) { // Only 2 buttons (col 0 and 1)
                     val newColIndex = focusedColIndex + 1
                     onFocusChange(focusedRowIndex, newColIndex)
                     channelFocusRequesters[Pair(focusedRowIndex, newColIndex)]?.requestFocus()
@@ -9365,6 +9447,7 @@ private fun calculateOdkrywajChannelYPosition(
                 "top10" -> ODKRYWAJ_TOP10_NORMAL_ROW_HEIGHT
                 "collection-slider" -> ODKRYWAJ_COLLECTION_SLIDER_NORMAL_ROW_HEIGHT
                 "app-icons" -> ODKRYWAJ_APP_ICONS_NORMAL_ROW_HEIGHT
+                "banner-promo" -> ODKRYWAJ_BANNER_PROMO_NORMAL_ROW_HEIGHT
                 "vertical" -> {
                     if (betweenChannelName in listOf("Nowe filmy", "Polecane w KINIE PLAY")) {
                         ODKRYWAJ_VERTICAL_VOD_NORMAL_ROW_HEIGHT
@@ -9400,6 +9483,7 @@ private fun calculateOdkrywajChannelYPosition(
                     "top10" -> ODKRYWAJ_TOP10_NORMAL_ROW_HEIGHT
                     "collection-slider" -> ODKRYWAJ_COLLECTION_SLIDER_NORMAL_ROW_HEIGHT
                     "app-icons" -> ODKRYWAJ_APP_ICONS_NORMAL_ROW_HEIGHT
+                    "banner-promo" -> ODKRYWAJ_BANNER_PROMO_NORMAL_ROW_HEIGHT
                     "vertical" -> {
                         // Use VOD heights for Nowe filmy and Polecane w KINIE PLAY (VodContentCard)
                         if (betweenChannelName in listOf("Nowe filmy", "Polecane w KINIE PLAY")) {
@@ -9423,6 +9507,7 @@ private fun calculateOdkrywajChannelYPosition(
                     "top10" -> ODKRYWAJ_TOP10_EXPANDED_ROW_HEIGHT
                     "collection-slider" -> ODKRYWAJ_COLLECTION_SLIDER_EXPANDED_ROW_HEIGHT
                     "app-icons" -> ODKRYWAJ_APP_ICONS_EXPANDED_ROW_HEIGHT
+                    "banner-promo" -> ODKRYWAJ_BANNER_PROMO_EXPANDED_ROW_HEIGHT
                     "vertical" -> {
                         // Use VOD heights for Nowe filmy and Polecane w KINIE PLAY (VodContentCard)
                         if (focusedChannelName in listOf("Nowe filmy", "Polecane w KINIE PLAY")) {
@@ -9442,6 +9527,7 @@ private fun calculateOdkrywajChannelYPosition(
                     "top10" -> ODKRYWAJ_TOP10_NORMAL_ROW_HEIGHT
                     "collection-slider" -> ODKRYWAJ_COLLECTION_SLIDER_NORMAL_ROW_HEIGHT
                     "app-icons" -> ODKRYWAJ_APP_ICONS_NORMAL_ROW_HEIGHT
+                    "banner-promo" -> ODKRYWAJ_BANNER_PROMO_NORMAL_ROW_HEIGHT
                     "vertical" -> {
                         // Use VOD heights for Nowe filmy and Polecane w KINIE PLAY (VodContentCard)
                         if (focusedChannelName in listOf("Nowe filmy", "Polecane w KINIE PLAY")) {
@@ -9467,6 +9553,7 @@ private fun calculateOdkrywajChannelYPosition(
                     "top10" -> ODKRYWAJ_TOP10_NORMAL_ROW_HEIGHT
                     "collection-slider" -> ODKRYWAJ_COLLECTION_SLIDER_NORMAL_ROW_HEIGHT
                     "app-icons" -> ODKRYWAJ_APP_ICONS_NORMAL_ROW_HEIGHT
+                    "banner-promo" -> ODKRYWAJ_BANNER_PROMO_NORMAL_ROW_HEIGHT
                     "vertical" -> {
                         // Use VOD heights for Nowe filmy and Polecane w KINIE PLAY (VodContentCard)
                         if (betweenChannelName in listOf("Nowe filmy", "Polecane w KINIE PLAY")) {
@@ -10423,6 +10510,98 @@ fun OdkrywajUnifiedChannelRow(
                                 .width(sx(320))
                                 .height(sy(220))
                         )
+                    }
+                }
+            }
+            "banner-promo" -> {
+                // Static promotional banner with 2 focusable buttons (Figma: Iluzja 3)
+                // Full width banner with movie backdrop, title, and 2 buttons
+                val isCurrentRow = rowIndex == focusedRowIndex
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = sx(80))
+                        .height(sy(253))
+                        .clip(RoundedCornerShape(sx(24)))
+                        .background(Color(0xFF160B26))
+                ) {
+                    // Background image with movie poster
+                    AsyncImage(
+                        model = "https://www.figma.com/api/mcp/asset/1e0d680b-0648-47f2-961e-95c34cd1c062",
+                        contentDescription = null,
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .width(sx(1280))
+                            .align(Alignment.CenterEnd),
+                        contentScale = ContentScale.Crop
+                    )
+
+                    // Gradient overlay (left to right fade)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.horizontalGradient(
+                                    colors = listOf(
+                                        Color(0xFF160B26),
+                                        Color(0xFF160B26),
+                                        Color(0x66160B26),
+                                        Color.Transparent
+                                    ),
+                                    startX = 0f,
+                                    endX = 900f
+                                )
+                            )
+                    )
+
+                    // Content: Title + Buttons
+                    Column(
+                        modifier = Modifier
+                            .padding(start = sx(77), top = sy(28))
+                    ) {
+                        // Title
+                        Text(
+                            text = "Iluzja 3",
+                            color = Color(0xFFEEEEEE),
+                            style = TextStyle(
+                                fontSize = with(LocalDensity.current) { sx(48).toSp() },
+                                fontWeight = FontWeight.Medium,
+                                lineHeight = with(LocalDensity.current) { sy(64).toSp() },
+                                letterSpacing = (-0.96).sp
+                            )
+                        )
+
+                        Spacer(modifier = Modifier.height(sy(39)))
+
+                        // Buttons row
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(sx(24))
+                        ) {
+                            // Button 1: Wypożycz
+                            val button1Focused = isCurrentRow && focusedColIndex == 0
+                            BannerPromoButton(
+                                text = "Wypożycz: 19,99 zł / 48 h",
+                                isFocused = button1Focused,
+                                focusRequester = channelFocusRequesters[Pair(rowIndex, 0)] ?: FocusRequester(),
+                                onFocusChange = { onChannelContentFocusChange(rowIndex, 0) },
+                                onClick = { /* TODO: Navigate to rent screen */ },
+                                sx = sx,
+                                sy = sy
+                            )
+
+                            // Button 2: Więcej informacji
+                            val button2Focused = isCurrentRow && focusedColIndex == 1
+                            BannerPromoButton(
+                                text = "Więcej informacji",
+                                isFocused = button2Focused,
+                                focusRequester = channelFocusRequesters[Pair(rowIndex, 1)] ?: FocusRequester(),
+                                onFocusChange = { onChannelContentFocusChange(rowIndex, 1) },
+                                onClick = { /* TODO: Navigate to details screen */ },
+                                sx = sx,
+                                sy = sy
+                            )
+                        }
                     }
                 }
             }
