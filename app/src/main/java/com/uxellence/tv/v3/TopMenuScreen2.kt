@@ -1801,8 +1801,12 @@ fun TopMenuScreen2(
                                 // ACCOUNT handles its own navigation entirely
                                 false // Let AccountChannelsScreen handle all keys
                             }
+                            "PROFILE" -> {
+                                // PROFILE handles its own navigation entirely
+                                false // Let ProfileScreenContent handle all keys
+                            }
                             else -> {
-                                // Fallback for sections without own navigation (PROFILE, POINTS_HISTORY, PAKIETY, etc.)
+                                // Fallback for sections without own navigation (POINTS_HISTORY, PAKIETY, etc.)
                                 when (event.key) {
                                     Key.DirectionUp -> {
                                         // Set button focus states FIRST to prevent "through Start" flash
@@ -3829,26 +3833,25 @@ private fun OdkrywajChannelsScreen(
         }
     }
 
-    // Row 0: Slider Mix, Row 1: Skróty, Row 2: Aplikacje, Row 3: Oglądaj dalej,
-    // Row 4: Teraz w TV (EPG), Row 5: Netflix, Row 6: Disney+, Row 7: Top 10,
-    // Row 8: Kolekcje KINA PLAY, Row 9: Polecane w KINIE PLAY, Row 10: Ostatnio dodane w Wideo,
-    // Row 11: HBO Max, Row 12: SkyShowtime, Row 13: Amazon Prime, Row 14: Pakiety (LAST)
+    // Row 0: Slider Mix, Row 1: Skróty, Row 2: Teraz w TV, Row 3: Aplikacje,
+    // Row 4: Oglądaj dalej, Row 5: Netflix, Row 6: Disney+, Row 7: Top 10 w Kino Play,
+    // Row 8: Polecane w KINIE PLAY, Row 9: Kolekcje KINA PLAY, Row 10: HBO Max,
+    // Row 11: SkyShowtime, Row 12: Amazon Prime, Row 13: Pakiety (LAST)
     val channels = listOf(
         "Slider Mix",                   // Row 0 - slider-max
-        "Skróty",                       // Row 1 - shortcuts-v3
-        "Aplikacje",                    // Row 2 - app-icons
-        "Oglądaj dalej",                // Row 3 - horizontal
-        "Teraz w TV",                   // Row 4 - horizontal (EPG current programs)
+        "Skróty",                       // Row 1 - shortcuts-v3 (BEZ ZMIAN!)
+        "Teraz w TV",                   // Row 2 - horizontal (EPG) - przesunięty z row 4
+        "Aplikacje",                    // Row 3 - app-icons - przesunięty z row 2
+        "Oglądaj dalej",                // Row 4 - horizontal
         "Netflix",                      // Row 5 - horizontal
         "Disney+",                      // Row 6 - horizontal
-        "Top 10",                       // Row 7 - top10
-        "Kolekcje KINA PLAY",           // Row 8 - horizontal
-        "Polecane w KINIE PLAY",        // Row 9 - vertical
-        "Ostatnio dodane w Wideo",      // Row 10 - horizontal
-        "HBO Max",                      // Row 11 - horizontal
-        "SkyShowtime",                  // Row 12 - horizontal
-        "Amazon Prime",                 // Row 13 - horizontal
-        "Pakiety"                       // Row 14 - horizontal (MOVED TO LAST)
+        "Top 10 w Kino Play",           // Row 7 - top10 (RENAMED!)
+        "Polecane w KINIE PLAY",        // Row 8 - vertical
+        "Kolekcje KINA PLAY",           // Row 9 - horizontal
+        "HBO Max",                      // Row 10 - horizontal
+        "SkyShowtime",                  // Row 11 - horizontal
+        "Amazon Prime",                 // Row 12 - horizontal
+        "Pakiety"                       // Row 13 - horizontal (LAST)
     )
 
     // Define channel types - shortcuts version depends on sliderVersion
@@ -3861,19 +3864,18 @@ private fun OdkrywajChannelsScreen(
                 3 -> "shortcuts-v4"
                 else -> "shortcuts-v3"
             },
+            "Teraz w TV" to "horizontal",
             "Aplikacje" to "app-icons",
             "Oglądaj dalej" to "horizontal",
-            "Teraz w TV" to "horizontal",
             "Netflix" to "horizontal",
             "Disney+" to "horizontal",
-            "Top 10" to "top10",
-            "Kolekcje KINA PLAY" to "horizontal",
-            "Pakiety" to "horizontal",
+            "Top 10 w Kino Play" to "top10",
             "Polecane w KINIE PLAY" to "vertical",
-            "Ostatnio dodane w Wideo" to "horizontal",
+            "Kolekcje KINA PLAY" to "horizontal",
             "HBO Max" to "horizontal",
             "SkyShowtime" to "horizontal",
-            "Amazon Prime" to "horizontal"
+            "Amazon Prime" to "horizontal",
+            "Pakiety" to "horizontal"
         )
     }
 
@@ -3908,20 +3910,19 @@ private fun OdkrywajChannelsScreen(
                 when (channelName) {
                     "Slider Mix" -> vodContentList.shuffled().take(10)
                     "Skróty" -> emptyList() // shortcuts-v3, osobna lista
+                    "Teraz w TV" -> terazWTvPrograms.ifEmpty { vodContentList.shuffled().take(10) } // EPG current programs
                     "Aplikacje" -> emptyList() // app-icons, osobna lista apps
                     "Oglądaj dalej" -> vodContentList.shuffled().take(10)
-                    "Teraz w TV" -> terazWTvPrograms.ifEmpty { vodContentList.shuffled().take(10) } // EPG current programs
                     "Netflix" -> vodContentList.shuffled().take(10)
                     "Disney+" -> vodContentList.shuffled().take(10)
-                    "Top 10" -> VodDataCache.getTop10().ifEmpty { kinoPlayMovies.take(10) }
-                    "Kolekcje KINA PLAY" -> collections
-                    "Pakiety" -> pakiety
+                    "Top 10 w Kino Play" -> VodDataCache.getTop10().ifEmpty { kinoPlayMovies.take(10) }
                     // Polecane w KINIE PLAY - dane z Supabase z cenami!
                     "Polecane w KINIE PLAY" -> supabaseNewest.ifEmpty { kinoPlayMovies.take(10) }
-                    "Ostatnio dodane w Wideo" -> vodContentList.shuffled().take(10)
+                    "Kolekcje KINA PLAY" -> collections
                     "HBO Max" -> vodContentList.shuffled().take(10)
                     "SkyShowtime" -> vodContentList.shuffled().take(10)
                     "Amazon Prime" -> vodContentList.shuffled().take(10)
+                    "Pakiety" -> pakiety
                     else -> vodContentList.shuffled().take(10)
                 }
             }
@@ -4012,12 +4013,13 @@ private fun OdkrywajChannelsScreen(
         mutableMapOf<Pair<Int, Int>, FocusRequester>().apply {
             repeat(channels.size) { rowIndex ->
                 if (rowIndex == 1) {
-                    // Row 1 (shortcuts): create FocusRequesters for items 0-5 (5 shortcuts + plus button)
+                    // Row 1 (shortcuts): create FocusRequesters for items 0-5 (5 shortcuts + plus button) - BEZ ZMIAN
                     repeat(6) { colIndex ->
                         put(Pair(rowIndex, colIndex), FocusRequester())
                     }
-                } else if (rowIndex == 2) {
-                    // Row 2 (app-icons "Aplikacje"): create FocusRequesters for CategoryIcon + items 0-5 (6 apps)
+                } else if (rowIndex == 3) {
+                    // Row 3 (app-icons "Aplikacje"): create FocusRequesters for CategoryIcon + items 0-5 (6 apps)
+                    // ZMIANA z row 2 na row 3!
                     put(Pair(rowIndex, -1), FocusRequester()) // CategoryIcon
                     repeat(6) { colIndex ->
                         put(Pair(rowIndex, colIndex), FocusRequester())
@@ -8588,10 +8590,11 @@ fun handleOdkrywajNavigation(
             } else if (focusedRowIndex > 0) {
                 val newRowIndex = focusedRowIndex - 1
                 // Row 0 (slider-max) and row 1 (shortcuts) have no CategoryIcon - always go to col=0
-                // Row 2+ (including app-icons) have CategoryIcon - preserve type
+                // Row 2 (Teraz w TV) - normal horizontal with CategoryIcon
+                // Row 3 (app-icons) has CategoryIcon - preserve type (ZMIANA z row 2!)
                 val targetColIndex = when (newRowIndex) {
                     0, 1 -> 0 // No CategoryIcon, go to content
-                    2 -> if (focusedColIndex == -1) -1 else 0 // app-icons has CategoryIcon
+                    3 -> if (focusedColIndex == -1) -1 else 0 // Row 3 (app-icons) has CategoryIcon
                     else -> if (focusedColIndex == -1) -1 else 0 // Preserve type for rows with CategoryIcon
                 }
                 onFocusChange(newRowIndex, targetColIndex)
@@ -8642,10 +8645,11 @@ fun handleOdkrywajNavigation(
             if (focusedRowIndex < channels.size - 1) {
                 val newRowIndex = focusedRowIndex + 1
                 // Row 0 (slider-max) and row 1 (shortcuts) have no CategoryIcon - always go to col=0
-                // Row 2+ (including app-icons) have CategoryIcon - preserve type
+                // Row 2 (Teraz w TV) - normal horizontal with CategoryIcon
+                // Row 3 (app-icons) has CategoryIcon - preserve type (ZMIANA z row 2!)
                 val targetColIndex = when (newRowIndex) {
                     0, 1 -> 0 // No CategoryIcon, go to content
-                    2 -> if (focusedColIndex == -1) -1 else 0 // app-icons has CategoryIcon
+                    3 -> if (focusedColIndex == -1) -1 else 0 // Row 3 (app-icons) has CategoryIcon
                     else -> if (focusedColIndex == -1) -1 else 0 // Preserve type for rows with CategoryIcon
                 }
                 onFocusChange(newRowIndex, targetColIndex)
@@ -8668,8 +8672,8 @@ fun handleOdkrywajNavigation(
                     channelFocusRequesters[Pair(focusedRowIndex, newColIndex)]?.requestFocus()
                 }
                 return true
-            } else if (focusedRowIndex == 2) {
-                // Row 2 (app-icons "Aplikacje"): direct focus navigation with CategoryIcon
+            } else if (focusedRowIndex == 3) {
+                // Row 3 (app-icons "Aplikacje"): direct focus navigation with CategoryIcon (ZMIANA z row 2!)
                 if (focusedColIndex > 0) {
                     // Move to previous app
                     val newColIndex = focusedColIndex - 1
@@ -8719,8 +8723,8 @@ fun handleOdkrywajNavigation(
                     channelFocusRequesters[Pair(focusedRowIndex, newColIndex)]?.requestFocus()
                 }
                 return true
-            } else if (focusedRowIndex == 2) {
-                // Row 2 (app-icons "Aplikacje"): direct focus navigation with CategoryIcon
+            } else if (focusedRowIndex == 3) {
+                // Row 3 (app-icons "Aplikacje"): direct focus navigation with CategoryIcon (ZMIANA z row 2!)
                 if (focusedColIndex == -1) {
                     // From CategoryIcon, go to first app (col 0)
                     onFocusChange(focusedRowIndex, 0)
@@ -10697,11 +10701,10 @@ fun OdkrywajUnifiedChannelRow(
                     "Teraz w TV" -> R.drawable.tv_icon
                     "Netflix" -> R.drawable.netflix_logo
                     "Disney+" -> R.drawable.disney_plus_logo
-                    "Top 10" -> R.drawable.kinoplay2
+                    "Top 10 w Kino Play" -> R.drawable.ic_cup
                     "Kolekcje KINA PLAY" -> R.drawable.kinoplay2
                     "Pakiety" -> R.drawable.ic_packages
                     "Polecane w KINIE PLAY" -> R.drawable.kinoplay2
-                    "Ostatnio dodane w Wideo" -> R.drawable.wideo_kat
                     "HBO Max" -> R.drawable.hbo_max_logo
                     "SkyShowtime" -> R.drawable.skyshowtime_logo
                     "Amazon Prime" -> R.drawable.prime_video_logo
@@ -16753,114 +16756,379 @@ private fun PakietyScreenContent(
     }
 }
 
+// ============================================================================
+// PROFILE SELECTION SCREEN - "Kto ogląda?"
+// ============================================================================
+
 /**
- * Profile section - for switching between user profiles
- * Figma: Shows available profiles with avatars
+ * User profile data model
+ */
+private data class UserProfile(
+    val id: String,
+    val name: String,
+    val avatarType: ProfileAvatarType,
+    val avatarContent: String // letter, icon name, or "kids"
+)
+
+/**
+ * Avatar type variants
+ */
+private sealed class ProfileAvatarType {
+    data object Letter : ProfileAvatarType()      // Single letter with color
+    data object Icon : ProfileAvatarType()        // Icon image (monster, pokemon)
+    data object Kids : ProfileAvatarType()        // Gradient with "Dzieci" text
+}
+
+/**
+ * Profile Avatar composable
+ * Renders different avatar types: Letter, Icon, Kids gradient
+ */
+@Composable
+private fun ProfileAvatar(
+    profile: UserProfile,
+    isFocused: Boolean,
+    onClick: () -> Unit,
+    sx: (Int) -> Dp,
+    sy: (Int) -> Dp
+) {
+    val avatarSize = sx(216)
+    val focusBorderColor = Color(0xFF5AECD3) // aqua
+    val avatarBgColor = Color(0x33EEEEEE) // 20% white
+    val letterColor = Color(0xFFE2AE29) // yellow for letters
+
+    // Focus managed by parent - no individual focusable (Focus Architect pattern)
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // Avatar circle
+        Box(
+            modifier = Modifier
+                .size(avatarSize)
+                .then(
+                    if (isFocused) {
+                        Modifier.border(
+                            width = 4.dp,
+                            color = focusBorderColor,
+                            shape = CircleShape
+                        )
+                    } else Modifier
+                )
+                .then(
+                    when (profile.avatarType) {
+                        is ProfileAvatarType.Kids -> Modifier.background(
+                            brush = Brush.linearGradient(
+                                colors = listOf(Color(0xFFF0B71C), Color(0xFFE61BCF))
+                            ),
+                            shape = CircleShape
+                        )
+                        else -> Modifier.background(
+                            color = avatarBgColor,
+                            shape = CircleShape
+                        )
+                    }
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            when (profile.avatarType) {
+                is ProfileAvatarType.Letter -> {
+                    Text(
+                        text = profile.avatarContent,
+                        color = letterColor,
+                        fontSize = (88 * sy(1).value / 1).sp,  // Figma: 88px
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+                is ProfileAvatarType.Icon -> {
+                    // Use Material Icons as placeholders
+                    Icon(
+                        imageVector = when (profile.avatarContent) {
+                            "monster" -> Icons.Default.Star
+                            "pokemon" -> Icons.Default.Info
+                            else -> Icons.Default.Person
+                        },
+                        contentDescription = profile.name,
+                        tint = Color(0xFFEEEEEE),
+                        modifier = Modifier.size(sx(96))
+                    )
+                }
+                is ProfileAvatarType.Kids -> {
+                    Text(
+                        text = "Dzieci",
+                        color = Color.White,
+                        fontSize = (32 * sy(1).value / 1).sp,  // Figma: 32px
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(sy(16)))
+
+        // Profile name - Figma: 28px
+        Text(
+            text = if (profile.name.length > 15) "${profile.name.take(15)}..." else profile.name,
+            color = Color(0xFFEEEEEE),
+            fontSize = (28 * sy(1).value / 1).sp,  // Figma: 28px
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+/**
+ * Profile action button (Nowy profil / Edytuj profile)
+ */
+@Composable
+private fun ProfileActionButton(
+    text: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    isFocused: Boolean,
+    isPrimary: Boolean, // true = aqua, false = gray
+    onClick: () -> Unit,
+    sx: (Int) -> Dp,
+    sy: (Int) -> Dp
+) {
+    val aquaColor = Color(0xFF5AECD3)
+    val purpleColor = Color(0xFF48227C)
+    val grayBgColor = Color(0x33EEEEEE) // 20% white
+
+    val backgroundColor = when {
+        isFocused -> aquaColor
+        isPrimary -> aquaColor
+        else -> grayBgColor
+    }
+
+    val contentColor = when {
+        isFocused -> purpleColor
+        isPrimary -> purpleColor
+        else -> Color(0xFFEEEEEE)
+    }
+
+    // Focus managed by parent - no individual focusable (Focus Architect pattern)
+    Row(
+        modifier = Modifier
+            .height(sy(72))
+            .background(
+                color = backgroundColor,
+                shape = RoundedCornerShape(sx(8))
+            )
+            .padding(horizontal = sx(32)),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(sx(12))
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = text,
+            tint = contentColor,
+            modifier = Modifier.size(sx(24))
+        )
+        Text(
+            text = text,
+            color = contentColor,
+            fontSize = (24 * sy(1).value / 1).sp,  // Figma: 24px
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+/**
+ * Profile section - "Kto ogląda?" screen
+ * Figma design node: 908:7954
+ *
+ * Layout:
+ * - Row 0: 4 profile avatars
+ * - Row 1: 2 action buttons (Nowy profil, Edytuj profile)
+ *
+ * Navigation:
+ * - LEFT/RIGHT: move within row
+ * - UP/DOWN: switch between rows
+ * - ENTER: select profile or button action
+ * - BACK: return to menu
  */
 @Composable
 private fun ProfileScreenContent(
     globalFocusState: MutableState<GlobalFocusState>,
     onPrepareReturnFocus: () -> Unit = {},  // Set button focus state BEFORE returning
+    onProfileSelected: (UserProfile) -> Unit = {},
     sx: (Int) -> Dp,
     sy: (Int) -> Dp
 ) {
-    // Focus requester for the main button
-    val buttonFocusRequester = remember { FocusRequester() }
-    var isButtonFocused by remember { mutableStateOf(false) }
+    // Profiles: Piotr (selected), Angelika, Dzieci - 3 profiles
+    val profiles = remember {
+        listOf(
+            UserProfile("1", "Piotr", ProfileAvatarType.Letter, "P"),        // Selected profile
+            UserProfile("2", "Angelika", ProfileAvatarType.Icon, "monster"),
+            UserProfile("kids", "Dzieci", ProfileAvatarType.Kids, "kids")
+        )
+    }
 
-    // Auto-focus the button when entering content
+    // Focus state: row (-1=none, 0=profiles, 1=buttons), column (0-2 for profiles, 0-1 for buttons)
+    // Start with -1 = nothing focused until user presses DOWN or OK
+    var focusedRow by remember { mutableIntStateOf(-1) }
+    var focusedCol by remember { mutableIntStateOf(0) }
+
+    // Single FocusRequester for the main container (Focus Architect pattern)
+    val mainFocusRequester = remember { FocusRequester() }
+
+    // Auto-focus first avatar when entering content
     LaunchedEffect(globalFocusState.value.currentRow) {
         if (globalFocusState.value.currentRow > 0 && globalFocusState.value.sectionId == "PROFILE") {
             delay(150)
-            buttonFocusRequester.requestFocus()
+            mainFocusRequester.requestFocus()
+            // Automatically focus first avatar when entering PROFILE section
+            focusedRow = 0
+            focusedCol = 0
         }
     }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF281443))
+            .background(Color(0xFF281443)) // purple background
+            .focusRequester(mainFocusRequester)
+            .focusable()
             .onPreviewKeyEvent { event ->
-                if (event.type == KeyEventType.KeyDown && event.key == Key.Back) {
-                    // Set button focus state FIRST to prevent "through Start" flash
-                    onPrepareReturnFocus()
-                    globalFocusState.value = GlobalFocusManager.returnToMenu(globalFocusState.value)
-                    return@onPreviewKeyEvent true
+                if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+
+                when (event.key) {
+                    Key.DirectionLeft -> {
+                        if (focusedRow >= 0 && focusedCol > 0) {
+                            focusedCol--
+                        }
+                        true
+                    }
+                    Key.DirectionRight -> {
+                        if (focusedRow >= 0) {
+                            val maxCol = if (focusedRow == 0) profiles.size - 1 else 1
+                            if (focusedCol < maxCol) {
+                                focusedCol++
+                            }
+                        }
+                        true
+                    }
+                    Key.DirectionUp -> {
+                        when {
+                            focusedRow == 1 -> {
+                                focusedRow = 0
+                                focusedCol = focusedCol.coerceAtMost(profiles.size - 1)
+                            }
+                            focusedRow == 0 -> {
+                                // Return to menu when pressing UP from avatars
+                                focusedRow = -1
+                                onPrepareReturnFocus()
+                                globalFocusState.value = GlobalFocusManager.returnToMenu(globalFocusState.value)
+                            }
+                        }
+                        true
+                    }
+                    Key.DirectionDown -> {
+                        when {
+                            focusedRow == -1 -> {
+                                // First activation - focus first avatar
+                                focusedRow = 0
+                                focusedCol = 0
+                            }
+                            focusedRow == 0 -> {
+                                focusedRow = 1
+                                focusedCol = focusedCol.coerceAtMost(1)
+                            }
+                        }
+                        true
+                    }
+                    Key.Enter, Key.NumPadEnter, Key.DirectionCenter -> {
+                        when {
+                            focusedRow == -1 -> {
+                                // First activation via OK - focus first avatar
+                                focusedRow = 0
+                                focusedCol = 0
+                            }
+                            focusedRow == 0 && focusedCol in profiles.indices -> {
+                                onProfileSelected(profiles[focusedCol])
+                            }
+                            focusedRow == 1 -> {
+                                when (focusedCol) {
+                                    0 -> { /* TODO: Nowy profil */ }
+                                    1 -> { /* TODO: Edytuj profile */ }
+                                }
+                            }
+                        }
+                        true
+                    }
+                    Key.Back -> {
+                        onPrepareReturnFocus()
+                        globalFocusState.value = GlobalFocusManager.returnToMenu(globalFocusState.value)
+                        true
+                    }
+                    else -> false
                 }
-                false
             },
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.TopCenter
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(sy(40))
+            modifier = Modifier.fillMaxSize()
         ) {
-            // Profile icon
-            Icon(
-                imageVector = Icons.Default.Person,
-                contentDescription = "Profil",
-                tint = TopMenuDesign.COLOR_FOCUS_BORDER,
-                modifier = Modifier.size(sx(120), sy(120))
-            )
+            // Top padding - 340px (raised by 80px from 420)
+            Spacer(modifier = Modifier.height(sy(340)))
 
-            // Title
+            // Title "Kto ogląda?" - 60px
             Text(
-                text = "Zmień profil",
-                color = Color.White,
-                fontSize = (48 * sy(1).value / 1).sp,
-                fontWeight = FontWeight.Bold
+                text = "Kto ogląda?",
+                color = Color(0xFFEEEEEE),
+                fontSize = (60 * sy(1).value / 1).sp,  // 60px
+                fontWeight = FontWeight.Medium
             )
 
-            // Placeholder info
-            Text(
-                text = "Ekran w przygotowaniu",
-                color = Color(0xCCEEEEEE),
-                fontSize = (32 * sy(1).value / 1).sp
-            )
+            // Gap: title → profiles
+            Spacer(modifier = Modifier.height(sy(64)))
 
-            // Focusable button (main interaction point)
-            Box(
-                modifier = Modifier
-                    .width(sx(400))
-                    .height(sy(100))
-                    .background(
-                        color = if (isButtonFocused) Color(0xFF5AECD3) else Color(0x33EEEEEE),
-                        shape = RoundedCornerShape(sx(50))
-                    )
-                    .border(
-                        width = if (isButtonFocused) 4.dp else 0.dp,
-                        color = if (isButtonFocused) Color.White else Color.Transparent,
-                        shape = RoundedCornerShape(sx(50))
-                    )
-                    .focusRequester(buttonFocusRequester)
-                    .onFocusChanged { isButtonFocused = it.isFocused }
-                    .focusable()
-                    .onPreviewKeyEvent { event ->
-                        if (event.type == KeyEventType.KeyDown &&
-                            (event.key == Key.Enter || event.key == Key.DirectionCenter)) {
-                            // TODO: Handle button click - show profile selection
-                            true
-                        } else {
-                            false
-                        }
-                    },
-                contentAlignment = Alignment.Center
+            // Row of profile avatars (3 profiles)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(sx(40)),
+                verticalAlignment = Alignment.Top
             ) {
-                Text(
-                    text = "Wybierz profil",
-                    color = if (isButtonFocused) Color(0xFF48227C) else Color.White,
-                    fontSize = sy(28).value.sp,
-                    fontWeight = FontWeight.Medium
-                )
+                profiles.forEachIndexed { index, profile ->
+                    ProfileAvatar(
+                        profile = profile,
+                        isFocused = focusedRow == 0 && focusedCol == index,
+                        onClick = { onProfileSelected(profile) },
+                        sx = sx,
+                        sy = sy
+                    )
+                }
             }
 
-            // Navigation hint
-            Text(
-                text = "Naciśnij BACK aby wrócić do menu",
-                color = Color(0x80EEEEEE),
-                fontSize = (24 * sy(1).value / 1).sp,
-                modifier = Modifier.padding(top = sy(40))
-            )
+            // Gap: profiles → buttons
+            Spacer(modifier = Modifier.height(sy(112)))
+
+            // Action buttons row
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(sx(24)),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // "Nowy profil" button (default gray, aqua only when focused)
+                ProfileActionButton(
+                    text = "Nowy profil",
+                    icon = Icons.Default.Add,
+                    isFocused = focusedRow == 1 && focusedCol == 0,
+                    isPrimary = false,
+                    onClick = { /* TODO: Navigate to new profile screen */ },
+                    sx = sx,
+                    sy = sy
+                )
+
+                // "Edytuj profile" button (secondary - gray)
+                ProfileActionButton(
+                    text = "Edytuj profile",
+                    icon = Icons.Default.Settings, // Using Settings as pencil placeholder
+                    isFocused = focusedRow == 1 && focusedCol == 1,
+                    isPrimary = false,
+                    onClick = { /* TODO: Navigate to edit profiles screen */ },
+                    sx = sx,
+                    sy = sy
+                )
+            }
         }
     }
 }

@@ -32,7 +32,15 @@ data class SupabaseMovie(
     val is_slider: Boolean = false,
     val slider_order: Int? = null,
     val is_recommended: Boolean = false,
-    val youtube_url: String? = null
+    val youtube_url: String? = null,
+    // Nowe pola dla MovieDetailScreen (Figma design)
+    val country: String? = null,           // Kraj produkcji (np. "Polska")
+    val age_rating: String? = null,        // Wiek (np. "7 lat")
+    val filmweb_rating: Double? = null,    // Ocena Filmweb (np. 6.7)
+    val audio_languages: String? = null,   // Dźwięk: "angielski | polski | hiszpański"
+    val subtitle_languages: String? = null,// Napisy: "angielski | polski"
+    val director: String? = null,          // Reżyser: "Álex Pina"
+    val cast: String? = null               // Obsada: "Úrsula Corberó, Álvaro Morte..."
 )
 
 /**
@@ -57,11 +65,17 @@ fun SupabaseMovie.toVodSlideData(): VodSlideData = VodSlideData(
     genre = genre ?: "",
     duration = runtime ?: "",
     year = release_year?.let { "$it r." } ?: "",
-    country = "USA",
-    ageRating = "13 lat",
+    country = country ?: "Polska",
+    ageRating = age_rating ?: "13 lat",
     description = short_description ?: description ?: "",
     price = price?.let { "$it zł/48h" } ?: "24 zł/48h",
     backgroundUrl = backdrop_url ?: "",
     posterUrl = poster_url ?: "",
-    youtubeUrl = youtube_url
+    youtubeUrl = youtube_url,
+    // Nowe pola dla MovieDetailScreen (Figma design)
+    filmwebRating = filmweb_rating,
+    audioLanguages = audio_languages,
+    subtitleLanguages = subtitle_languages,
+    director = director,
+    cast = cast
 )

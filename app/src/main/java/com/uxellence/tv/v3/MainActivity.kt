@@ -39,6 +39,7 @@ import com.uxellence.tv.v3.channels.ChannelManager
 import com.uxellence.tv.v3.version001.VodContent
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.lifecycle.lifecycleScope
 import com.uxellence.tv.v3.ui.theme.figmaRadialBackground
 import com.uxellence.tv.v3.config.ConfigManager
 import com.uxellence.tv.v3.moviedetail.MovieDetailScreen
@@ -55,6 +56,10 @@ class MainActivity : ComponentActivity() {
         ChannelManager.initialize(this)
         // Initialize ConfigManager - load cached config from Supabase
         ConfigManager.initialize(this)
+        // Auto-refresh config from Supabase on app startup
+        lifecycleScope.launch {
+            ConfigManager.refreshConfig(this@MainActivity)
+        }
         setContent { TvRoot() }
     }
 
@@ -710,7 +715,7 @@ fun TvRoot(
                         currentScreen = NavigationScreen.TOP_MENU2
                     },
                     initialChannelId = savedTelewizjaFocus?.itemId,  // Start EPG on selected channel (itemId contains epgId like "Polsat")
-                    showTopMenuOverlay = isEpgDayFromStartup,  // Show overlay only when launched from startup
+                    showTopMenuOverlay = false,  // Disabled: was isEpgDayFromStartup
                     shouldNavigateHomeWithPip = shouldNavigateHomeWithPip,  // HOME button PIP navigation request
                     onHomeNavigationComplete = { shouldNavigateHomeWithPip = false },  // Reset flag after navigation
                     sx = ::sx,  // Layout Engineer: ALWAYS pass sx/sy

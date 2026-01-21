@@ -4,10 +4,12 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -31,19 +33,27 @@ import coil.compose.AsyncImage
 import com.uxellence.tv.v3.R
 import com.uxellence.tv.v3.VodSlideData
 import kotlinx.coroutines.delay
+import java.text.SimpleDateFormat
+import java.util.*
 
 /**
- * MovieDetailScreen - Pełnoekranowy widok szczegółów filmu
+ * MovieDetailScreen - Pełnoekranowy widok szczegółów filmu wg Figmy
  *
- * Wyświetla się po naciśnięciu OK na sliderze KINO PLAY.
- * Style identyczne jak na sliderze (ContentLabelV2, SliderMetadataRowV2, etc.)
+ * Layout wg Figmy (node 478-7670):
+ * - Zegar w prawym górnym rogu
+ * - Tytuł 64px
+ * - Metadata: genre | duration | year | country | age | Filmweb + rating
+ * - Opis 320px wysokość, scrollowalny
+ * - Szczegóły: Dźwięk, Napisy, Reżyser, Obsada
+ * - Poster 225x320px po prawej
+ * - Scroll indicator (pionowe kropki)
+ * - 3 przyciski (bez "Więcej informacji")
  *
  * @param item Dane filmu z VodSlideData
  * @param onBackPressed Callback dla przycisku BACK
- * @param onRentClicked Callback dla przycisku "Wypożycz" - przechodzi do PurchaseScreen
+ * @param onRentClicked Callback dla przycisku "Wypożycz"
  * @param onTrailerClicked Callback dla przycisku "Zwiastun"
  * @param onPreviewClicked Callback dla przycisku "Zobacz fragment"
- * @param onMoreInfoClicked Callback dla przycisku "Więcej informacji"
  */
 @Composable
 fun MovieDetailScreen(
@@ -52,7 +62,7 @@ fun MovieDetailScreen(
     onRentClicked: () -> Unit = {},
     onTrailerClicked: () -> Unit = {},
     onPreviewClicked: () -> Unit = {},
-    onMoreInfoClicked: () -> Unit = {}
+    onMoreInfoClicked: () -> Unit = {} // Zachowujemy dla kompatybilności, ale nie używamy
 ) {
     val configuration = LocalConfiguration.current
     val scaleX = configuration.screenWidthDp / 1920f
@@ -60,9 +70,27 @@ fun MovieDetailScreen(
     fun sx(px: Int): Dp = (px * scaleX).dp
     fun sy(px: Int): Dp = (px * scaleY).dp
 
-    // Focus management for buttons
+    // Focus management for 3 buttons
     var focusedButtonIndex by remember { mutableIntStateOf(0) }
-    val buttonFocusRequesters = remember { List(4) { FocusRequester() } }
+    val buttonFocusRequesters = remember { List(3) { FocusRequester() } }
+
+    // Scroll state for description
+    val descriptionScrollState = rememberScrollState()
+
+    // Calculate scroll position (0-2) for indicator
+    val scrollPosition by remember {
+        derivedStateOf {
+            if (descriptionScrollState.maxValue == 0) 0
+            else {
+                val progress = descriptionScrollState.value.toFloat() / descriptionScrollState.maxValue
+                when {
+                    progress < 0.33f -> 0
+                    progress < 0.66f -> 1
+                    else -> 2
+                }
+            }
+        }
+    }
 
     // Request focus on first button when screen loads
     LaunchedEffect(Unit) {
@@ -70,13 +98,19 @@ fun MovieDetailScreen(
         buttonFocusRequesters.getOrNull(0)?.requestFocus()
     }
 
-    // Button labels
+    // Button labels (3 buttons as per Figma)
     val buttons = listOf(
         "Wypożycz: ${item.price}",
         "Zwiastun",
-        "Zobacz fragment",
-        "Więcej informacji"
+        "Zobacz fragment"
     )
+
+    // Mock data fallbacks for missing fields
+    val displayFilmwebRating = item.filmwebRating ?: 6.7
+    val displayAudioLanguages = item.audioLanguages ?: "angielski  |  polski  |  hiszpański  |  niemiecki"
+    val displaySubtitleLanguages = item.subtitleLanguages ?: "angielski  |  polski"
+    val displayDirector = item.director ?: "Álex Pina"
+    val displayCast = item.cast ?: "Úrsula Corberó, Álvaro Morte, Alba Flores, Miguel Herrán, Pedro Alonso"
 
     Box(
         modifier = Modifier
@@ -109,7 +143,6 @@ fun MovieDetailScreen(
                             0 -> onRentClicked()
                             1 -> onTrailerClicked()
                             2 -> onPreviewClicked()
-                            3 -> onMoreInfoClicked()
                         }
                         true
                     }
@@ -135,11 +168,11 @@ fun MovieDetailScreen(
             contentScale = ContentScale.FillBounds
         )
 
-        // Layer 3: Additional gradient for text readability (same as slider)
+        // Layer 3: Additional gradient for text readability
         Box(
             modifier = Modifier
                 .fillMaxHeight()
-                .width(sx(800))
+                .width(sx(900))
                 .align(Alignment.CenterStart)
                 .offset(x = sx(400))
                 .background(
@@ -152,78 +185,90 @@ fun MovieDetailScreen(
                 )
         )
 
-        // Layer 4: Content (same layout as slider)
-        Box(
+        // Layer 4: Clock in top-right corner
+        TimeLabel(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = sy(60), end = sx(100)),
+            sx = ::sx,
+            sy = ::sy
+        )
+
+        // Layer 5: Main content area
+        Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(start = sx(164), top = sy(200), bottom = sy(40))
+                .padding(start = sx(388), top = sy(168), end = sx(100), bottom = sy(40)),
+            horizontalArrangement = Arrangement.spacedBy(sx(64))
         ) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                // EMBLEM: Logo + labels (same as slider)
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(sx(30))
-                ) {
-                    // Logo KINO PLAY
-                    Image(
-                        painter = painterResource(id = R.drawable.logo_kino_pay),
-                        contentDescription = "KINO PLAY"
-                    )
-
-                    // Content labels (Premiera premium + 4K) - EXACT same as slider
-                    ContentLabelV2(
-                        label = "Premiera premium",
-                        show4K = true,
-                        sx = ::sx,
-                        sy = ::sy
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(sy(24)))
-
-                // Title - EXACT same style as slider
+            // Left column - Text content
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+            ) {
+                // Title - 64px, Medium
                 Text(
                     text = item.title,
                     color = Color(0xFFEEEEEE),
-                    fontSize = sy(48).value.sp,
+                    fontSize = sy(64).value.sp,
                     fontWeight = FontWeight.Medium,
-                    maxLines = 3,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    lineHeight = sy(56).value.sp,
-                    modifier = Modifier.widthIn(max = sx(600))
+                    lineHeight = sy(88).value.sp
                 )
 
-                Spacer(modifier = Modifier.height(sy(16)))
+                Spacer(modifier = Modifier.height(sy(8)))
 
-                // Metadata row - EXACT same style as slider
-                SliderMetadataRowV2(
+                // Metadata row - genre | duration | year | country | age | Filmweb + rating
+                MetadataRow(
                     genre = item.genre,
                     duration = item.duration,
+                    year = item.year,
+                    country = item.country,
                     ageRating = item.ageRating,
-                    showKrritImage = true,
+                    filmwebRating = displayFilmwebRating,
                     sx = ::sx,
                     sy = ::sy
                 )
 
-                Spacer(modifier = Modifier.height(sy(16)))
+                Spacer(modifier = Modifier.height(sy(32)))
 
-                // Description - EXACT same style as slider
-                Text(
-                    text = item.description,
-                    color = Color(0xFFEEEEEE),
-                    fontSize = sy(24).value.sp,
-                    fontWeight = FontWeight.Normal,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis,
-                    lineHeight = sy(32).value.sp,
-                    modifier = Modifier.widthIn(max = sx(550))
+                // Description - 28px, Medium, 320px max height, scrollable
+                Box(
+                    modifier = Modifier
+                        .widthIn(max = sx(981))
+                        .heightIn(max = sy(320))
+                ) {
+                    Text(
+                        text = item.description,
+                        color = Color(0xFFEEEEEE),
+                        fontSize = sy(28).value.sp,
+                        fontWeight = FontWeight.Medium,
+                        lineHeight = sy(40).value.sp,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .verticalScroll(descriptionScrollState)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(sy(48)))
+
+                // Details section - Dźwięk, Napisy, Reżyser, Obsada (with mock fallbacks)
+                MovieDetailsSection(
+                    audioLanguages = displayAudioLanguages,
+                    subtitleLanguages = displaySubtitleLanguages,
+                    director = displayDirector,
+                    cast = displayCast,
+                    sx = ::sx,
+                    sy = ::sy
                 )
 
-                // 100px spacing between description and buttons
-                Spacer(modifier = Modifier.height(sy(100)))
+                Spacer(modifier = Modifier.weight(1f))
 
-                // Action buttons
+                // Action buttons at bottom (raised 40px)
                 Row(
+                    modifier = Modifier.padding(bottom = sy(40)),
                     horizontalArrangement = Arrangement.spacedBy(sx(24))
                 ) {
                     buttons.forEachIndexed { index, label ->
@@ -231,7 +276,6 @@ fun MovieDetailScreen(
                             label = label,
                             isFocused = focusedButtonIndex == index,
                             focusRequester = buttonFocusRequesters[index],
-                            isPrimary = index == 0,
                             sx = ::sx,
                             sy = ::sy,
                             onFocusChanged = { isFocused ->
@@ -242,74 +286,32 @@ fun MovieDetailScreen(
                                     0 -> onRentClicked()
                                     1 -> onTrailerClicked()
                                     2 -> onPreviewClicked()
-                                    3 -> onMoreInfoClicked()
                                 }
                             }
                         )
                     }
                 }
             }
-        }
-    }
-}
 
-/**
- * Content Label component - EXACT same as slider ContentLabelV2
- * Shows "Premiera premium" label with "4K" badge
- */
-@Composable
-private fun ContentLabelV2(
-    label: String = "Premiera premium",
-    show4K: Boolean = true,
-    sx: (Int) -> Dp,
-    sy: (Int) -> Dp
-) {
-    Row(
-        modifier = Modifier.height(sy(40)),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // Main label - white background
-        Box(
-            modifier = Modifier
-                .height(sy(40))
-                .background(
-                    color = Color(0xFFEEEEEE),
-                    shape = if (show4K) {
-                        RoundedCornerShape(topStart = sx(4), bottomStart = sx(4))
-                    } else {
-                        RoundedCornerShape(sx(4))
-                    }
-                )
-                .padding(horizontal = sx(16)),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = label,
-                color = Color(0xFF48227C), // Purple
-                fontSize = sy(20).value.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 0.4.sp
-            )
-        }
-
-        // 4K badge - purple background
-        if (show4K) {
-            Box(
-                modifier = Modifier
-                    .height(sy(40))
-                    .width(sx(58))
-                    .background(
-                        color = Color(0xFF5F2DA4), // Purple container
-                        shape = RoundedCornerShape(topEnd = sx(4), bottomEnd = sx(4))
-                    ),
-                contentAlignment = Alignment.Center
+            // Right column - Scroll indicator + Poster
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(sy(48))
             ) {
-                Text(
-                    text = "4K",
-                    color = Color(0xFF5FEDD4), // Aqua
-                    fontSize = sy(20).value.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.4.sp
+                // Scroll indicator (vertical dots)
+                ScrollIndicator(
+                    currentPosition = scrollPosition,
+                    totalPositions = 3,
+                    sx = ::sx,
+                    sy = ::sy,
+                    modifier = Modifier.padding(top = sy(86))
+                )
+
+                // Poster - 225x320px with mask
+                MoviePoster(
+                    posterUrl = item.posterUrl,
+                    sx = ::sx,
+                    sy = ::sy
                 )
             }
         }
@@ -317,111 +319,333 @@ private fun ContentLabelV2(
 }
 
 /**
- * Metadata row - EXACT same as slider SliderMetadataRowV2
- * Shows: genre | duration | age | KRRIT labels
+ * TimeLabel - Zegar w prawym górnym rogu (wg Figmy)
+ * 32px, Bold, #EEEEEE
  */
 @Composable
-private fun SliderMetadataRowV2(
-    genre: String?,
-    duration: String?,
-    ageRating: String?,
-    showKrritImage: Boolean = false,
+private fun TimeLabel(
+    modifier: Modifier = Modifier,
     sx: (Int) -> Dp,
     sy: (Int) -> Dp
 ) {
-    val metadataColor = Color(0x66EEEEEE) // 40% opacity white (disabled)
-    val dividerColor = Color(0x66EEEEEE) // Same as text
+    var currentTime by remember { mutableStateOf("") }
 
+    LaunchedEffect(Unit) {
+        while (true) {
+            val sdf = SimpleDateFormat("HH:mm", Locale.getDefault())
+            currentTime = sdf.format(Date())
+            delay(1000)
+        }
+    }
+
+    Text(
+        text = currentTime,
+        color = Color(0xFFEEEEEE),
+        fontSize = sy(32).value.sp,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = 0.64.sp,
+        modifier = modifier
+    )
+}
+
+/**
+ * MetadataRow - Metadata z dividerami wg Figmy
+ * genre | duration | year | country | age | Filmweb + rating
+ * 20px, Bold, #EEEEEE
+ */
+@Composable
+private fun MetadataRow(
+    genre: String?,
+    duration: String?,
+    year: String?,
+    country: String?,
+    ageRating: String?,
+    filmwebRating: Double, // Always displayed (mock fallback if null)
+    sx: (Int) -> Dp,
+    sy: (Int) -> Dp
+) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(sx(16))
     ) {
         // Genre
         if (!genre.isNullOrBlank()) {
-            Text(
-                text = genre,
-                color = metadataColor,
-                fontSize = sy(20).value.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 0.4.sp
-            )
-
-            Box(
-                modifier = Modifier
-                    .width(1.dp)
-                    .height(sy(24))
-                    .background(dividerColor)
-            )
+            MetadataText(text = genre, sy = sy)
+            MetadataDivider(sy = sy)
         }
 
         // Duration
         if (!duration.isNullOrBlank()) {
-            Text(
-                text = duration,
-                color = metadataColor,
-                fontSize = sy(20).value.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 0.4.sp
-            )
+            MetadataText(text = duration, sy = sy)
+            MetadataDivider(sy = sy)
+        }
 
-            if (!ageRating.isNullOrBlank() || showKrritImage) {
-                Box(
-                    modifier = Modifier
-                        .width(1.dp)
-                        .height(sy(24))
-                        .background(dividerColor)
-                )
-            }
+        // Year
+        if (!year.isNullOrBlank()) {
+            MetadataText(text = year, sy = sy)
+            MetadataDivider(sy = sy)
+        }
+
+        // Country
+        if (!country.isNullOrBlank()) {
+            MetadataText(text = country, sy = sy)
+            MetadataDivider(sy = sy)
         }
 
         // Age rating
         if (!ageRating.isNullOrBlank()) {
+            MetadataText(text = ageRating, sy = sy)
+            MetadataDivider(sy = sy)
+        }
+
+        // Filmweb logo + rating (always displayed)
+        FilmwebRating(
+            rating = filmwebRating,
+            sx = sx,
+            sy = sy
+        )
+    }
+}
+
+@Composable
+private fun MetadataText(
+    text: String,
+    sy: (Int) -> Dp
+) {
+    Text(
+        text = text,
+        color = Color(0xFFEEEEEE),
+        fontSize = sy(20).value.sp,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = 0.4.sp
+    )
+}
+
+@Composable
+private fun MetadataDivider(sy: (Int) -> Dp) {
+    Box(
+        modifier = Modifier
+            .width(1.dp)
+            .height(sy(24))
+            .background(Color(0xFFEEEEEE))
+    )
+}
+
+/**
+ * FilmwebRating - Logo Filmweb + ocena z gwiazdką
+ * Wg Figmy: logo Filmweb (100x24) + ★ rating / 10
+ */
+@Composable
+private fun FilmwebRating(
+    rating: Double,
+    sx: (Int) -> Dp,
+    sy: (Int) -> Dp
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(sx(16))
+    ) {
+        // Filmweb logo
+        Image(
+            painter = painterResource(id = R.drawable.filmweb_logo),
+            contentDescription = "Filmweb",
+            modifier = Modifier
+                .width(sx(100))
+                .height(sy(24)),
+            contentScale = ContentScale.Fit
+        )
+
+        // Star + rating
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(sx(4))
+        ) {
+            // Star icon
+            Image(
+                painter = painterResource(id = R.drawable.ic_rating),
+                contentDescription = null,
+                modifier = Modifier.size(sy(24)),
+                contentScale = ContentScale.Fit
+            )
+
+            // Rating text: "6,7 / 10"
             Text(
-                text = ageRating,
-                color = metadataColor,
+                text = String.format(Locale.getDefault(), "%.1f", rating).replace('.', ','),
+                color = Color(0xFFEEEEEE),
                 fontSize = sy(20).value.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 0.4.sp
             )
-
-            if (showKrritImage) {
-                Box(
-                    modifier = Modifier
-                        .width(1.dp)
-                        .height(sy(24))
-                        .background(dividerColor)
-                )
-            }
-        }
-
-        // KRRIT Labels image
-        if (showKrritImage) {
-            Image(
-                painter = painterResource(id = R.drawable.krrit_label_set),
-                contentDescription = "KRRIT Labels",
-                modifier = Modifier.height(sy(24)),
-                contentScale = ContentScale.FillHeight
+            Text(
+                text = " / 10",
+                color = Color(0xFFEEEEEE),
+                fontSize = sy(16).value.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.32.sp
             )
         }
     }
 }
 
 /**
- * Action button for movie detail screen
+ * MovieDetailsSection - Sekcja szczegółów wg Figmy
+ * Dźwięk, Napisy, Reżyser, Obsada
+ * Labels: 20px, Bold, 60% opacity, 160px width
+ * Values: 20px, Bold, 100% opacity
+ * All fields always displayed (mock fallback if null)
+ */
+@Composable
+private fun MovieDetailsSection(
+    audioLanguages: String,
+    subtitleLanguages: String,
+    director: String,
+    cast: String,
+    sx: (Int) -> Dp,
+    sy: (Int) -> Dp
+) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(sy(24))
+    ) {
+        // Dźwięk
+        DetailRow(
+            label = "Dźwięk:",
+            value = audioLanguages,
+            sx = sx,
+            sy = sy
+        )
+
+        // Napisy
+        DetailRow(
+            label = "Napisy",
+            value = subtitleLanguages,
+            sx = sx,
+            sy = sy
+        )
+
+        // Reżyser
+        DetailRow(
+            label = "Reżyser:",
+            value = director,
+            sx = sx,
+            sy = sy
+        )
+
+        // Obsada
+        DetailRow(
+            label = "Obsada:",
+            value = cast,
+            sx = sx,
+            sy = sy,
+            multiline = true
+        )
+    }
+}
+
+@Composable
+private fun DetailRow(
+    label: String,
+    value: String,
+    sx: (Int) -> Dp,
+    sy: (Int) -> Dp,
+    multiline: Boolean = false
+) {
+    Row(
+        verticalAlignment = if (multiline) Alignment.Top else Alignment.CenterVertically
+    ) {
+        // Label - 160px width, 60% opacity
+        Text(
+            text = label,
+            color = Color(0xFFEEEEEE).copy(alpha = 0.6f),
+            fontSize = sy(20).value.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 0.4.sp,
+            modifier = Modifier.width(sx(160)),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+
+        // Value - 100% opacity
+        Text(
+            text = value,
+            color = Color(0xFFEEEEEE),
+            fontSize = sy(20).value.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 0.4.sp,
+            lineHeight = sy(28).value.sp
+        )
+    }
+}
+
+/**
+ * ScrollIndicator - Pionowe kropki wg Figmy
+ * 3 pozycje, aktywna = filled, nieaktywne = outline
+ */
+@Composable
+private fun ScrollIndicator(
+    currentPosition: Int,
+    totalPositions: Int,
+    sx: (Int) -> Dp,
+    sy: (Int) -> Dp,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier.width(sx(32)),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(sy(16))
+    ) {
+        repeat(totalPositions) { index ->
+            Box(
+                modifier = Modifier
+                    .size(sy(12))
+                    .clip(CircleShape)
+                    .background(
+                        if (index == currentPosition) Color(0xFFEEEEEE)
+                        else Color(0xFFEEEEEE).copy(alpha = 0.3f)
+                    )
+            )
+        }
+    }
+}
+
+/**
+ * MoviePoster - Poster filmu wg Figmy
+ * 225x320px z maską/border-radius
+ */
+@Composable
+private fun MoviePoster(
+    posterUrl: String,
+    sx: (Int) -> Dp,
+    sy: (Int) -> Dp
+) {
+    AsyncImage(
+        model = posterUrl,
+        contentDescription = "Movie Poster",
+        modifier = Modifier
+            .width(sx(225))
+            .height(sy(320))
+            .clip(RoundedCornerShape(sx(8))),
+        contentScale = ContentScale.Crop
+    )
+}
+
+/**
+ * ActionButton - Przycisk akcji wg Figmy
+ * 72px wysokość, 8px radius
+ * Focused: bg #5FEDD4, text #48227C
+ * Default: bg #EEEEEE 20%, text #EEEEEE
  */
 @Composable
 private fun ActionButton(
     label: String,
     isFocused: Boolean,
     focusRequester: FocusRequester,
-    isPrimary: Boolean,
     sx: (Int) -> Dp,
     sy: (Int) -> Dp,
     onFocusChanged: (Boolean) -> Unit,
     onClick: () -> Unit
 ) {
     val backgroundColor by animateColorAsState(
-        targetValue = if (isFocused) Color(0xFF5FEDD4) else Color(0x33EEEEEE),
+        targetValue = if (isFocused) Color(0xFF5FEDD4) else Color(0xFFEEEEEE).copy(alpha = 0.2f),
         animationSpec = tween(150),
         label = "buttonBgColor"
     )

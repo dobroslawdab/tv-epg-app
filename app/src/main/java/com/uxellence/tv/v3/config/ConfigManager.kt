@@ -71,6 +71,7 @@ object ConfigManager {
         val result = repo.fetchConfig()
 
         result.onSuccess { newConfig ->
+            Log.d(TAG, "Config fetched: version=${newConfig.version}, slider_auto_rotate=${newConfig.slider_auto_rotate_interval_ms}ms")
             _config = newConfig
             _configState.value = newConfig
             saveToCache(context, newConfig)

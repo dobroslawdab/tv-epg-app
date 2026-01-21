@@ -665,11 +665,12 @@ fun CategoryIcon(
         contentAlignment = Alignment.Center
     ) {
         // Pozycjonowanie jak w Figma - left: 72, top: 40
+        // Height increased from 144 to 180 to fit 2-line text labels
         Box(
             modifier = Modifier
                 .offset(x = sx(0), y = sy(-8)) // Wyśrodkowanie w kontenerze
                 .width(sx(200))
-                .height(sy(144)),
+                .height(sy(180)), // 96 (icon) + 16 (spacing) + 68 (2 lines of text)
             contentAlignment = Alignment.Center
         ) {
             Column(

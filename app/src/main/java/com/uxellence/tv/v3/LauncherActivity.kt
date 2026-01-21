@@ -12,6 +12,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.mutableStateOf
 import com.uxellence.tv.v3.channels.ChannelManager
+import com.uxellence.tv.v3.config.ConfigManager
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import java.util.*
 
 /**
@@ -72,6 +75,13 @@ class LauncherActivity : ComponentActivity() {
 
         // Initialize ChannelManager with TV channels database
         ChannelManager.initialize(this)
+
+        // Initialize ConfigManager - load cached config
+        ConfigManager.initialize(this)
+        // Auto-refresh config from Supabase on app startup
+        lifecycleScope.launch {
+            ConfigManager.refreshConfig(this@LauncherActivity)
+        }
 
         // Register BroadcastReceiver for HOME button events from AccessibilityService
         val filter = IntentFilter(HomeButtonAccessibilityService.HOME_PRESSED_ACTION)
