@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.ui.window.Popup
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -1271,6 +1272,13 @@ fun TopMenuScreen2(
     // Quick purchase mode - Key.Six toggles: Slider → MovieDetail → Purchase (default) vs Slider → Purchase (quick)
     var quickPurchaseMode by remember { mutableStateOf(sliderPrefs.getBoolean("quick_purchase_mode", false)) }
 
+    // V3 Slider auto-slide toggle - Key.Eight toggles bullets and auto-rotation for V3 slider in ODKRYWAJ
+    // When enabled: bullets appear, progress bar fills, auto-slides to next slide
+    // When disabled: no bullets, manual navigation only (default V3 behavior)
+    var v3SliderAutoSlideEnabled by remember {
+        mutableStateOf(sliderPrefs.getBoolean("v3_auto_slide_enabled", false))
+    }
+
     val menuItems = remember {
         listOf(
             MenuItem2("ODKRYWAJ", "Start"),       // Moved from position 1 to 0
@@ -1619,12 +1627,13 @@ fun TopMenuScreen2(
                     return@onPreviewKeyEvent true
                 }
 
-                // Global: Key "8" - Toggle Nagrania version (v1 expandable ↔ v2 with 4 buttons)
+                // Global: Key "8" - Toggle V3 slider auto-slide and bullets (for ODKRYWAJ)
+                // When enabled: bullets appear with progress bar, auto-slides every 8 seconds
+                // When disabled: no bullets, manual navigation only (default V3 behavior)
                 if (event.key == Key.Eight) {
-                    showNagraniaV2 = !showNagraniaV2
-                    val version = if (showNagraniaV2) "v2" else "v1"
-                    com.uxellence.tv.v3.utils.VersionTracker.setNagraniaVersion(context, version)
-                    android.util.Log.d("TopMenuScreen2", "Key '8' pressed - Nagrania version toggled: $version (saved to prefs)")
+                    v3SliderAutoSlideEnabled = !v3SliderAutoSlideEnabled
+                    sliderPrefs.edit().putBoolean("v3_auto_slide_enabled", v3SliderAutoSlideEnabled).apply()
+                    android.util.Log.d("TopMenuScreen2", "Key '8' pressed - V3 slider auto-slide: ${if (v3SliderAutoSlideEnabled) "ENABLED" else "DISABLED"} (saved)")
                     return@onPreviewKeyEvent true
                 }
 
@@ -1913,7 +1922,8 @@ fun TopMenuScreen2(
                 onShowNagraniaV2Change = { v2 ->
                     showNagraniaV2 = v2
                 },
-                sliderVersion = sliderVersion
+                sliderVersion = sliderVersion,
+                v3SliderAutoSlideEnabled = v3SliderAutoSlideEnabled  // Key.Eight toggle for V3 slider
             )
         }
 
@@ -2546,19 +2556,35 @@ internal fun TopMenuBar2(
                     ) {
                         // Profil button (inside container, before menu items - v4.0.0)
                         if (leftProfilFocusRequester != null) {
-                            ProfilButton(
-                                isFocused = isLeftProfilFocused,
-                                isSelected = currentSelectedSection == "PROFILE",
-                                focusRequester = leftProfilFocusRequester,
-                                onClick = onProfileClick,
-                                showBadge = showProfileNotificationBadge,
-                                onBoundsChanged = { bounds ->
-                                    focusBoundsMap["profile"] = bounds
-                                },
-                                focusType = variantConfig.focusType,
-                                sx = sx,
-                                sy = sy
-                            )
+                            Box {
+                                ProfilButton(
+                                    isFocused = isLeftProfilFocused,
+                                    isSelected = currentSelectedSection == "PROFILE",
+                                    focusRequester = leftProfilFocusRequester,
+                                    onClick = onProfileClick,
+                                    showBadge = showProfileNotificationBadge,
+                                    onBoundsChanged = { bounds ->
+                                        focusBoundsMap["profile"] = bounds
+                                    },
+                                    focusType = variantConfig.focusType,
+                                    sx = sx,
+                                    sy = sy
+                                )
+                                // Floating tooltip label (Popup renders outside parent bounds)
+                                if (isLeftProfilFocused) {
+                                    Popup(
+                                        alignment = Alignment.BottomCenter,
+                                        offset = IntOffset(0, sy(95).value.toInt())  // Below button (80px height + 15px gap)
+                                    ) {
+                                        Text(
+                                            text = "Profil",
+                                            color = Color(0xFF5FEDD4),  // Aqua
+                                            fontSize = (24 * sy(1).value).sp,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
+                                }
+                            }
                         }
 
                         // Menu items (Start, Moje, Telewizja, Kino Play, Wideo, Aplikacje, Search)
@@ -2637,33 +2663,65 @@ internal fun TopMenuBar2(
                     ) {
                         // Konto icon (person)
                         if (rightButtonFocusRequesters.containsKey(0)) {
-                            KontoButton(
-                                isFocused = focusedRightButton == 0,
-                                isSelected = currentSelectedSection == "ACCOUNT",
-                                focusRequester = rightButtonFocusRequesters[0]!!,
-                                onClick = onKontoClick,
-                                onBoundsChanged = { bounds ->
-                                    focusBoundsMap["konto"] = bounds
-                                },
-                                focusType = variantConfig.focusType,
-                                sx = sx,
-                                sy = sy
-                            )
+                            Box {
+                                KontoButton(
+                                    isFocused = focusedRightButton == 0,
+                                    isSelected = currentSelectedSection == "ACCOUNT",
+                                    focusRequester = rightButtonFocusRequesters[0]!!,
+                                    onClick = onKontoClick,
+                                    onBoundsChanged = { bounds ->
+                                        focusBoundsMap["konto"] = bounds
+                                    },
+                                    focusType = variantConfig.focusType,
+                                    sx = sx,
+                                    sy = sy
+                                )
+                                // Floating tooltip label (Popup renders outside parent bounds)
+                                if (focusedRightButton == 0) {
+                                    Popup(
+                                        alignment = Alignment.BottomCenter,
+                                        offset = IntOffset(0, sy(95).value.toInt())  // Below button (80px height + 15px gap)
+                                    ) {
+                                        Text(
+                                            text = "Konto",
+                                            color = Color(0xFF5FEDD4),  // Aqua
+                                            fontSize = (24 * sy(1).value).sp,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
+                                }
+                            }
                         }
 
                         // Ustawienia icon (gear)
                         if (rightButtonFocusRequesters.containsKey(1)) {
-                            SettingsButton(
-                                isFocused = focusedRightButton == 1,
-                                focusRequester = rightButtonFocusRequesters[1]!!,
-                                onClick = onSettingsClick,
-                                onBoundsChanged = { bounds ->
-                                    focusBoundsMap["settings"] = bounds
-                                },
-                                focusType = variantConfig.focusType,
-                                sx = sx,
-                                sy = sy
-                            )
+                            Box {
+                                SettingsButton(
+                                    isFocused = focusedRightButton == 1,
+                                    focusRequester = rightButtonFocusRequesters[1]!!,
+                                    onClick = onSettingsClick,
+                                    onBoundsChanged = { bounds ->
+                                        focusBoundsMap["settings"] = bounds
+                                    },
+                                    focusType = variantConfig.focusType,
+                                    sx = sx,
+                                    sy = sy
+                                )
+                                // Floating tooltip label (Popup renders outside parent bounds)
+                                if (focusedRightButton == 1) {
+                                    Popup(
+                                        alignment = Alignment.BottomCenter,
+                                        offset = IntOffset(0, sy(95).value.toInt())  // Below button (80px height + 15px gap)
+                                    ) {
+                                        Text(
+                                            text = "Ustawienia",
+                                            color = Color(0xFF5FEDD4),  // Aqua
+                                            fontSize = (24 * sy(1).value).sp,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
+                                }
+                            }
                         }
                         // NOTE: Profil button usunięty z prawej strony - teraz jest tylko na LEWEJ stronie przed Start
                     }
@@ -3492,7 +3550,8 @@ private fun FullPageContent(
     onEpgSectionExpandedChange: (Boolean) -> Unit = {},
     showNagraniaV2: Boolean = false,
     onShowNagraniaV2Change: (Boolean) -> Unit = {},
-    sliderVersion: Int = 1  // 1 = V1 with carousel, 2 = V2 with border
+    sliderVersion: Int = 1,  // 1 = V1 with carousel, 2 = V2 with border
+    v3SliderAutoSlideEnabled: Boolean = false  // Key.Eight toggle for V3 slider auto-slide and bullets
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
 
@@ -3527,10 +3586,12 @@ private fun FullPageContent(
                 onUserNavigated = onUserNavigated,  // Clear fresh PIP mode on navigation
                 onNavigateToChannelGrid = onNavigateToChannelGrid,
                 onNavigateToVodGrid = onNavigateToVodGrid,
+                onNavigateToEpgDay = onNavigateToEpgDay,
                 appIconsData = emptyMap(),  // TODO: Pass real appIconsData
                 sx = sx,
                 sy = sy,
-                sliderVersion = sliderVersion  // V3 shortcuts when sliderVersion == 2
+                sliderVersion = sliderVersion,  // V3 shortcuts when sliderVersion == 2
+                v3SliderAutoSlideEnabled = v3SliderAutoSlideEnabled  // Key.Eight toggle for V3 slider
             )
         }
         "TELEWIZJA" -> {
@@ -3720,10 +3781,12 @@ private fun OdkrywajScreenContent(
     onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> },
     appIconsData: Map<String, List<TvChannel>> = emptyMap(),
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
-    sliderVersion: Int = 2  // 2 = V3 shortcuts (bigger cards), 1 = V2 shortcuts (smaller cards)
+    sliderVersion: Int = 2,  // 2 = V3 shortcuts (bigger cards), 1 = V2 shortcuts (smaller cards)
+    v3SliderAutoSlideEnabled: Boolean = false  // Key.Eight toggle for V3 slider auto-slide and bullets
 ) {
     var resetTrigger by remember { mutableIntStateOf(0) }
 
@@ -3746,11 +3809,13 @@ private fun OdkrywajScreenContent(
         onNavigateToChannelGrid = onNavigateToChannelGrid,
         onNavigateToVodGrid = onNavigateToVodGrid,
         onNavigateToKinoGrid = onNavigateToKinoGrid,
+        onNavigateToEpgDay = onNavigateToEpgDay,
         appIconsData = appIconsData,
         sx = sx,
         sy = sy,
         resetTrigger = resetTrigger,
-        sliderVersion = sliderVersion  // V3 shortcuts when sliderVersion == 2
+        sliderVersion = sliderVersion,  // V3 shortcuts when sliderVersion == 2
+        v3SliderAutoSlideEnabled = v3SliderAutoSlideEnabled  // Key.Eight toggle for V3 slider
     )
 }
 
@@ -3817,11 +3882,13 @@ private fun OdkrywajChannelsScreen(
     onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> },
     appIconsData: Map<String, List<TvChannel>> = emptyMap(),
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     resetTrigger: Int = 0,
-    sliderVersion: Int = 2  // 2 = V3 shortcuts (bigger cards), 1 = V2 shortcuts (smaller cards)
+    sliderVersion: Int = 2,  // 2 = V3 shortcuts (bigger cards), 1 = V2 shortcuts (smaller cards)
+    v3SliderAutoSlideEnabled: Boolean = false  // Key.Eight toggle for V3 slider auto-slide and bullets
 ) {
     val context = LocalContext.current
 
@@ -4002,6 +4069,7 @@ private fun OdkrywajChannelsScreen(
     // Design: Figma V3 shortcuts with PNG icons (no plus button)
     val shortcutsV3 = remember {
         listOf(
+            ShortcutItem("0", "Oglądaj\ntelewizję", ShortcutIcon.VectorIcon(R.drawable.ic_tv)),
             ShortcutItem("1", "Igrzyska zimowe", ShortcutIcon.VectorIcon(R.drawable.ic_olympics_2026)),
             ShortcutItem("2", "Netflix", ShortcutIcon.VectorIcon(R.drawable.netflix_logo)),
             ShortcutItem("3", "Disney+", ShortcutIcon.VectorIcon(R.drawable.disney_plus_logo)),
@@ -4012,9 +4080,10 @@ private fun OdkrywajChannelsScreen(
     }
 
     // Shortcuts V4 data - Figma "Quick links" design (222x244px cards, icon on top)
-    // Order: Nagrania, Moja lista kanałów, Do obejrzenia, Netflix, Disney+, Igrzyska Olimpijskie
+    // Order: Oglądaj telewizję, Nagrania, Moja lista kanałów, Do obejrzenia, Netflix, Disney+, Igrzyska Olimpijskie
     val shortcutsV4 = remember {
         listOf(
+            ShortcutItem("0", "Oglądaj\ntelewizję", ShortcutIcon.VectorIcon(R.drawable.ic_tv)),
             ShortcutItem("1", "Nagrania", ShortcutIcon.VectorIcon(R.drawable.ic_nagrania)),
             ShortcutItem("2", "Moja lista\nkanałów", ShortcutIcon.VectorIcon(R.drawable.ic_moja_lista_kanalow)),
             ShortcutItem("3", "Do\nobejrzenia", ShortcutIcon.VectorIcon(R.drawable.ic_do_obejrzenia)),
@@ -4186,6 +4255,7 @@ private fun OdkrywajChannelsScreen(
             onNavigateToChannelGrid = onNavigateToChannelGrid,
             onNavigateToVodGrid = onNavigateToVodGrid,
             onNavigateToKinoGrid = onNavigateToKinoGrid,
+            onNavigateToEpgDay = onNavigateToEpgDay,
             appIconsData = appIconsData,
             lazyListStates = lazyListStates,
             sx = sx,
@@ -4197,7 +4267,8 @@ private fun OdkrywajChannelsScreen(
             sharedCurrentSlide = sharedCurrentSlide,
             onSharedCurrentSlideChange = { slide -> sharedCurrentSlide = slide },
             sharedProgress = sharedProgress,
-            sliderVersion = sliderVersion
+            sliderVersion = sliderVersion,
+            v3SliderAutoSlideEnabled = v3SliderAutoSlideEnabled  // Key.Eight toggle for V3 slider
         )
     }
 }
@@ -6252,6 +6323,7 @@ private fun ShortcutCardV3(
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> },
+    onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> },
     appIconsData: Map<String, List<TvChannel>> = emptyMap(),
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
@@ -6280,6 +6352,10 @@ private fun ShortcutCardV3(
                     // Extract plain title (without newlines) for navigation
                     val plainTitle = shortcut.title.replace("\n", " ")
                     when {
+                        plainTitle.contains("telewizję", ignoreCase = true) -> {
+                            android.util.Log.d("SHORTCUT_V3", "Nawigacja do EpgDay - Oglądaj telewizję")
+                            onNavigateToEpgDay("", null, 0, "ODKRYWAJ")
+                        }
                         plainTitle.contains("lista kanałów", ignoreCase = true) -> {
                             android.util.Log.d("SHORTCUT_V3", "Nawigacja do ChannelGrid - Moja lista kanałów")
                             onNavigateToChannelGrid(
@@ -6316,6 +6392,10 @@ private fun ShortcutCardV3(
                 android.util.Log.d("SHORTCUT_V3", "=== clickable triggered for: ${shortcut.title} ===")
                 val plainTitle = shortcut.title.replace("\n", " ")
                 when {
+                    plainTitle.contains("telewizję", ignoreCase = true) -> {
+                        android.util.Log.d("SHORTCUT_V3", "Nawigacja do EpgDay - Oglądaj telewizję")
+                        onNavigateToEpgDay("", null, 0, "ODKRYWAJ")
+                    }
                     plainTitle.contains("lista kanałów", ignoreCase = true) -> {
                         onNavigateToChannelGrid(
                             "Moja lista kanałów",
@@ -6448,6 +6528,7 @@ private fun ShortcutCardV4(
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> },
+    onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> },
     appIconsData: Map<String, List<TvChannel>> = emptyMap(),
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
@@ -6479,6 +6560,10 @@ private fun ShortcutCardV4(
                     android.util.Log.d("SHORTCUT_V4", "=== Enter/OK pressed for: ${shortcut.title} ===")
                     val plainTitle = shortcut.title.replace("\n", " ")
                     when {
+                        plainTitle.contains("telewizję", ignoreCase = true) -> {
+                            android.util.Log.d("SHORTCUT_V4", "Nawigacja do EpgDay - Oglądaj telewizję")
+                            onNavigateToEpgDay("", null, 0, "ODKRYWAJ")
+                        }
                         plainTitle.contains("Nagrania", ignoreCase = true) -> {
                             onNavigateToRecordingsGrid("Zarządzaj nagraniami", "ODKRYWAJ")
                         }
@@ -10075,6 +10160,7 @@ fun OdkrywajChannelRowsLayout(
     onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> },
     appIconsData: Map<String, List<TvChannel>> = emptyMap(),
     lazyListStates: Map<Int, LazyListState>,
     sx: (Int) -> androidx.compose.ui.unit.Dp,
@@ -10087,7 +10173,9 @@ fun OdkrywajChannelRowsLayout(
     onSharedCurrentSlideChange: (Int) -> Unit = {},
     sharedProgress: Float = 0f,
     // Slider version: 2 = V2 (bullets, auto-rotate), 3 = V3 (no bullets, no auto-rotate, shuffled)
-    sliderVersion: Int = 2
+    sliderVersion: Int = 2,
+    // Key.Eight toggle for V3 slider auto-slide and bullets
+    v3SliderAutoSlideEnabled: Boolean = false
 ) {
     // === Track previous focusedRowIndex to detect instant jump from ghost slider ===
     var previousFocusedRowIndex by remember { mutableStateOf(focusedRowIndex) }
@@ -10140,6 +10228,7 @@ fun OdkrywajChannelRowsLayout(
                     onNavigateToChannelGrid = onNavigateToChannelGrid,
                     onNavigateToVodGrid = onNavigateToVodGrid,
                     onNavigateToKinoGrid = onNavigateToKinoGrid,
+                    onNavigateToEpgDay = onNavigateToEpgDay,
                     appIconsData = appIconsData,
                     sx = sx,
                     sy = sy,
@@ -10150,7 +10239,8 @@ fun OdkrywajChannelRowsLayout(
                     sharedCurrentSlide = sharedCurrentSlide,
                     onSharedCurrentSlideChange = onSharedCurrentSlideChange,
                     sharedProgress = sharedProgress,
-                    sliderVersion = sliderVersion
+                    sliderVersion = sliderVersion,
+                    v3SliderAutoSlideEnabled = v3SliderAutoSlideEnabled  // Key.Eight toggle for V3 slider
                 )
             }
         }
@@ -10223,11 +10313,12 @@ fun OdkrywajUnifiedChannelRow(
     onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> },
     appIconsData: Map<String, List<TvChannel>> = emptyMap(),
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     lazyListState: LazyListState,
-    // Auto-rotation parameters for slider-max (only used in V2)
+    // Auto-rotation parameters for slider-max (used in V2 and V3 when auto-slide enabled)
     autoRotateIntervalMs: Long = 8000L,
     pauseAfterInteractionMs: Long = 10000L,
     // === Infinity loop: Shared slider state for ghost slider synchronization ===
@@ -10235,7 +10326,9 @@ fun OdkrywajUnifiedChannelRow(
     onSharedCurrentSlideChange: (Int) -> Unit = {},
     sharedProgress: Float = 0f,
     // Slider version: 2 = V2 (bullets, auto-rotate), 3 = V3 (no bullets, no auto-rotate, shuffled)
-    sliderVersion: Int = 2
+    sliderVersion: Int = 2,
+    // Key.Eight toggle for V3 slider auto-slide and bullets
+    v3SliderAutoSlideEnabled: Boolean = false
 ) {
     // ODKRYWAJ section - no onClick to EPG Day needed here
     val isCurrentRow = rowIndex == focusedRowIndex
@@ -10280,7 +10373,11 @@ fun OdkrywajUnifiedChannelRow(
                         },
                         externalCurrentSlide = sharedCurrentSlide,
                         onCurrentSlideChange = { slide -> onSharedCurrentSlideChange(slide) },
-                        shouldShuffle = false  // Items already shuffled at parent level for sync
+                        shouldShuffle = false,  // Items already shuffled at parent level for sync
+                        // Key.Eight toggle for auto-slide and bullets
+                        enableAutoRotate = v3SliderAutoSlideEnabled,
+                        autoRotateIntervalMs = autoRotateIntervalMs,
+                        pauseAfterInteractionMs = pauseAfterInteractionMs
                     )
                 } else {
                     VodHeroSliderV2(
@@ -10387,6 +10484,7 @@ fun OdkrywajUnifiedChannelRow(
                             onNavigateToChannelGrid = onNavigateToChannelGrid,
                             onNavigateToVodGrid = onNavigateToVodGrid,
                             onNavigateToKinoGrid = onNavigateToKinoGrid,
+                            onNavigateToEpgDay = onNavigateToEpgDay,
                             appIconsData = appIconsData,
                             sx = sx,
                             sy = sy,
@@ -10431,6 +10529,7 @@ fun OdkrywajUnifiedChannelRow(
                                 // Navigate to recordings - needs to be passed from parent
                                 android.util.Log.d("SHORTCUTS_V4", "Navigate to recordings: $title")
                             },
+                            onNavigateToEpgDay = onNavigateToEpgDay,
                             appIconsData = appIconsData,
                             sx = sx,
                             sy = sy,
@@ -10524,7 +10623,7 @@ fun OdkrywajUnifiedChannelRow(
                         .padding(horizontal = sx(80))
                         .height(sy(253))
                         .clip(RoundedCornerShape(sx(24)))
-                        .background(Color(0xFF160B26))
+                        .background(Color(0xFF000B1D))
                 ) {
                     // Background image with movie poster
                     AsyncImage(
@@ -10544,9 +10643,9 @@ fun OdkrywajUnifiedChannelRow(
                             .background(
                                 Brush.horizontalGradient(
                                     colors = listOf(
-                                        Color(0xFF160B26),
-                                        Color(0xFF160B26),
-                                        Color(0x66160B26),
+                                        Color(0xFF000B1D),
+                                        Color(0xFF000B1D),
+                                        Color(0x66000B1D),
                                         Color.Transparent
                                     ),
                                     startX = 0f,
@@ -13091,15 +13190,18 @@ private fun VodHeroSliderV2(
 }
 
 /**
- * VodHeroSlider V3 - Simplified version without bullets and auto-rotation
+ * VodHeroSlider V3 - Simplified version with optional bullets and auto-rotation
  * Based on V2 but with:
- * - ❌ No bullets (dot indicators removed)
- * - ❌ No auto-rotation (manual navigation only)
  * - 🔀 Shuffled slide order (randomized on each session)
+ * - 📍 Optional bullets and auto-rotation (toggled with Key.Eight)
  *
  * Toggled with Key.Nine (V2 ↔ V3)
+ * Auto-slide toggled with Key.Eight (bullets + auto-rotation ON/OFF)
  *
  * @param items List of VodSlideData to display (will be shuffled internally)
+ * @param enableAutoRotate When true, shows bullets with progress bar and auto-slides
+ * @param autoRotateIntervalMs Time between auto-slides (default 8000ms)
+ * @param pauseAfterInteractionMs Pause duration after user interaction (default 10000ms)
  */
 @Composable
 private fun VodHeroSliderV3(
@@ -13115,7 +13217,11 @@ private fun VodHeroSliderV3(
     externalCurrentSlide: Int? = null,
     onCurrentSlideChange: ((Int) -> Unit)? = null,
     // When false, use items in original order (for synchronized ghost slider)
-    shouldShuffle: Boolean = true
+    shouldShuffle: Boolean = true,
+    // Auto-rotation parameters (optional, enabled with Key.Eight)
+    enableAutoRotate: Boolean = false,
+    autoRotateIntervalMs: Long = 8000L,
+    pauseAfterInteractionMs: Long = 10000L
 ) {
     // Shuffle items once on first composition (randomize order for this session)
     // When shouldShuffle = false, use items as-is (for ghost slider sync)
@@ -13129,6 +13235,14 @@ private fun VodHeroSliderV3(
 
     val focusRequester = remember { FocusRequester() }
     val listState = rememberLazyListState()
+
+    // Auto-rotation states - using timestamp to prevent reset on recomposition
+    var pauseUntilTime by remember { mutableLongStateOf(0L) }
+    var internalProgress by remember { mutableFloatStateOf(0f) }
+    val progress = internalProgress
+
+    // Derived pause state for UI
+    val isPaused = pauseUntilTime > System.currentTimeMillis()
 
     // Reset currentSlide if out of bounds after data loads
     LaunchedEffect(sliderItems.size) {
@@ -13158,7 +13272,49 @@ private fun VodHeroSliderV3(
         }
     }
 
-    // NO auto-rotation in V3 - manual navigation only
+    // Auto-rotation - only when enableAutoRotate = true (toggled with Key.Eight)
+    if (enableAutoRotate && sliderItems.isNotEmpty()) {
+        LaunchedEffect(currentSlide, autoRotateIntervalMs) {
+            // Main animation loop
+            while (true) {
+                val now = System.currentTimeMillis()
+
+                // Check if still in pause period
+                if (now < pauseUntilTime) {
+                    internalProgress = 0f
+                    kotlinx.coroutines.delay(100) // Check pause status every 100ms
+                    continue
+                }
+
+                // Animate progress bar
+                val startTime = System.currentTimeMillis()
+                var interrupted = false
+
+                while (!interrupted) {
+                    val currentTime = System.currentTimeMillis()
+
+                    // Check if pause was triggered during animation
+                    if (currentTime < pauseUntilTime) {
+                        internalProgress = 0f
+                        interrupted = true
+                        continue
+                    }
+
+                    val elapsed = currentTime - startTime
+                    internalProgress = (elapsed.toFloat() / autoRotateIntervalMs).coerceIn(0f, 1f)
+
+                    if (elapsed >= autoRotateIntervalMs) {
+                        // Go to next slide (or back to first)
+                        val nextSlide = (currentSlide + 1) % sliderItems.size
+                        internalCurrentSlide = nextSlide
+                        onCurrentSlideChange?.invoke(nextSlide)
+                        return@LaunchedEffect // Exit to restart with new currentSlide
+                    }
+                    kotlinx.coroutines.delay(16) // ~60 FPS
+                }
+            }
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -13177,6 +13333,11 @@ private fun VodHeroSliderV3(
                             val newSlide = currentSlide - 1
                             internalCurrentSlide = newSlide
                             onCurrentSlideChange?.invoke(newSlide)
+                            // Pause auto-rotation after user interaction
+                            if (enableAutoRotate) {
+                                pauseUntilTime = System.currentTimeMillis() + pauseAfterInteractionMs
+                                internalProgress = 0f
+                            }
                         }
                         true
                     }
@@ -13185,6 +13346,11 @@ private fun VodHeroSliderV3(
                             val newSlide = currentSlide + 1
                             internalCurrentSlide = newSlide
                             onCurrentSlideChange?.invoke(newSlide)
+                            // Pause auto-rotation after user interaction
+                            if (enableAutoRotate) {
+                                pauseUntilTime = System.currentTimeMillis() + pauseAfterInteractionMs
+                                internalProgress = 0f
+                            }
                         }
                         true
                     }
@@ -13238,7 +13404,49 @@ private fun VodHeroSliderV3(
                     )
                 }
             }
-            // NO bullets in V3 - removed the Row with bullet indicators
+
+            // Bullet indicators with progress bar for active slide (only when enableAutoRotate = true)
+            if (enableAutoRotate && sliderItems.size > 1) {
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .offset(y = sy(695)),
+                    horizontalArrangement = Arrangement.spacedBy(sx(12)),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    sliderItems.forEachIndexed { index, _ ->
+                        val isActive = index == currentSlide
+
+                        if (isActive && !isPaused) {
+                            // Progress bar for active slide (45px × 8px) - only when not paused
+                            Box(
+                                modifier = Modifier
+                                    .width(sx(45))
+                                    .height(sy(8))
+                                    .clip(RoundedCornerShape(sy(4)))
+                                    .background(Color(0x80EEEEEE)) // Background
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxHeight()
+                                        .fillMaxWidth(progress)
+                                        .background(Color.White)
+                                )
+                            }
+                        } else {
+                            // Standard bullet for inactive slides OR when paused (dot replaces progress bar)
+                            Box(
+                                modifier = Modifier
+                                    .size(if (isActive) sx(12) else sx(8))
+                                    .background(
+                                        color = if (isActive) Color.White else Color(0x80EEEEEE),
+                                        shape = CircleShape
+                                    )
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }
