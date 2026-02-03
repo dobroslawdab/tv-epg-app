@@ -1,6 +1,7 @@
 package com.uxellence.tv.v3
 import com.uxellence.tv.v3.R
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
@@ -58,6 +59,8 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.LocalOffer
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Settings
@@ -1637,15 +1640,17 @@ fun TopMenuScreen2(
                     return@onPreviewKeyEvent true
                 }
 
-                // Global: Key "9" - Cycle Slider version (V1 → V2 → V3 → V1)
+                // Global: Key "9" - Cycle Slider version (V1 → V2 → V3 → V4 → V1)
                 // V1: Original carousel slider
                 // V2: Full slider with bullets and auto-rotation
                 // V3: Simplified slider - no bullets, no auto-rotation, shuffled order
+                // V4: Slider with 2 focusable buttons on slide (Rent + More Info)
                 if (event.key == Key.Nine) {
                     sliderVersion = when (sliderVersion) {
                         1 -> 2
                         2 -> 3
-                        3 -> 1
+                        3 -> 4
+                        4 -> 1
                         else -> 2
                     }
                     // Save to SharedPreferences
@@ -12291,6 +12296,19 @@ private fun VodLayoutWithSlider(
                         }
                     )
                 }
+                4 -> {
+                    // V4: Slider with 2 focusable buttons on slide (Rent + More Info)
+                    VodHeroSliderV4(
+                        isFocused = focusedRowIndex == 1 && globalFocusState.value.currentRow > 0,
+                        items = kinoPlaySliderItems,
+                        sectionType = "KINO_PLAY",
+                        sx = sx,
+                        sy = sy,
+                        onRentClicked = { item -> onNavigateToPurchase(item) },
+                        onMoreInfoClicked = { item -> onNavigateToMovieDetail(item) },
+                        onReturnToMenu = { /* callback do menu */ }
+                    )
+                }
                 else -> {
                     // V2: Full slider with bullets and auto-rotation
                     VodHeroSliderV2(
@@ -13448,6 +13466,379 @@ private fun VodHeroSliderV3(
                 }
             }
         }
+    }
+}
+
+/**
+ * VodHeroSliderV4 - Slider with 2 focusable buttons on slide
+ *
+ * Figma specs (node 1073:10931):
+ * - Container: full width × 675px
+ * - Button position: X=40px, Y=452px
+ * - Button size: max 472px × 72px
+ * - Button gap: 16px
+ * - Button radius: 8px
+ * - Focused: bg=#5FEDD4, text=#48227C
+ * - Unfocused: bg=rgba(238,238,238,0.2), text=#EEEEEE
+ */
+@Composable
+private fun VodHeroSliderV4(
+    isFocused: Boolean,
+    items: List<VodSlideData>,
+    sectionType: String,
+    sx: (Int) -> androidx.compose.ui.unit.Dp,
+    sy: (Int) -> androidx.compose.ui.unit.Dp,
+    topPadding: Int = 200,
+    onRentClicked: ((VodSlideData) -> Unit)? = null,
+    onMoreInfoClicked: ((VodSlideData) -> Unit)? = null,
+    onReturnToMenu: () -> Unit = {}
+) {
+    // State
+    var currentSlide by remember { mutableStateOf(0) }
+    var focusedButtonIndex by remember { mutableStateOf(0) }  // 0=rent, 1=info
+    var rememberedButtonIndex by remember { mutableStateOf(0) }
+
+    // Shuffle items once on first composition
+    val sliderItems = remember(items) { items.shuffled() }
+
+    // FocusRequesters
+    val button1Focus = remember { FocusRequester() }
+    val button2Focus = remember { FocusRequester() }
+
+    // Request focus when component becomes focused
+    LaunchedEffect(isFocused, currentSlide, focusedButtonIndex) {
+        if (isFocused) {
+            kotlinx.coroutines.delay(50)
+            when (focusedButtonIndex) {
+                0 -> button1Focus.requestFocus()
+                1 -> button2Focus.requestFocus()
+            }
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(top = sy(topPadding))
+            .onPreviewKeyEvent { event ->
+                if (!isFocused) return@onPreviewKeyEvent false
+                if (event.type != androidx.compose.ui.input.key.KeyEventType.KeyDown) return@onPreviewKeyEvent false
+
+                when (event.key) {
+                    androidx.compose.ui.input.key.Key.DirectionLeft -> {
+                        if (currentSlide > 0) {
+                            currentSlide--
+                            // Keep button position
+                        }
+                        true
+                    }
+                    androidx.compose.ui.input.key.Key.DirectionRight -> {
+                        if (currentSlide < sliderItems.size - 1) {
+                            currentSlide++
+                            // Keep button position
+                        }
+                        true
+                    }
+                    androidx.compose.ui.input.key.Key.DirectionDown -> {
+                        if (focusedButtonIndex < 1) {
+                            focusedButtonIndex = 1
+                            rememberedButtonIndex = 1
+                            button2Focus.requestFocus()
+                        }
+                        true
+                    }
+                    androidx.compose.ui.input.key.Key.DirectionUp -> {
+                        if (focusedButtonIndex > 0) {
+                            focusedButtonIndex = 0
+                            rememberedButtonIndex = 0
+                            button1Focus.requestFocus()
+                            true
+                        } else {
+                            // At top button, optionally return to menu
+                            false
+                        }
+                    }
+                    androidx.compose.ui.input.key.Key.Enter,
+                    androidx.compose.ui.input.key.Key.DirectionCenter -> {
+                        val currentItem = sliderItems.getOrNull(currentSlide)
+                        when (focusedButtonIndex) {
+                            0 -> currentItem?.let { onRentClicked?.invoke(it) }
+                            1 -> currentItem?.let { onMoreInfoClicked?.invoke(it) }
+                        }
+                        true
+                    }
+                    else -> false
+                }
+            }
+    ) {
+        val currentItem = sliderItems.getOrNull(currentSlide)
+
+        // 1. Backdrop image (Figma: X=268, size=1200x675)
+        currentItem?.let { item ->
+            AsyncImage(
+                model = item.backgroundUrl,
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+        }
+
+        // 2. Gradient overlay (left side glow)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.horizontalGradient(
+                        colors = listOf(
+                            Color.Black.copy(alpha = 0.9f),
+                            Color.Black.copy(alpha = 0.6f),
+                            Color.Transparent
+                        ),
+                        startX = 0f,
+                        endX = 800f
+                    )
+                )
+        )
+
+        // 3. Content info (Figma: X=40, Y=0, W=556)
+        Column(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(start = sx(40), top = sy(40))
+                .width(sx(556))
+        ) {
+            // Logo + metadata row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(sy(96)),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(sx(16))
+            ) {
+                // KINO PLAY badge if this is a KINO PLAY item
+                if (currentItem?.isKinoPlay == true) {
+                    Box(
+                        modifier = Modifier
+                            .background(
+                                color = Color(0xFF5FEDD4),
+                                shape = RoundedCornerShape(sx(4))
+                            )
+                            .padding(horizontal = sx(12), vertical = sy(6))
+                    ) {
+                        Text(
+                            text = "KINO PLAY",
+                            style = TextStyle(
+                                fontSize = (14 * sy(1).value / 1).sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF48227C),
+                                letterSpacing = 1.sp
+                            )
+                        )
+                    }
+                }
+                // Metadata: genre | duration | age rating
+                Text(
+                    text = listOfNotNull(
+                        currentItem?.genre?.takeIf { it.isNotBlank() },
+                        currentItem?.duration?.takeIf { it.isNotBlank() },
+                        currentItem?.ageRating?.takeIf { it.isNotBlank() }
+                    ).joinToString(" | "),
+                    style = TextStyle(
+                        fontSize = (16 * sy(1).value / 1).sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xCCEEEEEE)
+                    )
+                )
+            }
+
+            Spacer(modifier = Modifier.height(sy(16)))
+
+            // Title (Figma: 48px, Medium)
+            Text(
+                text = currentItem?.title ?: "",
+                style = TextStyle(
+                    fontSize = (48 * sy(1).value / 1).sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color(0xFFEEEEEE),
+                    lineHeight = (64 * sy(1).value / 1).sp
+                ),
+                maxLines = 2
+            )
+
+            Spacer(modifier = Modifier.height(sy(16)))
+
+            // Description (Figma: 24px, Medium)
+            Text(
+                text = currentItem?.description ?: "",
+                style = TextStyle(
+                    fontSize = (24 * sy(1).value / 1).sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color(0xFFEEEEEE),
+                    letterSpacing = 0.48.sp,
+                    lineHeight = (32 * sy(1).value / 1).sp
+                ),
+                maxLines = 2
+            )
+        }
+
+        // 4. Buttons (Figma: X=40, Y=452, gap=16)
+        Column(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(start = sx(40), top = sy(452)),
+            verticalArrangement = Arrangement.spacedBy(sy(16))
+        ) {
+            // Button 1: Wypożycz
+            V4SliderButton(
+                label = "Wypożycz: ${currentItem?.price ?: "19 zł"} / 48 h",
+                iconType = V4ButtonIcon.PLAY,
+                isFocused = isFocused && focusedButtonIndex == 0,
+                focusRequester = button1Focus,
+                sx = sx,
+                sy = sy,
+                onFocusChanged = { if (it) { focusedButtonIndex = 0; rememberedButtonIndex = 0 } },
+                onClick = { currentItem?.let { onRentClicked?.invoke(it) } }
+            )
+
+            // Button 2: Dowiedz się więcej
+            V4SliderButton(
+                label = "Dowiedz się więcej",
+                iconType = V4ButtonIcon.INFO,
+                isFocused = isFocused && focusedButtonIndex == 1,
+                focusRequester = button2Focus,
+                sx = sx,
+                sy = sy,
+                onFocusChanged = { if (it) { focusedButtonIndex = 1; rememberedButtonIndex = 1 } },
+                onClick = { currentItem?.let { onMoreInfoClicked?.invoke(it) } }
+            )
+
+            // Info text (Figma: 64px height, 16px font)
+            Row(
+                modifier = Modifier
+                    .height(sy(64))
+                    .padding(horizontal = sx(4)),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(sx(8))
+            ) {
+                // ic_packages icon 24x24
+                Icon(
+                    imageVector = Icons.Filled.LocalOffer,
+                    contentDescription = null,
+                    tint = Color(0xFFEEEEEE),
+                    modifier = Modifier.size(sx(24))
+                )
+                Text(
+                    text = "Oglądasz w ramach pakietu Extra",
+                    style = TextStyle(
+                        fontSize = (16 * sy(1).value / 1).sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFEEEEEE),
+                        letterSpacing = 0.32.sp,
+                        lineHeight = (24 * sy(1).value / 1).sp
+                    )
+                )
+            }
+        }
+
+        // 5. Slide indicator dots (bottom center)
+        if (sliderItems.size > 1) {
+            Row(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = sy(24)),
+                horizontalArrangement = Arrangement.spacedBy(sx(8))
+            ) {
+                sliderItems.forEachIndexed { index, _ ->
+                    Box(
+                        modifier = Modifier
+                            .size(if (index == currentSlide) sx(12) else sx(8))
+                            .background(
+                                color = if (index == currentSlide) Color.White else Color(0x80EEEEEE),
+                                shape = CircleShape
+                            )
+                    )
+                }
+            }
+        }
+    }
+}
+
+private enum class V4ButtonIcon { PLAY, INFO }
+
+/**
+ * V4SliderButton - Focusable button for V4 slider
+ *
+ * Figma specs:
+ * - Size: max 472px × 72px
+ * - Border radius: 8px
+ * - Padding: 32px horizontal
+ * - Icon: 32x32px
+ * - Gap icon-text: 8px
+ * - Font: Manrope Bold 24px, letter-spacing: -0.48px
+ * - Focused: bg=#5FEDD4, text=#48227C
+ * - Unfocused: bg=rgba(238,238,238,0.2), text=#EEEEEE
+ */
+@Composable
+private fun V4SliderButton(
+    label: String,
+    iconType: V4ButtonIcon,
+    isFocused: Boolean,
+    focusRequester: FocusRequester,
+    sx: (Int) -> androidx.compose.ui.unit.Dp,
+    sy: (Int) -> androidx.compose.ui.unit.Dp,
+    onFocusChanged: (Boolean) -> Unit,
+    onClick: () -> Unit
+) {
+    // Animated colors
+    val backgroundColor by animateColorAsState(
+        targetValue = if (isFocused) Color(0xFF5FEDD4) else Color(0x33EEEEEE),
+        animationSpec = tween(150),
+        label = "v4ButtonBg"
+    )
+
+    val contentColor by animateColorAsState(
+        targetValue = if (isFocused) Color(0xFF48227C) else Color(0xFFEEEEEE),
+        animationSpec = tween(150),
+        label = "v4ButtonContent"
+    )
+
+    Row(
+        modifier = Modifier
+            .height(sy(72))
+            .widthIn(max = sx(472))
+            .clip(RoundedCornerShape(sx(8)))
+            .background(backgroundColor)
+            .focusRequester(focusRequester)
+            .onFocusChanged { state -> onFocusChanged(state.isFocused) }
+            .focusable()
+            .clickable { onClick() }
+            .padding(horizontal = sx(32)),
+        horizontalArrangement = Arrangement.spacedBy(sx(8)),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Icon 32x32
+        Icon(
+            imageVector = when (iconType) {
+                V4ButtonIcon.PLAY -> Icons.Filled.PlayArrow
+                V4ButtonIcon.INFO -> Icons.Filled.Info
+            },
+            contentDescription = null,
+            tint = contentColor,
+            modifier = Modifier.size(sx(32))
+        )
+
+        // Label
+        Text(
+            text = label,
+            style = TextStyle(
+                fontSize = (24 * sy(1).value / 1).sp,
+                fontWeight = FontWeight.Bold,
+                color = contentColor,
+                letterSpacing = (-0.48).sp,
+                lineHeight = (32 * sy(1).value / 1).sp
+            )
+        )
     }
 }
 
