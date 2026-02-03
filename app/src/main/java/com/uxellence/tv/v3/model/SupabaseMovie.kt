@@ -40,7 +40,8 @@ data class SupabaseMovie(
     val audio_languages: String? = null,   // Dźwięk: "angielski | polski | hiszpański"
     val subtitle_languages: String? = null,// Napisy: "angielski | polski"
     val director: String? = null,          // Reżyser: "Álex Pina"
-    val cast: String? = null               // Obsada: "Úrsula Corberó, Álvaro Morte..."
+    val cast: String? = null,              // Obsada: "Úrsula Corberó, Álvaro Morte..."
+    val selected_logo_url: String? = null  // Logo URL to display instead of title on slider (when unfocused)
 )
 
 /**
@@ -72,6 +73,7 @@ fun SupabaseMovie.toVodSlideData(): VodSlideData = VodSlideData(
     backgroundUrl = backdrop_url ?: "",
     posterUrl = poster_url ?: "",
     youtubeUrl = youtube_url,
+    selectedLogoUrl = selected_logo_url, // Logo URL to display instead of title when slider not focused
     // Nowe pola dla MovieDetailScreen (Figma design)
     filmwebRating = filmweb_rating,
     audioLanguages = audio_languages,

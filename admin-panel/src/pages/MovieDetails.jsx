@@ -320,10 +320,30 @@ function MovieDetails() {
     saveFieldToSupabase('youtube_url', `https://www.youtube.com/watch?v=${videoKey}`, 'Trailer');
   };
 
-  // Zapisz logo
+  // Zapisz logo do tmdb_logo_url
   const saveLogoToSupabase = async (logoPath) => {
     const logoUrl = `${TMDB_IMAGE_BASE}/original${logoPath}`;
     saveFieldToSupabase('tmdb_logo_url', logoUrl, 'Logo');
+  };
+
+  // Zapisz logo do selected_logo_url (dla slidera - wyświetlane zamiast tytułu)
+  const saveSelectedLogoToSupabase = async (logoPath) => {
+    setSaving(true);
+    const logoUrl = logoPath ? `${TMDB_IMAGE_BASE}/original${logoPath}` : null;
+
+    const { error } = await supabase
+      .from('movies')
+      .update({ selected_logo_url: logoUrl })
+      .eq('id', id);
+
+    if (error) {
+      setMessage('Błąd zapisu logo: ' + error.message);
+    } else {
+      setMessage(logoUrl ? 'Logo dla slidera zapisane! Będzie wyświetlane zamiast tytułu.' : 'Logo dla slidera usunięte.');
+      setMovie({ ...movie, selected_logo_url: logoUrl });
+    }
+    setSaving(false);
+    setTimeout(() => setMessage(''), 3000);
   };
 
   // Dodaj film do slidera
@@ -505,6 +525,27 @@ function MovieDetails() {
             <div className="backdrop-preview">
               <h3>Obecny Backdrop</h3>
               <img src={movie.backdrop_url} alt="Current backdrop" />
+            </div>
+          )}
+
+          {/* Selected Logo for Slider Display */}
+          {movie?.selected_logo_url && (
+            <div className="selected-logo-preview">
+              <h3>🎬 Logo dla slidera (wyświetlane zamiast tytułu)</h3>
+              <div className="selected-logo-container">
+                <img
+                  src={movie.selected_logo_url}
+                  alt="Selected Logo for Slider"
+                  className="selected-logo-img"
+                />
+                <button
+                  className="remove-logo-btn"
+                  onClick={() => saveSelectedLogoToSupabase(null)}
+                  disabled={saving}
+                >
+                  ❌ Usuń logo (pokaż tytuł tekstowy)
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -766,23 +807,42 @@ function MovieDetails() {
               {tmdbImages?.logos && tmdbImages.logos.length > 0 && (
                 <div className="images-section">
                   <h3>✨ LOGA ({tmdbImages.logos.length})</h3>
-                  <p className="hint">Kliknij "Zapisz logo", aby zapisać je do naszej bazy</p>
+                  <p className="hint">Kliknij "📺 Dla slidera", aby wyświetlać logo zamiast tytułu na sliderze</p>
                   <div className="logos-grid">
-                    {tmdbImages.logos.slice(0, logoPage * ITEMS_PER_PAGE.logos).map((logo, idx) => (
-                      <div key={idx} className="logo-item">
-                        <img
-                          src={`${TMDB_IMAGE_BASE}/w300${logo.file_path}`}
-                          alt={`Logo ${idx + 1}`}
-                        />
-                        <button
-                          onClick={() => saveLogoToSupabase(logo.file_path)}
-                          disabled={saving}
-                          className="select-btn"
+                    {tmdbImages.logos.slice(0, logoPage * ITEMS_PER_PAGE.logos).map((logo, idx) => {
+                      const fullLogoUrl = `${TMDB_IMAGE_BASE}/original${logo.file_path}`;
+                      const isSelectedForSlider = movie.selected_logo_url === fullLogoUrl;
+                      return (
+                        <div
+                          key={idx}
+                          className={`logo-item ${isSelectedForSlider ? 'selected-for-slider' : ''}`}
                         >
-                          💾 Zapisz logo
-                        </button>
-                      </div>
-                    ))}
+                          <img
+                            src={`${TMDB_IMAGE_BASE}/w300${logo.file_path}`}
+                            alt={`Logo ${idx + 1}`}
+                          />
+                          <div className="logo-info">
+                            <span>{logo.width}x{logo.height}</span>
+                          </div>
+                          <div className="logo-buttons">
+                            <button
+                              onClick={() => saveLogoToSupabase(logo.file_path)}
+                              disabled={saving}
+                              className="select-btn"
+                            >
+                              💾 Zapisz
+                            </button>
+                            <button
+                              onClick={() => saveSelectedLogoToSupabase(logo.file_path)}
+                              disabled={saving}
+                              className={`select-btn slider-btn ${isSelectedForSlider ? 'selected' : ''}`}
+                            >
+                              {isSelectedForSlider ? '✅ Wybrane' : '📺 Dla slidera'}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                   {tmdbImages.logos.length > logoPage * ITEMS_PER_PAGE.logos && (
                     <button onClick={() => setLogoPage(p => p + 1)} className="load-more-btn">

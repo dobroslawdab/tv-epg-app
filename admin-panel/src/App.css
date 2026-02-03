@@ -3465,3 +3465,123 @@ body {
   color: #92400e;
   border: 1px solid #fcd34d;
 }
+
+/* ==========================================
+   Logo Selection for Slider (V4)
+   ========================================== */
+
+/* Logo grid enhancements */
+.logo-item {
+  position: relative;
+  transition: all 0.2s;
+  border: 2px solid transparent;
+  border-radius: 8px;
+}
+
+.logo-item:hover {
+  border-color: #5FEDD4;
+  transform: scale(1.02);
+}
+
+.logo-item.selected-for-slider {
+  border-color: #00ff88;
+  box-shadow: 0 0 15px rgba(0, 255, 136, 0.4);
+}
+
+.logo-item.selected-for-slider::after {
+  content: '📺 Slider';
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 4px 8px;
+  background: #00ff88;
+  color: #1a1a2e;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 4px;
+}
+
+.logo-info {
+  padding: 8px;
+  text-align: center;
+  color: #ccc;
+  font-size: 12px;
+}
+
+.logo-buttons {
+  display: flex;
+  gap: 8px;
+  padding: 0 8px 8px;
+}
+
+.logo-buttons .select-btn {
+  flex: 1;
+  padding: 8px 12px;
+}
+
+.logo-buttons .slider-btn {
+  background: #48227C;
+}
+
+.logo-buttons .slider-btn:hover {
+  background: #5a2d96;
+}
+
+.logo-buttons .slider-btn.selected {
+  background: #00ff88;
+  color: #1a1a2e;
+}
+
+/* Selected Logo Preview */
+.selected-logo-preview {
+  margin-top: 20px;
+  padding: 20px;
+  background: #2a2a4a;
+  border-radius: 12px;
+  border: 2px solid #00ff88;
+}
+
+.selected-logo-preview h3 {
+  color: #00ff88;
+  margin-bottom: 16px;
+  font-size: 16px;
+}
+
+.selected-logo-container {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 15px;
+}
+
+.selected-logo-img {
+  max-width: 350px;
+  max-height: 120px;
+  background: #1a1a2e;
+  padding: 15px;
+  border-radius: 8px;
+  object-fit: contain;
+}
+
+.remove-logo-btn {
+  padding: 10px 18px;
+  background: #ff4444;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.remove-logo-btn:hover {
+  background: #ff2222;
+  transform: translateY(-1px);
+}
+
+.remove-logo-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}

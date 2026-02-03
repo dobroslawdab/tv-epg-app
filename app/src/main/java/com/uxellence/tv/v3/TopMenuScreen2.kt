@@ -658,6 +658,7 @@ data class VodSlideData(
     val channelLogoUrl: String? = null, // Channel logo URL for WIDEO section
     val showKrrit: Boolean = false, // Show KRRIT labels for movie/vod content
     val isKinoPlay: Boolean = false, // True if item is from KINO PLAY (sourceType == "movie")
+    val selectedLogoUrl: String? = null, // Logo URL to display instead of title when slider not focused
     // Nowe pola dla MovieDetailScreen (Figma design)
     val filmwebRating: Double? = null,     // Ocena Filmweb (np. 6.7)
     val audioLanguages: String? = null,    // Dźwięk: "angielski | polski | hiszpański"
@@ -13721,7 +13722,8 @@ private fun SliderV4Card(
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             // 1. Background: Trailer video OR static image
-            val shouldShowTrailer = showTrailer && !item.youtubeUrl.isNullOrBlank() && isSelected
+            // Trailer only plays when slider is focused (not when menu is focused)
+            val shouldShowTrailer = showTrailer && !item.youtubeUrl.isNullOrBlank() && isSelected && isSliderFocused
 
             Box(
                 modifier = Modifier.fillMaxSize(),
@@ -13751,8 +13753,8 @@ private fun SliderV4Card(
                 }
             }
 
-            // 2. Glow overlay (slide_glow_left.png)
-            if (!isNextSlide && sectionType == "KINO_PLAY") {
+            // 2. Glow overlay (slide_glow_left.png) - only when slider focused
+            if (!isNextSlide && sectionType == "KINO_PLAY" && isSliderFocused) {
                 Image(
                     painter = painterResource(id = R.drawable.slide_glow_left),
                     contentDescription = null,
@@ -13818,91 +13820,116 @@ private fun SliderV4Card(
                         }
                     }
 
-                    // CONTENT: Title and description (starts at 160px from top)
+                    // CONTENT: Title/Logo and description (starts at 160px from top)
                     Column(
                         modifier = Modifier
                             .padding(top = sy(160))
                             .widthIn(max = sx(600))
                     ) {
-                        // Title (max 3 lines)
-                        Text(
-                            text = item.title,
-                            color = Color(0xFFEEEEEE),
-                            fontSize = sy(48).value.sp,
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 3,
-                            overflow = TextOverflow.Ellipsis,
-                            lineHeight = sy(56).value.sp,
-                            modifier = Modifier.widthIn(max = sx(600))
-                        )
+                        // Title OR Logo (when not focused and logo available)
+                        // Title size: 48sp when focused, 72sp (50% larger) when not focused
+                        val titleFontSize = if (isSliderFocused) sy(48).value.sp else sy(72).value.sp
+                        val titleLineHeight = if (isSliderFocused) sy(56).value.sp else sy(84).value.sp
 
-                        Spacer(modifier = Modifier.height(sy(16)))
+                        // Show logo instead of title when: not focused AND logo URL exists
+                        if (!isSliderFocused && !item.selectedLogoUrl.isNullOrBlank()) {
+                            // Display logo image instead of text title (2x larger)
+                            AsyncImage(
+                                model = item.selectedLogoUrl,
+                                contentDescription = item.title,
+                                modifier = Modifier
+                                    .widthIn(max = sx(1000))
+                                    .heightIn(max = sy(300)),
+                                contentScale = ContentScale.Fit
+                            )
+                        } else {
+                            // Display text title (focused state OR no logo available)
+                            Text(
+                                text = item.title,
+                                color = Color(0xFFEEEEEE),
+                                fontSize = titleFontSize,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 3,
+                                overflow = TextOverflow.Ellipsis,
+                                lineHeight = titleLineHeight,
+                                modifier = Modifier.widthIn(max = sx(600))
+                            )
+                        }
 
-                        // Metadata row
-                        SliderMetadataRowV2(
-                            genre = item.genre,
-                            duration = item.duration,
-                            ageRating = item.ageRating,
-                            sectionType = sectionType,
-                            showKrritImage = sectionType == "KINO_PLAY",
-                            sx = sx,
-                            sy = sy
-                        )
+                        // Metadata row (only when slider focused)
+                        if (isSliderFocused) {
+                            Spacer(modifier = Modifier.height(sy(16)))
 
-                        Spacer(modifier = Modifier.height(sy(16)))
+                            SliderMetadataRowV2(
+                                genre = item.genre,
+                                duration = item.duration,
+                                ageRating = item.ageRating,
+                                sectionType = sectionType,
+                                showKrritImage = sectionType == "KINO_PLAY",
+                                sx = sx,
+                                sy = sy
+                            )
 
-                        // Description (max 3 lines)
-                        Text(
-                            text = item.description,
-                            color = Color(0xFFEEEEEE),
-                            fontSize = sy(24).value.sp,
-                            fontWeight = FontWeight.Normal,
-                            maxLines = 3,
-                            overflow = TextOverflow.Ellipsis,
-                            lineHeight = sy(32).value.sp,
-                            modifier = Modifier
-                                .widthIn(max = sx(550))
-                                .heightIn(max = sy(100))
-                        )
+                            Spacer(modifier = Modifier.height(sy(16)))
+
+                            // Description (max 3 lines)
+                            Text(
+                                text = item.description,
+                                color = Color(0xFFEEEEEE),
+                                fontSize = sy(24).value.sp,
+                                fontWeight = FontWeight.Normal,
+                                maxLines = 3,
+                                overflow = TextOverflow.Ellipsis,
+                                lineHeight = sy(32).value.sp,
+                                modifier = Modifier
+                                    .widthIn(max = sx(550))
+                                    .heightIn(max = sy(100))
+                            )
+                        }
                     }
 
                     // === V4 UNIQUE: Info text at bottom, buttons above ===
                     // Info text positioned at bottom with 24px padding
                     // Buttons positioned above info text with same 24px gap
 
-                    // Info text: "Oglądasz w ramach pakietu Extra" (at bottom)
-                    Row(
-                        modifier = Modifier
-                            .align(Alignment.BottomStart)
-                            .padding(bottom = sy(24))
-                            .height(sy(32)),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(sx(8))
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.LocalOffer,
-                            contentDescription = null,
-                            tint = Color(0xFFEEEEEE),
-                            modifier = Modifier.size(sx(24))
-                        )
-                        Text(
-                            text = "Oglądasz w ramach pakietu Extra",
-                            style = TextStyle(
-                                fontSize = (16 * sy(1).value / 1).sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFFEEEEEE),
-                                letterSpacing = 0.32.sp,
-                                lineHeight = (24 * sy(1).value / 1).sp
+                    // Info text: "Oglądasz w ramach pakietu Extra" (at bottom) - only when slider focused
+                    if (isSliderFocused) {
+                        Row(
+                            modifier = Modifier
+                                .align(Alignment.BottomStart)
+                                .padding(bottom = sy(24))
+                                .height(sy(32)),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(sx(8))
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.LocalOffer,
+                                contentDescription = null,
+                                tint = Color(0xFFEEEEEE),
+                                modifier = Modifier.size(sx(24))
                             )
-                        )
+                            Text(
+                                text = "Oglądasz w ramach pakietu Extra",
+                                style = TextStyle(
+                                    fontSize = (16 * sy(1).value / 1).sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFEEEEEE),
+                                    letterSpacing = 0.32.sp,
+                                    lineHeight = (24 * sy(1).value / 1).sp
+                                )
+                            )
+                        }
                     }
 
                     // Buttons above info text
-                    // Position: bottom = 24px (info padding) + 32px (info height) + 24px (gap) = 80px
+                    // When not focused: button at bottom with 24px padding
+                    // When focused: button at 80px from bottom (above info text)
+                    val buttonBottomPadding = if (isSliderFocused) sy(80) else sy(24)
+
                     Column(
                         modifier = Modifier
                             .align(Alignment.BottomStart)
-                            .padding(bottom = sy(80)),
+                            .padding(bottom = buttonBottomPadding),
                         verticalArrangement = Arrangement.spacedBy(sy(16))
                     ) {
                         // Button 1: Wypożycz
@@ -13916,15 +13943,17 @@ private fun SliderV4Card(
                             onClick = { onRentClicked?.invoke(item) }
                         )
 
-                        // Button 2: Dowiedz się więcej
-                        V4SliderButtonVisual(
-                            label = "Dowiedz się więcej",
-                            iconType = V4ButtonIcon.INFO,
-                            isFocused = isCardFocused && focusedButtonIndex == 1,
-                            sx = sx,
-                            sy = sy,
-                            onClick = { onMoreInfoClicked?.invoke(item) }
-                        )
+                        // Button 2: Dowiedz się więcej (only when slider focused)
+                        if (isSliderFocused) {
+                            V4SliderButtonVisual(
+                                label = "Dowiedz się więcej",
+                                iconType = V4ButtonIcon.INFO,
+                                isFocused = isCardFocused && focusedButtonIndex == 1,
+                                sx = sx,
+                                sy = sy,
+                                onClick = { onMoreInfoClicked?.invoke(item) }
+                            )
+                        }
                     }
                 }
             }
