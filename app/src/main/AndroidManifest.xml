@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-feature android:name="android.software.leanback" android:required="true" />
-    <uses-feature android:name="android.hardware.type.television" android:required="true" />
+    <uses-feature android:name="android.hardware.type.television" android:required="false" />
 
     <!-- Explicitly declare that a touchscreen and microphone are not required for TV compatibility -->
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />

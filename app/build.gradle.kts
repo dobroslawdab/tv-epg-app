@@ -16,8 +16,8 @@ android {
           applicationId = "com.uxellence.tv.v3"
           minSdk = 23  // Compose 1.10.0 requires minSdk 23
           targetSdk = 36
-          versionCode = 34
-          versionName = "4.1.0"
+          versionCode = 35
+          versionName = "4.2.0"
   
           // Specify the ABIs to build for. Including both 32-bit and 64-bit ensures compatibility.
           ndk {
