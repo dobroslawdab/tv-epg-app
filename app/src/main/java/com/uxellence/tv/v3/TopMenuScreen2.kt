@@ -13470,16 +13470,21 @@ private fun VodHeroSliderV3(
 }
 
 /**
- * VodHeroSliderV4 - Slider with 2 focusable buttons on slide
+ * VodHeroSliderV4 - Slider with 2 focusable buttons on slide (LazyRow + Card based)
  *
  * Figma specs (node 1073:10931):
- * - Container: full width × 675px
+ * - Card: 1468×675px, border 2px, radius 16px
  * - Button position: X=40px, Y=452px
  * - Button size: max 472px × 72px
  * - Button gap: 16px
  * - Button radius: 8px
  * - Focused: bg=#5FEDD4, text=#48227C
  * - Unfocused: bg=rgba(238,238,238,0.2), text=#EEEEEE
+ *
+ * Navigation:
+ * - LEFT/RIGHT: Change slide (preserve button position)
+ * - UP/DOWN: Switch between buttons on same slide
+ * - ENTER: Execute action (rent or more info)
  */
 @Composable
 private fun VodHeroSliderV4(
@@ -13493,26 +13498,30 @@ private fun VodHeroSliderV4(
     onMoreInfoClicked: ((VodSlideData) -> Unit)? = null,
     onReturnToMenu: () -> Unit = {}
 ) {
-    // State
-    var currentSlide by remember { mutableStateOf(0) }
-    var focusedButtonIndex by remember { mutableStateOf(0) }  // 0=rent, 1=info
-    var rememberedButtonIndex by remember { mutableStateOf(0) }
-
     // Shuffle items once on first composition
     val sliderItems = remember(items) { items.shuffled() }
 
-    // FocusRequesters
-    val button1Focus = remember { FocusRequester() }
-    val button2Focus = remember { FocusRequester() }
+    // State
+    var currentSlide by remember { mutableStateOf(0) }
+    var focusedButtonIndex by remember { mutableStateOf(0) }  // 0=rent, 1=info
 
-    // Request focus when component becomes focused
-    LaunchedEffect(isFocused, currentSlide, focusedButtonIndex) {
+    val focusRequester = remember { FocusRequester() }
+    val listState = rememberLazyListState()
+
+    // Focus restoration when slider becomes focused
+    LaunchedEffect(isFocused) {
         if (isFocused) {
-            kotlinx.coroutines.delay(50)
-            when (focusedButtonIndex) {
-                0 -> button1Focus.requestFocus()
-                1 -> button2Focus.requestFocus()
-            }
+            focusRequester.requestFocus()
+        }
+    }
+
+    // Scroll to current slide
+    LaunchedEffect(currentSlide) {
+        if (sliderItems.isNotEmpty()) {
+            listState.animateScrollToItem(
+                index = currentSlide,
+                scrollOffset = 0
+            )
         }
     }
 
@@ -13520,50 +13529,47 @@ private fun VodHeroSliderV4(
         modifier = Modifier
             .fillMaxSize()
             .padding(top = sy(topPadding))
+            .focusRequester(focusRequester)
+            .focusable()
             .onPreviewKeyEvent { event ->
                 if (!isFocused) return@onPreviewKeyEvent false
                 if (event.type != androidx.compose.ui.input.key.KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                if (sliderItems.isEmpty()) return@onPreviewKeyEvent false
 
                 when (event.key) {
                     androidx.compose.ui.input.key.Key.DirectionLeft -> {
                         if (currentSlide > 0) {
                             currentSlide--
-                            // Keep button position
+                            // Keep button position when changing slides
                         }
                         true
                     }
                     androidx.compose.ui.input.key.Key.DirectionRight -> {
                         if (currentSlide < sliderItems.size - 1) {
                             currentSlide++
-                            // Keep button position
+                            // Keep button position when changing slides
                         }
                         true
                     }
                     androidx.compose.ui.input.key.Key.DirectionDown -> {
                         if (focusedButtonIndex < 1) {
                             focusedButtonIndex = 1
-                            rememberedButtonIndex = 1
-                            button2Focus.requestFocus()
                         }
                         true
                     }
                     androidx.compose.ui.input.key.Key.DirectionUp -> {
                         if (focusedButtonIndex > 0) {
                             focusedButtonIndex = 0
-                            rememberedButtonIndex = 0
-                            button1Focus.requestFocus()
-                            true
-                        } else {
-                            // At top button, optionally return to menu
-                            false
                         }
+                        true  // Always consume UP when slider has focus
                     }
                     androidx.compose.ui.input.key.Key.Enter,
                     androidx.compose.ui.input.key.Key.DirectionCenter -> {
-                        val currentItem = sliderItems.getOrNull(currentSlide)
-                        when (focusedButtonIndex) {
-                            0 -> currentItem?.let { onRentClicked?.invoke(it) }
-                            1 -> currentItem?.let { onMoreInfoClicked?.invoke(it) }
+                        sliderItems.getOrNull(currentSlide)?.let { item ->
+                            when (focusedButtonIndex) {
+                                0 -> onRentClicked?.invoke(item)
+                                1 -> onMoreInfoClicked?.invoke(item)
+                            }
                         }
                         true
                     }
@@ -13571,196 +13577,355 @@ private fun VodHeroSliderV4(
                 }
             }
     ) {
-        val currentItem = sliderItems.getOrNull(currentSlide)
-
-        // 1. Backdrop image (Figma: X=268, size=1200x675)
-        currentItem?.let { item ->
-            AsyncImage(
-                model = item.backgroundUrl,
-                contentDescription = null,
-                modifier = Modifier
-                    .fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
-        }
-
-        // 2. Gradient overlay (left side glow)
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.horizontalGradient(
-                        colors = listOf(
-                            Color.Black.copy(alpha = 0.9f),
-                            Color.Black.copy(alpha = 0.6f),
-                            Color.Transparent
-                        ),
-                        startX = 0f,
-                        endX = 800f
-                    )
-                )
-        )
-
-        // 3. Content info (Figma: X=40, Y=0, W=556)
-        Column(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(start = sx(40), top = sy(40))
-                .width(sx(556))
-        ) {
-            // Logo + metadata row
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(sy(96)),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(sx(16))
+        if (sliderItems.isEmpty()) {
+            // Loading state
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
             ) {
-                // KINO PLAY badge if this is a KINO PLAY item
-                if (currentItem?.isKinoPlay == true) {
-                    Box(
-                        modifier = Modifier
-                            .background(
-                                color = Color(0xFF5FEDD4),
-                                shape = RoundedCornerShape(sx(4))
-                            )
-                            .padding(horizontal = sx(12), vertical = sy(6))
-                    ) {
-                        Text(
-                            text = "KINO PLAY",
-                            style = TextStyle(
-                                fontSize = (14 * sy(1).value / 1).sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF48227C),
-                                letterSpacing = 1.sp
-                            )
+                CircularProgressIndicator(
+                    color = Color(0xFF5AECD3),
+                    modifier = Modifier.size(56.dp),
+                    strokeWidth = 4.dp
+                )
+            }
+        } else {
+            // LazyRow carousel (like V2/V3)
+            LazyRow(
+                state = listState,
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(sx(20)),
+                contentPadding = PaddingValues(start = sx(60), end = sx(400))
+            ) {
+                itemsIndexed(sliderItems) { index, item ->
+                    SliderV4Card(
+                        item = item,
+                        sectionType = sectionType,
+                        slideIndex = index,
+                        currentSlide = currentSlide,
+                        isSelected = index == currentSlide,
+                        isSliderFocused = isFocused,
+                        focusedButtonIndex = focusedButtonIndex,
+                        onRentClicked = onRentClicked,
+                        onMoreInfoClicked = onMoreInfoClicked,
+                        sx = sx,
+                        sy = sy
+                    )
+                }
+            }
+
+            // Slide indicator dots (bottom center)
+            if (sliderItems.size > 1) {
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = sy(24)),
+                    horizontalArrangement = Arrangement.spacedBy(sx(8))
+                ) {
+                    sliderItems.forEachIndexed { index, _ ->
+                        Box(
+                            modifier = Modifier
+                                .size(if (index == currentSlide) sx(12) else sx(8))
+                                .background(
+                                    color = if (index == currentSlide) Color.White else Color(0x80EEEEEE),
+                                    shape = CircleShape
+                                )
                         )
                     }
                 }
-                // Metadata: genre | duration | age rating
-                Text(
-                    text = listOfNotNull(
-                        currentItem?.genre?.takeIf { it.isNotBlank() },
-                        currentItem?.duration?.takeIf { it.isNotBlank() },
-                        currentItem?.ageRating?.takeIf { it.isNotBlank() }
-                    ).joinToString(" | "),
-                    style = TextStyle(
-                        fontSize = (16 * sy(1).value / 1).sp,
-                        fontWeight = FontWeight.Medium,
-                        color = Color(0xCCEEEEEE)
-                    )
-                )
             }
-
-            Spacer(modifier = Modifier.height(sy(16)))
-
-            // Title (Figma: 48px, Medium)
-            Text(
-                text = currentItem?.title ?: "",
-                style = TextStyle(
-                    fontSize = (48 * sy(1).value / 1).sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color(0xFFEEEEEE),
-                    lineHeight = (64 * sy(1).value / 1).sp
-                ),
-                maxLines = 2
-            )
-
-            Spacer(modifier = Modifier.height(sy(16)))
-
-            // Description (Figma: 24px, Medium)
-            Text(
-                text = currentItem?.description ?: "",
-                style = TextStyle(
-                    fontSize = (24 * sy(1).value / 1).sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color(0xFFEEEEEE),
-                    letterSpacing = 0.48.sp,
-                    lineHeight = (32 * sy(1).value / 1).sp
-                ),
-                maxLines = 2
-            )
         }
+    }
+}
 
-        // 4. Buttons (Figma: X=40, Y=452, gap=16)
-        Column(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(start = sx(40), top = sy(452)),
-            verticalArrangement = Arrangement.spacedBy(sy(16))
-        ) {
-            // Button 1: Wypożycz
-            V4SliderButton(
-                label = "Wypożycz: ${currentItem?.price ?: "19 zł"} / 48 h",
-                iconType = V4ButtonIcon.PLAY,
-                isFocused = isFocused && focusedButtonIndex == 0,
-                focusRequester = button1Focus,
-                sx = sx,
-                sy = sy,
-                onFocusChanged = { if (it) { focusedButtonIndex = 0; rememberedButtonIndex = 0 } },
-                onClick = { currentItem?.let { onRentClicked?.invoke(it) } }
-            )
+/**
+ * SliderV4Card - Card with 2 focusable buttons for V4 slider
+ *
+ * Figma specs:
+ * - Size: 1468×675px
+ * - Border: 2px #EEEEEE (unfocused), 4px #5FEDD4 (focused)
+ * - Radius: 16px
+ * - Adjacent slides: 30% opacity
+ */
+@Composable
+private fun SliderV4Card(
+    item: VodSlideData,
+    sectionType: String,
+    slideIndex: Int,
+    currentSlide: Int,
+    isSelected: Boolean,
+    isSliderFocused: Boolean,
+    focusedButtonIndex: Int,  // 0=rent, 1=info
+    onRentClicked: ((VodSlideData) -> Unit)?,
+    onMoreInfoClicked: ((VodSlideData) -> Unit)?,
+    sx: (Int) -> androidx.compose.ui.unit.Dp,
+    sy: (Int) -> androidx.compose.ui.unit.Dp
+) {
+    val isCardFocused = isSelected && isSliderFocused
+    val isNextSlide = slideIndex == currentSlide + 1
+    val isPrevSlide = slideIndex == currentSlide - 1
+    val cardOpacity = if (isNextSlide || isPrevSlide) 0.3f else 1f
 
-            // Button 2: Dowiedz się więcej
-            V4SliderButton(
-                label = "Dowiedz się więcej",
-                iconType = V4ButtonIcon.INFO,
-                isFocused = isFocused && focusedButtonIndex == 1,
-                focusRequester = button2Focus,
-                sx = sx,
-                sy = sy,
-                onFocusChanged = { if (it) { focusedButtonIndex = 1; rememberedButtonIndex = 1 } },
-                onClick = { currentItem?.let { onMoreInfoClicked?.invoke(it) } }
-            )
-
-            // Info text (Figma: 64px height, 16px font)
-            Row(
-                modifier = Modifier
-                    .height(sy(64))
-                    .padding(horizontal = sx(4)),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(sx(8))
+    Card(
+        modifier = Modifier
+            .width(sx(1468))
+            .height(sy(675))
+            .alpha(cardOpacity),
+        shape = RoundedCornerShape(sx(16)),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF281443)),
+        border = if (isCardFocused)
+            BorderStroke(sx(4), Color(0xFF5FEDD4))
+        else
+            BorderStroke(sx(2), Color(0xFFEEEEEE).copy(alpha = 0.2f)),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = if (isCardFocused) 16.dp else 4.dp
+        )
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            // 1. Background image (aligned to right)
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.CenterEnd
             ) {
-                // ic_packages icon 24x24
-                Icon(
-                    imageVector = Icons.Filled.LocalOffer,
+                AsyncImage(
+                    model = item.backgroundUrl,
                     contentDescription = null,
-                    tint = Color(0xFFEEEEEE),
-                    modifier = Modifier.size(sx(24))
-                )
-                Text(
-                    text = "Oglądasz w ramach pakietu Extra",
-                    style = TextStyle(
-                        fontSize = (16 * sy(1).value / 1).sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFFEEEEEE),
-                        letterSpacing = 0.32.sp,
-                        lineHeight = (24 * sy(1).value / 1).sp
-                    )
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .offset(x = if (isNextSlide) sx(-755) else 0.dp),
+                    contentScale = ContentScale.FillHeight
                 )
             }
-        }
 
-        // 5. Slide indicator dots (bottom center)
-        if (sliderItems.size > 1) {
-            Row(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = sy(24)),
-                horizontalArrangement = Arrangement.spacedBy(sx(8))
-            ) {
-                sliderItems.forEachIndexed { index, _ ->
+            // 2. Glow overlay (slide_glow_left.png)
+            if (!isNextSlide && sectionType == "KINO_PLAY") {
+                Image(
+                    painter = painterResource(id = R.drawable.slide_glow_left),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .width(sx(1151))
+                        .height(sy(675))
+                        .align(Alignment.TopStart),
+                    contentScale = ContentScale.FillBounds
+                )
+            }
+
+            // 3. Left gradient overlay
+            if (!isNextSlide) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .width(sx(590))
+                        .align(Alignment.CenterStart)
+                        .offset(x = sx(266))
+                        .background(
+                            brush = Brush.horizontalGradient(
+                                colors = listOf(
+                                    Color(0xFF281443),
+                                    Color.Transparent
+                                )
+                            )
+                        )
+                )
+            }
+
+            // 4. Content area (hidden for next slide preview)
+            if (!isNextSlide) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(start = sx(50), bottom = sy(40))
+                ) {
+                    // EMBLEM: Logo + labels (0-160px space)
                     Box(
                         modifier = Modifier
-                            .size(if (index == currentSlide) sx(12) else sx(8))
-                            .background(
-                                color = if (index == currentSlide) Color.White else Color(0x80EEEEEE),
-                                shape = CircleShape
+                            .height(sy(160))
+                            .zIndex(1f),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(sx(30))
+                        ) {
+                            // KINO PLAY logo
+                            if (item.isKinoPlay || sectionType == "KINO_PLAY") {
+                                Image(
+                                    painter = painterResource(id = R.drawable.logo_kino_pay),
+                                    contentDescription = "KINO PLAY"
+                                )
+                                // Premiera premium label
+                                ContentLabelV2(
+                                    label = "Premiera premium",
+                                    show4K = true,
+                                    sx = sx,
+                                    sy = sy
+                                )
+                            }
+                        }
+                    }
+
+                    // CONTENT: Title and description (starts at 160px from top)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(top = sy(160))
+                    ) {
+                        // Title (max 3 lines)
+                        Text(
+                            text = item.title,
+                            color = Color(0xFFEEEEEE),
+                            fontSize = sy(48).value.sp,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 3,
+                            overflow = TextOverflow.Ellipsis,
+                            lineHeight = sy(56).value.sp,
+                            modifier = Modifier.widthIn(max = sx(600))
+                        )
+
+                        Spacer(modifier = Modifier.height(sy(16)))
+
+                        // Metadata row
+                        SliderMetadataRowV2(
+                            genre = item.genre,
+                            duration = item.duration,
+                            ageRating = item.ageRating,
+                            sectionType = sectionType,
+                            showKrritImage = sectionType == "KINO_PLAY",
+                            sx = sx,
+                            sy = sy
+                        )
+
+                        Spacer(modifier = Modifier.height(sy(16)))
+
+                        // Description (max 3 lines)
+                        Text(
+                            text = item.description,
+                            color = Color(0xFFEEEEEE),
+                            fontSize = sy(24).value.sp,
+                            fontWeight = FontWeight.Normal,
+                            maxLines = 3,
+                            overflow = TextOverflow.Ellipsis,
+                            lineHeight = sy(32).value.sp,
+                            modifier = Modifier
+                                .widthIn(max = sx(550))
+                                .heightIn(max = sy(100))
+                        )
+
+                        Spacer(modifier = Modifier.weight(1f))
+
+                        // === V4 UNIQUE: Two buttons ===
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(sy(16))
+                        ) {
+                            // Button 1: Wypożycz (uses visual focus only - no FocusRequester)
+                            V4SliderButtonVisual(
+                                label = "Wypożycz: ${item.price} / 48 h",
+                                iconType = V4ButtonIcon.PLAY,
+                                isFocused = isCardFocused && focusedButtonIndex == 0,
+                                sx = sx,
+                                sy = sy,
+                                onClick = { onRentClicked?.invoke(item) }
                             )
-                    )
+
+                            // Button 2: Dowiedz się więcej
+                            V4SliderButtonVisual(
+                                label = "Dowiedz się więcej",
+                                iconType = V4ButtonIcon.INFO,
+                                isFocused = isCardFocused && focusedButtonIndex == 1,
+                                sx = sx,
+                                sy = sy,
+                                onClick = { onMoreInfoClicked?.invoke(item) }
+                            )
+
+                            // Info text: "Oglądasz w ramach pakietu Extra"
+                            Row(
+                                modifier = Modifier
+                                    .height(sy(64))
+                                    .padding(horizontal = sx(4)),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(sx(8))
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.LocalOffer,
+                                    contentDescription = null,
+                                    tint = Color(0xFFEEEEEE),
+                                    modifier = Modifier.size(sx(24))
+                                )
+                                Text(
+                                    text = "Oglądasz w ramach pakietu Extra",
+                                    style = TextStyle(
+                                        fontSize = (16 * sy(1).value / 1).sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFFEEEEEE),
+                                        letterSpacing = 0.32.sp,
+                                        lineHeight = (24 * sy(1).value / 1).sp
+                                    )
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
+    }
+}
+
+/**
+ * V4SliderButtonVisual - Visual-only button for V4 slider cards (no FocusRequester)
+ * Focus state is controlled by parent via isFocused prop
+ */
+@Composable
+private fun V4SliderButtonVisual(
+    label: String,
+    iconType: V4ButtonIcon,
+    isFocused: Boolean,
+    sx: (Int) -> androidx.compose.ui.unit.Dp,
+    sy: (Int) -> androidx.compose.ui.unit.Dp,
+    onClick: () -> Unit
+) {
+    val backgroundColor by animateColorAsState(
+        targetValue = if (isFocused) Color(0xFF5FEDD4) else Color(0x33EEEEEE),
+        animationSpec = tween(150),
+        label = "v4ButtonBg"
+    )
+
+    val contentColor by animateColorAsState(
+        targetValue = if (isFocused) Color(0xFF48227C) else Color(0xFFEEEEEE),
+        animationSpec = tween(150),
+        label = "v4ButtonContent"
+    )
+
+    Row(
+        modifier = Modifier
+            .height(sy(72))
+            .widthIn(max = sx(472))
+            .clip(RoundedCornerShape(sx(8)))
+            .background(backgroundColor)
+            .clickable { onClick() }
+            .padding(horizontal = sx(32)),
+        horizontalArrangement = Arrangement.spacedBy(sx(8)),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = when (iconType) {
+                V4ButtonIcon.PLAY -> Icons.Filled.PlayArrow
+                V4ButtonIcon.INFO -> Icons.Filled.Info
+            },
+            contentDescription = null,
+            tint = contentColor,
+            modifier = Modifier.size(sx(32))
+        )
+
+        Text(
+            text = label,
+            style = TextStyle(
+                fontSize = (24 * sy(1).value / 1).sp,
+                fontWeight = FontWeight.Bold,
+                color = contentColor,
+                letterSpacing = (-0.48).sp,
+                lineHeight = (32 * sy(1).value / 1).sp
+            )
+        )
     }
 }
 
