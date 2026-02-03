@@ -12117,6 +12117,9 @@ private fun VodWithChannels(
     var focusedRowIndex by remember { mutableStateOf(1) } // Start at slider
     var focusedColIndex by remember { mutableStateOf(-2) } // -2 = brak fokusa na starcie
 
+    // V4 slider button index (0 = Wypożycz, 1 = Dowiedz się więcej)
+    var v4ButtonIndex by remember { mutableStateOf(0) }
+
     // Reset focus state when returning to menu (like MOJE)
     LaunchedEffect(resetTrigger) {
         if (resetTrigger > 0) {
@@ -12201,7 +12204,11 @@ private fun VodWithChannels(
                     lazyListStates = lazyListStates,
                     coroutineScope = coroutineScope,
                     gridContent = gridContent,
-                    onReturnToMenu = onReturnToMenu
+                    onReturnToMenu = onReturnToMenu,
+                    // V4 slider button navigation
+                    sliderVersion = sliderVersion,
+                    v4ButtonIndex = v4ButtonIndex,
+                    onV4ButtonIndexChange = { v4ButtonIndex = it }
                 )
             }
             .focusable()
@@ -12226,7 +12233,8 @@ private fun VodWithChannels(
             globalFocusState = globalFocusState,
             sx = sx,
             sy = sy,
-            sliderVersion = sliderVersion
+            sliderVersion = sliderVersion,
+            v4ButtonIndex = v4ButtonIndex
         )
     }
 }
@@ -12248,7 +12256,8 @@ private fun VodLayoutWithSlider(
     globalFocusState: MutableState<GlobalFocusState>,
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
-    sliderVersion: Int = 1
+    sliderVersion: Int = 1,
+    v4ButtonIndex: Int = 0  // V4 slider button index (0 = Wypożycz, 1 = Dowiedz się więcej)
 ) {
     // Load KINO_PLAY slider items from Supabase
     val supabaseReady = VodDataCache.isSupabaseInitialized()
@@ -12298,12 +12307,14 @@ private fun VodLayoutWithSlider(
                 }
                 4 -> {
                     // V4: Slider with 2 focusable buttons on slide (Rent + More Info)
+                    // Button navigation is handled at parent level (handleVodNavigation)
                     VodHeroSliderV4(
                         isFocused = focusedRowIndex == 1 && globalFocusState.value.currentRow > 0,
                         items = kinoPlaySliderItems,
                         sectionType = "KINO_PLAY",
                         sx = sx,
                         sy = sy,
+                        externalButtonIndex = v4ButtonIndex,  // Controlled by parent
                         onRentClicked = { item -> onNavigateToPurchase(item) },
                         onMoreInfoClicked = { item -> onNavigateToMovieDetail(item) },
                         onReturnToMenu = { /* callback do menu */ }
@@ -13494,6 +13505,7 @@ private fun VodHeroSliderV4(
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     topPadding: Int = 200,
+    externalButtonIndex: Int = 0,  // Button index controlled by parent (0=rent, 1=info)
     onRentClicked: ((VodSlideData) -> Unit)? = null,
     onMoreInfoClicked: ((VodSlideData) -> Unit)? = null,
     onReturnToMenu: () -> Unit = {}
@@ -13503,7 +13515,8 @@ private fun VodHeroSliderV4(
 
     // State
     var currentSlide by remember { mutableStateOf(0) }
-    var focusedButtonIndex by remember { mutableStateOf(0) }  // 0=rent, 1=info
+    // Use external button index from parent (navigation handled by handleVodNavigation)
+    val focusedButtonIndex = externalButtonIndex
 
     val focusRequester = remember { FocusRequester() }
     val listState = rememberLazyListState()
@@ -13536,32 +13549,20 @@ private fun VodHeroSliderV4(
                 if (event.type != androidx.compose.ui.input.key.KeyEventType.KeyDown) return@onPreviewKeyEvent false
                 if (sliderItems.isEmpty()) return@onPreviewKeyEvent false
 
+                // Note: UP/DOWN navigation is handled by parent (handleVodNavigation)
+                // This handler only handles LEFT/RIGHT (slide change) and ENTER (action)
                 when (event.key) {
                     androidx.compose.ui.input.key.Key.DirectionLeft -> {
                         if (currentSlide > 0) {
                             currentSlide--
-                            // Keep button position when changing slides
                         }
                         true
                     }
                     androidx.compose.ui.input.key.Key.DirectionRight -> {
                         if (currentSlide < sliderItems.size - 1) {
                             currentSlide++
-                            // Keep button position when changing slides
                         }
                         true
-                    }
-                    androidx.compose.ui.input.key.Key.DirectionDown -> {
-                        if (focusedButtonIndex < 1) {
-                            focusedButtonIndex = 1
-                        }
-                        true
-                    }
-                    androidx.compose.ui.input.key.Key.DirectionUp -> {
-                        if (focusedButtonIndex > 0) {
-                            focusedButtonIndex = 0
-                        }
-                        true  // Always consume UP when slider has focus
                     }
                     androidx.compose.ui.input.key.Key.Enter,
                     androidx.compose.ui.input.key.Key.DirectionCenter -> {
@@ -13573,7 +13574,7 @@ private fun VodHeroSliderV4(
                         }
                         true
                     }
-                    else -> false
+                    else -> false  // Let parent handle UP/DOWN
                 }
             }
     ) {
@@ -13812,13 +13813,43 @@ private fun SliderV4Card(
                         )
                     }
 
-                    // === V4 UNIQUE: Two buttons (positioned from bottom) ===
-                    // Layout: Button1 (72px) + gap (16px) + Button2 (72px) + gap (24px) + InfoText (32px) + bottomPadding (20px)
-                    // Total from bottom: 72 + 16 + 72 + 24 + 32 + 20 = 236px
+                    // === V4 UNIQUE: Info text at bottom, buttons above ===
+                    // Info text positioned at bottom with 24px padding
+                    // Buttons positioned above info text with same 24px gap
+
+                    // Info text: "Oglądasz w ramach pakietu Extra" (at bottom)
+                    Row(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(bottom = sy(24))
+                            .height(sy(32)),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(sx(8))
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.LocalOffer,
+                            contentDescription = null,
+                            tint = Color(0xFFEEEEEE),
+                            modifier = Modifier.size(sx(24))
+                        )
+                        Text(
+                            text = "Oglądasz w ramach pakietu Extra",
+                            style = TextStyle(
+                                fontSize = (16 * sy(1).value / 1).sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFEEEEEE),
+                                letterSpacing = 0.32.sp,
+                                lineHeight = (24 * sy(1).value / 1).sp
+                            )
+                        )
+                    }
+
+                    // Buttons above info text
+                    // Position: bottom = 24px (info padding) + 32px (info height) + 24px (gap) = 80px
                     Column(
                         modifier = Modifier
                             .align(Alignment.BottomStart)
-                            .padding(bottom = sy(20)),
+                            .padding(bottom = sy(80)),
                         verticalArrangement = Arrangement.spacedBy(sy(16))
                     ) {
                         // Button 1: Wypożycz
@@ -13841,35 +13872,6 @@ private fun SliderV4Card(
                             sy = sy,
                             onClick = { onMoreInfoClicked?.invoke(item) }
                         )
-
-                        // Spacer to push info text down (centered in remaining space)
-                        Spacer(modifier = Modifier.height(sy(8)))
-
-                        // Info text: "Oglądasz w ramach pakietu Extra"
-                        Row(
-                            modifier = Modifier
-                                .height(sy(32))
-                                .padding(horizontal = sx(4)),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(sx(8))
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.LocalOffer,
-                                contentDescription = null,
-                                tint = Color(0xFFEEEEEE),
-                                modifier = Modifier.size(sx(24))
-                            )
-                            Text(
-                                text = "Oglądasz w ramach pakietu Extra",
-                                style = TextStyle(
-                                    fontSize = (16 * sy(1).value / 1).sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFFEEEEEE),
-                                    letterSpacing = 0.32.sp,
-                                    lineHeight = (24 * sy(1).value / 1).sp
-                                )
-                            )
-                        }
                     }
                 }
             }
@@ -16236,16 +16238,27 @@ fun handleVodNavigation(
     lazyListStates: Map<Int, LazyListState>,
     coroutineScope: CoroutineScope,
     gridContent: Map<String, List<VodContent>>,
-    onReturnToMenu: () -> Unit
+    onReturnToMenu: () -> Unit,
+    // V4 slider button navigation (optional - only used when sliderVersion == 4)
+    sliderVersion: Int = 2,
+    v4ButtonIndex: Int = 0,
+    onV4ButtonIndexChange: (Int) -> Unit = {}
 ): Boolean {
     if (event.nativeKeyEvent.action != android.view.KeyEvent.ACTION_DOWN) return false
 
     when (event.key) {
         Key.DirectionUp -> {
-            android.util.Log.d("VOD_NAV", "UP pressed: focusedRowIndex=$focusedRowIndex, focusedColIndex=$focusedColIndex")
+            android.util.Log.d("VOD_NAV", "UP pressed: focusedRowIndex=$focusedRowIndex, focusedColIndex=$focusedColIndex, sliderVersion=$sliderVersion, v4ButtonIndex=$v4ButtonIndex")
             when {
                 focusedRowIndex == 1 -> {
-                    // From slider to menu
+                    // V4 slider: UP switches between buttons before returning to menu
+                    if (sliderVersion == 4 && v4ButtonIndex > 0) {
+                        // Move from button 1 (Dowiedz się więcej) to button 0 (Wypożycz)
+                        android.util.Log.d("VOD_NAV", "V4: Moving from button 1 to button 0")
+                        onV4ButtonIndexChange(0)
+                        return true
+                    }
+                    // From slider (button 0) to menu
                     android.util.Log.d("VOD_NAV", "Going from slider (row 1) to menu (row 0)")
                     onReturnToMenu()
                 }
@@ -16285,9 +16298,22 @@ fun handleVodNavigation(
         }
 
         Key.DirectionDown -> {
+            android.util.Log.d("VOD_NAV", "DOWN pressed: focusedRowIndex=$focusedRowIndex, sliderVersion=$sliderVersion, v4ButtonIndex=$v4ButtonIndex")
             when {
                 focusedRowIndex == 1 -> {
-                    // From slider to first channel
+                    // V4 slider: DOWN switches between buttons before going to channels
+                    if (sliderVersion == 4 && v4ButtonIndex < 1) {
+                        // Move from button 0 (Wypożycz) to button 1 (Dowiedz się więcej)
+                        android.util.Log.d("VOD_NAV", "V4: Moving from button 0 to button 1")
+                        onV4ButtonIndexChange(1)
+                        return true
+                    }
+                    // From slider (button 1 for V4, or any button for V1-V3) to first channel
+                    android.util.Log.d("VOD_NAV", "Going from slider to first channel")
+                    // Reset V4 button index when leaving slider
+                    if (sliderVersion == 4) {
+                        onV4ButtonIndexChange(0)
+                    }
                     onFocusChange(2, -1) // Start at CategoryIcon
                     channelFocusRequesters[Pair(2, -1)]?.requestFocus()
                 }
