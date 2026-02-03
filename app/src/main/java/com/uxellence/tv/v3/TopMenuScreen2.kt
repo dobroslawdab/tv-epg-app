@@ -143,6 +143,7 @@ import com.uxellence.tv.v3.config.ConfigManager
 import com.uxellence.tv.v3.repository.toVodSlideData
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.PlayArrow
+import com.uxellence.tv.v3.components.YouTubeTrailerPlayer
 
 // PIP Dialog Constants
 private val DIALOG_ALLOWED_KEYS = setOf(
@@ -13521,6 +13522,37 @@ private fun VodHeroSliderV4(
     val focusRequester = remember { FocusRequester() }
     val listState = rememberLazyListState()
 
+    // === TRAILER AUTO-PLAY ===
+    // Capture stable item at slide change (prevents flickering when sliderItems reloads)
+    val stableItem = remember(currentSlide) { sliderItems.getOrNull(currentSlide) }
+    val trailerUrl = stableItem?.youtubeUrl
+
+    // Trailer auto-play state - key by stableItem.title to be extra stable
+    var showTrailer by remember(stableItem?.title ?: "") { mutableStateOf(false) }
+
+    // Auto-play trailer after 2 seconds of focus
+    LaunchedEffect(stableItem?.title) {
+        if (stableItem == null) return@LaunchedEffect
+        android.util.Log.d("VodHeroSliderV4", "LaunchedEffect started for: ${stableItem.title}")
+
+        while (true) {
+            if (isFocused && !trailerUrl.isNullOrBlank() && !showTrailer) {
+                // Wait 2 seconds before showing trailer
+                kotlinx.coroutines.delay(2000)
+                // Double-check focus is still active after delay
+                if (isFocused && !trailerUrl.isNullOrBlank()) {
+                    showTrailer = true
+                    android.util.Log.d("VodHeroSliderV4", "Trailer START for: ${stableItem.title}")
+                }
+            } else if (!isFocused && showTrailer) {
+                // Hide trailer when focus is lost
+                showTrailer = false
+                android.util.Log.d("VodHeroSliderV4", "Trailer STOP (focus lost) for: ${stableItem.title}")
+            }
+            kotlinx.coroutines.delay(100)
+        }
+    }
+
     // Focus restoration when slider becomes focused
     LaunchedEffect(isFocused) {
         if (isFocused) {
@@ -13536,6 +13568,8 @@ private fun VodHeroSliderV4(
                 scrollOffset = 0
             )
         }
+        // Reset trailer when changing slides
+        showTrailer = false
     }
 
     Box(
@@ -13607,6 +13641,7 @@ private fun VodHeroSliderV4(
                         isSelected = index == currentSlide,
                         isSliderFocused = isFocused,
                         focusedButtonIndex = focusedButtonIndex,
+                        showTrailer = showTrailer && index == currentSlide,  // Only show trailer on selected card
                         onRentClicked = onRentClicked,
                         onMoreInfoClicked = onMoreInfoClicked,
                         sx = sx,
@@ -13615,13 +13650,14 @@ private fun VodHeroSliderV4(
                 }
             }
 
-            // Slide indicator dots (bottom center)
+            // Slide indicator dots (20px below slider, same as V2)
             if (sliderItems.size > 1) {
                 Row(
                     modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = sy(24)),
-                    horizontalArrangement = Arrangement.spacedBy(sx(8))
+                        .align(Alignment.TopCenter)
+                        .offset(y = sy(695)),  // 675px slider + 20px gap
+                    horizontalArrangement = Arrangement.spacedBy(sx(12)),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     sliderItems.forEachIndexed { index, _ ->
                         Box(
@@ -13657,6 +13693,7 @@ private fun SliderV4Card(
     isSelected: Boolean,
     isSliderFocused: Boolean,
     focusedButtonIndex: Int,  // 0=rent, 1=info
+    showTrailer: Boolean = false,  // Show video trailer instead of backdrop image
     onRentClicked: ((VodSlideData) -> Unit)?,
     onMoreInfoClicked: ((VodSlideData) -> Unit)?,
     sx: (Int) -> androidx.compose.ui.unit.Dp,
@@ -13683,19 +13720,35 @@ private fun SliderV4Card(
         )
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // 1. Background image (aligned to right)
+            // 1. Background: Trailer video OR static image
+            val shouldShowTrailer = showTrailer && !item.youtubeUrl.isNullOrBlank() && isSelected
+
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.CenterEnd
             ) {
-                AsyncImage(
-                    model = item.backgroundUrl,
-                    contentDescription = null,
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .offset(x = if (isNextSlide) sx(-755) else 0.dp),
-                    contentScale = ContentScale.FillHeight
-                )
+                // Layer 1: Static backdrop image (always present, hidden when trailer plays)
+                if (!shouldShowTrailer) {
+                    AsyncImage(
+                        model = item.backgroundUrl,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .offset(x = if (isNextSlide) sx(-755) else 0.dp),
+                        contentScale = ContentScale.FillHeight
+                    )
+                }
+
+                // Layer 2: Trailer video (when shouldShowTrailer=true)
+                if (shouldShowTrailer) {
+                    Log.d("SliderV4Card", "Playing trailer for ${item.title}: ${item.youtubeUrl}")
+                    YouTubeTrailerPlayer(
+                        youtubeUrl = item.youtubeUrl!!,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .zIndex(2f)
+                    )
+                }
             }
 
             // 2. Glow overlay (slide_glow_left.png)
