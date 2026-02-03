@@ -13734,7 +13734,7 @@ private fun SliderV4Card(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(start = sx(50), bottom = sy(40))
+                        .padding(start = sx(50))
                 ) {
                     // EMBLEM: Logo + labels (0-160px space)
                     Box(
@@ -13767,8 +13767,8 @@ private fun SliderV4Card(
                     // CONTENT: Title and description (starts at 160px from top)
                     Column(
                         modifier = Modifier
-                            .fillMaxSize()
                             .padding(top = sy(160))
+                            .widthIn(max = sx(600))
                     ) {
                         // Title (max 3 lines)
                         Text(
@@ -13810,58 +13810,65 @@ private fun SliderV4Card(
                                 .widthIn(max = sx(550))
                                 .heightIn(max = sy(100))
                         )
+                    }
 
-                        Spacer(modifier = Modifier.weight(1f))
+                    // === V4 UNIQUE: Two buttons (positioned from bottom) ===
+                    // Layout: Button1 (72px) + gap (16px) + Button2 (72px) + gap (24px) + InfoText (32px) + bottomPadding (20px)
+                    // Total from bottom: 72 + 16 + 72 + 24 + 32 + 20 = 236px
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(bottom = sy(20)),
+                        verticalArrangement = Arrangement.spacedBy(sy(16))
+                    ) {
+                        // Button 1: Wypożycz
+                        // Note: item.price already contains "X zł/48h" format
+                        V4SliderButtonVisual(
+                            label = "Wypożycz: ${item.price}",
+                            iconType = V4ButtonIcon.PLAY,
+                            isFocused = isCardFocused && focusedButtonIndex == 0,
+                            sx = sx,
+                            sy = sy,
+                            onClick = { onRentClicked?.invoke(item) }
+                        )
 
-                        // === V4 UNIQUE: Two buttons ===
-                        Column(
-                            verticalArrangement = Arrangement.spacedBy(sy(16))
+                        // Button 2: Dowiedz się więcej
+                        V4SliderButtonVisual(
+                            label = "Dowiedz się więcej",
+                            iconType = V4ButtonIcon.INFO,
+                            isFocused = isCardFocused && focusedButtonIndex == 1,
+                            sx = sx,
+                            sy = sy,
+                            onClick = { onMoreInfoClicked?.invoke(item) }
+                        )
+
+                        // Spacer to push info text down (centered in remaining space)
+                        Spacer(modifier = Modifier.height(sy(8)))
+
+                        // Info text: "Oglądasz w ramach pakietu Extra"
+                        Row(
+                            modifier = Modifier
+                                .height(sy(32))
+                                .padding(horizontal = sx(4)),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(sx(8))
                         ) {
-                            // Button 1: Wypożycz (uses visual focus only - no FocusRequester)
-                            V4SliderButtonVisual(
-                                label = "Wypożycz: ${item.price} / 48 h",
-                                iconType = V4ButtonIcon.PLAY,
-                                isFocused = isCardFocused && focusedButtonIndex == 0,
-                                sx = sx,
-                                sy = sy,
-                                onClick = { onRentClicked?.invoke(item) }
+                            Icon(
+                                imageVector = Icons.Filled.LocalOffer,
+                                contentDescription = null,
+                                tint = Color(0xFFEEEEEE),
+                                modifier = Modifier.size(sx(24))
                             )
-
-                            // Button 2: Dowiedz się więcej
-                            V4SliderButtonVisual(
-                                label = "Dowiedz się więcej",
-                                iconType = V4ButtonIcon.INFO,
-                                isFocused = isCardFocused && focusedButtonIndex == 1,
-                                sx = sx,
-                                sy = sy,
-                                onClick = { onMoreInfoClicked?.invoke(item) }
+                            Text(
+                                text = "Oglądasz w ramach pakietu Extra",
+                                style = TextStyle(
+                                    fontSize = (16 * sy(1).value / 1).sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFEEEEEE),
+                                    letterSpacing = 0.32.sp,
+                                    lineHeight = (24 * sy(1).value / 1).sp
+                                )
                             )
-
-                            // Info text: "Oglądasz w ramach pakietu Extra"
-                            Row(
-                                modifier = Modifier
-                                    .height(sy(64))
-                                    .padding(horizontal = sx(4)),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(sx(8))
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.LocalOffer,
-                                    contentDescription = null,
-                                    tint = Color(0xFFEEEEEE),
-                                    modifier = Modifier.size(sx(24))
-                                )
-                                Text(
-                                    text = "Oglądasz w ramach pakietu Extra",
-                                    style = TextStyle(
-                                        fontSize = (16 * sy(1).value / 1).sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFFEEEEEE),
-                                        letterSpacing = 0.32.sp,
-                                        lineHeight = (24 * sy(1).value / 1).sp
-                                    )
-                                )
-                            }
                         }
                     }
                 }
