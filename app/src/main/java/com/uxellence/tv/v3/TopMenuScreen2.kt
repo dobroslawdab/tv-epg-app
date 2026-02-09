@@ -1272,7 +1272,7 @@ fun TopMenuScreen2(
     // Cycled with Key.Nine (V1 → V2 → V3 → V1), affects ODKRYWAJ, KINO_PLAY, WIDEO sections
     // Persisted in SharedPreferences
     val sliderPrefs = remember { context.getSharedPreferences("slider_prefs", android.content.Context.MODE_PRIVATE) }
-    var sliderVersion by remember { mutableIntStateOf(sliderPrefs.getInt("slider_version", 2)) }
+    var sliderVersion by remember { mutableIntStateOf(sliderPrefs.getInt("slider_version", 4)) }  // Default 4: KINO_PLAY=2 buttons, ODKRYWAJ=V2 slider with bullets
 
     // Quick purchase mode - Key.Six toggles: Slider → MovieDetail → Purchase (default) vs Slider → Purchase (quick)
     var quickPurchaseMode by remember { mutableStateOf(sliderPrefs.getBoolean("quick_purchase_mode", false)) }
@@ -1642,24 +1642,7 @@ fun TopMenuScreen2(
                     return@onPreviewKeyEvent true
                 }
 
-                // Global: Key "9" - Cycle Slider version (V1 → V2 → V3 → V4 → V1)
-                // V1: Original carousel slider
-                // V2: Full slider with bullets and auto-rotation
-                // V3: Simplified slider - no bullets, no auto-rotation, shuffled order
-                // V4: Slider with 2 focusable buttons on slide (Rent + More Info)
-                if (event.key == Key.Nine) {
-                    sliderVersion = when (sliderVersion) {
-                        1 -> 2
-                        2 -> 3
-                        3 -> 4
-                        4 -> 1
-                        else -> 2
-                    }
-                    // Save to SharedPreferences
-                    sliderPrefs.edit().putInt("slider_version", sliderVersion).apply()
-                    android.util.Log.d("TopMenuScreen2", "Key '9' pressed - Slider version cycled to: V$sliderVersion (saved to prefs)")
-                    return@onPreviewKeyEvent true
-                }
+                // Key "9" - Slider cycling REMOVED (fixed versions: ODKRYWAJ=V2, KINO_PLAY=V4, WIDEO=V2)
 
                 // ===== END GLOBAL SHORTCUTS =====
 
@@ -3945,14 +3928,15 @@ private fun OdkrywajChannelsScreen(
         }
     }
 
-    // Load slider data from Supabase
+    // Load slider data from Supabase (shuffle ONCE on first load, like KINO PLAY/WIDEO)
     LaunchedEffect(Unit) {
         try {
             val items = com.uxellence.tv.v3.repository.SupabaseOdkrywajRepository.fetchOdkrywajSlider()
-            odkrywajSliderItems = items.map { it.toVodSlideData() }
-            // V3: Shuffle once here for both main and ghost slider sync
-            shuffledOdkrywajSliderItems = odkrywajSliderItems.shuffled()
-            Log.d("ODKRYWAJ_DEBUG", "Loaded ${odkrywajSliderItems.size} slider items from Supabase (shuffled for V3)")
+            // Shuffle once on first load (same pattern as KINO PLAY and WIDEO)
+            odkrywajSliderItems = items.map { it.toVodSlideData() }.shuffled()
+            // V3: Use same shuffled order for ghost slider sync
+            shuffledOdkrywajSliderItems = odkrywajSliderItems
+            Log.d("ODKRYWAJ_DEBUG", "Loaded ${odkrywajSliderItems.size} slider items from Supabase (shuffled once)")
         } catch (e: Exception) {
             Log.e("ODKRYWAJ_DEBUG", "Failed to load slider items", e)
         } finally {
@@ -3982,16 +3966,11 @@ private fun OdkrywajChannelsScreen(
         "Pakiety"                       // Row 14 - horizontal (LAST)
     )
 
-    // Define channel types - shortcuts version depends on sliderVersion
-    // V1: shortcuts (small), V2: shortcuts-v3 (big, text top), V3: shortcuts-v4 (Figma quick links)
-    val channelTypes = remember(sliderVersion) {
+    // Define channel types - shortcuts always use v4 (Figma quick links design)
+    val channelTypes = remember {
         mapOf(
             "Slider Mix" to "slider-max",
-            "Skróty" to when (sliderVersion) {
-                1 -> "shortcuts"
-                3 -> "shortcuts-v4"
-                else -> "shortcuts-v3"
-            },
+            "Skróty" to "shortcuts-v4",  // Fixed: Oglądaj TV, Nagrania, Moja lista, Do obejrzenia, Netflix, Disney+, Igrzyska
             "Teraz w TV" to "horizontal",
             "Aplikacje" to "app-icons",
             "Oglądaj dalej" to "horizontal",
@@ -4118,6 +4097,9 @@ private fun OdkrywajChannelsScreen(
     // === Infinity loop transition guard ===
     var isInGhostTransition by remember { mutableStateOf(false) }
 
+    // === Slider button index for KINO PLAY content (like KINO_PLAY section) ===
+    var sliderButtonIndex by remember { mutableIntStateOf(0) }
+
     // === Shared slider state for synchronization between main slider and ghost slider ===
     var sharedCurrentSlide by remember { mutableStateOf(0) }
     var sharedProgress by remember { mutableFloatStateOf(0f) }
@@ -4133,11 +4115,12 @@ private fun OdkrywajChannelsScreen(
         }
     }
 
-    // Reset focus state when returning to menu
+    // Reset focus state when entering section (shuffle happens ONCE on first load, like KINO PLAY/WIDEO)
     LaunchedEffect(resetTrigger) {
         if (resetTrigger > 0) {
             focusedRowIndex = 0
             focusedColIndex = -2
+            Log.d("ODKRYWAJ_DEBUG", "Reset focus state on section entry (resetTrigger=$resetTrigger)")
         }
     }
 
@@ -4236,7 +4219,10 @@ private fun OdkrywajChannelsScreen(
                     onReturnToMenu = onReturnToMenu,
                     // === Infinity loop parameters ===
                     isInGhostTransition = isInGhostTransition,
-                    onGhostTransitionChange = { inTransition -> isInGhostTransition = inTransition }
+                    onGhostTransitionChange = { inTransition -> isInGhostTransition = inTransition },
+                    // === Slider button index for KINO PLAY content ===
+                    sliderButtonIndex = sliderButtonIndex,
+                    onSliderButtonIndexChange = { sliderButtonIndex = it }
                 )
             }
             .focusable()
@@ -4275,7 +4261,12 @@ private fun OdkrywajChannelsScreen(
             onSharedCurrentSlideChange = { slide -> sharedCurrentSlide = slide },
             sharedProgress = sharedProgress,
             sliderVersion = sliderVersion,
-            v3SliderAutoSlideEnabled = v3SliderAutoSlideEnabled  // Key.Eight toggle for V3 slider
+            v3SliderAutoSlideEnabled = v3SliderAutoSlideEnabled,  // Key.Eight toggle for V3 slider
+            // === Slider UP navigation callback (to menu) ===
+            onSliderReturnToMenu = onReturnToMenu,
+            // === Slider button index for KINO PLAY content ===
+            sliderButtonIndex = sliderButtonIndex,
+            onSliderButtonIndexChange = { sliderButtonIndex = it }
         )
     }
 }
@@ -8721,7 +8712,10 @@ fun handleOdkrywajNavigation(
     onReturnToMenu: () -> Unit,
     // === Infinity loop parameters ===
     isInGhostTransition: Boolean = false,
-    onGhostTransitionChange: (Boolean) -> Unit = {}
+    onGhostTransitionChange: (Boolean) -> Unit = {},
+    // === Slider button index for KINO PLAY content ===
+    sliderButtonIndex: Int = 0,
+    onSliderButtonIndexChange: (Int) -> Unit = {}
 ): Boolean {
     android.util.Log.d("ODKRYWAJ_NAV", "handleOdkrywajNavigation: key=${event.key}, focusedRow=$focusedRowIndex, focusedCol=$focusedColIndex")
     if (event.nativeKeyEvent.action != android.view.KeyEvent.ACTION_DOWN) return false
@@ -8744,6 +8738,9 @@ fun handleOdkrywajNavigation(
                 onFocusChange(0, 0)
                 channelFocusRequesters[Pair(0, 0)]?.requestFocus()
                 return true
+            } else if (focusedRowIndex == 0) {
+                // Row 0 (slider-max) - delegate to VodHeroSliderV2 (it handles KINO PLAY button navigation)
+                return false // Let VodHeroSliderV2 handle UP key (navigates between buttons or calls onReturnToMenu)
             } else if (focusedRowIndex > 0) {
                 val newRowIndex = focusedRowIndex - 1
                 // Row 0 (slider-max), row 1 (shortcuts), row 7 (banner-promo) have no CategoryIcon - always go to col=0
@@ -8754,21 +8751,18 @@ fun handleOdkrywajNavigation(
                     3 -> if (focusedColIndex == -1) -1 else 0 // Row 3 (app-icons) has CategoryIcon
                     else -> if (focusedColIndex == -1) -1 else 0 // Preserve type for rows with CategoryIcon
                 }
+                // Reset button index when returning to slider from any row (like KINO PLAY)
+                if (newRowIndex == 0) {
+                    onSliderButtonIndexChange(0)
+                }
                 onFocusChange(newRowIndex, targetColIndex)
                 channelFocusRequesters[Pair(newRowIndex, targetColIndex)]?.requestFocus()
+                return true
             } else {
-                // From row 0 (slider-max) - go back to menu
-                coroutineScope.launch {
-                    channels.forEachIndexed { rowIndex, _ ->
-                        val lazyListState = lazyListStates[rowIndex]
-                        if (lazyListState != null && lazyListState.firstVisibleItemIndex > 0) {
-                            lazyListState.animateScrollToItem(index = 0, scrollOffset = 0)
-                        }
-                    }
-                }
+                // Fallback - should not reach here
                 onReturnToMenu()
+                return true
             }
-            return true
         }
 
         Key.DirectionDown -> {
@@ -8777,6 +8771,11 @@ fun handleOdkrywajNavigation(
                 onFocusChange(0, 0)
                 channelFocusRequesters[Pair(0, 0)]?.requestFocus()
                 return true
+            }
+
+            // Row 0 (slider-max) - delegate to VodHeroSliderV2 (it handles KINO PLAY button navigation)
+            if (focusedRowIndex == 0) {
+                return false // Let VodHeroSliderV2 handle DOWN key (navigates between buttons or calls onNavigateDown)
             }
 
             // === INFINITY LOOP: From last channel (Row 14) → Ghost Slider → Row 0 ===
@@ -10182,7 +10181,12 @@ fun OdkrywajChannelRowsLayout(
     // Slider version: 2 = V2 (bullets, auto-rotate), 3 = V3 (no bullets, no auto-rotate, shuffled)
     sliderVersion: Int = 2,
     // Key.Eight toggle for V3 slider auto-slide and bullets
-    v3SliderAutoSlideEnabled: Boolean = false
+    v3SliderAutoSlideEnabled: Boolean = false,
+    // === Slider UP navigation callback (to menu) ===
+    onSliderReturnToMenu: () -> Unit = {},
+    // === Slider button index for KINO PLAY content ===
+    sliderButtonIndex: Int = 0,
+    onSliderButtonIndexChange: (Int) -> Unit = {}
 ) {
     // === Track previous focusedRowIndex to detect instant jump from ghost slider ===
     var previousFocusedRowIndex by remember { mutableStateOf(focusedRowIndex) }
@@ -10247,7 +10251,21 @@ fun OdkrywajChannelRowsLayout(
                     onSharedCurrentSlideChange = onSharedCurrentSlideChange,
                     sharedProgress = sharedProgress,
                     sliderVersion = sliderVersion,
-                    v3SliderAutoSlideEnabled = v3SliderAutoSlideEnabled  // Key.Eight toggle for V3 slider
+                    v3SliderAutoSlideEnabled = v3SliderAutoSlideEnabled,  // Key.Eight toggle for V3 slider
+                    // === Slider navigation callbacks ===
+                    onSliderNavigateDown = if (rowIndex == 0) {
+                        {
+                            // Navigate from row 0 (slider) to row 1 (shortcuts)
+                            onChannelContentFocusChange(1, 0)
+                            channelFocusRequesters[Pair(1, 0)]?.requestFocus()
+                        }
+                    } else null,
+                    onSliderReturnToMenu = if (rowIndex == 0) {
+                        { onSliderReturnToMenu() }
+                    } else null,
+                    // === Slider button index (for KINO PLAY content) ===
+                    sliderButtonIndex = sliderButtonIndex,
+                    onSliderButtonIndexChange = onSliderButtonIndexChange
                 )
             }
         }
@@ -10335,7 +10353,14 @@ fun OdkrywajUnifiedChannelRow(
     // Slider version: 2 = V2 (bullets, auto-rotate), 3 = V3 (no bullets, no auto-rotate, shuffled)
     sliderVersion: Int = 2,
     // Key.Eight toggle for V3 slider auto-slide and bullets
-    v3SliderAutoSlideEnabled: Boolean = false
+    v3SliderAutoSlideEnabled: Boolean = false,
+    // === Navigation callback for slider DOWN (to next row) ===
+    onSliderNavigateDown: (() -> Unit)? = null,
+    // === Navigation callback for slider UP (to menu) ===
+    onSliderReturnToMenu: (() -> Unit)? = null,
+    // === Slider button index for KINO PLAY content ===
+    sliderButtonIndex: Int = 0,
+    onSliderButtonIndexChange: (Int) -> Unit = {}
 ) {
     // ODKRYWAJ section - no onClick to EPG Day needed here
     val isCurrentRow = rowIndex == focusedRowIndex
@@ -10364,51 +10389,35 @@ fun OdkrywajUnifiedChannelRow(
 
         when (channelType) {
             "slider-max" -> {
-                // Slider V2 or V3 based on sliderVersion (toggled with Key.Nine)
-                // V2: bullets, auto-rotate | V3: no bullets, no auto-rotate, shuffled order
+                // ODKRYWAJ: Always use V2 slider with bullets and auto-rotation
                 // topPadding = 0 because parent handles Y positioning via calculateOdkrywajChannelYPosition
-                if (sliderVersion == 3) {
-                    VodHeroSliderV3(
-                        isFocused = rowIndex == focusedRowIndex && focusedColIndex >= 0,
-                        items = sliderItems,
-                        sectionType = "ODKRYWAJ",
-                        sx = sx,
-                        sy = sy,
-                        topPadding = 0, // Parent handles positioning (40px below menu)
-                        onSlideChanged = { slideIndex ->
-                            onChannelContentFocusChange(rowIndex, 0)
-                        },
-                        externalCurrentSlide = sharedCurrentSlide,
-                        onCurrentSlideChange = { slide -> onSharedCurrentSlideChange(slide) },
-                        shouldShuffle = false,  // Items already shuffled at parent level for sync
-                        // Key.Eight toggle for auto-slide and bullets
-                        enableAutoRotate = v3SliderAutoSlideEnabled,
-                        autoRotateIntervalMs = autoRotateIntervalMs,
-                        pauseAfterInteractionMs = pauseAfterInteractionMs
-                    )
-                } else {
-                    VodHeroSliderV2(
-                        isFocused = rowIndex == focusedRowIndex && focusedColIndex >= 0,
-                        items = sliderItems,
-                        sectionType = "ODKRYWAJ",
-                        sx = sx,
-                        sy = sy,
-                        topPadding = 0, // Parent handles positioning (40px below menu)
-                        onSlideChanged = { slideIndex ->
-                            // Update focus state when slide changes
-                            onChannelContentFocusChange(rowIndex, 0)
-                        },
-                        // Auto-rotation enabled for ODKRYWAJ slider
-                        enableAutoRotate = true,
-                        autoRotateIntervalMs = autoRotateIntervalMs,
-                        pauseAfterInteractionMs = pauseAfterInteractionMs,
-                        // Detect if user is on channels below slider (row > 0) to trigger pause
-                        isOnChannelsBelow = focusedRowIndex > rowIndex,
-                        // === Infinity loop: Shared state for ghost slider synchronization ===
-                        externalCurrentSlide = sharedCurrentSlide,
-                        onCurrentSlideChange = { slide -> onSharedCurrentSlideChange(slide) }
-                    )
-                }
+                VodHeroSliderV2(
+                    isFocused = rowIndex == focusedRowIndex && focusedColIndex >= 0,
+                    items = sliderItems,
+                    sectionType = "ODKRYWAJ",
+                    sx = sx,
+                    sy = sy,
+                    topPadding = 0, // Parent handles positioning (40px below menu)
+                    onSlideChanged = { slideIndex ->
+                        // Update focus state when slide changes
+                        onChannelContentFocusChange(rowIndex, 0)
+                    },
+                    // Auto-rotation enabled for ODKRYWAJ slider
+                    enableAutoRotate = true,
+                    autoRotateIntervalMs = autoRotateIntervalMs,
+                    pauseAfterInteractionMs = pauseAfterInteractionMs,
+                    // Detect if user is on channels below slider (row > 0) to trigger pause
+                    isOnChannelsBelow = focusedRowIndex > rowIndex,
+                    // === Infinity loop: Shared state for ghost slider synchronization ===
+                    externalCurrentSlide = sharedCurrentSlide,
+                    onCurrentSlideChange = { slide -> onSharedCurrentSlideChange(slide) },
+                    // === Button index for KINO PLAY content (like V4 slider) ===
+                    externalButtonIndex = sliderButtonIndex,
+                    onButtonIndexChange = onSliderButtonIndexChange,
+                    // === Navigation callbacks ===
+                    onNavigateDown = onSliderNavigateDown,
+                    onReturnToMenu = onSliderReturnToMenu
+                )
             }
             "shortcuts" -> {
                 // Shortcuts row (starts from x=120, NO SCROLLING - fixed position)
@@ -12207,8 +12216,8 @@ private fun VodWithChannels(
                     coroutineScope = coroutineScope,
                     gridContent = gridContent,
                     onReturnToMenu = onReturnToMenu,
-                    // V4 slider button navigation
-                    sliderVersion = sliderVersion,
+                    // KINO_PLAY: Always V4 slider with 2 buttons navigation
+                    sliderVersion = 4,  // Hardcoded - KINO_PLAY always uses V4
                     v4ButtonIndex = v4ButtonIndex,
                     onV4ButtonIndexChange = { v4ButtonIndex = it }
                 )
@@ -12281,66 +12290,19 @@ private fun VodLayoutWithSlider(
                 .offset(y = sliderYOffset)
                 .zIndex(1f)
         ) {
-            // Conditional rendering based on sliderVersion (toggled with Key.Nine: V2 ↔ V3)
-            when (sliderVersion) {
-                1 -> {
-                    VodHeroSlider(
-                        isFocused = focusedRowIndex == 1 && globalFocusState.value.currentRow > 0,
-                        sx = sx,
-                        sy = sy
-                    )
-                }
-                3 -> {
-                    // V3: No bullets, no auto-rotation, shuffled order
-                    VodHeroSliderV3(
-                        isFocused = focusedRowIndex == 1 && globalFocusState.value.currentRow > 0,
-                        items = kinoPlaySliderItems,
-                        sectionType = "KINO_PLAY",
-                        sx = sx,
-                        sy = sy,
-                        onSlideClicked = { item ->
-                            if (quickPurchaseMode) {
-                                onNavigateToPurchase(item)
-                            } else {
-                                onNavigateToMovieDetail(item)
-                            }
-                        }
-                    )
-                }
-                4 -> {
-                    // V4: Slider with 2 focusable buttons on slide (Rent + More Info)
-                    // Button navigation is handled at parent level (handleVodNavigation)
-                    VodHeroSliderV4(
-                        isFocused = focusedRowIndex == 1 && globalFocusState.value.currentRow > 0,
-                        items = kinoPlaySliderItems,
-                        sectionType = "KINO_PLAY",
-                        sx = sx,
-                        sy = sy,
-                        externalButtonIndex = v4ButtonIndex,  // Controlled by parent
-                        onRentClicked = { item -> onNavigateToPurchase(item) },
-                        onMoreInfoClicked = { item -> onNavigateToMovieDetail(item) },
-                        onReturnToMenu = { /* callback do menu */ }
-                    )
-                }
-                else -> {
-                    // V2: Full slider with bullets and auto-rotation
-                    VodHeroSliderV2(
-                        isFocused = focusedRowIndex == 1 && globalFocusState.value.currentRow > 0,
-                        items = kinoPlaySliderItems,
-                        sectionType = "KINO_PLAY",
-                        sx = sx,
-                        sy = sy,
-                        onSlideClicked = { item ->
-                            // Quick purchase mode: go directly to PurchaseScreen, skipping MovieDetailScreen
-                            if (quickPurchaseMode) {
-                                onNavigateToPurchase(item)
-                            } else {
-                                onNavigateToMovieDetail(item)
-                            }
-                        }
-                    )
-                }
-            }
+            // KINO_PLAY: Always use V4 slider with 2 focusable buttons (Wypożycz + Więcej info)
+            // Key.Nine cycling does NOT affect KINO_PLAY - always V4
+            VodHeroSliderV4(
+                isFocused = focusedRowIndex == 1 && globalFocusState.value.currentRow > 0,
+                items = kinoPlaySliderItems,
+                sectionType = "KINO_PLAY",
+                sx = sx,
+                sy = sy,
+                externalButtonIndex = v4ButtonIndex,  // Controlled by parent
+                onRentClicked = { item -> onNavigateToPurchase(item) },
+                onMoreInfoClicked = { item -> onNavigateToMovieDetail(item) },
+                onReturnToMenu = { /* callback do menu */ }
+            )
         }
 
         // Gradient pod menu - widoczny gdy fokus na channelach (row >= 2)
@@ -12985,13 +12947,24 @@ private fun VodHeroSliderV2(
     // === External state synchronization for ghost slider (infinity loop) ===
     externalCurrentSlide: Int? = null,  // When provided, use this instead of internal state
     onCurrentSlideChange: ((Int) -> Unit)? = null,  // Notify parent of slide changes
-    externalProgress: Float? = null  // When provided, use this for progress indicator
+    externalProgress: Float? = null,  // When provided, use this for progress indicator
+    // === Button navigation for KINO PLAY content (like V4 slider) ===
+    externalButtonIndex: Int = 0,  // Button index controlled by parent (0=rent, 1=info)
+    onButtonIndexChange: ((Int) -> Unit)? = null,  // Notify parent of button index changes
+    // === Navigation callback when DOWN goes past slider (to next row) ===
+    onNavigateDown: (() -> Unit)? = null,  // Called when DOWN should go to next row (not KINO PLAY or already on button 1)
+    // === Navigation callback when UP goes past slider (to menu) ===
+    onReturnToMenu: (() -> Unit)? = null  // Called when UP should go to menu (not KINO PLAY or already on button 0)
 ) {
     val sliderItems = items
 
     // Use external state if provided (for ghost slider synchronization), otherwise internal state
     var internalCurrentSlide by remember { mutableStateOf(0) }
     val currentSlide = externalCurrentSlide ?: internalCurrentSlide
+
+    // Internal button index state (used when onButtonIndexChange is provided, otherwise just for display)
+    var internalButtonIndex by remember { mutableIntStateOf(externalButtonIndex) }
+    val buttonIndex = if (onButtonIndexChange != null) externalButtonIndex else internalButtonIndex
 
     val focusRequester = remember { FocusRequester() } // JEDEN dla całego slidera
     val listState = rememberLazyListState()
@@ -13099,6 +13072,13 @@ private fun VodHeroSliderV2(
                 if (event.type != androidx.compose.ui.input.key.KeyEventType.KeyDown) return@onPreviewKeyEvent false
                 if (sliderItems.isEmpty()) return@onPreviewKeyEvent false
 
+                // Check if current slide is KINO PLAY content (for button navigation)
+                // Must match SliderV2CardStateBased logic: item.isKinoPlay OR sectionType == "KINO_PLAY"
+                val currentItem = sliderItems.getOrNull(currentSlide)
+                val isKinoPlayContent = currentItem?.isKinoPlay == true || sectionType == "KINO_PLAY"
+                // KINO PLAY layout is used in KINO_PLAY and ODKRYWAJ sections
+                val isKinoPlaySlide = isKinoPlayContent && sectionType in listOf("KINO_PLAY", "ODKRYWAJ")
+
                 when (event.key) {
                     androidx.compose.ui.input.key.Key.DirectionLeft -> {
                         if (currentSlide > 0) {
@@ -13109,6 +13089,9 @@ private fun VodHeroSliderV2(
                                 pauseUntilTime = System.currentTimeMillis() + pauseAfterInteractionMs
                                 internalProgress = 0f
                             }
+                            // Reset button index when changing slides
+                            internalButtonIndex = 0
+                            onButtonIndexChange?.invoke(0)
                         }
                         true
                     }
@@ -13121,19 +13104,54 @@ private fun VodHeroSliderV2(
                                 pauseUntilTime = System.currentTimeMillis() + pauseAfterInteractionMs
                                 internalProgress = 0f
                             }
+                            // Reset button index when changing slides
+                            internalButtonIndex = 0
+                            onButtonIndexChange?.invoke(0)
                         }
                         true
                     }
+                    androidx.compose.ui.input.key.Key.DirectionUp -> {
+                        // For KINO PLAY content: navigate between buttons
+                        if (isKinoPlaySlide && buttonIndex > 0) {
+                            internalButtonIndex = buttonIndex - 1
+                            onButtonIndexChange?.invoke(buttonIndex - 1)
+                            true
+                        } else {
+                            // Not KINO PLAY or already on button 0 - return to menu
+                            onReturnToMenu?.invoke()
+                            onReturnToMenu != null // Consume if callback provided, else let parent handle
+                        }
+                    }
+                    androidx.compose.ui.input.key.Key.DirectionDown -> {
+                        // For KINO PLAY content: navigate between buttons (max 2 buttons: 0, 1)
+                        if (isKinoPlaySlide && buttonIndex < 1) {
+                            internalButtonIndex = buttonIndex + 1
+                            onButtonIndexChange?.invoke(buttonIndex + 1)
+                            true
+                        } else {
+                            // Not KINO PLAY or already on button 1 - navigate to next row
+                            onNavigateDown?.invoke()
+                            onNavigateDown != null // Consume if callback provided, else let parent handle
+                        }
+                    }
                     androidx.compose.ui.input.key.Key.Enter,
                     androidx.compose.ui.input.key.Key.DirectionCenter -> {
-                        // Handle OK/Enter press - invoke callback if provided (for KINO_PLAY)
-                        if (onSlideClicked != null && sectionType == "KINO_PLAY") {
+                        // Handle OK/Enter press
+                        if (isKinoPlaySlide) {
+                            sliderItems.getOrNull(currentSlide)?.let { item ->
+                                when (buttonIndex) {
+                                    0 -> onSlideClicked?.invoke(item)  // Wypożycz
+                                    1 -> { /* TODO: More info action */ }
+                                }
+                            }
+                            true
+                        } else if (onSlideClicked != null) {
                             sliderItems.getOrNull(currentSlide)?.let { item ->
                                 onSlideClicked.invoke(item)
                             }
                             true
                         } else {
-                            false // Let parent handle
+                            false
                         }
                     }
                     else -> false
@@ -13170,6 +13188,7 @@ private fun VodHeroSliderV2(
                         currentSlide = currentSlide,
                         isSelected = isSelected,
                         isSliderFocused = isFocused,
+                        focusedButtonIndex = buttonIndex,  // Pass button index for KINO PLAY content
                         sx = sx,
                         sy = sy
                     )
@@ -13795,10 +13814,11 @@ private fun SliderV4Card(
                         .fillMaxSize()
                         .padding(start = sx(50))
                 ) {
-                    // EMBLEM: Logo + labels (0-160px space) - only when slider focused
+                    // EMBLEM: Logo + labels at TOP - only when slider focused
                     if (isSliderFocused) {
                         Box(
                             modifier = Modifier
+                                .align(Alignment.TopStart)
                                 .height(sy(160))
                                 .zIndex(1f),
                             contentAlignment = Alignment.CenterStart
@@ -13825,31 +13845,49 @@ private fun SliderV4Card(
                         }
                     }
 
-                    // CONTENT: Logo at top (when not focused) OR Title+metadata (when focused)
+                    // NOT FOCUSED + HAS LOGO: Show logo at top only
+                    // Logo width limited to half of slide width (1468 / 2 = 734px)
+                    if (!isSliderFocused && !item.selectedLogoUrl.isNullOrBlank()) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .padding(top = sy(160))
+                        ) {
+                            AsyncImage(
+                                model = item.selectedLogoUrl,
+                                contentDescription = item.title,
+                                modifier = Modifier
+                                    .widthIn(max = sx(734))
+                                    .heightIn(max = sy(300)),
+                                contentScale = ContentScale.Fit
+                            )
+                        }
+                    }
+
+                    // === V4: Content + Buttons at BOTTOM (aligned to bottom, 24px above first button) ===
+                    val buttonBottomPadding = sy(50)
+
                     Column(
                         modifier = Modifier
-                            .padding(top = sy(160))
-                            .widthIn(max = sx(600))
+                            .align(Alignment.BottomStart)
+                            .padding(bottom = buttonBottomPadding),
+                        verticalArrangement = Arrangement.spacedBy(sy(24))  // 24px between all elements
                     ) {
-                        // Title size: 48sp when focused, 72sp (50% larger) when not focused
-                        val titleFontSize = if (isSliderFocused) sy(48).value.sp else sy(72).value.sp
-                        val titleLineHeight = if (isSliderFocused) sy(56).value.sp else sy(84).value.sp
-
+                        // FOCUSED STATE: Title + metadata + description ABOVE buttons
                         if (isSliderFocused) {
-                            // FOCUSED STATE: Title at top with metadata and description
+                            // Title
                             Text(
                                 text = item.title,
                                 color = Color(0xFFEEEEEE),
-                                fontSize = titleFontSize,
+                                fontSize = sy(48).value.sp,
                                 fontWeight = FontWeight.Medium,
-                                maxLines = 3,
+                                maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
-                                lineHeight = titleLineHeight,
+                                lineHeight = sy(56).value.sp,
                                 modifier = Modifier.widthIn(max = sx(600))
                             )
 
-                            Spacer(modifier = Modifier.height(sy(16)))
-
+                            // Metadata row
                             SliderMetadataRowV2(
                                 genre = item.genre,
                                 duration = item.duration,
@@ -13859,8 +13897,6 @@ private fun SliderV4Card(
                                 sx = sx,
                                 sy = sy
                             )
-
-                            Spacer(modifier = Modifier.height(sy(16)))
 
                             // Description (max 3 lines)
                             Text(
@@ -13875,40 +13911,18 @@ private fun SliderV4Card(
                                     .widthIn(max = sx(550))
                                     .heightIn(max = sy(100))
                             )
-                        } else if (!item.selectedLogoUrl.isNullOrBlank()) {
-                            // NOT FOCUSED + HAS LOGO: Show logo at top only
-                            AsyncImage(
-                                model = item.selectedLogoUrl,
-                                contentDescription = item.title,
-                                modifier = Modifier
-                                    .widthIn(max = sx(1000))
-                                    .heightIn(max = sy(300)),
-                                contentScale = ContentScale.Fit
-                            )
+                            // No extra Spacer - 12px from spacedBy is sufficient (half of previous ~24px)
                         }
-                        // NOT FOCUSED + NO LOGO: Title will be shown at bottom (see below)
-                    }
 
-                    // === V4: Buttons at bottom ===
-                    // Button positioned at bottom with same padding as left (50px)
-                    val buttonBottomPadding = sy(50)
-
-                    Column(
-                        modifier = Modifier
-                            .align(Alignment.BottomStart)
-                            .padding(bottom = buttonBottomPadding),
-                        verticalArrangement = Arrangement.spacedBy(sy(16))
-                    ) {
-                        // Title at bottom when NOT focused AND no logo (above button)
-                        // If logo exists, don't show title (logo is shown at top)
+                        // NOT FOCUSED + NO LOGO: Title above button
                         if (!isSliderFocused && item.selectedLogoUrl.isNullOrBlank()) {
                             Text(
                                 text = item.title,
                                 color = Color(0xFFEEEEEE),
                                 fontSize = sy(72).value.sp,
                                 fontWeight = FontWeight.Medium,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
+                                maxLines = 3,
+                                overflow = TextOverflow.Clip,
                                 lineHeight = sy(84).value.sp,
                                 modifier = Modifier
                                     .widthIn(max = sx(600))
@@ -13917,7 +13931,6 @@ private fun SliderV4Card(
                         }
 
                         // Button 1: Wypożycz
-                        // Note: item.price already contains "X zł/48h" format
                         V4SliderButtonVisual(
                             label = "Wypożycz: ${item.price}",
                             iconType = V4ButtonIcon.PLAY,
@@ -14277,6 +14290,7 @@ private fun SliderV2CardStateBased(
     currentSlide: Int,        // Aktualnie wybrany slajd (do określenia następnego)
     isSelected: Boolean,      // Czy ta karta jest wybrana (currentSlide)
     isSliderFocused: Boolean, // Czy slider ma fokus
+    focusedButtonIndex: Int = 0,  // Button index for KINO PLAY content (0=rent, 1=info)
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp
 ) {
@@ -14322,9 +14336,9 @@ private fun SliderV2CardStateBased(
             }
 
             // Glow overlay (slide_glow_left.png) - pod tekstem, nad ilustracją
-            // Only for KINO_PLAY, WIDEO, ODKRYWAJ sections
+            // Only visible when slider is FOCUSED (like SliderV4Card)
             // Original image: 1151x675px - positioned at left edge of slide
-            if (!isNextSlide && sectionType in listOf("KINO_PLAY", "WIDEO", "ODKRYWAJ")) {
+            if (!isNextSlide && isSliderFocused && sectionType in listOf("KINO_PLAY", "WIDEO", "ODKRYWAJ")) {
                 Image(
                     painter = painterResource(id = R.drawable.slide_glow_left),
                     contentDescription = null,
@@ -14357,168 +14371,275 @@ private fun SliderV2CardStateBased(
 
             // Content area - ukryty dla następnego slajdu (tylko ilustracja widoczna)
             if (!isNextSlide) {
+                // Check if this is KINO PLAY content (either KINO_PLAY section or ODKRYWAJ with isKinoPlay)
+                val isKinoPlayContent = item.isKinoPlay || sectionType == "KINO_PLAY"
+                val useKinoPlayLayout = isKinoPlayContent && sectionType in listOf("KINO_PLAY", "ODKRYWAJ")
+
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(start = sx(50), bottom = sy(40))
+                        .padding(start = sx(50))
                 ) {
-                // EMBLEM: Logo + labels - centered vertically in 0-160px space
-                // zIndex ensures it floats above, doesn't affect title position
-                Box(
-                    modifier = Modifier
-                        .height(sy(160))
-                        .zIndex(1f),
-                    contentAlignment = Alignment.CenterStart
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(sx(30))
-                    ) {
-                    when (sectionType) {
-                        "KINO_PLAY" -> {
-                            // Logo KINO PAY - oryginalna wielkość
-                            Image(
-                                painter = painterResource(id = R.drawable.logo_kino_pay),
-                                contentDescription = "KINO PLAY"
-                            )
-                            // Content labels (Premiera premium + 4K)
-                            ContentLabelV2(
-                                label = "Premiera premium",
-                                show4K = true,
-                                sx = sx,
-                                sy = sy
-                            )
-                        }
-                        "WIDEO" -> {
-                            // Logo kanału z JSON - max 100px height, centered in 160px space
-                            if (!item.channelLogoUrl.isNullOrEmpty()) {
-                                AsyncImage(
-                                    model = item.channelLogoUrl,
-                                    contentDescription = "Channel logo",
-                                    modifier = Modifier.heightIn(max = sy(100)),
-                                    contentScale = ContentScale.Fit
-                                )
-                            }
-                        }
-                        "ODKRYWAJ" -> {
-                            // KINO PLAY movie - ALWAYS show KINO PLAY logo (regardless of admin settings)
-                            if (item.isKinoPlay) {
-                                // Same display as KINO_PLAY section
+                // === KINO PLAY LAYOUT (same states as SliderV4Card) ===
+                if (useKinoPlayLayout) {
+                    // EMBLEM: Logo + labels at TOP - only when slider focused
+                    if (isSliderFocused) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .height(sy(160))
+                                .zIndex(1f),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(sx(30))
+                            ) {
                                 Image(
                                     painter = painterResource(id = R.drawable.logo_kino_pay),
                                     contentDescription = "KINO PLAY"
                                 )
-                                // Content labels (Premiera premium + 4K)
                                 ContentLabelV2(
                                     label = "Premiera premium",
                                     show4K = true,
                                     sx = sx,
                                     sy = sy
                                 )
-                            } else if (!item.channelLogoUrl.isNullOrEmpty()) {
-                                // Other content - show logo from admin
-                                AsyncImage(
-                                    model = item.channelLogoUrl,
-                                    contentDescription = "Logo",
-                                    modifier = Modifier.heightIn(max = sy(100)),
-                                    contentScale = ContentScale.Fit
-                                )
                             }
                         }
-                        else -> {
-                            Text(
-                                text = sectionType,
-                                color = Color(0xFF5FEDD4),
-                                fontSize = sy(20).value.sp,
-                                fontWeight = FontWeight.Bold
+                    }
+
+                    // NOT FOCUSED + HAS LOGO: Show logo at top only
+                    // Logo width limited to half of slide width (1468 / 2 = 734px)
+                    if (!isSliderFocused && !item.selectedLogoUrl.isNullOrBlank()) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .padding(top = sy(160))
+                        ) {
+                            AsyncImage(
+                                model = item.selectedLogoUrl,
+                                contentDescription = item.title,
+                                modifier = Modifier
+                                    .widthIn(max = sx(734))
+                                    .heightIn(max = sy(300)),
+                                contentScale = ContentScale.Fit
                             )
-                            ContentLabelV2(
-                                label = "Premiera premium",
-                                show4K = true,
+                        }
+                    }
+
+                    // Content + Buttons at BOTTOM
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(bottom = sy(50)),
+                        verticalArrangement = Arrangement.spacedBy(sy(24))
+                    ) {
+                        // FOCUSED STATE: Title + metadata + description ABOVE buttons
+                        if (isSliderFocused) {
+                            Text(
+                                text = item.title,
+                                color = Color(0xFFEEEEEE),
+                                fontSize = sy(48).value.sp,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                lineHeight = sy(56).value.sp,
+                                modifier = Modifier.widthIn(max = sx(600))
+                            )
+
+                            SliderMetadataRowV2(
+                                genre = item.genre,
+                                duration = item.duration,
+                                ageRating = item.ageRating,
+                                sectionType = sectionType,
+                                showKrritImage = true,
                                 sx = sx,
                                 sy = sy
                             )
+
+                            Text(
+                                text = item.description,
+                                color = Color(0xFFEEEEEE),
+                                fontSize = sy(24).value.sp,
+                                fontWeight = FontWeight.Normal,
+                                maxLines = 3,
+                                overflow = TextOverflow.Ellipsis,
+                                lineHeight = sy(32).value.sp,
+                                modifier = Modifier
+                                    .widthIn(max = sx(550))
+                                    .heightIn(max = sy(100))
+                            )
+                        }
+
+                        // NOT FOCUSED + NO LOGO: Big title above button
+                        if (!isSliderFocused && item.selectedLogoUrl.isNullOrBlank()) {
+                            Text(
+                                text = item.title,
+                                color = Color(0xFFEEEEEE),
+                                fontSize = sy(72).value.sp,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 3,
+                                overflow = TextOverflow.Clip,
+                                lineHeight = sy(84).value.sp,
+                                modifier = Modifier
+                                    .widthIn(max = sx(600))
+                                    .padding(bottom = sy(16))
+                            )
+                        }
+
+                        // Button 1: Wypożycz (always visible)
+                        // item.price contains just the price for KINO PLAY content (e.g. "19.99 zł / 48h")
+                        V4SliderButtonVisual(
+                            label = if (item.price.startsWith("Wypożycz")) item.price else "Wypożycz: ${item.price}",
+                            iconType = V4ButtonIcon.PLAY,
+                            isFocused = isCardFocused && focusedButtonIndex == 0,
+                            sx = sx,
+                            sy = sy,
+                            onClick = { }
+                        )
+
+                        // Button 2: Dowiedz się więcej (only when slider focused)
+                        if (isSliderFocused) {
+                            V4SliderButtonVisual(
+                                label = "Dowiedz się więcej",
+                                iconType = V4ButtonIcon.INFO,
+                                isFocused = isCardFocused && focusedButtonIndex == 1,
+                                sx = sx,
+                                sy = sy,
+                                onClick = { }
+                            )
                         }
                     }
-                    } // Close Row
-                } // Close Box (emblem container)
-
-                // CONTENT: Title and rest - starts at fixed 160px from top
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(top = sy(160))
-                ) {
-                    // Title (max 3 lines)
-                    Text(
-                        text = item.title,
-                        color = Color(0xFFEEEEEE),
-                        fontSize = sy(48).value.sp,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 3,
-                        overflow = TextOverflow.Ellipsis,
-                        lineHeight = sy(56).value.sp,
-                        modifier = Modifier.widthIn(max = sx(600))
-                    )
-
-                    Spacer(modifier = Modifier.height(sy(16)))
-
-                    // Metadata row - KRRIT image only for KINO_PLAY and WIDEO (not ODKRYWAJ)
-                    SliderMetadataRowV2(
-                        genre = item.genre,
-                        duration = item.duration,
-                        ageRating = item.ageRating,
-                        sectionType = sectionType,
-                        showKrritImage = sectionType in listOf("KINO_PLAY", "WIDEO"),
-                        sx = sx,
-                        sy = sy
-                    )
-
-                    Spacer(modifier = Modifier.height(sy(16)))
-
-                    // Description (max 3 lines) - color #EEEEEE without transparency
-                    Text(
-                        text = item.description,
-                        color = Color(0xFFEEEEEE),
-                        fontSize = sy(24).value.sp,
-                        fontWeight = FontWeight.Normal,
-                        maxLines = 3,
-                        overflow = TextOverflow.Ellipsis,
-                        lineHeight = sy(32).value.sp,
+                }
+                // === STANDARD LAYOUT (WIDEO and non-KINO PLAY ODKRYWAJ) ===
+                else {
+                    // EMBLEM: Logo at TOP
+                    Box(
                         modifier = Modifier
-                            .widthIn(max = sx(550))
-                            .heightIn(max = sy(100))
-                    )
-
-                    Spacer(modifier = Modifier.weight(1f))
-
-                    // Action button (always visible, style depends on focus)
-                    // WIDEO: Play icon + "Oglądaj", KINO_PLAY: Shopping cart + "Wypożycz: price"
-                    // ODKRYWAJ: Uses item.price which contains full button text from Supabase
-                    val buttonText = when (sectionType) {
-                        "WIDEO" -> "Oglądaj"
-                        "ODKRYWAJ" -> item.price // Contains text like "Oglądaj" or "Wypożycz: 19.99 zł / 48h" or custom
-                        else -> "Wypożycz: ${item.price}"
+                            .align(Alignment.TopStart)
+                            .height(sy(160))
+                            .zIndex(1f),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(sx(30))
+                        ) {
+                            when (sectionType) {
+                                "WIDEO" -> {
+                                    if (!item.channelLogoUrl.isNullOrEmpty()) {
+                                        AsyncImage(
+                                            model = item.channelLogoUrl,
+                                            contentDescription = "Channel logo",
+                                            modifier = Modifier.heightIn(max = sy(100)),
+                                            contentScale = ContentScale.Fit
+                                        )
+                                    }
+                                }
+                                "ODKRYWAJ" -> {
+                                    if (!item.channelLogoUrl.isNullOrEmpty()) {
+                                        AsyncImage(
+                                            model = item.channelLogoUrl,
+                                            contentDescription = "Logo",
+                                            modifier = Modifier.heightIn(max = sy(100)),
+                                            contentScale = ContentScale.Fit
+                                        )
+                                    }
+                                }
+                                else -> {
+                                    Text(
+                                        text = sectionType,
+                                        color = Color(0xFF5FEDD4),
+                                        fontSize = sy(20).value.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
                     }
 
-                    // Determine icon visibility and type for ODKRYWAJ
-                    // - "Oglądaj" -> show play icon
-                    // - "Wypożycz:..." -> show cart icon
-                    // - custom text -> NO icon
-                    val isStandardButton = item.price.startsWith("Oglądaj") || item.price.startsWith("Wypożycz")
-                    val showIcon = sectionType != "ODKRYWAJ" || isStandardButton
-                    val usePlayIcon = sectionType == "WIDEO" ||
-                        (sectionType == "ODKRYWAJ" && item.price.startsWith("Oglądaj"))
+                    // Content at BOTTOM
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(bottom = sy(50)),
+                        verticalArrangement = Arrangement.spacedBy(sy(24))
+                    ) {
+                        // FOCUSED STATE: title (48sp) + metadata + description + button
+                        if (isSliderFocused) {
+                            Text(
+                                text = item.title,
+                                color = Color(0xFFEEEEEE),
+                                fontSize = sy(48).value.sp,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                lineHeight = sy(56).value.sp,
+                                modifier = Modifier.widthIn(max = sx(600))
+                            )
 
-                    SliderActionButtonV2(
-                        text = buttonText,
-                        isFocused = isCardFocused,
-                        showIcon = showIcon,
-                        usePlayIcon = usePlayIcon,
-                        sx = sx,
-                        sy = sy
-                    )
-                } // Close inner Column (content)
+                            SliderMetadataRowV2(
+                                genre = item.genre,
+                                duration = item.duration,
+                                ageRating = item.ageRating,
+                                sectionType = sectionType,
+                                showKrritImage = sectionType == "WIDEO",
+                                sx = sx,
+                                sy = sy
+                            )
+
+                            Text(
+                                text = item.description,
+                                color = Color(0xFFEEEEEE),
+                                fontSize = sy(24).value.sp,
+                                fontWeight = FontWeight.Normal,
+                                maxLines = 3,
+                                overflow = TextOverflow.Ellipsis,
+                                lineHeight = sy(32).value.sp,
+                                modifier = Modifier
+                                    .widthIn(max = sx(550))
+                                    .heightIn(max = sy(100))
+                            )
+                        }
+
+                        // UNFOCUSED STATE: big title (72sp) only - like KINO PLAY unfocused
+                        if (!isSliderFocused) {
+                            Text(
+                                text = item.title,
+                                color = Color(0xFFEEEEEE),
+                                fontSize = sy(72).value.sp,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 3,
+                                overflow = TextOverflow.Clip,
+                                lineHeight = sy(84).value.sp,
+                                modifier = Modifier
+                                    .widthIn(max = sx(600))
+                                    .padding(bottom = sy(16))
+                            )
+                        }
+
+                        // Single button (always visible)
+                        val buttonText = when (sectionType) {
+                            "WIDEO" -> "Oglądaj"
+                            "ODKRYWAJ" -> item.price
+                            else -> "Wypożycz: ${item.price}"
+                        }
+                        val isStandardButton = item.price.startsWith("Oglądaj") || item.price.startsWith("Wypożycz")
+                        val showIcon = sectionType != "ODKRYWAJ" || isStandardButton
+                        val usePlayIcon = sectionType == "WIDEO" ||
+                            (sectionType == "ODKRYWAJ" && item.price.startsWith("Oglądaj"))
+
+                        SliderActionButtonV2(
+                            text = buttonText,
+                            isFocused = isCardFocused,
+                            showIcon = showIcon,
+                            usePlayIcon = usePlayIcon,
+                            sx = sx,
+                            sy = sy
+                        )
+                    }
+                }
                 } // Close Box (content area)
             } // Close if (!isNextSlide)
         } // Close Box (main container)
@@ -17234,41 +17355,15 @@ fun WideoChannelRowsLayout(
                 .fillMaxWidth()
                 .offset(y = animatedSliderY)
         ) {
-            // Conditional rendering based on sliderVersion (toggled with Key.Nine: V2 ↔ V3)
-            // Add globalFocusState.value.currentRow > 0 check to prevent dual focus with menu
+            // WIDEO: Always use V2 slider with bullets (no Key.Nine cycling)
             val isNotOnMenu = globalFocusState.value.currentRow > 0
-            when (sliderVersion) {
-                1 -> {
-                    SliderMixScreen(
-                        shouldAutoFocus = focusedRowIndex == 1 && isNotOnMenu,
-                        isInTelewizjaSection = false, // VOD only - no TV live
-                        shouldShowFocusBorder = focusedRowIndex == 1 && focusedColIndex >= 0 && isNotOnMenu,
-                        isShortcutsFocused = focusedRowIndex == 2,
-                        externalSx = sx,
-                        externalSy = sy
-                    )
-                }
-                3 -> {
-                    // V3: No bullets, no auto-rotation, shuffled order
-                    VodHeroSliderV3(
-                        isFocused = focusedRowIndex == 1 && isNotOnMenu,
-                        items = wideoSliderItems,
-                        sectionType = "WIDEO",
-                        sx = sx,
-                        sy = sy
-                    )
-                }
-                else -> {
-                    // V2: Full slider with bullets (no auto-rotation in WIDEO by default)
-                    VodHeroSliderV2(
-                        isFocused = focusedRowIndex == 1 && isNotOnMenu,
-                        items = wideoSliderItems,
-                        sectionType = "WIDEO",
-                        sx = sx,
-                        sy = sy
-                    )
-                }
-            }
+            VodHeroSliderV2(
+                isFocused = focusedRowIndex == 1 && isNotOnMenu,
+                items = wideoSliderItems,
+                sectionType = "WIDEO",
+                sx = sx,
+                sy = sy
+            )
         }
 
         // Row 2+: All channels (Skróty v2 + horizontal channels) using unified component
