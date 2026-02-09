@@ -13,7 +13,7 @@ android {
   compileSdk = 36
 
       defaultConfig {
-          applicationId = "com.uxellence.tv.v3"
+          applicationId = "com.uxellence.tv.prod"
           minSdk = 23  // Compose 1.10.0 requires minSdk 23
           targetSdk = 36
           versionCode = 35

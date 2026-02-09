@@ -30,7 +30,6 @@ import androidx.compose.ui.unit.sp
 import com.uxellence.tv.v3.ui.theme.figmaRadialBackground
 import com.uxellence.tv.v3.components.SliderComponent
 import com.uxellence.tv.v3.components.ShortcutComponent
-import com.uxellence.tv.v3.components.ReusableTopMenu
 import com.uxellence.tv.v3.components.MiniCard
 import kotlinx.coroutines.launch
 import android.content.Context
@@ -127,28 +126,6 @@ fun ComponentShowcaseScreen() {
                     modifier = Modifier.fillMaxWidth(),
                     isSectionFocused = false
                 )
-            },
-            ComponentInfo(
-                id = "reusable_topmenu",
-                name = "ReusableTopMenu",
-                description = "Complete reusable top menu with tabs, right menu, digital clock, and content management",
-                category = "Layout"
-            ) { isParentFocused ->
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(sy(400)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        "ReusableTopMenu Demo\n(Complete menu system with clock and navigation)\n\nUsed in: Version002Screen, TopMenuScreen",
-                        color = Color.White,
-                        fontSize = sy(14).value.sp,
-                        textAlign = TextAlign.Center,
-                        fontWeight = FontWeight.Medium,
-                        lineHeight = sy(18).value.sp
-                    )
-                }
             },
             ComponentInfo(
                 id = "mini_card",

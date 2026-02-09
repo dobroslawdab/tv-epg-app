@@ -13722,8 +13722,8 @@ private fun SliderV4Card(
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             // 1. Background: Trailer video OR static image
-            // Trailer only plays when slider is focused (not when menu is focused)
-            val shouldShowTrailer = showTrailer && !item.youtubeUrl.isNullOrBlank() && isSelected && isSliderFocused
+            // Trailer plays when menu is focused (slider NOT focused) - focusing slider stops trailer
+            val shouldShowTrailer = showTrailer && !item.youtubeUrl.isNullOrBlank() && isSelected && !isSliderFocused
 
             Box(
                 modifier = Modifier.fillMaxSize(),
@@ -13767,13 +13767,16 @@ private fun SliderV4Card(
             }
 
             // 3. Left gradient overlay
+            // When trailer plays, extend gradient to left edge (no offset)
             if (!isNextSlide) {
+                val gradientOffset = if (shouldShowTrailer) sx(0) else sx(266)
+                val gradientWidth = if (shouldShowTrailer) sx(856) else sx(590) // 266 + 590 = 856
                 Box(
                     modifier = Modifier
                         .fillMaxHeight()
-                        .width(sx(590))
+                        .width(gradientWidth)
                         .align(Alignment.CenterStart)
-                        .offset(x = sx(266))
+                        .offset(x = gradientOffset)
                         .background(
                             brush = Brush.horizontalGradient(
                                 colors = listOf(
@@ -13792,58 +13795,48 @@ private fun SliderV4Card(
                         .fillMaxSize()
                         .padding(start = sx(50))
                 ) {
-                    // EMBLEM: Logo + labels (0-160px space)
-                    Box(
-                        modifier = Modifier
-                            .height(sy(160))
-                            .zIndex(1f),
-                        contentAlignment = Alignment.CenterStart
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(sx(30))
+                    // EMBLEM: Logo + labels (0-160px space) - only when slider focused
+                    if (isSliderFocused) {
+                        Box(
+                            modifier = Modifier
+                                .height(sy(160))
+                                .zIndex(1f),
+                            contentAlignment = Alignment.CenterStart
                         ) {
-                            // KINO PLAY logo
-                            if (item.isKinoPlay || sectionType == "KINO_PLAY") {
-                                Image(
-                                    painter = painterResource(id = R.drawable.logo_kino_pay),
-                                    contentDescription = "KINO PLAY"
-                                )
-                                // Premiera premium label
-                                ContentLabelV2(
-                                    label = "Premiera premium",
-                                    show4K = true,
-                                    sx = sx,
-                                    sy = sy
-                                )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(sx(30))
+                            ) {
+                                // KINO PLAY logo
+                                if (item.isKinoPlay || sectionType == "KINO_PLAY") {
+                                    Image(
+                                        painter = painterResource(id = R.drawable.logo_kino_pay),
+                                        contentDescription = "KINO PLAY"
+                                    )
+                                    // Premiera premium label
+                                    ContentLabelV2(
+                                        label = "Premiera premium",
+                                        show4K = true,
+                                        sx = sx,
+                                        sy = sy
+                                    )
+                                }
                             }
                         }
                     }
 
-                    // CONTENT: Title/Logo and description (starts at 160px from top)
+                    // CONTENT: Logo at top (when not focused) OR Title+metadata (when focused)
                     Column(
                         modifier = Modifier
                             .padding(top = sy(160))
                             .widthIn(max = sx(600))
                     ) {
-                        // Title OR Logo (when not focused and logo available)
                         // Title size: 48sp when focused, 72sp (50% larger) when not focused
                         val titleFontSize = if (isSliderFocused) sy(48).value.sp else sy(72).value.sp
                         val titleLineHeight = if (isSliderFocused) sy(56).value.sp else sy(84).value.sp
 
-                        // Show logo instead of title when: not focused AND logo URL exists
-                        if (!isSliderFocused && !item.selectedLogoUrl.isNullOrBlank()) {
-                            // Display logo image instead of text title (2x larger)
-                            AsyncImage(
-                                model = item.selectedLogoUrl,
-                                contentDescription = item.title,
-                                modifier = Modifier
-                                    .widthIn(max = sx(1000))
-                                    .heightIn(max = sy(300)),
-                                contentScale = ContentScale.Fit
-                            )
-                        } else {
-                            // Display text title (focused state OR no logo available)
+                        if (isSliderFocused) {
+                            // FOCUSED STATE: Title at top with metadata and description
                             Text(
                                 text = item.title,
                                 color = Color(0xFFEEEEEE),
@@ -13854,10 +13847,7 @@ private fun SliderV4Card(
                                 lineHeight = titleLineHeight,
                                 modifier = Modifier.widthIn(max = sx(600))
                             )
-                        }
 
-                        // Metadata row (only when slider focused)
-                        if (isSliderFocused) {
                             Spacer(modifier = Modifier.height(sy(16)))
 
                             SliderMetadataRowV2(
@@ -13885,46 +13875,23 @@ private fun SliderV4Card(
                                     .widthIn(max = sx(550))
                                     .heightIn(max = sy(100))
                             )
-                        }
-                    }
-
-                    // === V4 UNIQUE: Info text at bottom, buttons above ===
-                    // Info text positioned at bottom with 24px padding
-                    // Buttons positioned above info text with same 24px gap
-
-                    // Info text: "Oglądasz w ramach pakietu Extra" (at bottom) - only when slider focused
-                    if (isSliderFocused) {
-                        Row(
-                            modifier = Modifier
-                                .align(Alignment.BottomStart)
-                                .padding(bottom = sy(24))
-                                .height(sy(32)),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(sx(8))
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.LocalOffer,
-                                contentDescription = null,
-                                tint = Color(0xFFEEEEEE),
-                                modifier = Modifier.size(sx(24))
-                            )
-                            Text(
-                                text = "Oglądasz w ramach pakietu Extra",
-                                style = TextStyle(
-                                    fontSize = (16 * sy(1).value / 1).sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFFEEEEEE),
-                                    letterSpacing = 0.32.sp,
-                                    lineHeight = (24 * sy(1).value / 1).sp
-                                )
+                        } else if (!item.selectedLogoUrl.isNullOrBlank()) {
+                            // NOT FOCUSED + HAS LOGO: Show logo at top only
+                            AsyncImage(
+                                model = item.selectedLogoUrl,
+                                contentDescription = item.title,
+                                modifier = Modifier
+                                    .widthIn(max = sx(1000))
+                                    .heightIn(max = sy(300)),
+                                contentScale = ContentScale.Fit
                             )
                         }
+                        // NOT FOCUSED + NO LOGO: Title will be shown at bottom (see below)
                     }
 
-                    // Buttons above info text
-                    // When not focused: button at bottom with 24px padding
-                    // When focused: button at 80px from bottom (above info text)
-                    val buttonBottomPadding = if (isSliderFocused) sy(80) else sy(24)
+                    // === V4: Buttons at bottom ===
+                    // Button positioned at bottom with same padding as left (50px)
+                    val buttonBottomPadding = sy(50)
 
                     Column(
                         modifier = Modifier
@@ -13932,6 +13899,23 @@ private fun SliderV4Card(
                             .padding(bottom = buttonBottomPadding),
                         verticalArrangement = Arrangement.spacedBy(sy(16))
                     ) {
+                        // Title at bottom when NOT focused AND no logo (above button)
+                        // If logo exists, don't show title (logo is shown at top)
+                        if (!isSliderFocused && item.selectedLogoUrl.isNullOrBlank()) {
+                            Text(
+                                text = item.title,
+                                color = Color(0xFFEEEEEE),
+                                fontSize = sy(72).value.sp,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                lineHeight = sy(84).value.sp,
+                                modifier = Modifier
+                                    .widthIn(max = sx(600))
+                                    .padding(bottom = sy(16))
+                            )
+                        }
+
                         // Button 1: Wypożycz
                         // Note: item.price already contains "X zł/48h" format
                         V4SliderButtonVisual(

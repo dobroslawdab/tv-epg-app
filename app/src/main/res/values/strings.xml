@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Uxellence TV v3</string>
+    <string name="app_name">UXellence TV</string>
     <string name="accessibility_service_description">Umożliwia przechwycenie przycisku HOME dla nawigacji w aplikacji BOX TV. Usługa obsługuje przycisk HOME do powrotu na ekran główny aplikacji.</string>
 </resources>
 

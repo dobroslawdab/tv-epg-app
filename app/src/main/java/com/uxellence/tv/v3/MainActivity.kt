@@ -79,7 +79,7 @@ class MainActivity : ComponentActivity() {
 }
 
 enum class NavigationScreen {
-    HOME, LIVE, COMPONENT_SHOWCASE, TOP_MENU, TOP_MENU2, SHORTCUT, CHANNELE, VIDEOSLIDER, SLIDER, SLIDER_MIX, EPG, EPG_DAY, FOCUS_MINI_CARD, VOICE_TEST, SPLASH, WHATS_NEW, STARTUP_MODE_SELECTION, LAUNCHER_SETUP, ZAPPING_BAR, CHANNEL_GRID, WIDEO_GRID, KINO_GRID, VOD_GRID, RECORDINGS_GRID, SERIES_EPISODES, MOVIE_DETAIL, PURCHASE
+    HOME, LIVE, COMPONENT_SHOWCASE, TOP_MENU2, SHORTCUT, CHANNELE, VIDEOSLIDER, SLIDER, SLIDER_MIX, EPG, EPG_DAY, FOCUS_MINI_CARD, VOICE_TEST, SPLASH, WHATS_NEW, STARTUP_MODE_SELECTION, LAUNCHER_SETUP, ZAPPING_BAR, CHANNEL_GRID, WIDEO_GRID, KINO_GRID, VOD_GRID, RECORDINGS_GRID, SERIES_EPISODES, MOVIE_DETAIL, PURCHASE
 }
 
 // Helper functions for launcher setup
@@ -450,7 +450,6 @@ fun TvRoot(
             MainMenuItem(id = "live", title = "Live TV", navigationScreen = NavigationScreen.LIVE),
             MainMenuItem(id = "focus_mini_card", title = "Focus Mini Cards", navigationScreen = NavigationScreen.FOCUS_MINI_CARD),
             MainMenuItem(id = "component_showcase", title = "Component Showcase", navigationScreen = NavigationScreen.COMPONENT_SHOWCASE),
-            MainMenuItem(id = "top_menu", title = "Top Menu", navigationScreen = NavigationScreen.TOP_MENU),
             MainMenuItem(id = "shortcut", title = "Shortcuts", navigationScreen = NavigationScreen.SHORTCUT),
             MainMenuItem(id = "channele", title = "Channels", navigationScreen = NavigationScreen.CHANNELE),
             MainMenuItem(id = "videoslider", title = "Video Slider", navigationScreen = NavigationScreen.VIDEOSLIDER),
@@ -917,20 +916,6 @@ fun TvRoot(
             }
             NavigationScreen.SHORTCUT -> {
                 ShortcutScreen()
-            }
-            NavigationScreen.TOP_MENU -> {
-                TopMenuScreen(
-                    onBackPressed = { isMenuFocused ->
-                        if (isMenuFocused) {
-                            // BACK from menu - return to HOME
-                            currentScreen = NavigationScreen.HOME
-                            true
-                        } else {
-                            // BACK from content - let TopMenuScreen handle (return to menu)
-                            false
-                        }
-                    }
-                )
             }
             NavigationScreen.TOP_MENU2 -> {
                 // Clear saved focus after delay when returning from EPG Day Test
