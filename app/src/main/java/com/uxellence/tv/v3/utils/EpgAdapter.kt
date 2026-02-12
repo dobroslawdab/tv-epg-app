@@ -121,6 +121,70 @@ object EpgAdapter {
         return result.take(9)  // Return up to 9 channels
     }
 
+    /**
+     * Get shuffled current programs for "Popularne teraz" row
+     * Uses all EPG channels (shuffled) to show random currently airing programs
+     */
+    suspend fun getPopularneTerazAsVodContent(
+        epgRepository: EpgRepository,
+        context: android.content.Context
+    ): List<VodContent> {
+        android.util.Log.d("EpgAdapter", "=== Getting Popularne teraz (from all EPG channels, shuffled) ===")
+
+        // Get all available EPG channel IDs from the repository
+        val allEpgChannelIds = epgRepository.getAvailableChannelIds()
+        android.util.Log.d("EpgAdapter", "Found ${allEpgChannelIds.size} EPG channel IDs")
+
+        if (allEpgChannelIds.isEmpty()) {
+            android.util.Log.w("EpgAdapter", "No EPG channels available!")
+            return emptyList()
+        }
+
+        // Shuffle all channel IDs
+        val shuffledChannelIds = allEpgChannelIds.shuffled()
+        android.util.Log.d("EpgAdapter", "Shuffled ${shuffledChannelIds.size} channel IDs")
+
+        // Initialize ChannelManager to get logos
+        if (!com.uxellence.tv.v3.channels.ChannelManager.isInitialized()) {
+            com.uxellence.tv.v3.channels.ChannelManager.initialize(context)
+        }
+        val channelManagerChannels = com.uxellence.tv.v3.channels.ChannelManager.getAllChannels(includeUnavailable = true)
+        val channelLogoMap = channelManagerChannels.associateBy({ it.epgId ?: it.name }, { it.logoUrl ?: "" })
+
+        val result = mutableListOf<VodContent>()
+
+        for (channelId in shuffledChannelIds) {
+            if (result.size >= 10) break  // We have enough
+
+            try {
+                val currentProgram = epgRepository.getCurrentProgram(channelId)
+                if (currentProgram == null) {
+                    continue
+                }
+
+                android.util.Log.d("EpgAdapter", "  Popularne: ${currentProgram.title} on $channelId")
+
+                val channelName = getChannelNameFromId(channelId)
+                val logoUrl = channelLogoMap[channelId] ?: getChannelLogo(channelName)
+
+                result.add(VodContent(
+                    id = "epg_pop_${currentProgram.channelId.replace(" ", "_")}_${currentProgram.startUtc.epochSecond}",
+                    title = currentProgram.title,
+                    description = buildDescription(channelName, currentProgram),
+                    category = buildMetadataString(currentProgram),
+                    imageUrl = currentProgram.iconUrl ?: logoUrl,
+                    channelLogoUrl = logoUrl,
+                    link = "${currentProgram.startUtc}|${currentProgram.endUtc}|${currentProgram.channelId}|$channelName"
+                ))
+            } catch (e: Exception) {
+                android.util.Log.e("EpgAdapter", "Error for $channelId", e)
+            }
+        }
+
+        android.util.Log.d("EpgAdapter", "Popularne teraz: ${result.size} programs")
+        return result
+    }
+
     suspend fun getLast24HoursMoviesAsVodContent(
         epgRepository: EpgRepository
     ): List<VodContent> {

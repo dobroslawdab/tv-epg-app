@@ -108,7 +108,14 @@ class EpgRepository private constructor(context: Context) {
         android.util.Log.d("EpgRepository", "  Result: ${if (result == null) "NULL" else result.title}")
         return result
     }
-    
+
+    /**
+     * Get all available EPG channel IDs that have programs in the database
+     */
+    suspend fun getAvailableChannelIds(): List<String> {
+        return channelDao.getAllChannels().map { it.id }
+    }
+
     suspend fun getFullDayPrograms(channelId: String, date: Instant): List<EpgProgram> {
         val startOfDay = date.atZone(java.time.ZoneId.systemDefault())
             .toLocalDate().atStartOfDay(java.time.ZoneId.systemDefault()).toInstant()

@@ -93,6 +93,8 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
@@ -143,7 +145,15 @@ import com.uxellence.tv.v3.config.ConfigManager
 import com.uxellence.tv.v3.repository.toVodSlideData
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import com.uxellence.tv.v3.components.YouTubeTrailerPlayer
+
+// Manrope Font Family
+private val ManropeFamily = FontFamily(
+    Font(R.font.manrope_regular, FontWeight.Normal),
+    Font(R.font.manrope_medium, FontWeight.Medium),
+    Font(R.font.manrope_bold, FontWeight.Bold)
+)
 
 // PIP Dialog Constants
 private val DIALOG_ALLOWED_KEYS = setOf(
@@ -838,6 +848,47 @@ private fun filterTvChannelsByCategory(context: Context, channels: List<TvChanne
     }
 }
 
+// Helper function to get TvChannel data by EPG ID or channel name
+// Used to get logo URL and channel number for collection slider cards
+private fun getTvChannelByEpgId(epgId: String): TvChannel? {
+    // All channels with logos and numbers - matching "moja-lista" order
+    val allChannels = listOf(
+        TvChannel("TVP 1", "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/8499963/images/952146681?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0", "TVP 1", 1),
+        TvChannel("Polsat", "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9817820/images/819859960?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0", "Polsat", 2),
+        TvChannel("Polsat News Polityka", "https://r.dcs.redcdn.pl/file/play/playtv/upload/live/24725756/images/937177205", "Polsat News Polityka", 3),
+        TvChannel("4 Fun TV", "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3452692/images/350594752?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0", "4Fun.tv", 4),
+        TvChannel("TV4", "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9979708/images/913218406?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0", "TV4", 5),
+        TvChannel("Polsat News", "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183312/images/896415049?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0", "Polsat News HD", 6),
+        TvChannel("TVP 3", "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/8499965/images/952041085?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0", "TVP 3 Warszawa", 7),
+        TvChannel("TVN24", "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/7208754/images/1032763214?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100", "TVN 24", 8),
+        TvChannel("TVP Sport", "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/13352686/images/831494260?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100", "TVP Sport", 9),
+        TvChannel("TVN", "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/7208754/images/1032763214?srcmode=3&srcw=1/1&srch=1/1&dstw=120&dsth=120&quality=100", "TVN", 10),
+        TvChannel("TVP 2", "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/8499964/images/952000972?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0", "TVP 2", 11),
+        TvChannel("TV Puls", "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9994946/images/814866251?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0", "TV Puls", 12),
+        TvChannel("TVP Info", "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/8499971/images/952045689?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0", "TVP INFO", 13),
+        TvChannel("Polsat Sport", "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9817821/images/951985916?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0", "Polsat Sport", 14),
+        TvChannel("Eurosport 1", "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3382082/images/813978234?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0", "Eurosport 1", 15),
+        TvChannel("Polsat 2", "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9847823/images/951908178?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0", "Polsat 2", 16),
+        TvChannel("TVN 7", "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/10253792/images/829315972?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0", "TVN 7", 17),
+        TvChannel("TV6", "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9996218/images/951805251?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0", "TV6", 18),
+        TvChannel("Super Polsat", "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9817822/images/953054455?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0", "Super Polsat", 19),
+        TvChannel("Puls 2", "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/10090740/images/826990970?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0", "Puls 2", 20)
+    )
+
+    // Normalize EPG ID for matching
+    val normalizedEpgId = epgId.lowercase().replace(" ", "").replace(".", "")
+
+    return allChannels.find { channel ->
+        val normalizedName = channel.name.lowercase().replace(" ", "")
+        val normalizedChannelEpgId = channel.epgId?.lowercase()?.replace(" ", "")?.replace(".", "") ?: ""
+
+        normalizedName == normalizedEpgId ||
+        normalizedChannelEpgId == normalizedEpgId ||
+        normalizedName.contains(normalizedEpgId) ||
+        normalizedEpgId.contains(normalizedName)
+    }
+}
+
 // Service logos for TELEWIZJA Row 1
 private val serviceLogos = listOf(
     ServiceLogoItem("disney", "Disney+", R.drawable.disney_plus_logo),
@@ -1500,6 +1551,9 @@ fun TopMenuScreen2(
     // Haze state for blur effect under menu
     val hazeState = remember { HazeState() }
 
+    // Track if TELEWIZJA "Skróty v2" channel is focused (for top gradient visibility)
+    var isTelewizjaSkrotyFocused by remember { mutableStateOf(false) }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -1913,7 +1967,10 @@ fun TopMenuScreen2(
                     showNagraniaV2 = v2
                 },
                 sliderVersion = sliderVersion,
-                v3SliderAutoSlideEnabled = v3SliderAutoSlideEnabled  // Key.Eight toggle for V3 slider
+                v3SliderAutoSlideEnabled = v3SliderAutoSlideEnabled,  // Key.Eight toggle for V3 slider
+                onFocusedChannelChange = { signal ->
+                    isTelewizjaSkrotyFocused = signal == "SHOW_GRADIENT"
+                }
             )
         }
 
@@ -1939,6 +1996,28 @@ fun TopMenuScreen2(
                             endY = sy(TOP_MENU_GRADIENT_HEIGHT).value
                         )
                     )
+            )
+        }
+
+        // PNG gradient overlay - on top of content and above the Brush gradient
+        // Only visible when focused on "Skróty v2" in TELEWIZJA section
+        // Animated with fade in/out (300ms)
+        val topGradientAlpha by animateFloatAsState(
+            targetValue = if (isTelewizjaSkrotyFocused) 1f else 0f,
+            animationSpec = tween(durationMillis = 300),
+            label = "top_gradient_alpha"
+        )
+
+        if (topGradientAlpha > 0f) {
+            Image(
+                painter = painterResource(R.drawable.gradient_top_100),
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.TopCenter)
+                    .zIndex(6f)  // Above brush gradient (5f), below menu bar (10f)
+                    .alpha(topGradientAlpha),
+                contentScale = ContentScale.FillWidth
             )
         }
 
@@ -3541,7 +3620,8 @@ private fun FullPageContent(
     showNagraniaV2: Boolean = false,
     onShowNagraniaV2Change: (Boolean) -> Unit = {},
     sliderVersion: Int = 1,  // 1 = V1 with carousel, 2 = V2 with border
-    v3SliderAutoSlideEnabled: Boolean = false  // Key.Eight toggle for V3 slider auto-slide and bullets
+    v3SliderAutoSlideEnabled: Boolean = false,  // Key.Eight toggle for V3 slider auto-slide and bullets
+    onFocusedChannelChange: (String) -> Unit = {}  // Callback when focused channel changes (for top gradient on Skróty+)
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
 
@@ -3567,7 +3647,8 @@ private fun FullPageContent(
                 sx = sx,
                 sy = sy,
                 showNagraniaV2 = showNagraniaV2,
-                onShowNagraniaV2Change = onShowNagraniaV2Change
+                onShowNagraniaV2Change = onShowNagraniaV2Change,
+                onFocusedChannelChange = onFocusedChannelChange
             )
         }
         "ODKRYWAJ" -> {
@@ -3581,7 +3662,8 @@ private fun FullPageContent(
                 sx = sx,
                 sy = sy,
                 sliderVersion = sliderVersion,  // V3 shortcuts when sliderVersion == 2
-                v3SliderAutoSlideEnabled = v3SliderAutoSlideEnabled  // Key.Eight toggle for V3 slider
+                v3SliderAutoSlideEnabled = v3SliderAutoSlideEnabled,  // Key.Eight toggle for V3 slider
+                onFocusedChannelChange = onFocusedChannelChange
             )
         }
         "TELEWIZJA" -> {
@@ -3598,7 +3680,8 @@ private fun FullPageContent(
                 onNavigateToKinoGrid = onNavigateToKinoGrid,
                 onNavigateToRecordingsGrid = onNavigateToRecordingsGrid,
                 isEpgSectionExpanded = isEpgSectionExpanded,
-                onEpgSectionExpandedChange = onEpgSectionExpandedChange
+                onEpgSectionExpandedChange = onEpgSectionExpandedChange,
+                onFocusedChannelChange = onFocusedChannelChange
             )
         }
         "KINO_PLAY" -> {
@@ -3611,7 +3694,8 @@ private fun FullPageContent(
                 quickPurchaseMode = quickPurchaseMode,
                 sx = sx,
                 sy = sy,
-                sliderVersion = sliderVersion
+                sliderVersion = sliderVersion,
+                onFocusedChannelChange = onFocusedChannelChange
             )
         }
         "WIDEO" -> {
@@ -3620,7 +3704,8 @@ private fun FullPageContent(
                 onNavigateToVodGrid = onNavigateToVodGrid,
                 sx = sx,
                 sy = sy,
-                sliderVersion = sliderVersion
+                sliderVersion = sliderVersion,
+                onFocusedChannelChange = onFocusedChannelChange
             )
         }
         "APLIKACJE" -> {
@@ -3701,7 +3786,8 @@ private fun MojeScreenContent(
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     showNagraniaV2: Boolean = false,
-    onShowNagraniaV2Change: (Boolean) -> Unit = {}
+    onShowNagraniaV2Change: (Boolean) -> Unit = {},
+    onFocusedChannelChange: (String) -> Unit = {}  // Callback for top gradient (MOJE always shows gradient)
 ) {
     var resetTrigger by remember { mutableStateOf(0) }
     
@@ -3724,7 +3810,8 @@ private fun MojeScreenContent(
         sy = sy,
         resetTrigger = resetTrigger,
         showNagraniaV2 = showNagraniaV2,
-        onShowNagraniaV2Change = onShowNagraniaV2Change
+        onShowNagraniaV2Change = onShowNagraniaV2Change,
+        onFocusedChannelChange = onFocusedChannelChange
     )
 }
 
@@ -3776,7 +3863,8 @@ private fun OdkrywajScreenContent(
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     sliderVersion: Int = 2,  // 2 = V3 shortcuts (bigger cards), 1 = V2 shortcuts (smaller cards)
-    v3SliderAutoSlideEnabled: Boolean = false  // Key.Eight toggle for V3 slider auto-slide and bullets
+    v3SliderAutoSlideEnabled: Boolean = false,  // Key.Eight toggle for V3 slider auto-slide and bullets
+    onFocusedChannelChange: (String) -> Unit = {}  // Callback when focused channel changes (for top gradient)
 ) {
     var resetTrigger by remember { mutableIntStateOf(0) }
 
@@ -3805,7 +3893,8 @@ private fun OdkrywajScreenContent(
         sy = sy,
         resetTrigger = resetTrigger,
         sliderVersion = sliderVersion,  // V3 shortcuts when sliderVersion == 2
-        v3SliderAutoSlideEnabled = v3SliderAutoSlideEnabled  // Key.Eight toggle for V3 slider
+        v3SliderAutoSlideEnabled = v3SliderAutoSlideEnabled,  // Key.Eight toggle for V3 slider
+        onFocusedChannelChange = onFocusedChannelChange
     )
 }
 
@@ -3823,7 +3912,8 @@ private fun TelewizjaScreenContent(
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> },
     isEpgSectionExpanded: Boolean = false,
-    onEpgSectionExpandedChange: (Boolean) -> Unit = {}
+    onEpgSectionExpandedChange: (Boolean) -> Unit = {},
+    onFocusedChannelChange: (String) -> Unit = {}  // Callback when focused channel changes (for top gradient)
 ) {
     var resetTrigger by remember { mutableStateOf(0) }
 
@@ -3859,7 +3949,8 @@ private fun TelewizjaScreenContent(
         onNavigateToKinoGrid = onNavigateToKinoGrid,
         onNavigateToRecordingsGrid = onNavigateToRecordingsGrid,
         isEpgSectionExpanded = isEpgSectionExpanded,
-        onEpgSectionExpandedChange = onEpgSectionExpandedChange
+        onEpgSectionExpandedChange = onEpgSectionExpandedChange,
+        onFocusedChannelChange = onFocusedChannelChange
     )
 }
 
@@ -3878,7 +3969,8 @@ private fun OdkrywajChannelsScreen(
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     resetTrigger: Int = 0,
     sliderVersion: Int = 2,  // 2 = V3 shortcuts (bigger cards), 1 = V2 shortcuts (smaller cards)
-    v3SliderAutoSlideEnabled: Boolean = false  // Key.Eight toggle for V3 slider auto-slide and bullets
+    v3SliderAutoSlideEnabled: Boolean = false,  // Key.Eight toggle for V3 slider auto-slide and bullets
+    onFocusedChannelChange: (String) -> Unit = {}  // Callback when focused channel changes (for top gradient visibility)
 ) {
     val context = LocalContext.current
 
@@ -3944,42 +4036,40 @@ private fun OdkrywajChannelsScreen(
         }
     }
 
-    // Row 0: Slider Mix, Row 1: Skróty, Row 2: Teraz w TV, Row 3: Aplikacje,
-    // Row 4: Oglądaj dalej, Row 5: Netflix, Row 6: Disney+, Row 7: Top 10 w Kino Play,
-    // Row 8: Polecane w KINIE PLAY, Row 9: Kolekcje KINA PLAY, Row 10: HBO Max,
+    // Row 0: Slider Mix, Row 1: Skróty, Row 2: Teraz w Mojej TV, Row 3: Aplikacje,
+    // Row 4: Oglądaj dalej, Row 5: Netflix, Row 6: Disney+, Row 7: Top 10 w KINIE PLAY,
+    // Row 8: Polecane w Wideo, Row 9: Banner Promo, Row 10: HBO Max,
     // Row 11: SkyShowtime, Row 12: Amazon Prime, Row 13: Pakiety (LAST)
     val channels = listOf(
         "Slider Mix",                   // Row 0 - slider-max
-        "Skróty",                       // Row 1 - shortcuts-v3 (BEZ ZMIAN!)
-        "Teraz w TV",                   // Row 2 - horizontal (EPG) - przesunięty z row 4
-        "Aplikacje",                    // Row 3 - app-icons - przesunięty z row 2
+        "Skróty",                       // Row 1 - shortcuts-v4
+        "Teraz w Mojej TV",             // Row 2 - horizontal (EPG)
+        "Aplikacje",                    // Row 3 - app-icons
         "Oglądaj dalej",                // Row 4 - horizontal
         "Netflix",                      // Row 5 - horizontal
         "Disney+",                      // Row 6 - horizontal
-        "Banner Promo",                 // Row 7 - banner-promo (Iluzja 3 - static banner)
-        "Top 10 w Kino Play",           // Row 8 - top10 (RENAMED!)
-        "Polecane w KINIE PLAY",        // Row 9 - vertical
-        "Kolekcje KINA PLAY",           // Row 10 - horizontal
-        "HBO Max",                      // Row 11 - horizontal
-        "SkyShowtime",                  // Row 12 - horizontal
-        "Amazon Prime",                 // Row 13 - horizontal
-        "Pakiety"                       // Row 14 - horizontal (LAST)
+        "Top 10 w KINIE PLAY",          // Row 7 - top10
+        "Polecane w Wideo",             // Row 8 - horizontal (NEW - like Oglądaj dalej)
+        "Banner Promo",                 // Row 9 - banner-promo (Iluzja 3)
+        "HBO Max",                      // Row 10 - horizontal
+        "SkyShowtime",                  // Row 11 - horizontal
+        "Amazon Prime",                 // Row 12 - horizontal
+        "Pakiety"                       // Row 13 - horizontal (LAST)
     )
 
     // Define channel types - shortcuts always use v4 (Figma quick links design)
     val channelTypes = remember {
         mapOf(
             "Slider Mix" to "slider-max",
-            "Skróty" to "shortcuts-v4",  // Fixed: Oglądaj TV, Nagrania, Moja lista, Do obejrzenia, Netflix, Disney+, Igrzyska
-            "Teraz w TV" to "horizontal",
+            "Skróty" to "shortcuts-v4",
+            "Teraz w Mojej TV" to "horizontal",
             "Aplikacje" to "app-icons",
             "Oglądaj dalej" to "horizontal",
             "Netflix" to "horizontal",
             "Disney+" to "horizontal",
+            "Top 10 w KINIE PLAY" to "top10",
+            "Polecane w Wideo" to "horizontal",
             "Banner Promo" to "banner-promo",
-            "Top 10 w Kino Play" to "top10",
-            "Polecane w KINIE PLAY" to "vertical",
-            "Kolekcje KINA PLAY" to "horizontal",
             "HBO Max" to "horizontal",
             "SkyShowtime" to "horizontal",
             "Amazon Prime" to "horizontal",
@@ -3991,43 +4081,29 @@ private fun OdkrywajChannelsScreen(
     val gridContent = remember(supabaseInitialized, terazWTvPrograms) {
         val vodContentList = VodDataCache.getVodContentList()
         val kinoPlayMovies = VodDataCache.getKinoPlayMovies()
-        // Pobierz filmy z Supabase (z cenami!)
-        val supabaseNewest = VodDataCache.getNewest()
 
-        if (vodContentList.isNotEmpty() || supabaseNewest.isNotEmpty()) {
-            // Kolekcje dla "Kolekcje KINA PLAY"
-            val collections = listOf(
-                VodContent("col_1", "Kolekcja 1", "Kolekcja filmów", "Kolekcja", "android.resource://com.uxellence.tv.v3/${R.drawable.kolekcja_1}", "", ""),
-                VodContent("col_2", "Kolekcja 2", "Kolekcja filmów", "Kolekcja", "android.resource://com.uxellence.tv.v3/${R.drawable.kolekcja_2}", "", ""),
-                VodContent("col_3", "Kolekcja 3", "Kolekcja filmów", "Kolekcja", "android.resource://com.uxellence.tv.v3/${R.drawable.kolekcja_3}", "", ""),
-                VodContent("col_4", "Kolekcja 4", "Kolekcja filmów", "Kolekcja", "android.resource://com.uxellence.tv.v3/${R.drawable.kolekcja_4}", "", ""),
-                VodContent("col_5", "Kolekcja 5", "Kolekcja filmów", "Kolekcja", "android.resource://com.uxellence.tv.v3/${R.drawable.kolekcja_5}", "", ""),
-                VodContent("col_6", "Kolekcja 6", "Kolekcja filmów", "Kolekcja", "android.resource://com.uxellence.tv.v3/${R.drawable.kolekcja_6}", "", "")
-            )
-
-            // Pakiety dla kanału "Pakiety"
+        if (vodContentList.isNotEmpty()) {
+            // Pakiety dla kanału "Pakiety" - using applicationId for proper resource loading
             val pakiety = listOf(
-                VodContent("pakiet_kids", "KIDS", "Pakiet dla dzieci", "Pakiet", "android.resource://com.uxellence.tv.v3/${R.drawable.pakiet_kids}", "", ""),
-                VodContent("pakiet_disney", "Disney+", "Pakiet Disney+", "Pakiet", "android.resource://com.uxellence.tv.v3/${R.drawable.pakiet_disney}", "", ""),
-                VodContent("pakiet_extra", "EXTRA", "Pakiet Extra", "Pakiet", "android.resource://com.uxellence.tv.v3/${R.drawable.pakiet_extra}", "", ""),
-                VodContent("pakiet_news", "NEWS", "Pakiet wiadomości", "Pakiet", "android.resource://com.uxellence.tv.v3/${R.drawable.pakiet_news}", "", ""),
-                VodContent("pakiet_prime", "Prime Video", "Pakiet Prime Video", "Pakiet", "android.resource://com.uxellence.tv.v3/${R.drawable.pakiet_prime}", "", "")
+                VodContent("pakiet_kids", "KIDS", "Pakiet dla dzieci", "Pakiet", "android.resource://com.uxellence.tv.prod/${R.drawable.pakiet_kids}", "", ""),
+                VodContent("pakiet_disney", "Disney+", "Pakiet Disney+", "Pakiet", "android.resource://com.uxellence.tv.prod/${R.drawable.pakiet_disney}", "", ""),
+                VodContent("pakiet_extra", "EXTRA", "Pakiet Extra", "Pakiet", "android.resource://com.uxellence.tv.prod/${R.drawable.pakiet_extra}", "", ""),
+                VodContent("pakiet_news", "NEWS", "Pakiet wiadomości", "Pakiet", "android.resource://com.uxellence.tv.prod/${R.drawable.pakiet_news}", "", ""),
+                VodContent("pakiet_prime", "Prime Video", "Pakiet Prime Video", "Pakiet", "android.resource://com.uxellence.tv.prod/${R.drawable.pakiet_prime}", "", "")
             )
 
             channels.associateWith { channelName ->
                 when (channelName) {
                     "Slider Mix" -> vodContentList.shuffled().take(10)
-                    "Skróty" -> emptyList() // shortcuts-v3, osobna lista
-                    "Teraz w TV" -> terazWTvPrograms.ifEmpty { vodContentList.shuffled().take(10) } // EPG current programs
+                    "Skróty" -> emptyList() // shortcuts-v4, osobna lista
+                    "Teraz w Mojej TV" -> terazWTvPrograms.ifEmpty { vodContentList.shuffled().take(10) } // EPG current programs
                     "Aplikacje" -> emptyList() // app-icons, osobna lista apps
                     "Oglądaj dalej" -> vodContentList.shuffled().take(10)
                     "Netflix" -> vodContentList.shuffled().take(10)
                     "Disney+" -> vodContentList.shuffled().take(10)
+                    "Top 10 w KINIE PLAY" -> VodDataCache.getTop10().ifEmpty { kinoPlayMovies.take(10) }
+                    "Polecane w Wideo" -> vodContentList.shuffled().take(10)
                     "Banner Promo" -> emptyList() // Static banner, no grid content
-                    "Top 10 w Kino Play" -> VodDataCache.getTop10().ifEmpty { kinoPlayMovies.take(10) }
-                    // Polecane w KINIE PLAY - dane z Supabase z cenami!
-                    "Polecane w KINIE PLAY" -> supabaseNewest.ifEmpty { kinoPlayMovies.take(10) }
-                    "Kolekcje KINA PLAY" -> collections
                     "HBO Max" -> vodContentList.shuffled().take(10)
                     "SkyShowtime" -> vodContentList.shuffled().take(10)
                     "Amazon Prime" -> vodContentList.shuffled().take(10)
@@ -4094,9 +4170,6 @@ private fun OdkrywajChannelsScreen(
     var focusedRowIndex by remember { mutableStateOf(0) }
     var focusedColIndex by remember { mutableStateOf(-2) } // -2 = brak fokusa na starcie
 
-    // === Infinity loop transition guard ===
-    var isInGhostTransition by remember { mutableStateOf(false) }
-
     // === Slider button index for KINO PLAY content (like KINO_PLAY section) ===
     var sliderButtonIndex by remember { mutableIntStateOf(0) }
 
@@ -4124,6 +4197,13 @@ private fun OdkrywajChannelsScreen(
         }
     }
 
+    // Notify parent when focused row changes (for top gradient visibility on Skróty and below)
+    // Gradient shows when focusedRowIndex >= 1 (Skróty is row 1, Teraz w Mojej TV is row 2, etc.)
+    LaunchedEffect(focusedRowIndex) {
+        val showGradient = focusedRowIndex >= 1
+        onFocusedChannelChange(if (showGradient) "SHOW_GRADIENT" else "")
+    }
+
     // Calculate banner promo row index dynamically
     val bannerPromoRowIndex = channels.indexOf("Banner Promo")
 
@@ -4142,8 +4222,8 @@ private fun OdkrywajChannelsScreen(
                     repeat(6) { colIndex ->
                         put(Pair(rowIndex, colIndex), FocusRequester())
                     }
-                } else if (rowIndex == 7) {
-                    // Row 7 (banner-promo): 2 buttons (col 0 and 1), NO CategoryIcon
+                } else if (rowIndex == 9) {
+                    // Row 9 (banner-promo): 2 buttons (col 0 and 1), NO CategoryIcon
                     put(Pair(rowIndex, 0), FocusRequester()) // Button 1: "Wypożycz"
                     put(Pair(rowIndex, 1), FocusRequester()) // Button 2: "Więcej informacji"
                 } else {
@@ -4217,9 +4297,6 @@ private fun OdkrywajChannelsScreen(
                     coroutineScope = coroutineScope,
                     gridContent = gridContent,
                     onReturnToMenu = onReturnToMenu,
-                    // === Infinity loop parameters ===
-                    isInGhostTransition = isInGhostTransition,
-                    onGhostTransitionChange = { inTransition -> isInGhostTransition = inTransition },
                     // === Slider button index for KINO PLAY content ===
                     sliderButtonIndex = sliderButtonIndex,
                     onSliderButtonIndexChange = { sliderButtonIndex = it }
@@ -4290,7 +4367,8 @@ private fun TelewizjaChannelsScreen(
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> },
     isEpgSectionExpanded: Boolean = false,
-    onEpgSectionExpandedChange: (Boolean) -> Unit = {}
+    onEpgSectionExpandedChange: (Boolean) -> Unit = {},
+    onFocusedChannelChange: (String) -> Unit = {}  // Callback when focused channel changes (for top gradient visibility)
 ) {
     android.util.Log.d("EPG_DEBUG", "=== TelewizjaChannelsScreen RENDERED ===")
 
@@ -4354,6 +4432,9 @@ private fun TelewizjaChannelsScreen(
     // State dla "Sport" - programy sportowe z ostatnich 24h
     var sportPrograms by remember { mutableStateOf<List<VodContent>>(emptyList()) }
 
+    // State dla "Popularne teraz" - losowe aktualne programy z innych kanałów
+    var popularneTerazPrograms by remember { mutableStateOf<List<VodContent>>(emptyList()) }
+
     // State dla "Teleturnieje" - teleturnieje z ostatnich 24h
     var teleturniejePrograms by remember { mutableStateOf<List<VodContent>>(emptyList()) }
 
@@ -4398,6 +4479,10 @@ private fun TelewizjaChannelsScreen(
 
             teleturniejePrograms = com.uxellence.tv.v3.utils.EpgAdapter.getLast24HoursGameShowsAsVodContent(epgRepository)
             android.util.Log.d("EPG_DEBUG", "Game shows loaded: ${teleturniejePrograms.size}")
+
+            // Load "Popularne teraz" - shuffled current programs from other channels
+            popularneTerazPrograms = com.uxellence.tv.v3.utils.EpgAdapter.getPopularneTerazAsVodContent(epgRepository, context)
+            android.util.Log.d("EPG_DEBUG", "Popularne teraz loaded: ${popularneTerazPrograms.size}")
         } catch (e: Exception) {
             android.util.Log.e("EPG_DEBUG", "Failed to load EPG categories", e)
         }
@@ -4426,44 +4511,46 @@ private fun TelewizjaChannelsScreen(
     // Dynamic list: EPG section (header + 4 channels) collapse/expand with key "1"
     val channels = remember(isEpgSectionExpanded) {
         if (isEpgSectionExpanded) {
-            // EXPANDED: All 16 channels visible (EPG section shown)
+            // EXPANDED: All 17 channels visible (EPG section shown)
             listOf(
                 "[HEADER] Teraz w TV",          // Row 0 - header above EPG
                 "Kategorie EPG",                 // Row 1 - EPG thumbnails
                 "Skróty v2",                     // Row 2 - shortcuts
-                "[HEADER] Było w TV - oglądaj teraz", // Row 3 - header above movies ← EPG SECTION
-                "FILMY",                         // Row 4 ← EPG SECTION
-                "SERIALE",                       // Row 5 ← EPG SECTION
-                "SPORT",                         // Row 6 ← EPG SECTION
-                "TELETURNIEJE",                  // Row 7 ← EPG SECTION
-                "Wszystkie kanały",              // Row 8
-                "Moja lista kanałów",            // Row 9
-                "Dla dzieci",                    // Row 10
-                "Sport",                         // Row 11
-                "Dokumenty",                     // Row 12
-                "Filmy i seriale",               // Row 13
-                "Informacyjne",                  // Row 14
-                "Teraz w TV"                     // Row 15 - horizontal with current programs
+                "Popularne teraz",               // Row 3 - shuffled current programs from other channels
+                "[HEADER] Było w TV - oglądaj teraz", // Row 4 - header above movies ← EPG SECTION
+                "FILMY",                         // Row 5 ← EPG SECTION
+                "SERIALE",                       // Row 6 ← EPG SECTION
+                "SPORT",                         // Row 7 ← EPG SECTION
+                "TELETURNIEJE",                  // Row 8 ← EPG SECTION
+                "Wszystkie kanały",              // Row 9
+                "Moja lista kanałów",            // Row 10
+                "Dla dzieci",                    // Row 11
+                "Sport",                         // Row 12
+                "Dokumenty",                     // Row 13
+                "Filmy i seriale",               // Row 14
+                "Informacyjne",                  // Row 15
+                "Teraz w TV"                     // Row 16 - horizontal with current programs
             )
         } else {
-            // COLLAPSED: 11 channels (EPG section hidden - press "1" to show)
+            // COLLAPSED: 12 channels (EPG section hidden - press "1" to show)
             listOf(
                 "[HEADER] Teraz w TV",          // Row 0 - header above EPG
                 "Kategorie EPG",                 // Row 1 - EPG thumbnails
                 "Skróty v2",                     // Row 2 - shortcuts
+                "Popularne teraz",               // Row 3 - shuffled current programs from other channels
                 // "[HEADER] Było w TV - oglądaj teraz" ← HIDDEN
                 // "FILMY",                      ← HIDDEN
                 // "SERIALE",                    ← HIDDEN
                 // "SPORT",                      ← HIDDEN
                 // "TELETURNIEJE",               ← HIDDEN
-                "Wszystkie kanały",              // Row 3 (was 8)
-                "Moja lista kanałów",            // Row 4 (was 9)
-                "Dla dzieci",                    // Row 5 (was 10)
-                "Sport",                         // Row 6 (was 11)
-                "Dokumenty",                     // Row 7 (was 12)
-                "Filmy i seriale",               // Row 8 (was 13)
-                "Informacyjne",                  // Row 9 (was 14)
-                "Teraz w TV"                     // Row 10 (was 15)
+                "Wszystkie kanały",              // Row 4 (was 9)
+                "Moja lista kanałów",            // Row 5 (was 10)
+                "Dla dzieci",                    // Row 6 (was 11)
+                "Sport",                         // Row 7 (was 12)
+                "Dokumenty",                     // Row 8 (was 13)
+                "Filmy i seriale",               // Row 9 (was 14)
+                "Informacyjne",                  // Row 10 (was 15)
+                "Teraz w TV"                     // Row 11 (was 16)
             )
         }
     }
@@ -4473,7 +4560,8 @@ private fun TelewizjaChannelsScreen(
         mapOf(
             "[HEADER] Teraz w TV" to "header",
             "Kategorie EPG" to "collection-slider",
-            "Skróty v2" to "shortcuts-v2",
+            "Skróty v2" to "shortcuts-v4",  // Changed to match ODKRYWAJ design
+            "Popularne teraz" to "horizontal",  // Shuffled current programs from other channels
             "[HEADER] Było w TV - oglądaj teraz" to "header",
             "FILMY" to "horizontal",
             "SERIALE" to "horizontal",
@@ -4490,7 +4578,7 @@ private fun TelewizjaChannelsScreen(
         )
     }
 
-    val gridContent = remember(isEpgSectionExpanded, terazWTvPrograms, najczesciejMovies, serialePrograms, sportPrograms, teleturniejePrograms, epgCategoriesPrograms) {
+    val gridContent = remember(isEpgSectionExpanded, terazWTvPrograms, najczesciejMovies, serialePrograms, sportPrograms, teleturniejePrograms, epgCategoriesPrograms, popularneTerazPrograms) {
         val vodContentList = VodDataCache.getVodContentList()
         val kinoPlayMovies = VodDataCache.getKinoPlayMovies()
 
@@ -4503,6 +4591,10 @@ private fun TelewizjaChannelsScreen(
                 "Kategorie EPG" -> {
                     android.util.Log.d("GRID_CONTENT", "Kategorie EPG: ${epgCategoriesPrograms.size} current programs")
                     epgCategoriesPrograms // Current EPG programs
+                }
+                "Popularne teraz" -> {
+                    android.util.Log.d("GRID_CONTENT", "Popularne teraz: ${popularneTerazPrograms.size} shuffled programs")
+                    popularneTerazPrograms // Shuffled current programs from other channels
                 }
                 "Teraz w TV" -> {
                     android.util.Log.d("GRID_CONTENT", "Teraz w TV: ${terazWTvPrograms.size} EPG programs (NO FALLBACK)")
@@ -4562,6 +4654,14 @@ private fun TelewizjaChannelsScreen(
             focusedRowIndex = 0
             focusedColIndex = -2
         }
+    }
+
+    // Notify parent when focused row changes (for top gradient visibility on Skróty and below)
+    // Gradient shows when focusedRowIndex >= 2 (Skróty v2 is row 2, Popularne teraz is row 3, etc.)
+    LaunchedEffect(focusedRowIndex) {
+        // Pass "SHOW_GRADIENT" when on row 2+ (Skróty and below), empty otherwise
+        val showGradient = focusedRowIndex >= 2
+        onFocusedChannelChange(if (showGradient) "SHOW_GRADIENT" else "")
     }
 
     val channelFocusRequesters = remember(channels.size) {
@@ -4960,7 +5060,8 @@ private fun MojeChannelsScreen(
     resetTrigger: Int = 0,
     showNagraniaV2: Boolean = false,
     onShowNagraniaV2Change: (Boolean) -> Unit = {},
-    onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> }  // For TV channel click
+    onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> },  // For TV channel click
+    onFocusedChannelChange: (String) -> Unit = {}  // Callback for top gradient
 ) {
     val context = LocalContext.current
 
@@ -5109,6 +5210,11 @@ private fun MojeChannelsScreen(
             focusedRowIndex = 0
             focusedColIndex = -2 // Reset do stanu "brak fokusa"
         }
+    }
+
+    // MOJE always shows top gradient (permanent)
+    LaunchedEffect(Unit) {
+        onFocusedChannelChange("SHOW_GRADIENT")
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -6558,13 +6664,36 @@ private fun ShortcutCardV4(
                     android.util.Log.d("SHORTCUT_V4", "=== Enter/OK pressed for: ${shortcut.title} ===")
                     val plainTitle = shortcut.title.replace("\n", " ")
                     when {
+                        // TELEWIZJA: Program telewizyjny -> EPG
+                        plainTitle.contains("Program", ignoreCase = true) && plainTitle.contains("telewizyjny", ignoreCase = true) -> {
+                            android.util.Log.d("SHORTCUT_V4", "Nawigacja do EpgDay - Program telewizyjny")
+                            onNavigateToEpgDay("", null, 0, "TELEWIZJA")
+                        }
+                        // ODKRYWAJ: Oglądaj telewizję -> EPG
                         plainTitle.contains("telewizję", ignoreCase = true) -> {
                             android.util.Log.d("SHORTCUT_V4", "Nawigacja do EpgDay - Oglądaj telewizję")
                             onNavigateToEpgDay("", null, 0, "ODKRYWAJ")
                         }
-                        plainTitle.contains("Nagrania", ignoreCase = true) -> {
-                            onNavigateToRecordingsGrid("Zarządzaj nagraniami", "ODKRYWAJ")
+                        // TELEWIZJA: Widok listy kanałów -> Lista kanałów
+                        plainTitle.contains("Widok listy", ignoreCase = true) -> {
+                            android.util.Log.d("SHORTCUT_V4", "Nawigacja do listy kanałów")
+                            onNavigateToChannelGrid(
+                                "Lista kanałów TV",
+                                "Wszystkie",
+                                null,
+                                appIconsData["Wszystkie kanały"]
+                            )
                         }
+                        // Nagrania
+                        plainTitle.contains("Nagrania", ignoreCase = true) -> {
+                            onNavigateToRecordingsGrid("Zarządzaj nagraniami", "TELEWIZJA")
+                        }
+                        // TELEWIZJA: Pakiety telewizyjne
+                        plainTitle.contains("Pakiety", ignoreCase = true) && plainTitle.contains("telewizyjne", ignoreCase = true) -> {
+                            android.util.Log.d("SHORTCUT_V4", "Nawigacja do pakietów TV")
+                            // TODO: Navigate to TV packages screen
+                        }
+                        // Moja lista kanałów
                         plainTitle.contains("lista kanałów", ignoreCase = true) -> {
                             onNavigateToChannelGrid(
                                 "Moja lista kanałów",
@@ -6573,23 +6702,30 @@ private fun ShortcutCardV4(
                                 appIconsData["Moja lista kanałów"]
                             )
                         }
+                        // Do obejrzenia
                         plainTitle.contains("obejrzenia", ignoreCase = true) -> {
                             val vodList = VodDataCache.getVodContentList()
                             val randomFilms = vodList.shuffled().take(20)
                             onNavigateToVodGrid("Do obejrzenia", randomFilms, "ODKRYWAJ")
                         }
+                        // Netflix
                         plainTitle.contains("Netflix", ignoreCase = true) -> {
-                            // Launch Netflix app
                             android.util.Log.d("SHORTCUT_V4", "Launching Netflix...")
                         }
+                        // Disney+
                         plainTitle.contains("Disney", ignoreCase = true) -> {
-                            // Launch Disney+ app
                             android.util.Log.d("SHORTCUT_V4", "Launching Disney+...")
                         }
+                        // Igrzyska Olimpijskie
                         plainTitle.contains("Igrzyska", ignoreCase = true) ||
                         plainTitle.contains("Olimpijskie", ignoreCase = true) -> {
-                            // Navigate to Olympics content
                             android.util.Log.d("SHORTCUT_V4", "Navigating to Olympics content...")
+                        }
+                        // Polsat Viasat Nature
+                        plainTitle.contains("Viasat", ignoreCase = true) ||
+                        plainTitle.contains("Nature", ignoreCase = true) -> {
+                            android.util.Log.d("SHORTCUT_V4", "Navigating to Viasat Nature channel...")
+                            // TODO: Navigate to Viasat Nature channel
                         }
                     }
                     true
@@ -6602,11 +6738,15 @@ private fun ShortcutCardV4(
                 onFocusChange(focusState.isFocused)
             }
     ) {
+        // Check if this is Polsat Viasat Nature - show "Nowy kanał" label
+        val showNowyKanalLabel = shortcut.title.contains("Viasat", ignoreCase = true) ||
+                                  shortcut.title.contains("Nature", ignoreCase = true)
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(
-                    top = sy(24),
+                    top = if (showNowyKanalLabel) sy(32) else sy(24), // Extra top padding when label present
                     bottom = sy(16),
                     start = sx(12),
                     end = sx(12)
@@ -6662,19 +6802,55 @@ private fun ShortcutCardV4(
                 }
             }
 
-            // Text (24sp, max 2 lines, centered)
-            Text(
-                text = shortcut.title,
-                color = Color(0xFFEEEEEE),
-                fontSize = (24 * sx(1).value / 1.dp.value).sp,
-                fontWeight = FontWeight.Medium,
-                textAlign = TextAlign.Center,
-                lineHeight = (32 * sy(1).value / 1.dp.value).sp,
-                maxLines = 2,
-                overflow = TextOverflow.Visible,
-                letterSpacing = 0.48.sp,
-                modifier = Modifier.fillMaxWidth()
-            )
+            // Text (24sp, max 2 lines, centered horizontally, aligned to TOP)
+            // Fixed height for 2 lines so all texts start at same Y position
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(sy(64)), // Height for 2 lines (32sp line height × 2)
+                contentAlignment = Alignment.TopCenter // Align text to top
+            ) {
+                Text(
+                    text = shortcut.title,
+                    color = Color(0xFFEEEEEE),
+                    fontSize = (24 * sx(1).value / 1.dp.value).sp,
+                    fontWeight = FontWeight.Medium,
+                    textAlign = TextAlign.Center,
+                    lineHeight = (32 * sy(1).value / 1.dp.value).sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Visible,
+                    letterSpacing = 0.48.sp
+                )
+            }
+        }
+
+        // "Nowy kanał" label - full width at top (only for Polsat Viasat Nature)
+        if (showNowyKanalLabel) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .background(
+                        color = Color(0xFF5F2DA4), // Purple background
+                        shape = RoundedCornerShape(
+                            topStart = sx(16),
+                            topEnd = sx(16),
+                            bottomStart = 0.dp,
+                            bottomEnd = 0.dp
+                        )
+                    )
+                    .padding(vertical = sy(4)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Nowy kanał",
+                    color = Color(0xFFEEEEEE),
+                    fontSize = (14 * sx(1).value / 1.dp.value).sp,
+                    fontWeight = FontWeight.Medium,
+                    letterSpacing = 0.7.sp,
+                    lineHeight = (16 * sy(1).value / 1.dp.value).sp
+                )
+            }
         }
     }
 }
@@ -7592,6 +7768,77 @@ fun MojeChannelRowsLayout(
                 )
             }
         }
+
+        // === BOTTOM TEXT (Naciśnij wstecz) - Shows when near bottom of list ===
+        if (focusedRowIndex >= channels.size - 3) {
+            val lastChannelIndex = channels.size - 1
+            val lastChannelY = calculateMojeChannelYPosition(
+                rowIndex = lastChannelIndex,
+                focusedRowIndex = focusedRowIndex,
+                focusedColIndex = focusedColIndex,
+                channels = channels,
+                sy = sy
+            )
+            val lastChannelHeight = if (focusedRowIndex == lastChannelIndex && focusedColIndex >= 0) {
+                sy(MOJE_HORIZONTAL_EXPANDED_ROW_HEIGHT)
+            } else {
+                sy(MOJE_HORIZONTAL_NORMAL_ROW_HEIGHT)
+            }
+
+            val textYOffset by animateDpAsState(
+                targetValue = lastChannelY + lastChannelHeight + sy(80),
+                animationSpec = tween(durationMillis = 500),
+                label = "moje_bottom_text_y_offset"
+            )
+            val glowYOffset by animateDpAsState(
+                targetValue = lastChannelY + lastChannelHeight - sy(100),
+                animationSpec = tween(durationMillis = 500),
+                label = "moje_glow_y_offset"
+            )
+
+            // Glow background - lower z-index
+            Image(
+                painter = painterResource(id = R.drawable.glow_bottom),
+                contentDescription = null,
+                contentScale = ContentScale.None,
+                alpha = 0.8f,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .offset(y = glowYOffset)
+                    .zIndex(-1f)
+            )
+
+            // Text and remote icon
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .offset(y = textYOffset)
+            ) {
+                Text(
+                    text = "Naciśnij",
+                    color = Color(0xFFEEEEEE),
+                    fontSize = sx(24).value.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = (-0.48).sp
+                )
+                Spacer(modifier = Modifier.width(sx(12)))
+                Image(
+                    painter = painterResource(id = R.drawable.remote_back),
+                    contentDescription = "Wstecz",
+                    contentScale = ContentScale.None
+                )
+                Spacer(modifier = Modifier.width(sx(12)))
+                Text(
+                    text = "na pilocie, aby wrócić do góry",
+                    color = Color(0xFFEEEEEE),
+                    fontSize = sx(24).value.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = (-0.48).sp
+                )
+            }
+        }
     }
 }
 
@@ -8122,17 +8369,13 @@ private const val ODKRYWAJ_VERTICAL_VOD_NORMAL_ROW_HEIGHT = 346 // For VodConten
 private const val ODKRYWAJ_VERTICAL_VOD_EXPANDED_ROW_HEIGHT = 636 // For VodContentCard: CategoryIcon (216px) + miniatures (290px) + spacing (130px)
 private const val ODKRYWAJ_HORIZONTAL_NORMAL_ROW_HEIGHT = 256 // Same as APLIKACJE
 private const val ODKRYWAJ_HORIZONTAL_EXPANDED_ROW_HEIGHT = 546 // Same as APLIKACJE
-private const val ODKRYWAJ_COLLECTION_SLIDER_NORMAL_ROW_HEIGHT = 544 // Collection slider (464px) + spacing (80px)
-private const val ODKRYWAJ_COLLECTION_SLIDER_EXPANDED_ROW_HEIGHT = 544 // NO expansion for collection slider
+private const val ODKRYWAJ_COLLECTION_SLIDER_NORMAL_ROW_HEIGHT = 440 // Collection slider (360px) + spacing (80px)
+private const val ODKRYWAJ_COLLECTION_SLIDER_EXPANDED_ROW_HEIGHT = 440 // NO expansion for collection slider
 private const val ODKRYWAJ_APP_ICONS_NORMAL_ROW_HEIGHT = 256 // App icons (220px) + spacing (36px) - like TELEWIZJA
 private const val ODKRYWAJ_APP_ICONS_EXPANDED_ROW_HEIGHT = 256 // NO expansion for app-icons (same as normal)
 private const val ODKRYWAJ_BANNER_PROMO_NORMAL_ROW_HEIGHT = 293 // Banner promo (253px content + 40px spacing)
 private const val ODKRYWAJ_BANNER_PROMO_EXPANDED_ROW_HEIGHT = 293 // Same - no expansion for banner promo
 private const val ODKRYWAJ_CONTENT_FOCUS_EXTRA_SPACING = 100 // Extra spacing above focused content row
-
-// ODKRYWAJ infinity loop constants
-private const val GHOST_SLIDER_ROW_INDEX = 15 // Virtual row for infinity loop animation
-private const val INFINITY_LOOP_ANIMATION_DELAY_MS = 550L // Delay before jumping to Row 0
 
 // TELEWIZJA section constants
 // Note: Wszystkie focusable rows at Y:270px, wszystko scrolluje razem
@@ -8143,7 +8386,7 @@ private const val TOP_MENU_GRADIENT_HEIGHT = 600 // Gradient height: 600px from 
 
 private const val TELEWIZJA_SHORTCUTS_NORMAL_ROW_HEIGHT = 406
 private const val TELEWIZJA_SHORTCUTS_EXPANDED_ROW_HEIGHT = 406
-private const val TELEWIZJA_SHORTCUTS_V2_NORMAL_ROW_HEIGHT = 239 // Skróty v2: 4 horizontal shortcuts (NO expansion)
+private const val TELEWIZJA_SHORTCUTS_V4_NORMAL_ROW_HEIGHT = 289 // ShortcutCardV4 (244px) + 45px spacing (NO expansion)
 private const val TELEWIZJA_TOP10_NORMAL_ROW_HEIGHT = 406
 private const val TELEWIZJA_TOP10_EXPANDED_ROW_HEIGHT = 696
 private const val TELEWIZJA_VERTICAL_NORMAL_ROW_HEIGHT = 320
@@ -8152,8 +8395,8 @@ private const val TELEWIZJA_VERTICAL_VOD_NORMAL_ROW_HEIGHT = 346
 private const val TELEWIZJA_VERTICAL_VOD_EXPANDED_ROW_HEIGHT = 636
 private const val TELEWIZJA_HORIZONTAL_NORMAL_ROW_HEIGHT = 256
 private const val TELEWIZJA_HORIZONTAL_EXPANDED_ROW_HEIGHT = 546
-private const val TELEWIZJA_COLLECTION_SLIDER_NORMAL_ROW_HEIGHT = 544
-private const val TELEWIZJA_COLLECTION_SLIDER_EXPANDED_ROW_HEIGHT = 544
+private const val TELEWIZJA_COLLECTION_SLIDER_NORMAL_ROW_HEIGHT = 405 // Collection slider (360px) + spacing (45px)
+private const val TELEWIZJA_COLLECTION_SLIDER_EXPANDED_ROW_HEIGHT = 405 // NO expansion for collection slider
 private const val TELEWIZJA_SERVICE_LOGOS_NORMAL_ROW_HEIGHT = 240  // 200px cards + 40px spacing
 private const val TELEWIZJA_SERVICE_LOGOS_EXPANDED_ROW_HEIGHT = 240 // No expansion for service logos
 private const val TELEWIZJA_CHANNEL_LOGOS_NORMAL_ROW_HEIGHT = 340  // 2x (150px + 20px) = 2x170 = 340px
@@ -8163,7 +8406,7 @@ private const val TELEWIZJA_APP_ICONS_EXPANDED_ROW_HEIGHT = 256 // No expansion 
 private const val TELEWIZJA_CHANNEL_LIST_CARD_WIDTH = 208 // Figma: channel_list_card width
 private const val TELEWIZJA_CHANNEL_LIST_CARD_HEIGHT = 208 // Figma: channel_list_card height (square)
 private const val TELEWIZJA_CHANNEL_LIST_CARD_LOGO_SIZE = 148 // Figma: logo size (148x148)
-private const val TELEWIZJA_HEADER_ROW_HEIGHT = 80 // Header text (32sp) + spacing
+private const val TELEWIZJA_HEADER_ROW_HEIGHT = 48 // Header text (24sp) + 24px spacing to slider
 private const val TELEWIZJA_CONTENT_FOCUS_EXTRA_SPACING = 100
 
 private fun calculateMojeChannelYPosition(
@@ -8710,9 +8953,6 @@ fun handleOdkrywajNavigation(
     coroutineScope: CoroutineScope,
     gridContent: Map<String, List<VodContent>>,
     onReturnToMenu: () -> Unit,
-    // === Infinity loop parameters ===
-    isInGhostTransition: Boolean = false,
-    onGhostTransitionChange: (Boolean) -> Unit = {},
     // === Slider button index for KINO PLAY content ===
     sliderButtonIndex: Int = 0,
     onSliderButtonIndexChange: (Int) -> Unit = {}
@@ -8724,15 +8964,6 @@ fun handleOdkrywajNavigation(
         Key.DirectionUp -> {
             android.util.Log.d("ODKRYWAJ_NAV", "UP pressed: focusedRow=$focusedRowIndex, focusedCol=$focusedColIndex")
 
-            // === Cancel infinity loop if user presses UP during ghost transition ===
-            if (focusedRowIndex == GHOST_SLIDER_ROW_INDEX) {
-                android.util.Log.d("ODKRYWAJ_NAV", "UP during ghost transition - canceling, returning to last channel")
-                onFocusChange(channels.size - 1, 0)  // Return to Row 14 (last real channel)
-                onGhostTransitionChange(false)
-                channelFocusRequesters[Pair(channels.size - 1, 0)]?.requestFocus()
-                return true
-            }
-
             if (focusedColIndex == -2) {
                 // First movement from "no focus" - go to first slide (0, 0)
                 onFocusChange(0, 0)
@@ -8743,11 +8974,11 @@ fun handleOdkrywajNavigation(
                 return false // Let VodHeroSliderV2 handle UP key (navigates between buttons or calls onReturnToMenu)
             } else if (focusedRowIndex > 0) {
                 val newRowIndex = focusedRowIndex - 1
-                // Row 0 (slider-max), row 1 (shortcuts), row 7 (banner-promo) have no CategoryIcon - always go to col=0
-                // Row 2 (Teraz w TV) - normal horizontal with CategoryIcon
+                // Row 0 (slider-max), row 1 (shortcuts), row 9 (banner-promo) have no CategoryIcon - always go to col=0
+                // Row 2 (Teraz w Mojej TV) - normal horizontal with CategoryIcon
                 // Row 3 (app-icons) has CategoryIcon - preserve type
                 val targetColIndex = when (newRowIndex) {
-                    0, 1, 7 -> 0 // No CategoryIcon, go to content (slider-max, shortcuts, banner-promo)
+                    0, 1, 9 -> 0 // No CategoryIcon, go to content (slider-max, shortcuts, banner-promo)
                     3 -> if (focusedColIndex == -1) -1 else 0 // Row 3 (app-icons) has CategoryIcon
                     else -> if (focusedColIndex == -1) -1 else 0 // Preserve type for rows with CategoryIcon
                 }
@@ -8778,33 +9009,14 @@ fun handleOdkrywajNavigation(
                 return false // Let VodHeroSliderV2 handle DOWN key (navigates between buttons or calls onNavigateDown)
             }
 
-            // === INFINITY LOOP: From last channel (Row 14) → Ghost Slider → Row 0 ===
-            if (focusedRowIndex == channels.size - 1 && !isInGhostTransition) {
-                android.util.Log.d("ODKRYWAJ_NAV", "INFINITY LOOP: Starting ghost transition from Row ${channels.size - 1}")
-                onGhostTransitionChange(true)
-
-                // Phase 1: Animate to ghost slider (Row 15)
-                onFocusChange(GHOST_SLIDER_ROW_INDEX, 0)
-
-                // Phase 2: Jump to Row 0 after animation completes
-                coroutineScope.launch {
-                    kotlinx.coroutines.delay(INFINITY_LOOP_ANIMATION_DELAY_MS)
-                    android.util.Log.d("ODKRYWAJ_NAV", "INFINITY LOOP: Jumping to Row 0")
-                    onFocusChange(0, 0)
-                    channelFocusRequesters[Pair(0, 0)]?.requestFocus()
-                    onGhostTransitionChange(false)
-                }
-                return true
-            }
-
-            // Normal DOWN navigation
+            // Normal DOWN navigation (no infinity loop - last channel is the end)
             if (focusedRowIndex < channels.size - 1) {
                 val newRowIndex = focusedRowIndex + 1
-                // Row 0 (slider-max), row 1 (shortcuts), row 7 (banner-promo) have no CategoryIcon - always go to col=0
-                // Row 2 (Teraz w TV) - normal horizontal with CategoryIcon
+                // Row 0 (slider-max), row 1 (shortcuts), row 9 (banner-promo) have no CategoryIcon - always go to col=0
+                // Row 2 (Teraz w Mojej TV) - normal horizontal with CategoryIcon
                 // Row 3 (app-icons) has CategoryIcon - preserve type
                 val targetColIndex = when (newRowIndex) {
-                    0, 1, 7 -> 0 // No CategoryIcon, go to content (slider-max, shortcuts, banner-promo)
+                    0, 1, 9 -> 0 // No CategoryIcon, go to content (slider-max, shortcuts, banner-promo)
                     3 -> if (focusedColIndex == -1) -1 else 0 // Row 3 (app-icons) has CategoryIcon
                     else -> if (focusedColIndex == -1) -1 else 0 // Preserve type for rows with CategoryIcon
                 }
@@ -8842,8 +9054,8 @@ fun handleOdkrywajNavigation(
                 }
                 // If on CategoryIcon (-1), do nothing
                 return true
-            } else if (focusedRowIndex == 7) {
-                // Row 7 (banner-promo): direct navigation between 2 buttons (NO CategoryIcon)
+            } else if (focusedRowIndex == 9) {
+                // Row 9 (banner-promo): direct navigation between 2 buttons (NO CategoryIcon)
                 if (focusedColIndex > 0) {
                     val newColIndex = focusedColIndex - 1
                     onFocusChange(focusedRowIndex, newColIndex)
@@ -8853,7 +9065,7 @@ fun handleOdkrywajNavigation(
                 return true
             }
 
-            // For rows 3+: navigation like MOJE (scroll first, then CategoryIcon)
+            // For other rows (including top10): navigation like MOJE (scroll first, then CategoryIcon)
             if (focusedColIndex == -1) {
                 // Already on CategoryIcon - do nothing
                 return true
@@ -8901,8 +9113,8 @@ fun handleOdkrywajNavigation(
                     channelFocusRequesters[Pair(focusedRowIndex, newColIndex)]?.requestFocus()
                 }
                 return true
-            } else if (focusedRowIndex == 7) {
-                // Row 7 (banner-promo): direct navigation between 2 buttons (NO CategoryIcon)
+            } else if (focusedRowIndex == 9) {
+                // Row 9 (banner-promo): direct navigation between 2 buttons (NO CategoryIcon)
                 if (focusedColIndex < 1) { // Only 2 buttons (col 0 and 1)
                     val newColIndex = focusedColIndex + 1
                     onFocusChange(focusedRowIndex, newColIndex)
@@ -8911,7 +9123,7 @@ fun handleOdkrywajNavigation(
                 return true
             }
 
-            // For rows 3+: normal navigation with CategoryIcon
+            // For other rows (including top10): normal navigation with CategoryIcon
             if (focusedColIndex == -1) {
                 // From CategoryIcon, go to content (col 0)
                 onFocusChange(focusedRowIndex, 0)
@@ -8937,11 +9149,15 @@ fun handleOdkrywajNavigation(
 }
 
 // Shortcuts v2 data for TELEWIZJA section
+// TELEWIZJA shortcuts V4 - Figma design (same as ODKRYWAJ)
+// Icons from Downloads: ic_epg_tv (EPG), ic_channel_grid (grid), ic_recordings_tv (REC), ic_olympics_2026, ic_viasat_nature
 val telewizjaShortcutsV2 = listOf(
-    ShortcutItem("1", "Program telewizyjny", ShortcutIcon.MaterialIcon("add")),
-    ShortcutItem("2", "Moja lista kanałów", ShortcutIcon.MaterialIcon("search")),
-    ShortcutItem("3", "Lista kanałów", ShortcutIcon.MaterialIcon("star")),
-    ShortcutItem("4", "Nagrania", ShortcutIcon.MaterialIcon("favorite"))
+    ShortcutItem("1", "Program\ntelewizyjny", ShortcutIcon.VectorIcon(R.drawable.ic_epg_tv)),
+    ShortcutItem("2", "Widok listy\nkanałów", ShortcutIcon.VectorIcon(R.drawable.ic_channel_grid)),
+    ShortcutItem("3", "Nagrania", ShortcutIcon.VectorIcon(R.drawable.ic_recordings_tv)),
+    ShortcutItem("4", "Pakiety\ntelewizyjne", ShortcutIcon.VectorIcon(R.drawable.ic_tv_packages)),
+    ShortcutItem("5", "Igrzyska\nOlimpijskie", ShortcutIcon.VectorIcon(R.drawable.ic_olympics_2026)),
+    ShortcutItem("6", "Polsat Viasat\nNature", ShortcutIcon.VectorIcon(R.drawable.ic_viasat_nature))
 )
 
 // Helper function to find next focusable row (skipping headers)
@@ -9083,8 +9299,8 @@ fun handleTelewizjaNavigation(
             val channelType = channelTypes[channelName] ?: "horizontal"
 
             when (channelType) {
-                "shortcuts-v2" -> {
-                    // Shortcuts v2: direct focus navigation (NO scrolling, items 0-3)
+                "shortcuts-v4" -> {
+                    // Shortcuts v4: direct focus navigation (NO scrolling, items 0-5)
                     if (focusedColIndex > 0) {
                         val newColIndex = focusedColIndex - 1
                         onFocusChange(focusedRowIndex, newColIndex)
@@ -9168,9 +9384,9 @@ fun handleTelewizjaNavigation(
             val channelType = channelTypes[channelName] ?: "horizontal"
 
             when (channelType) {
-                "shortcuts-v2" -> {
-                    // Shortcuts v2: direct focus navigation (NO scrolling, items 0-3)
-                    if (focusedColIndex < 3) { // 4 shortcuts = colIndex 0-3
+                "shortcuts-v4" -> {
+                    // Shortcuts v4: direct focus navigation (NO scrolling, items 0-5)
+                    if (focusedColIndex < 5) { // 6 shortcuts = colIndex 0-5
                         val newColIndex = focusedColIndex + 1
                         onFocusChange(focusedRowIndex, newColIndex)
                         channelFocusRequesters[Pair(focusedRowIndex, newColIndex)]?.requestFocus()
@@ -9477,92 +9693,41 @@ private fun calculateOdkrywajChannelYPosition(
     val focusedChannelName = channels.getOrNull(focusedRowIndex) ?: ""
     val focusedChannelType = channelTypes[focusedChannelName] ?: "horizontal"
 
-    // === GHOST SLIDER (Row 15) - Y position calculation ===
-    // When ghost slider is being rendered (rowIndex == GHOST_SLIDER_ROW_INDEX)
-    if (rowIndex == GHOST_SLIDER_ROW_INDEX) {
-        return when {
-            // Ghost slider is focused - it's at the fixed focus position
-            focusedRowIndex == GHOST_SLIDER_ROW_INDEX -> sy(ODKRYWAJ_FIXED_FOCUS_Y)
-            // Ghost slider is below current focus - position it just below the last channel (Row 14)
-            focusedRowIndex < GHOST_SLIDER_ROW_INDEX -> {
-                // Calculate position below Row 14 (last real channel)
-                val row14Y = calculateOdkrywajChannelYPosition(
-                    rowIndex = channels.size - 1,
-                    focusedRowIndex = focusedRowIndex,
-                    focusedColIndex = focusedColIndex,
-                    channels = channels,
-                    channelTypes = channelTypes,
-                    sy = sy
-                )
-                // Get the last channel's type to determine its height
-                val lastChannelName = channels.getOrNull(channels.size - 1) ?: ""
-                val lastChannelType = channelTypes[lastChannelName] ?: "horizontal"
+    // Special positioning ONLY when shortcuts-v4 (row 1) is focused:
+    // - Slider bottom edge at 275px from top
+    // - Shortcuts top edge at 265px from top
+    // When channels below are focused (row >= 2), slider moves up normally with everything else
+    val isShortcutsV4Focused = focusedChannelType == "shortcuts-v4" && focusedRowIndex == 1
+    val SHORTCUTS_V4_FOCUS_Y = 265  // Shortcuts top edge when focused
+    val SLIDER_Y_WHEN_SHORTCUTS_FOCUSED = 275 - ODKRYWAJ_SLIDER_MAX_NORMAL_ROW_HEIGHT  // -467, so bottom at 275px
 
-                // If Row 14 is focused on content (expanded), use expanded height; otherwise normal
-                val lastChannelHeight = if (focusedRowIndex == channels.size - 1 && focusedColIndex >= 0) {
-                    // Row 14 is expanded - use expanded height
-                    when (lastChannelType) {
-                        "slider-max" -> ODKRYWAJ_SLIDER_MAX_EXPANDED_ROW_HEIGHT
-                        "shortcuts" -> ODKRYWAJ_SHORTCUTS_EXPANDED_ROW_HEIGHT
-                        "shortcuts-v3" -> ODKRYWAJ_SHORTCUTS_V3_EXPANDED_ROW_HEIGHT
-                        "shortcuts-v4" -> ODKRYWAJ_SHORTCUTS_V4_EXPANDED_ROW_HEIGHT
-                        "top10" -> ODKRYWAJ_TOP10_EXPANDED_ROW_HEIGHT
-                        "collection-slider" -> ODKRYWAJ_COLLECTION_SLIDER_EXPANDED_ROW_HEIGHT
-                        "app-icons" -> ODKRYWAJ_APP_ICONS_EXPANDED_ROW_HEIGHT
-                        "vertical" -> ODKRYWAJ_VERTICAL_EXPANDED_ROW_HEIGHT
-                        else -> ODKRYWAJ_HORIZONTAL_EXPANDED_ROW_HEIGHT
-                    }
-                } else {
-                    // Row 14 is collapsed - use normal height
-                    ODKRYWAJ_HORIZONTAL_NORMAL_ROW_HEIGHT
-                }
+    // Use different FIXED_FOCUS_Y depending on what's focused:
+    // - Slider/shortcuts (row 0-1): 200px
+    // - Channels below shortcuts (row >= 2): 340px (same as WIDEO)
+    val effectiveFixedFocusY = if (focusedRowIndex >= 2) 340 else ODKRYWAJ_FIXED_FOCUS_Y
 
-                row14Y + sy(lastChannelHeight)
-            }
-            else -> sy(2000) // Off-screen
-        }
-    }
-
-    // === When GHOST SLIDER is focused - all channels move up ===
-    if (focusedRowIndex == GHOST_SLIDER_ROW_INDEX) {
-        // Calculate cumulative height going backwards from Row 14 to this row
-        var cumulativeHeight = ODKRYWAJ_FIXED_FOCUS_Y - ODKRYWAJ_SLIDER_MAX_NORMAL_ROW_HEIGHT
-        for (i in (channels.size - 1) downTo rowIndex) {
-            val betweenChannelName = channels.getOrNull(i) ?: ""
-            val betweenType = channelTypes[betweenChannelName] ?: "horizontal"
-            cumulativeHeight -= when (betweenType) {
-                "slider-max" -> ODKRYWAJ_SLIDER_MAX_NORMAL_ROW_HEIGHT
-                "shortcuts" -> ODKRYWAJ_SHORTCUTS_NORMAL_ROW_HEIGHT
-                "shortcuts-v3" -> ODKRYWAJ_SHORTCUTS_V3_NORMAL_ROW_HEIGHT
-                "shortcuts-v4" -> ODKRYWAJ_SHORTCUTS_V4_NORMAL_ROW_HEIGHT
-                "top10" -> ODKRYWAJ_TOP10_NORMAL_ROW_HEIGHT
-                "collection-slider" -> ODKRYWAJ_COLLECTION_SLIDER_NORMAL_ROW_HEIGHT
-                "app-icons" -> ODKRYWAJ_APP_ICONS_NORMAL_ROW_HEIGHT
-                "banner-promo" -> ODKRYWAJ_BANNER_PROMO_NORMAL_ROW_HEIGHT
-                "vertical" -> {
-                    if (betweenChannelName in listOf("Nowe filmy", "Polecane w KINIE PLAY")) {
-                        ODKRYWAJ_VERTICAL_VOD_NORMAL_ROW_HEIGHT
-                    } else {
-                        ODKRYWAJ_VERTICAL_NORMAL_ROW_HEIGHT
-                    }
-                }
-                else -> ODKRYWAJ_HORIZONTAL_NORMAL_ROW_HEIGHT
-            }
-        }
-        return sy(cumulativeHeight)
-    }
+    // Special case: when first channel (row 2) is focused, keep 80px gap from shortcuts
+    val isFirstChannelFocused = focusedRowIndex == 2
+    val SHORTCUTS_Y_WHEN_FIRST_CHANNEL_FOCUSED = 340 - 80 - ODKRYWAJ_SHORTCUTS_V4_NORMAL_ROW_HEIGHT + 160  // 30, lowered by 160px
 
     return when {
-        rowIndex == focusedRowIndex -> sy(ODKRYWAJ_FIXED_FOCUS_Y)
+        // Special case: shortcuts-v4 focused - shortcuts at 265px
+        rowIndex == focusedRowIndex && isShortcutsV4Focused -> sy(SHORTCUTS_V4_FOCUS_Y)
+        // Special case: slider (row 0) when ONLY shortcuts-v4 is focused - slider stays lower
+        rowIndex == 0 && isShortcutsV4Focused -> sy(SLIDER_Y_WHEN_SHORTCUTS_FOCUSED)
+        // Special case: shortcuts (row 1) when first channel (row 2) is focused - keep 80px gap
+        rowIndex == 1 && isFirstChannelFocused && channelType == "shortcuts-v4" -> sy(SHORTCUTS_Y_WHEN_FIRST_CHANNEL_FOCUSED)
+        // Normal case: focused row at effective FIXED_FOCUS_Y (200 for slider/shortcuts, 340 for channels)
+        rowIndex == focusedRowIndex -> sy(effectiveFixedFocusY)
         rowIndex < focusedRowIndex -> {
             // Apply extra spacing: 40px for shortcuts/shortcuts-v3, 100px for other channels
             val extraSpacing = if (focusedChannelType in listOf("shortcuts", "shortcuts-v3") && focusedColIndex >= 0) {
                 40 // Smaller spacing for shortcuts (only add spacing from top)
-            } else if (focusedChannelType !in listOf("shortcuts", "shortcuts-v3") && focusedColIndex >= 0) {
+            } else if (focusedChannelType !in listOf("shortcuts", "shortcuts-v3", "shortcuts-v4") && focusedColIndex >= 0) {
                 ODKRYWAJ_CONTENT_FOCUS_EXTRA_SPACING // 100px for other channels
             } else 0
 
-            var cumulativeHeight = ODKRYWAJ_FIXED_FOCUS_Y
+            var cumulativeHeight = effectiveFixedFocusY
             for (i in rowIndex until focusedRowIndex) {
                 val betweenChannelName = channels.getOrNull(i) ?: ""
                 val betweenType = channelTypes[betweenChannelName] ?: "horizontal"
@@ -9631,7 +9796,7 @@ private fun calculateOdkrywajChannelYPosition(
                 }
             }
 
-            var cumulativeHeight = ODKRYWAJ_FIXED_FOCUS_Y + focusedChannelExpansion
+            var cumulativeHeight = effectiveFixedFocusY + focusedChannelExpansion
 
             for (i in (focusedRowIndex + 1) until rowIndex) {
                 val betweenChannelName = channels.getOrNull(i) ?: ""
@@ -9684,7 +9849,7 @@ private fun calculateTelewizjaChannelYPosition(
             cumulativeY += when (prevType) {
                 "header" -> TELEWIZJA_HEADER_ROW_HEIGHT
                 "collection-slider" -> TELEWIZJA_COLLECTION_SLIDER_NORMAL_ROW_HEIGHT
-                "shortcuts-v2" -> TELEWIZJA_SHORTCUTS_V2_NORMAL_ROW_HEIGHT
+                "shortcuts-v4" -> TELEWIZJA_SHORTCUTS_V4_NORMAL_ROW_HEIGHT
                 else -> TELEWIZJA_HORIZONTAL_NORMAL_ROW_HEIGHT
             }
         }
@@ -9693,6 +9858,29 @@ private fun calculateTelewizjaChannelYPosition(
 
     val focusedChannelName = channels.getOrNull(focusedRowIndex) ?: ""
     val focusedChannelType = channelTypes[focusedChannelName] ?: "horizontal"
+
+    // ✅ SPECIAL CASE: Gdy fokus na pierwszym focusable row (Kategorie EPG, row 1),
+    // zachowaj pozycje jak przy menu focused (bez przesuwania)
+    val firstFocusableRow = channels.indexOfFirst { ch ->
+        val type = channelTypes[ch] ?: "horizontal"
+        type != "header" // First non-header row
+    }.takeIf { it >= 0 } ?: 1
+
+    if (focusedRowIndex == firstFocusableRow) {
+        // Use same positioning as menu focused
+        var cumulativeY = 180 // Pierwszy element 60px pod menu
+        for (i in 0 until rowIndex) {
+            val prevChannelName = channels.getOrNull(i) ?: ""
+            val prevType = channelTypes[prevChannelName] ?: "horizontal"
+            cumulativeY += when (prevType) {
+                "header" -> TELEWIZJA_HEADER_ROW_HEIGHT
+                "collection-slider" -> TELEWIZJA_COLLECTION_SLIDER_NORMAL_ROW_HEIGHT
+                "shortcuts-v4" -> TELEWIZJA_SHORTCUTS_V4_NORMAL_ROW_HEIGHT
+                else -> TELEWIZJA_HORIZONTAL_NORMAL_ROW_HEIGHT
+            }
+        }
+        return sy(cumulativeY)
+    }
 
     // ✅ NORMALNE SCROLLOWANIE: Wszystko scrolluje razem
     // Wszystkie focusable rows na Y=270px
@@ -9713,7 +9901,7 @@ private fun calculateTelewizjaChannelYPosition(
                     "service-logos" -> TELEWIZJA_SERVICE_LOGOS_NORMAL_ROW_HEIGHT
                     "channel-logos" -> TELEWIZJA_CHANNEL_LOGOS_NORMAL_ROW_HEIGHT
                     "shortcuts" -> TELEWIZJA_SHORTCUTS_NORMAL_ROW_HEIGHT
-                    "shortcuts-v2" -> TELEWIZJA_SHORTCUTS_V2_NORMAL_ROW_HEIGHT
+                    "shortcuts-v4" -> TELEWIZJA_SHORTCUTS_V4_NORMAL_ROW_HEIGHT
                     "top10" -> TELEWIZJA_TOP10_NORMAL_ROW_HEIGHT
                     "collection-slider" -> TELEWIZJA_COLLECTION_SLIDER_NORMAL_ROW_HEIGHT
                     "vertical" -> {
@@ -9737,7 +9925,7 @@ private fun calculateTelewizjaChannelYPosition(
                     "service-logos" -> TELEWIZJA_SERVICE_LOGOS_EXPANDED_ROW_HEIGHT
                     "channel-logos" -> TELEWIZJA_CHANNEL_LOGOS_EXPANDED_ROW_HEIGHT
                     "shortcuts" -> TELEWIZJA_SHORTCUTS_EXPANDED_ROW_HEIGHT
-                    "shortcuts-v2" -> TELEWIZJA_SHORTCUTS_V2_NORMAL_ROW_HEIGHT
+                    "shortcuts-v4" -> TELEWIZJA_SHORTCUTS_V4_NORMAL_ROW_HEIGHT
                     "top10" -> TELEWIZJA_TOP10_EXPANDED_ROW_HEIGHT
                     "collection-slider" -> TELEWIZJA_COLLECTION_SLIDER_EXPANDED_ROW_HEIGHT
                     "vertical" -> {
@@ -9757,7 +9945,7 @@ private fun calculateTelewizjaChannelYPosition(
                     "service-logos" -> TELEWIZJA_SERVICE_LOGOS_NORMAL_ROW_HEIGHT
                     "channel-logos" -> TELEWIZJA_CHANNEL_LOGOS_NORMAL_ROW_HEIGHT
                     "shortcuts" -> TELEWIZJA_SHORTCUTS_EXPANDED_ROW_HEIGHT
-                    "shortcuts-v2" -> TELEWIZJA_SHORTCUTS_V2_NORMAL_ROW_HEIGHT
+                    "shortcuts-v4" -> TELEWIZJA_SHORTCUTS_V4_NORMAL_ROW_HEIGHT
                     "top10" -> TELEWIZJA_TOP10_NORMAL_ROW_HEIGHT
                     "collection-slider" -> TELEWIZJA_COLLECTION_SLIDER_NORMAL_ROW_HEIGHT
                     "vertical" -> {
@@ -9784,7 +9972,7 @@ private fun calculateTelewizjaChannelYPosition(
                     "service-logos" -> TELEWIZJA_SERVICE_LOGOS_NORMAL_ROW_HEIGHT
                     "channel-logos" -> TELEWIZJA_CHANNEL_LOGOS_NORMAL_ROW_HEIGHT
                     "shortcuts" -> TELEWIZJA_SHORTCUTS_NORMAL_ROW_HEIGHT
-                    "shortcuts-v2" -> TELEWIZJA_SHORTCUTS_V2_NORMAL_ROW_HEIGHT
+                    "shortcuts-v4" -> TELEWIZJA_SHORTCUTS_V4_NORMAL_ROW_HEIGHT
                     "top10" -> TELEWIZJA_TOP10_NORMAL_ROW_HEIGHT
                     "collection-slider" -> TELEWIZJA_COLLECTION_SLIDER_NORMAL_ROW_HEIGHT
                     "vertical" -> {
@@ -10188,15 +10376,6 @@ fun OdkrywajChannelRowsLayout(
     sliderButtonIndex: Int = 0,
     onSliderButtonIndexChange: (Int) -> Unit = {}
 ) {
-    // === Track previous focusedRowIndex to detect instant jump from ghost slider ===
-    var previousFocusedRowIndex by remember { mutableStateOf(focusedRowIndex) }
-    val isInstantJumpFromGhost = previousFocusedRowIndex == GHOST_SLIDER_ROW_INDEX && focusedRowIndex == 0
-
-    // Update previous focusedRowIndex after rendering
-    LaunchedEffect(focusedRowIndex) {
-        previousFocusedRowIndex = focusedRowIndex
-    }
-
     Box(modifier = Modifier.fillMaxSize()) {
         channels.forEachIndexed { rowIndex, channelName ->
             val rowContent = gridContent[channelName] ?: emptyList()
@@ -10212,10 +10391,9 @@ fun OdkrywajChannelRowsLayout(
                 sy = sy
             )
 
-            // Instant (0ms) when jumping from ghost slider to Row 0, otherwise normal animation (500ms)
             val channelYOffset by animateDpAsState(
                 targetValue = targetY,
-                animationSpec = tween(durationMillis = if (isInstantJumpFromGhost) 0 else 500),
+                animationSpec = tween(durationMillis = 500),
                 label = "odkrywaj_channel_y_offset_$rowIndex"
             )
 
@@ -10270,11 +10448,13 @@ fun OdkrywajChannelRowsLayout(
             }
         }
 
-        // === GHOST SLIDER (Row 15) - Renders only when close to bottom for performance ===
-        // Render when focusedRowIndex >= channels.size - 4 (rows 11-14 = Ostatnio dodane, HBO Max, SkyShowtime, Amazon Prime) or when ghost slider is focused
-        if (focusedRowIndex >= channels.size - 4 || focusedRowIndex == GHOST_SLIDER_ROW_INDEX) {
-            val ghostTargetY = calculateOdkrywajChannelYPosition(
-                rowIndex = GHOST_SLIDER_ROW_INDEX,
+        // === BOTTOM TEXT (Naciśnij wstecz) - Shows when near bottom of list ===
+        // Render when focusedRowIndex >= channels.size - 3 (last 3 channels)
+        if (focusedRowIndex >= channels.size - 3) {
+            // Get Pakiety channel Y position
+            val pakietyIndex = channels.size - 1  // Last channel = Pakiety
+            val pakietyY = calculateOdkrywajChannelYPosition(
+                rowIndex = pakietyIndex,
                 focusedRowIndex = focusedRowIndex,
                 focusedColIndex = focusedColIndex,
                 channels = channels,
@@ -10282,39 +10462,69 @@ fun OdkrywajChannelRowsLayout(
                 sy = sy
             )
 
-            val ghostYOffset by animateDpAsState(
-                targetValue = ghostTargetY,
+            // Pakiety row height depends on whether it's focused
+            val pakietyHeight = if (focusedRowIndex == pakietyIndex && focusedColIndex >= 0) {
+                sy(ODKRYWAJ_HORIZONTAL_EXPANDED_ROW_HEIGHT)  // 546 when content focused
+            } else {
+                sy(ODKRYWAJ_HORIZONTAL_NORMAL_ROW_HEIGHT)    // 256 otherwise
+            }
+
+            // Text position: 80px below Pakiety channel
+            val textYOffset by animateDpAsState(
+                targetValue = pakietyY + pakietyHeight + sy(80),
                 animationSpec = tween(durationMillis = 500),
-                label = "odkrywaj_ghost_slider_y_offset"
+                label = "odkrywaj_bottom_text_y_offset"
             )
 
-            Box(modifier = Modifier.offset(y = ghostYOffset)) {
-                // Ghost slider uses same version as main slider (V2 or V3) for infinity loop sync
-                if (sliderVersion == 3) {
-                    VodHeroSliderV3(
-                        isFocused = false,  // Ghost slider never has direct focus
-                        items = sliderItems,
-                        sectionType = "ODKRYWAJ",
-                        sx = sx,
-                        sy = sy,
-                        topPadding = 0,
-                        externalCurrentSlide = sharedCurrentSlide,
-                        onCurrentSlideChange = { },  // Ghost doesn't control slide changes
-                        shouldShuffle = false  // Same order as main slider (synced)
-                    )
-                } else {
-                    VodHeroSliderV2(
-                        isFocused = false,  // Ghost slider never has direct focus
-                        items = sliderItems,
-                        sectionType = "ODKRYWAJ",
-                        sx = sx,
-                        sy = sy,
-                        topPadding = 0,
-                        enableAutoRotate = false,  // No auto-rotate - just mirrors main slider
-                        externalCurrentSlide = sharedCurrentSlide,
-                        externalProgress = sharedProgress
-                    )
-                }
+            // Glow position: starts higher, goes UNDER Pakiety channel (z-index below)
+            val glowYOffset by animateDpAsState(
+                targetValue = pakietyY + pakietyHeight - sy(100),  // Glow starts 100px above text
+                animationSpec = tween(durationMillis = 500),
+                label = "odkrywaj_glow_y_offset"
+            )
+
+            // Glow background - lower z-index, goes under Pakiety
+            Image(
+                painter = painterResource(id = R.drawable.glow_bottom),
+                contentDescription = null,
+                contentScale = ContentScale.None,
+                alpha = 0.8f,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .offset(y = glowYOffset)
+                    .zIndex(-1f)  // Behind channel content
+            )
+
+            // Text and remote icon - 80px below Pakiety
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .offset(y = textYOffset)
+            ) {
+                Text(
+                    text = "Naciśnij",
+                    color = Color(0xFFEEEEEE),
+                    fontSize = sx(24).value.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = (-0.48).sp
+                )
+                Spacer(modifier = Modifier.width(sx(12)))
+                // Remote back button image at original 1:1 size
+                Image(
+                    painter = painterResource(id = R.drawable.remote_back),
+                    contentDescription = "Wstecz",
+                    contentScale = ContentScale.None
+                )
+                Spacer(modifier = Modifier.width(sx(12)))
+                Text(
+                    text = "na pilocie, aby wrócić do góry",
+                    color = Color(0xFFEEEEEE),
+                    fontSize = sx(24).value.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = (-0.48).sp
+                )
             }
         }
     }
@@ -10389,7 +10599,7 @@ fun OdkrywajUnifiedChannelRow(
 
         when (channelType) {
             "slider-max" -> {
-                // ODKRYWAJ: Always use V2 slider with bullets and auto-rotation
+                // ODKRYWAJ: V2 slider with bullets and auto-rotation (only when focused on slider row)
                 // topPadding = 0 because parent handles Y positioning via calculateOdkrywajChannelYPosition
                 VodHeroSliderV2(
                     isFocused = rowIndex == focusedRowIndex && focusedColIndex >= 0,
@@ -10402,10 +10612,12 @@ fun OdkrywajUnifiedChannelRow(
                         // Update focus state when slide changes
                         onChannelContentFocusChange(rowIndex, 0)
                     },
-                    // Auto-rotation enabled for ODKRYWAJ slider
-                    enableAutoRotate = true,
+                    // Auto-rotation and bullets only when focused on slider row (row 0)
+                    // Hidden when user navigates to shortcuts (row 1) or channels below
+                    enableAutoRotate = focusedRowIndex == 0,
                     autoRotateIntervalMs = autoRotateIntervalMs,
                     pauseAfterInteractionMs = pauseAfterInteractionMs,
+                    showBullets = focusedRowIndex == 0, // Hide bullets when on shortcuts or below
                     // Detect if user is on channels below slider (row > 0) to trigger pause
                     isOnChannelsBelow = focusedRowIndex > rowIndex,
                     // === Infinity loop: Shared state for ghost slider synchronization ===
@@ -10586,8 +10798,8 @@ fun OdkrywajUnifiedChannelRow(
                     items(5) {
                         Spacer(
                             modifier = Modifier
-                                .width(sx(977))
-                                .height(sy(464))
+                                .width(sx(640))  // Figma: 640px
+                                .height(sy(360))  // Figma: 360px
                         )
                     }
                 }
@@ -10641,9 +10853,9 @@ fun OdkrywajUnifiedChannelRow(
                         .clip(RoundedCornerShape(sx(24)))
                         .background(Color(0xFF000B1D))
                 ) {
-                    // Background image with movie poster
+                    // Background image with movie poster (Iluzja 3 from TMDB)
                     AsyncImage(
-                        model = "https://www.figma.com/api/mcp/asset/1e0d680b-0648-47f2-961e-95c34cd1c062",
+                        model = "https://image.tmdb.org/t/p/original/9LzXmDMINrBqrNE5gdBCCKy6RFF.jpg",
                         contentDescription = null,
                         modifier = Modifier
                             .fillMaxHeight()
@@ -10817,19 +11029,19 @@ fun OdkrywajUnifiedChannelRow(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(start = sx(120))
+                        .padding(start = sx(64))
                         .offset(y = sy(0))
                 ) {
                     Text(
                         text = channel.removePrefix("[HEADER] "),
                         color = Color(0xFFEEEEEE),
-                        fontSize = (32 * (sy(1).value / 1.dp.value)).sp,
+                        fontSize = (24 * (sy(1).value / 1.dp.value)).sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
             }
-            "shortcuts-v2" -> {
-                // Shortcuts v2 row rendered separately below (if isShortcutsV2 block)
+            "shortcuts-v4" -> {
+                // Shortcuts v4 row rendered separately below (if isShortcutsV2 block)
                 // This empty case prevents falling through to horizontal placeholder
             }
             else -> {
@@ -10988,17 +11200,16 @@ fun OdkrywajUnifiedChannelRow(
                 val categoryIsFocused = rowIndex == focusedRowIndex && focusedColIndex == -1
                 val categoryFocusRequester = channelFocusRequesters[Pair(rowIndex, -1)]
 
-                // Logo dla channeli
+                // Logo dla channeli - updated for renamed channels
                 val logoDrawableId = when (channel) {
                     "Aplikacje" -> R.drawable.appli
                     "Oglądaj dalej" -> R.drawable.ic_keep_watching
-                    "Teraz w TV" -> R.drawable.tv_icon
+                    "Teraz w Mojej TV" -> R.drawable.tv_icon  // renamed from "Teraz w TV"
                     "Netflix" -> R.drawable.netflix_logo
                     "Disney+" -> R.drawable.disney_plus_logo
-                    "Top 10 w Kino Play" -> R.drawable.ic_cup
-                    "Kolekcje KINA PLAY" -> R.drawable.kinoplay2
+                    "Top 10 w KINIE PLAY" -> R.drawable.ic_cup  // renamed from "Top 10 w Kino Play"
+                    "Polecane w Wideo" -> R.drawable.wideo_kat  // NEW channel
                     "Pakiety" -> R.drawable.ic_packages
-                    "Polecane w KINIE PLAY" -> R.drawable.kinoplay2
                     "HBO Max" -> R.drawable.hbo_max_logo
                     "SkyShowtime" -> R.drawable.skyshowtime_logo
                     "Amazon Prime" -> R.drawable.prime_video_logo
@@ -11104,6 +11315,7 @@ fun TelewizjaChannelRowsLayout(
                     sx = sx,
                     sy = sy,
                     lazyListState = lazyListState,
+                    hideCollectionSliderContent = channels.getOrNull(focusedRowIndex) == "Skróty v2",  // Hide EPG content when shortcuts focused
                     onNavigateToEpg = onNavigateToEpg,
                     onNavigateToEpgDay = onNavigateToEpgDay,
                     sectionId = channelName,  // Pass row channel name (e.g., "Moja lista kanałów") for proper focus restoration
@@ -11112,6 +11324,79 @@ fun TelewizjaChannelRowsLayout(
                     onNavigateToKinoGrid = onNavigateToKinoGrid,
                     onNavigateToRecordingsGrid = onNavigateToRecordingsGrid,
                     appIconsData = appIconsData
+                )
+            }
+        }
+
+        // === BOTTOM TEXT (Naciśnij wstecz) - Shows when near bottom of list ===
+        if (focusedRowIndex >= channels.size - 3) {
+            val lastChannelIndex = channels.size - 1
+            val lastChannelY = calculateTelewizjaChannelYPosition(
+                rowIndex = lastChannelIndex,
+                focusedRowIndex = focusedRowIndex,
+                focusedColIndex = focusedColIndex,
+                channels = channels,
+                channelTypes = channelTypes,
+                sy = sy
+            )
+            val lastChannelType = channelTypes[channels.getOrNull(lastChannelIndex)] ?: "horizontal"
+            val lastChannelHeight = if (focusedRowIndex == lastChannelIndex && focusedColIndex >= 0) {
+                sy(TELEWIZJA_HORIZONTAL_EXPANDED_ROW_HEIGHT)
+            } else {
+                sy(TELEWIZJA_HORIZONTAL_NORMAL_ROW_HEIGHT)
+            }
+
+            val textYOffset by animateDpAsState(
+                targetValue = lastChannelY + lastChannelHeight + sy(80),
+                animationSpec = tween(durationMillis = 500),
+                label = "telewizja_bottom_text_y_offset"
+            )
+            val glowYOffset by animateDpAsState(
+                targetValue = lastChannelY + lastChannelHeight - sy(100),
+                animationSpec = tween(durationMillis = 500),
+                label = "telewizja_glow_y_offset"
+            )
+
+            // Glow background - lower z-index
+            Image(
+                painter = painterResource(id = R.drawable.glow_bottom),
+                contentDescription = null,
+                contentScale = ContentScale.None,
+                alpha = 0.8f,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .offset(y = glowYOffset)
+                    .zIndex(-1f)
+            )
+
+            // Text and remote icon
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .offset(y = textYOffset)
+            ) {
+                Text(
+                    text = "Naciśnij",
+                    color = Color(0xFFEEEEEE),
+                    fontSize = sx(24).value.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = (-0.48).sp
+                )
+                Spacer(modifier = Modifier.width(sx(12)))
+                Image(
+                    painter = painterResource(id = R.drawable.remote_back),
+                    contentDescription = "Wstecz",
+                    contentScale = ContentScale.None
+                )
+                Spacer(modifier = Modifier.width(sx(12)))
+                Text(
+                    text = "na pilocie, aby wrócić do góry",
+                    color = Color(0xFFEEEEEE),
+                    fontSize = sx(24).value.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = (-0.48).sp
                 )
             }
         }
@@ -11135,6 +11420,7 @@ fun TelewizjaUnifiedChannelRow(
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     lazyListState: LazyListState,
+    hideCollectionSliderContent: Boolean = false,  // Hide title/metadata/progress on collection-slider when shortcuts focused
     livePlayer: ExoPlayer? = null,
     liveNormalPlayerView: PlayerView? = null,
     liveChannelIndex: Int = 0,
@@ -11479,10 +11765,10 @@ fun TelewizjaUnifiedChannelRow(
 
                     Box(
                         modifier = Modifier
-                            .offset(x = sx(120), y = sy(0))
-                            .width(sx(977))
-                            .height(sy(464))
-                            .clip(RoundedCornerShape(sx(12)))
+                            .offset(x = sx(64), y = sy(0))
+                            .width(sx(640))  // Figma: 640px
+                            .height(sy(360))  // Figma: 360px
+                            .clip(RoundedCornerShape(sx(21)))  // Figma: 20.87px
                             .background(Color(0xFF000000).copy(alpha = 0.1f))
                             .border(
                                 width = if (isItemFocused) sx(6) else 0.dp,
@@ -11506,7 +11792,7 @@ fun TelewizjaUnifiedChannelRow(
                         modifier = Modifier
                             .fillMaxWidth(),
                         state = lazyListState,
-                        contentPadding = PaddingValues(start = sx(120), end = sx(20)),
+                        contentPadding = PaddingValues(start = sx(64), end = sx(20)),
                         horizontalArrangement = Arrangement.spacedBy(sx(20))
                     ) {
                         items(rowContent.size) { colIndex ->
@@ -11526,7 +11812,8 @@ fun TelewizjaUnifiedChannelRow(
                                     onNavigateToEpgDay(channel, vodContent.id, lazyListState.firstVisibleItemIndex, sectionId)  // ID-based: channelId, itemId, scrollPosition
                                 },
                                 sx = sx,
-                                sy = sy
+                                sy = sy,
+                                hideOverlayContent = hideCollectionSliderContent  // Hide when shortcuts focused
                             )
                         }
 
@@ -11534,8 +11821,8 @@ fun TelewizjaUnifiedChannelRow(
                         items(5) {
                             Spacer(
                                 modifier = Modifier
-                                    .width(sx(977))
-                                    .height(sy(464))
+                                    .width(sx(640))  // Figma: 640px
+                                    .height(sy(360))  // Figma: 360px
                             )
                         }
                     }
@@ -11637,19 +11924,19 @@ fun TelewizjaUnifiedChannelRow(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(start = sx(120))
+                        .padding(start = sx(64))
                         .offset(y = sy(0))
                 ) {
                     Text(
                         text = channel.removePrefix("[HEADER] "),
                         color = Color(0xFFEEEEEE),
-                        fontSize = (32 * (sy(1).value / 1.dp.value)).sp,
+                        fontSize = (24 * (sy(1).value / 1.dp.value)).sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
             }
-            "shortcuts-v2" -> {
-                // Shortcuts v2 row rendered separately below (if isShortcutsV2 block)
+            "shortcuts-v4" -> {
+                // Shortcuts v4 row rendered separately below (if isShortcutsV2 block)
                 // This empty case prevents falling through to horizontal placeholder
             }
             else -> {
@@ -11734,7 +12021,7 @@ fun TelewizjaUnifiedChannelRow(
             if (firstVisibleContent != null) {
                 Box(
                     modifier = Modifier
-                        .offset(x = sx(380), y = sy(0))
+                        .offset(x = sx(380), y = sy(0))  // Aligned with miniature position (380px)
                         .width(sx(1500))
                 ) {
                     Column(
@@ -11794,56 +12081,33 @@ fun TelewizjaUnifiedChannelRow(
             }
         }
 
-        // Shortcuts v2 row (NO scrolling, direct focus, starts from x=100, like APLIKACJE)
+        // Shortcuts V4 row (NO scrolling, direct focus, starts from x=64 - Figma design)
+        // NO expansion for shortcuts (miniaturesYOffset should be 0 for shortcuts)
         if (isShortcutsV2) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .offset(y = miniaturesYOffset)
-                    .padding(start = sx(100)),
+                    .padding(start = sx(64)),  // 64px from left edge per Figma
                 horizontalArrangement = Arrangement.spacedBy(sx(20))
             ) {
                 shortcuts.forEachIndexed { colIndex, shortcut ->
                     val isItemFocused = rowIndex == focusedRowIndex && colIndex == focusedColIndex
                     val focusRequester = channelFocusRequesters[Pair(rowIndex, colIndex)] ?: FocusRequester()
 
-                    ShortcutCardV2(
+                    ShortcutCardV4(
                         shortcut = shortcut,
                         isFocused = isItemFocused,
                         focusRequester = focusRequester,
+                        onNavigateToChannelGrid = onNavigateToChannelGrid,
+                        onNavigateToVodGrid = onNavigateToVodGrid,
+                        onNavigateToKinoGrid = onNavigateToKinoGrid,
+                        onNavigateToRecordingsGrid = onNavigateToRecordingsGrid,
+                        onNavigateToEpgDay = onNavigateToEpgDay,
+                        appIconsData = appIconsData,
                         sx = sx,
                         sy = sy,
                         onFocusChange = { isFocused ->
                             if (isFocused) onChannelContentFocusChange(rowIndex, colIndex)
-                        },
-                        onClick = {
-                            when (shortcut.title) {
-                                "Program telewizyjny" -> {
-                                    onNavigateToEpg()
-                                }
-                                "Moja lista kanałów" -> {
-                                    // Navigate to ChannelGridScreen with channels 1-9
-                                    onNavigateToChannelGrid(
-                                        "Moja lista kanałów",
-                                        "Wszystkie",
-                                        null,  // No filter - use preloaded channels
-                                        appIconsData["Moja lista kanałów"]  // Pass pre-loaded channels
-                                    )
-                                }
-                                "Lista kanałów" -> {
-                                    // Navigate to ChannelGridScreen with all channels
-                                    onNavigateToChannelGrid(
-                                        "Lista kanałów TV",
-                                        "Wszystkie",
-                                        null,  // No filter - use preloaded channels
-                                        appIconsData["Wszystkie kanały"]  // Pass pre-loaded channels
-                                    )
-                                }
-                                "Nagrania" -> {
-                                    // Navigate to RecordingsGridScreen
-                                    onNavigateToRecordingsGrid("Zarządzaj nagraniami", "TELEWIZJA")
-                                }
-                            }
                         }
                     )
                 }
@@ -11856,8 +12120,8 @@ fun TelewizjaUnifiedChannelRow(
         // CategoryIcon zIndex: app-icons below LazyRow, others normal
         val categoryZIndex = if (channelType == "app-icons") -1f else 0f
 
-        // CategoryIcon (skip for slider-max/shortcuts/shortcuts-v2/collection-slider/header - they don't have CategoryIcon)
-        if (channelType !in listOf("slider-max", "shortcuts", "shortcuts-v2", "collection-slider", "header")) {
+        // CategoryIcon (skip for slider-max/shortcuts/shortcuts-v4/collection-slider/header - they don't have CategoryIcon)
+        if (channelType !in listOf("slider-max", "shortcuts", "shortcuts-v4", "collection-slider", "header")) {
             Box(
                 modifier = Modifier
                     .offset(x = sx(80), y = sy(0))
@@ -11874,10 +12138,11 @@ fun TelewizjaUnifiedChannelRow(
                     "Nowości" -> R.drawable.tv_icon
                     "Nowe filmy" -> R.drawable.kinoplay2
                     "Teraz w TV" -> R.drawable.tv_icon
+                    "Popularne teraz" -> R.drawable.ic_trending_ch  // Trending icon for popular now
                     else -> null
                 }
 
-                // EPG channels (text-only, no icon)
+                // EPG channels (text-only, no icon) - Popularne teraz has icon so not in this list
                 val isEpgChannel = channel in listOf("Teraz w TV", "FILMY", "SERIALE", "SPORT", "TELETURNIEJE", "Kategorie EPG")
 
                 CategoryIcon(
@@ -11970,6 +12235,7 @@ private fun VodScreenContent(
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToMovieDetail: (VodSlideData) -> Unit = {},  // Navigate to MovieDetailScreen from KINO PLAY slider
     onNavigateToPurchase: (VodSlideData) -> Unit = {},  // Navigate directly to PurchaseScreen (quick mode)
+    onFocusedChannelChange: (String) -> Unit = {},  // Callback for top gradient
     quickPurchaseMode: Boolean = false,  // When true, skip MovieDetail and go directly to Purchase
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
@@ -11998,7 +12264,8 @@ private fun VodScreenContent(
         sy = sy,
         resetTrigger = resetTrigger,
         globalFocusState = globalFocusState,
-        sliderVersion = sliderVersion
+        sliderVersion = sliderVersion,
+        onFocusedChannelChange = onFocusedChannelChange
     )
 }
 
@@ -12008,7 +12275,8 @@ private fun WideoScreenContent(
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
-    sliderVersion: Int = 1
+    sliderVersion: Int = 1,
+    onFocusedChannelChange: (String) -> Unit = {}  // Callback for top gradient
 ) {
     var resetTrigger by remember { mutableStateOf(0) }
 
@@ -12029,7 +12297,8 @@ private fun WideoScreenContent(
         sy = sy,
         resetTrigger = resetTrigger,
         sliderVersion = sliderVersion,
-        globalFocusState = globalFocusState
+        globalFocusState = globalFocusState,
+        onFocusedChannelChange = onFocusedChannelChange
     )
 }
 
@@ -12089,7 +12358,8 @@ private fun VodWithChannels(
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     resetTrigger: Int = 0,
     globalFocusState: MutableState<GlobalFocusState>,
-    sliderVersion: Int = 1
+    sliderVersion: Int = 1,
+    onFocusedChannelChange: (String) -> Unit = {}  // Callback for top gradient
 ) {
     val context = LocalContext.current
     val channels = listOf("Kino Play", "Skróty v3", "Polecane", "Top 10", "Ostatnio dodane\nwideo", "Akcja", "Komedie", "Horror", "Biograficzne")
@@ -12137,6 +12407,13 @@ private fun VodWithChannels(
             focusedRowIndex = 1 // Back to slider
             focusedColIndex = -2
         }
+    }
+
+    // Notify parent when focused row changes (for top gradient visibility)
+    // KINO PLAY: gradient shows from channels below slider (row 2+), NOT on menu or slider
+    LaunchedEffect(focusedRowIndex) {
+        val showGradient = focusedRowIndex >= 2
+        onFocusedChannelChange(if (showGradient) "SHOW_GRADIENT" else "")
     }
 
     val channelFocusRequesters = remember(channels.size) {
@@ -12278,8 +12555,15 @@ private fun VodLayoutWithSlider(
 
     Box(modifier = Modifier.fillMaxSize()) {
         // Slider (Row 1) - fullscreen with animation, z-index 1
+        // Partial slide on first channel (Skróty v3), full off-screen on lower channels
+        val isFirstChannelFocused = focusedRowIndex == 2  // Skróty v3
+        val isLowerChannelsFocused = focusedRowIndex >= 3  // Polecane, Top 10, etc.
         val sliderYOffset by animateDpAsState(
-            targetValue = if (focusedRowIndex >= 2) sy(-1200) else sy(0),
+            targetValue = when {
+                isLowerChannelsFocused -> sy(-1200)  // Completely off-screen on lower channels
+                isFirstChannelFocused -> sy(-640)    // Partial slide (~100px lower than ODKRYWAJ)
+                else -> sy(0)                         // Normal position on menu/slider
+            },
             animationSpec = tween(durationMillis = 500),
             label = "vod_slider_y_offset"
         )
@@ -12301,7 +12585,8 @@ private fun VodLayoutWithSlider(
                 externalButtonIndex = v4ButtonIndex,  // Controlled by parent
                 onRentClicked = { item -> onNavigateToPurchase(item) },
                 onMoreInfoClicked = { item -> onNavigateToMovieDetail(item) },
-                onReturnToMenu = { /* callback do menu */ }
+                onReturnToMenu = { /* callback do menu */ },
+                showBullets = focusedRowIndex < 2  // Hide bullets when focused on channels below slider
             )
         }
 
@@ -12944,6 +13229,8 @@ private fun VodHeroSliderV2(
     pauseAfterInteractionMs: Long = 10000L,
     // For detecting if user went to channels below (to start pause) vs menu (to reset pause)
     isOnChannelsBelow: Boolean = false,
+    // Show/hide bullets (hide when focused on shortcuts or below in ODKRYWAJ)
+    showBullets: Boolean = true,
     // === External state synchronization for ghost slider (infinity loop) ===
     externalCurrentSlide: Int? = null,  // When provided, use this instead of internal state
     onCurrentSlideChange: ((Int) -> Unit)? = null,  // Notify parent of slide changes
@@ -13196,42 +13483,45 @@ private fun VodHeroSliderV2(
             }
 
             // Bullet indicators with progress bar for active slide (20px below slider)
-            Row(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .offset(y = sy(695)),
-                horizontalArrangement = Arrangement.spacedBy(sx(12)),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                sliderItems.forEachIndexed { index, _ ->
-                    val isActive = index == currentSlide
+            // Only show when showBullets = true (hidden when focused on shortcuts or below in ODKRYWAJ)
+            if (showBullets) {
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .offset(y = sy(695)),
+                    horizontalArrangement = Arrangement.spacedBy(sx(12)),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    sliderItems.forEachIndexed { index, _ ->
+                        val isActive = index == currentSlide
 
-                    if (isActive && enableAutoRotate && !isPaused) {
-                        // Progress bar for active slide (45px × 8px) - only when not paused
-                        Box(
-                            modifier = Modifier
-                                .width(sx(45))
-                                .height(sy(8))
-                                .clip(RoundedCornerShape(sy(4)))
-                                .background(Color(0x80EEEEEE)) // Background
-                        ) {
+                        if (isActive && enableAutoRotate && !isPaused) {
+                            // Progress bar for active slide (45px × 8px) - only when not paused
                             Box(
                                 modifier = Modifier
-                                    .fillMaxHeight()
-                                    .fillMaxWidth(progress)
-                                    .background(Color.White)
+                                    .width(sx(45))
+                                    .height(sy(8))
+                                    .clip(RoundedCornerShape(sy(4)))
+                                    .background(Color(0x80EEEEEE)) // Background
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxHeight()
+                                        .fillMaxWidth(progress)
+                                        .background(Color.White)
+                                )
+                            }
+                        } else {
+                            // Standard bullet for inactive slides OR when paused (dot replaces progress bar)
+                            Box(
+                                modifier = Modifier
+                                    .size(if (isActive) sx(12) else sx(8))
+                                    .background(
+                                        color = if (isActive) Color.White else Color(0x80EEEEEE),
+                                        shape = CircleShape
+                                    )
                             )
                         }
-                    } else {
-                        // Standard bullet for inactive slides OR when paused (dot replaces progress bar)
-                        Box(
-                            modifier = Modifier
-                                .size(if (isActive) sx(12) else sx(8))
-                                .background(
-                                    color = if (isActive) Color.White else Color(0x80EEEEEE),
-                                    shape = CircleShape
-                                )
-                        )
                     }
                 }
             }
@@ -13529,7 +13819,8 @@ private fun VodHeroSliderV4(
     externalButtonIndex: Int = 0,  // Button index controlled by parent (0=rent, 1=info)
     onRentClicked: ((VodSlideData) -> Unit)? = null,
     onMoreInfoClicked: ((VodSlideData) -> Unit)? = null,
-    onReturnToMenu: () -> Unit = {}
+    onReturnToMenu: () -> Unit = {},
+    showBullets: Boolean = true  // Hide bullets when focused below slider (KINO PLAY, WIDEO)
 ) {
     // Shuffle items once on first composition
     val sliderItems = remember(items) { items.shuffled() }
@@ -13671,7 +13962,8 @@ private fun VodHeroSliderV4(
             }
 
             // Slide indicator dots (20px below slider, same as V2)
-            if (sliderItems.size > 1) {
+            // Only show when showBullets is true (hidden when focused below slider)
+            if (sliderItems.size > 1 && showBullets) {
                 Row(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
@@ -14717,6 +15009,80 @@ private fun VodChannelRows(
                 }
             }
         }
+
+        // === BOTTOM TEXT (Naciśnij wstecz) - Shows when near bottom of list ===
+        // focusedRowIndex uses actual row (2 = first channel), so channels.size - 1 + 2 = last channel row
+        val lastActualRowIndex = channels.size - 1 + 2  // Last channel actual row index
+        if (focusedRowIndex >= lastActualRowIndex - 2) {  // Show for last 3 channels
+            val lastChannelIndex = channels.size - 1
+            val lastChannelY = calculateVodChannelYPosition(
+                channelIndex = lastChannelIndex,
+                channelName = channels[lastChannelIndex],
+                focusedRowIndex = focusedRowIndex,
+                focusedColIndex = focusedColIndex,
+                channels = channels,
+                sy = sy
+            )
+            val lastChannelHeight = if (focusedRowIndex == lastActualRowIndex && focusedColIndex >= 0) {
+                sy(VOD_HORIZONTAL_EXPANDED_ROW_HEIGHT)
+            } else {
+                sy(VOD_HORIZONTAL_NORMAL_ROW_HEIGHT)
+            }
+
+            val textYOffset by animateDpAsState(
+                targetValue = lastChannelY + lastChannelHeight + sy(80),
+                animationSpec = tween(durationMillis = 500),
+                label = "vod_bottom_text_y_offset"
+            )
+            val glowYOffset by animateDpAsState(
+                targetValue = lastChannelY + lastChannelHeight - sy(100),
+                animationSpec = tween(durationMillis = 500),
+                label = "vod_glow_y_offset"
+            )
+
+            // Glow background - lower z-index
+            Image(
+                painter = painterResource(id = R.drawable.glow_bottom),
+                contentDescription = null,
+                contentScale = ContentScale.None,
+                alpha = 0.8f,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .offset(y = glowYOffset)
+                    .zIndex(-1f)
+            )
+
+            // Text and remote icon
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .offset(y = textYOffset)
+            ) {
+                Text(
+                    text = "Naciśnij",
+                    color = Color(0xFFEEEEEE),
+                    fontSize = sx(24).value.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = (-0.48).sp
+                )
+                Spacer(modifier = Modifier.width(sx(12)))
+                Image(
+                    painter = painterResource(id = R.drawable.remote_back),
+                    contentDescription = "Wstecz",
+                    contentScale = ContentScale.None
+                )
+                Spacer(modifier = Modifier.width(sx(12)))
+                Text(
+                    text = "na pilocie, aby wrócić do góry",
+                    color = Color(0xFFEEEEEE),
+                    fontSize = sx(24).value.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = (-0.48).sp
+                )
+            }
+        }
     }
 }
 
@@ -15385,10 +15751,11 @@ private fun CollectionSliderCard(
     onFocusChange: () -> Unit,
     onClick: () -> Unit = {},
     sx: (Int) -> androidx.compose.ui.unit.Dp,
-    sy: (Int) -> androidx.compose.ui.unit.Dp
+    sy: (Int) -> androidx.compose.ui.unit.Dp,
+    hideOverlayContent: Boolean = false  // Hide title, metadata, progress bar, logo when shortcuts focused
 ) {
-    val cardWidth = sx(825)  // 16:9 aspect ratio (825x464)
-    val cardHeight = sy(464)
+    val cardWidth = sx(640)  // Figma: 640x360px
+    val cardHeight = sy(360)
 
     // Detect if this is an EPG card (link contains timestamps)
     val isEpgCard = vodContent.link.contains("|")
@@ -15434,30 +15801,41 @@ private fun CollectionSliderCard(
         if (parts.size >= 4) parts[2] else null
     } else null
 
-    // Start live TV immediately on focus
+    // Player listener to detect when video is actually ready to play
+    DisposableEffect(player) {
+        val listener = object : com.google.android.exoplayer2.Player.Listener {
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                if (playbackState == com.google.android.exoplayer2.Player.STATE_READY && player.playWhenReady) {
+                    isPlayingLive = true
+                }
+            }
+        }
+        player.addListener(listener)
+        onDispose {
+            player.removeListener(listener)
+        }
+    }
+
+    // Start live TV in background on focus (no visible loader)
     LaunchedEffect(isFocused, channelId) {
         if (isFocused && isEpgCard && channelId != null) {
-            isLoadingStream = false
             isPlayingLive = false
             player.stop()
 
             // Small delay to avoid loading streams when quickly scrolling (1 second)
             kotlinx.coroutines.delay(1000)
 
-            // After delay, check if still focused
+            // After delay, check if still focused - load in background
             if (isFocused) {
                 val streamUrl = ChannelStreamMapping.getStreamUrl(channelId)
                 if (streamUrl != null) {
                     try {
-                        isLoadingStream = true
                         val mediaItem = com.google.android.exoplayer2.MediaItem.fromUri(streamUrl)
                         player.setMediaItem(mediaItem)
                         player.prepare()
                         player.playWhenReady = true
-                        isPlayingLive = true
-                        isLoadingStream = false
+                        // isPlayingLive will be set by listener when video is ready
                     } catch (e: Exception) {
-                        isLoadingStream = false
                         isPlayingLive = false
                     }
                 }
@@ -15465,7 +15843,6 @@ private fun CollectionSliderCard(
         } else {
             // Lost focus or not EPG card - stop playback
             isPlayingLive = false
-            isLoadingStream = false
             player.stop()
         }
     }
@@ -15504,11 +15881,11 @@ private fun CollectionSliderCard(
                 }
             }
             .focusable(),
-        shape = RoundedCornerShape(sx(10)),
+        shape = RoundedCornerShape(sx(21)),  // Figma: 20.87px
         colors = CardDefaults.cardColors(
             containerColor = Color(0xFF5B3987)
         ),
-        border = if (isFocused) BorderStroke(sx(8), Color(0xFF5FEDD4)) else null,
+        border = if (isFocused) BorderStroke(sx(6), Color(0xFF5FEDD4)) else BorderStroke(sx(2), Color(0xFFEEEEEE).copy(alpha = 0.2f)),  // Figma: 6px aqua or 2px white 20%
         elevation = CardDefaults.cardElevation(defaultElevation = if (isFocused) 12.dp else 4.dp)
     ) {
         Box(
@@ -15518,7 +15895,7 @@ private fun CollectionSliderCard(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .clip(RoundedCornerShape(sx(10)))
+                    .clip(RoundedCornerShape(sx(21)))  // Figma: 20.87px
             ) {
                 // Background image from collection imageUrl
                 AsyncImage(
@@ -15545,38 +15922,30 @@ private fun CollectionSliderCard(
                     )
                 }
 
-                // Loading indicator
-                if (isLoadingStream) {
+                // Gradient overlay - PNG images from Figma
+                // For EPG cards: bottom_gradient.png (thumbnail) or bottom_gradient_live.png (video playing)
+                // For non-EPG: horizontal purple gradient
+                if (isEpgCard) {
+                    // EPG cards: use PNG gradient images
+                    Image(
+                        painter = painterResource(
+                            if (isPlayingLive) R.drawable.bottom_gradient_live else R.drawable.bottom_gradient
+                        ),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth(),
+                        contentScale = ContentScale.FillWidth
+                    )
+                } else {
+                    // Non-EPG collection slider: horizontal purple gradient
                     Box(
                         modifier = Modifier
-                            .fillMaxSize()
-                            .background(Color.Black.copy(alpha = 0.3f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        androidx.compose.material3.CircularProgressIndicator(
-                            color = Color(0xFF5FEDD4),
-                            modifier = Modifier.size(sx(60))
-                        )
-                    }
-                }
-
-                // Gradient overlay (EPG: vertical, Collections: horizontal)
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            brush = if (isEpgCard) {
-                                Brush.verticalGradient(
-                                    colors = listOf(
-                                        Color.Transparent,
-                                        Color(0xFF5A3887).copy(alpha = 0.6f),
-                                        Color(0xFF5A3887).copy(alpha = 0.9f)
-                                    ),
-                                    startY = 0f,
-                                    endY = 1500f
-                                )
-                            } else {
-                                Brush.horizontalGradient(
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .fillMaxHeight()
+                            .background(
+                                brush = Brush.horizontalGradient(
                                     colors = listOf(
                                         Color(0xFF5A3887),
                                         Color(0xFF5A3887).copy(alpha = 0f)
@@ -15584,95 +15953,174 @@ private fun CollectionSliderCard(
                                     startX = 0f,
                                     endX = 1000f
                                 )
-                            }
-                        )
-                )
+                            )
+                    )
+                }
             }
 
             // Content overlay (EPG layout vs Collection layout)
+            // Fade animation for overlay content when shortcuts focused
+            val overlayAlpha by animateFloatAsState(
+                targetValue = if (hideOverlayContent) 0f else 1f,
+                animationSpec = tween(durationMillis = 300),
+                label = "overlay_alpha"
+            )
+
             if (isEpgCard && epgData != null) {
-                // EPG Layout: Title → Metadata → Channel+Time → Progress Bar
-                val (progress, channelAndTime, _) = epgData
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .padding(start = sx(40), bottom = sy(40), end = sx(40))
-                        .fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(sy(12))
-                ) {
-                    // Program title (TOP)
-                    Text(
-                        text = vodContent.title,
-                        color = Color(0xFFEEEEEE),
-                        fontSize = (36 * (sy(1).value / 1.dp.value)).sp,
-                        fontWeight = FontWeight.Bold,
-                        lineHeight = (48 * (sy(1).value / 1.dp.value)).sp,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                // EPG Layout according to Figma:
+                // - Channel NUMBER in top RIGHT corner (with border)
+                // - Channel LOGO in bottom LEFT corner (circular)
+                // - Title, metadata, progress bar in bottom area
+                val (progress, channelAndTime, channelName) = epgData
 
-                    // Metadata (category field)
-                    if (vodContent.category.isNotBlank()) {
-                        Text(
-                            text = vodContent.category,
-                            color = Color(0xFFEEEEEE).copy(alpha = 0.8f),
-                            fontSize = (16 * (sy(1).value / 1.dp.value)).sp,
-                            fontWeight = FontWeight.Normal,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
+                // Get channel data (logo URL and number) from helper function
+                val tvChannelData = getTvChannelByEpgId(channelName)
+                val channelLogoUrl = tvChannelData?.logo ?: vodContent.channelLogoUrl ?: ""
+                val channelNumber = tvChannelData?.channelNumber ?: 0
 
-                    // Channel name + time
-                    Text(
-                        text = channelAndTime,
-                        color = Color(0xFFEEEEEE).copy(alpha = 0.9f),
-                        fontSize = (18 * (sy(1).value / 1.dp.value)).sp,
-                        fontWeight = FontWeight.Medium
-                    )
-
-                    // Progress bar (BOTTOM)
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(sy(6))
-                            .clip(RoundedCornerShape(sx(3)))
-                            .background(Color.White.copy(alpha = 0.3f))
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxHeight()
-                                .fillMaxWidth(progress)
-                                .background(Color(0xFF5FEDD4))
-                        )
-                    }
-                }
-
-                // Channel logo in top right corner (only for EPG cards)
-                if (vodContent.channelLogoUrl.isNotBlank()) {
+                // Channel NUMBER in top RIGHT corner - Figma: channel_label with border
+                if (channelNumber > 0) {
                     Box(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
-                            .padding(top = sy(40), end = sx(40))
-                            .size(sx(90), sy(90))
-                            .clip(RoundedCornerShape(sx(8)))
-                            .background(Color.White.copy(alpha = 0.2f))
+                            .padding(top = sy(16), end = sx(16))  // Figma: spacing
+                            .size(sx(48), sy(48))  // Square container
+                            .alpha(overlayAlpha)  // Fade with shortcuts focus
+                            .border(
+                                width = sx(2),
+                                color = Color(0xFFEEEEEE).copy(alpha = 0.4f),  // Figma: stroke-disabled
+                                shape = RoundedCornerShape(sx(4))
+                            ),
+                        contentAlignment = Alignment.Center
                     ) {
-                        AsyncImage(
-                            model = vodContent.channelLogoUrl,
-                            contentDescription = "Channel logo",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Fit
+                        Text(
+                            text = channelNumber.toString(),
+                            color = Color(0xFFEEEEEE),
+                            fontSize = (24 * (sy(1).value / 1.dp.value)).sp,
+                            fontWeight = FontWeight.Medium
                         )
                     }
                 }
-            } else {
+
+                // Channel LOGO in bottom LEFT corner - hide when video playing
+                if (channelLogoUrl.isNotBlank() && !isPlayingLive) {
+                    AsyncImage(
+                        model = channelLogoUrl,
+                        contentDescription = "Channel logo",
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(start = sx(32), bottom = sy(16))  // Lower position (half)
+                            .size(sx(72))  // Logo fills entire space
+                            .alpha(overlayAlpha)  // Fade with shortcuts focus
+                            .clip(CircleShape),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+
+                // Content area - when video playing: only title; otherwise: full content
+                if (isPlayingLive) {
+                    // Minimal mode - only title
+                    Text(
+                        text = vodContent.title,
+                        color = Color(0xFFEEEEEE),
+                        fontSize = (31 * (sy(1).value / 1.dp.value)).sp,
+                        fontFamily = ManropeFamily,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        letterSpacing = 0.64.sp,
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(start = sx(32), bottom = sy(16), end = sx(32))
+                            .alpha(overlayAlpha)  // Fade with shortcuts focus
+                    )
+                } else {
+                    // Full mode (image showing) - Title Bold, metadata, progress bar
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(start = sx(136), bottom = sy(16), end = sx(32))  // +20px right, lower position
+                            .fillMaxWidth()
+                            .alpha(overlayAlpha),  // Fade with shortcuts focus
+                        verticalArrangement = Arrangement.spacedBy(sy(4))  // Reduced spacing
+                    ) {
+                        // Program title - 31sp Bold (image mode), Manrope
+                        Text(
+                            text = vodContent.title,
+                            color = Color(0xFFEEEEEE),
+                            fontSize = (31 * (sy(1).value / 1.dp.value)).sp,
+                            fontFamily = ManropeFamily,
+                            fontWeight = FontWeight.Bold,
+                            lineHeight = (40 * (sy(1).value / 1.dp.value)).sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            letterSpacing = 0.64.sp
+                        )
+
+                        // Metadata row: time | age - 18sp Medium, Manrope
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(sx(12)),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Time range
+                            Text(
+                                text = channelAndTime.substringAfter(" | ").ifEmpty { channelAndTime },
+                                color = Color(0xFFEEEEEE).copy(alpha = 0.8f),
+                                fontSize = (18 * (sy(1).value / 1.dp.value)).sp,
+                                fontFamily = ManropeFamily,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                letterSpacing = 0.4.sp
+                            )
+                            // Divider + Category (if fits)
+                            if (vodContent.category.isNotBlank()) {
+                                Box(
+                                    modifier = Modifier
+                                        .width(sx(2))
+                                        .height(sy(18))
+                                        .background(Color(0xFFEEEEEE).copy(alpha = 0.4f))
+                                )
+                                // Category/age - truncate if doesn't fit
+                                Text(
+                                    text = vodContent.category,
+                                    color = Color(0xFFEEEEEE).copy(alpha = 0.8f),
+                                    fontSize = (18 * (sy(1).value / 1.dp.value)).sp,
+                                    fontFamily = ManropeFamily,
+                                    fontWeight = FontWeight.Medium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    letterSpacing = 0.4.sp
+                                )
+                            }
+                        }
+
+                        // Progress bar - Figma: 8px height, radius-8
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(sy(8))  // Figma: 8px
+                                .clip(RoundedCornerShape(sx(8)))  // Figma: radius-8
+                                .background(Color(0xFFEEEEEE).copy(alpha = 0.4f))  // Figma: stroke-disabled
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxHeight()
+                                    .fillMaxWidth(progress)
+                                    .clip(RoundedCornerShape(sx(8)))
+                                    .background(Color(0xFFEEEEEE))  // Figma: stroke-primary
+                            )
+                        }
+                    }
+                }
+            } else if (!isEpgCard) {
                 // Collection Layout: Title + Description + Logo
                 Column(
                     modifier = Modifier
                         .align(Alignment.BottomStart)
                         .padding(start = sx(100), bottom = sy(100), end = sx(100))
-                        .width(sx(442)),
+                        .width(sx(442))
+                        .alpha(overlayAlpha),  // Fade with shortcuts focus
                     verticalArrangement = Arrangement.spacedBy(sy(20))
                 ) {
                     // Collection title
@@ -15705,6 +16153,7 @@ private fun CollectionSliderCard(
                         .align(Alignment.BottomEnd)
                         .padding(end = sx(40), bottom = sy(40))
                         .size(sx(90), sy(90))
+                        .alpha(overlayAlpha)  // Fade with shortcuts focus
                         .clip(RoundedCornerShape(sx(8)))
                         .background(Color.White.copy(alpha = 0.1f)),
                     contentAlignment = Alignment.Center
@@ -15730,10 +16179,11 @@ private fun EpgCollectionSliderCard(
     focusRequester: FocusRequester,
     onFocusChange: () -> Unit,
     sx: (Int) -> androidx.compose.ui.unit.Dp,
-    sy: (Int) -> androidx.compose.ui.unit.Dp
+    sy: (Int) -> androidx.compose.ui.unit.Dp,
+    isPlayingLive: Boolean = false  // True when live video is playing
 ) {
-    val cardWidth = sx(977)
-    val cardHeight = sy(464)
+    val cardWidth = sx(640)  // Figma: 640px
+    val cardHeight = sy(360)  // Figma: 360px
 
     // Calculate progress (how much of the program has elapsed)
     val now = java.time.Instant.now()
@@ -15761,11 +16211,11 @@ private fun EpgCollectionSliderCard(
                 }
             }
             .focusable(),
-        shape = RoundedCornerShape(sx(10)),
+        shape = RoundedCornerShape(sx(21)),  // Figma: 20.87px
         colors = CardDefaults.cardColors(
             containerColor = Color(0xFF5B3987)
         ),
-        border = if (isFocused) BorderStroke(sx(8), Color(0xFF5FEDD4)) else null,
+        border = if (isFocused) BorderStroke(sx(6), Color(0xFF5FEDD4)) else BorderStroke(sx(2), Color(0xFFEEEEEE).copy(alpha = 0.2f)),  // Figma: 6px aqua or 2px white 20%
         elevation = CardDefaults.cardElevation(defaultElevation = if (isFocused) 12.dp else 4.dp)
     ) {
         Box(
@@ -15775,7 +16225,7 @@ private fun EpgCollectionSliderCard(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .clip(RoundedCornerShape(sx(10)))
+                    .clip(RoundedCornerShape(sx(21)))  // Figma: 20.87px
             ) {
                 AsyncImage(
                     model = epgProgram.iconUrl ?: "https://epg.ovh/logo/${channelName.lowercase().replace(" ", "-")}.png",
@@ -15784,91 +16234,136 @@ private fun EpgCollectionSliderCard(
                     contentScale = ContentScale.Crop
                 )
 
-                // Gradient overlay (darker for text readability)
-                Box(
+                // Gradient overlay - PNG image (different for live video vs thumbnail)
+                Image(
+                    painter = painterResource(
+                        if (isPlayingLive) R.drawable.bottom_gradient_live else R.drawable.bottom_gradient
+                    ),
+                    contentDescription = null,
                     modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            brush = Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.Transparent,
-                                    Color(0xFF5A3887).copy(alpha = 0.6f),
-                                    Color(0xFF5A3887).copy(alpha = 0.9f)
-                                ),
-                                startY = 0f,
-                                endY = 1500f
-                            )
-                        )
+                        .fillMaxWidth()
+                        .align(Alignment.BottomCenter),
+                    contentScale = ContentScale.FillWidth
                 )
             }
 
-            // Content overlay (vertical layout)
+            // Get channel logo and number from our channel list
+            val tvChannel = getTvChannelByEpgId(channelName)
+            val channelLogoUrl = tvChannel?.logo ?: ""
+            val channelNumber = tvChannel?.channelNumber ?: 0
+
+            // Content overlay (Figma layout) - offset for channel logo space
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .padding(start = sx(40), bottom = sy(40), end = sx(40))
+                    .padding(start = sx(136), bottom = sy(16), end = sx(32))  // +20px right, lower position
                     .fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(sy(12))
+                verticalArrangement = Arrangement.spacedBy(sy(4))  // Reduced spacing
             ) {
-                // Progress bar
+                // Program title - 31sp Medium, Manrope
+                Text(
+                    text = epgProgram.title,
+                    color = Color(0xFFEEEEEE),
+                    fontSize = (31 * (sy(1).value / 1.dp.value)).sp,
+                    fontFamily = ManropeFamily,
+                    fontWeight = FontWeight.Medium,
+                    lineHeight = (40 * (sy(1).value / 1.dp.value)).sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    letterSpacing = 0.64.sp
+                )
+
+                // Metadata row - 18sp Medium, Manrope
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(sx(12)),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Time
+                    Text(
+                        text = "$startTime - $endTime",
+                        color = Color(0xFFEEEEEE).copy(alpha = 0.8f),
+                        fontSize = (18 * (sy(1).value / 1.dp.value)).sp,
+                        fontFamily = ManropeFamily,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        letterSpacing = 0.4.sp
+                    )
+                    // Divider + Category (if fits)
+                    val categoriesText = epgProgram.categories.firstOrNull() ?: ""
+                    if (categoriesText.isNotBlank()) {
+                        Box(
+                            modifier = Modifier
+                                .width(sx(2))
+                                .height(sy(18))
+                                .background(Color(0xFFEEEEEE).copy(alpha = 0.4f))
+                        )
+                        // Category - truncate if doesn't fit
+                        Text(
+                            text = categoriesText,
+                            color = Color(0xFFEEEEEE).copy(alpha = 0.8f),
+                            fontSize = (18 * (sy(1).value / 1.dp.value)).sp,
+                            fontFamily = ManropeFamily,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            letterSpacing = 0.4.sp
+                        )
+                    }
+                }
+
+                // Progress bar - Figma: 8px height, radius-8
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(sy(6))
-                        .clip(RoundedCornerShape(sx(3)))
-                        .background(Color.White.copy(alpha = 0.3f))
+                        .height(sy(8))  // Figma: 8px
+                        .clip(RoundedCornerShape(sx(8)))  // Figma: radius-8
+                        .background(Color(0xFFEEEEEE).copy(alpha = 0.4f))  // Figma: stroke-disabled
                 ) {
                     Box(
                         modifier = Modifier
                             .fillMaxHeight()
                             .fillMaxWidth(progress)
-                            .background(Color(0xFF5FEDD4))
+                            .clip(RoundedCornerShape(sx(8)))
+                            .background(Color(0xFFEEEEEE))  // Figma: stroke-primary
                     )
                 }
+            }
 
-                // Channel name + time
-                Text(
-                    text = "$channelName | $startTime - $endTime",
-                    color = Color(0xFFEEEEEE).copy(alpha = 0.9f),
-                    fontSize = (18 * (sy(1).value / 1.dp.value)).sp,
-                    fontWeight = FontWeight.Medium
-                )
-
-                // Metadata (parsed from description)
-                val metadata = com.uxellence.tv.v3.utils.EpgAdapter.buildMetadataStringPublic(epgProgram)
-                if (metadata.isNotBlank()) {
+            // Channel NUMBER in top RIGHT corner - Figma layout
+            if (channelNumber > 0) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = sy(16), end = sx(16))
+                        .size(sx(48), sy(48))
+                        .border(
+                            width = sx(2),
+                            color = Color(0xFFEEEEEE).copy(alpha = 0.4f),
+                            shape = RoundedCornerShape(sx(4))
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
                     Text(
-                        text = metadata,
-                        color = Color(0xFFEEEEEE).copy(alpha = 0.8f),
-                        fontSize = (16 * (sy(1).value / 1.dp.value)).sp,
-                        fontWeight = FontWeight.Normal,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        text = channelNumber.toString(),
+                        color = Color(0xFFEEEEEE),
+                        fontSize = (24 * (sy(1).value / 1.dp.value)).sp,
+                        fontWeight = FontWeight.Medium
                     )
                 }
+            }
 
-                // Categories
-                val categoriesText = epgProgram.categories.joinToString(" • ")
-                if (categoriesText.isNotBlank()) {
-                    Text(
-                        text = categoriesText,
-                        color = Color(0xFFEEEEEE).copy(alpha = 0.8f),
-                        fontSize = (16 * (sy(1).value / 1.dp.value)).sp,
-                        fontWeight = FontWeight.Normal,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-
-                // Program title
-                Text(
-                    text = epgProgram.title,
-                    color = Color(0xFFEEEEEE),
-                    fontSize = (36 * (sy(1).value / 1.dp.value)).sp,
-                    fontWeight = FontWeight.Bold,
-                    lineHeight = (48 * (sy(1).value / 1.dp.value)).sp,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+            // Channel LOGO in bottom LEFT corner - circular, no background (Figma layout)
+            if (channelLogoUrl.isNotBlank()) {
+                AsyncImage(
+                    model = channelLogoUrl,
+                    contentDescription = "Channel logo",
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(start = sx(32), bottom = sy(16))  // Lower position
+                        .size(sx(72))  // Logo fills entire space
+                        .clip(CircleShape),
+                    contentScale = ContentScale.Crop
                 )
             }
         }
@@ -17014,7 +17509,8 @@ private fun WideoChannelsScreen(
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     resetTrigger: Int = 0,
     sliderVersion: Int = 1,
-    globalFocusState: MutableState<GlobalFocusState>
+    globalFocusState: MutableState<GlobalFocusState>,
+    onFocusedChannelChange: (String) -> Unit = {}  // Callback for top gradient
 ) {
     val context = LocalContext.current
 
@@ -17065,6 +17561,13 @@ private fun WideoChannelsScreen(
             focusedRowIndex = 1 // Back to slider
             focusedColIndex = -2
         }
+    }
+
+    // Notify parent when focused row changes (for top gradient visibility)
+    // WIDEO: gradient shows from Skróty v2 (row 2) and below
+    LaunchedEffect(focusedRowIndex) {
+        val showGradient = focusedRowIndex >= 2
+        onFocusedChannelChange(if (showGradient) "SHOW_GRADIENT" else "")
     }
 
     val channelFocusRequesters = remember(channels.size, verticalShortcuts.size) {
@@ -17356,13 +17859,15 @@ fun WideoChannelRowsLayout(
                 .offset(y = animatedSliderY)
         ) {
             // WIDEO: Always use V2 slider with bullets (no Key.Nine cycling)
+            // Bullets hidden when focused on channels below slider (row 2+)
             val isNotOnMenu = globalFocusState.value.currentRow > 0
             VodHeroSliderV2(
                 isFocused = focusedRowIndex == 1 && isNotOnMenu,
                 items = wideoSliderItems,
                 sectionType = "WIDEO",
                 sx = sx,
-                sy = sy
+                sy = sy,
+                showBullets = focusedRowIndex < 2  // Hide bullets when focused on Skróty or below
             )
         }
 
@@ -17394,6 +17899,80 @@ fun WideoChannelRowsLayout(
                     sx = sx,
                     sy = sy,
                     lazyListState = lazyListState
+                )
+            }
+        }
+
+        // === BOTTOM TEXT (Naciśnij wstecz) - Shows when near bottom of list ===
+        // Last channel is KOLEKCJE at rowIndex = channels.size (9)
+        val lastRowIndex = channels.size  // Row index of last channel
+        if (focusedRowIndex >= lastRowIndex - 2) {  // Show for last 3 channels
+            val lastChannelY = calculateWideoRowYPosition(
+                rowIndex = lastRowIndex,
+                focusedRowIndex = focusedRowIndex,
+                focusedColIndex = focusedColIndex,
+                sy = sy
+            )
+            // WIDEO constants from calculateWideoRowYPosition
+            val WIDEO_HORIZONTAL_NORMAL_HEIGHT = 256
+            val WIDEO_HORIZONTAL_EXPANDED_HEIGHT = 546
+            val lastChannelHeight = if (focusedRowIndex == lastRowIndex && focusedColIndex >= 0) {
+                sy(WIDEO_HORIZONTAL_EXPANDED_HEIGHT)
+            } else {
+                sy(WIDEO_HORIZONTAL_NORMAL_HEIGHT)
+            }
+
+            val textYOffset by animateDpAsState(
+                targetValue = lastChannelY + lastChannelHeight + sy(80),
+                animationSpec = tween(durationMillis = 500),
+                label = "wideo_bottom_text_y_offset"
+            )
+            val glowYOffset by animateDpAsState(
+                targetValue = lastChannelY + lastChannelHeight - sy(100),
+                animationSpec = tween(durationMillis = 500),
+                label = "wideo_glow_y_offset"
+            )
+
+            // Glow background - lower z-index
+            Image(
+                painter = painterResource(id = R.drawable.glow_bottom),
+                contentDescription = null,
+                contentScale = ContentScale.None,
+                alpha = 0.8f,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .offset(y = glowYOffset)
+                    .zIndex(-1f)
+            )
+
+            // Text and remote icon
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .offset(y = textYOffset)
+            ) {
+                Text(
+                    text = "Naciśnij",
+                    color = Color(0xFFEEEEEE),
+                    fontSize = sx(24).value.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = (-0.48).sp
+                )
+                Spacer(modifier = Modifier.width(sx(12)))
+                Image(
+                    painter = painterResource(id = R.drawable.remote_back),
+                    contentDescription = "Wstecz",
+                    contentScale = ContentScale.None
+                )
+                Spacer(modifier = Modifier.width(sx(12)))
+                Text(
+                    text = "na pilocie, aby wrócić do góry",
+                    color = Color(0xFFEEEEEE),
+                    fontSize = sx(24).value.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = (-0.48).sp
                 )
             }
         }
