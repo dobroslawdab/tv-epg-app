@@ -79,7 +79,7 @@ class MainActivity : ComponentActivity() {
 }
 
 enum class NavigationScreen {
-    HOME, LIVE, COMPONENT_SHOWCASE, TOP_MENU2, SHORTCUT, CHANNELE, VIDEOSLIDER, SLIDER, SLIDER_MIX, EPG, EPG_DAY, FOCUS_MINI_CARD, VOICE_TEST, SPLASH, WHATS_NEW, STARTUP_MODE_SELECTION, LAUNCHER_SETUP, ZAPPING_BAR, CHANNEL_GRID, WIDEO_GRID, KINO_GRID, VOD_GRID, RECORDINGS_GRID, SERIES_EPISODES, MOVIE_DETAIL, PURCHASE
+    HOME, LIVE, COMPONENT_SHOWCASE, TOP_MENU2, SHORTCUT, CHANNELE, VIDEOSLIDER, SLIDER, SLIDER_MIX, EPG, EPG_DAY, FOCUS_MINI_CARD, VOICE_TEST, SPLASH, WHATS_NEW, STARTUP_MODE_SELECTION, LAUNCHER_SETUP, ZAPPING_BAR, CHANNEL_GRID, WIDEO_GRID, KINO_GRID, VOD_GRID, RECORDINGS_GRID, SERIES_EPISODES, MOVIE_DETAIL, PURCHASE, OLYMPICS
 }
 
 // Helper functions for launcher setup
@@ -351,6 +351,10 @@ fun TvRoot(
     // RecordingsGridScreen navigation parameters
     var recordingsGridSourceSection by remember { mutableStateOf<String?>(null) }  // "MOJE"
 
+    // OlympicsEventScreen navigation parameters
+    var olympicsContent by remember { mutableStateOf<List<VodContent>>(emptyList()) }
+    var olympicsSourceSection by remember { mutableStateOf<String?>(null) }  // "ODKRYWAJ" or "TELEWIZJA"
+
     // SeriesEpisodesGridScreen navigation parameters
     var seriesEpisodesId by remember { mutableStateOf("") }
     var seriesEpisodesTitle by remember { mutableStateOf("") }
@@ -376,9 +380,38 @@ fun TvRoot(
     // State flag for HOME button PIP navigation request
     var shouldNavigateHomeWithPip by remember { mutableStateOf(false) }
 
+    // ====== AUTO-UPDATE SYSTEM ======
+    val updateManager = remember { com.uxellence.tv.v3.update.UpdateManager(context) }
+    var showUpdateDialog by remember { mutableStateOf(false) }
+    var updateInfo by remember { mutableStateOf<com.uxellence.tv.v3.update.AppUpdateInfo?>(null) }
+    var updateState by remember { mutableStateOf(com.uxellence.tv.v3.update.UpdateState.READY) }
+    var downloadReceiver by remember { mutableStateOf<android.content.BroadcastReceiver?>(null) }
+
     // Start background EPG loading on app start
     LaunchedEffect(Unit) {
         repository.startBackgroundRefresh()
+    }
+
+    // Check for app updates on startup
+    LaunchedEffect(Unit) {
+        // Cleanup any leftover APK from previous update attempts
+        updateManager.cleanupDownloadedApk()
+
+        kotlinx.coroutines.delay(2000) // Wait 2s after startup
+        val availableUpdate = updateManager.checkForUpdate()
+        if (availableUpdate != null) {
+            updateInfo = availableUpdate
+            showUpdateDialog = true
+            android.util.Log.d("UPDATE", "Update available: ${availableUpdate.versionName}")
+        }
+    }
+
+    // Cleanup update manager on dispose
+    DisposableEffect(Unit) {
+        onDispose {
+            downloadReceiver?.let { context.unregisterReceiver(it) }
+            updateManager.close()
+        }
     }
 
     // Handle HOME button navigation (from LauncherActivity)
@@ -816,6 +849,17 @@ fun TvRoot(
                     }
                 )
             }
+            NavigationScreen.OLYMPICS -> {
+                OlympicsEventScreen(
+                    onBackPressed = {
+                        // Return to source section in TOP_MENU2
+                        currentScreen = NavigationScreen.TOP_MENU2
+                        savedTelewizjaSection = olympicsSourceSection ?: "ODKRYWAJ"
+                    },
+                    content = olympicsContent,
+                    sourceSection = olympicsSourceSection ?: "ODKRYWAJ"
+                )
+            }
             NavigationScreen.SERIES_EPISODES -> {
                 SeriesEpisodesGridScreen(
                     seriesId = seriesEpisodesId,
@@ -1028,6 +1072,13 @@ fun TvRoot(
                         cameFromQuickPurchase = true  // Mark that we skipped MovieDetailScreen
                         previousScreen = NavigationScreen.TOP_MENU2
                         currentScreen = NavigationScreen.PURCHASE
+                    },
+                    onNavigateToOlympics = { content, sourceSection ->
+                        // Navigate to Olympics page
+                        olympicsContent = content
+                        olympicsSourceSection = sourceSection
+                        previousScreen = NavigationScreen.TOP_MENU2
+                        currentScreen = NavigationScreen.OLYMPICS
                     }
                 )
 
@@ -1045,6 +1096,34 @@ fun TvRoot(
                     }
                 }
             }
+        }
+
+        // ====== UPDATE DIALOG ======
+        if (showUpdateDialog && updateInfo != null) {
+            com.uxellence.tv.v3.update.UpdateDialog(
+                updateInfo = updateInfo!!,
+                currentVersion = updateManager.getCurrentVersionName(),
+                updateState = updateState,
+                onDownload = {
+                    updateState = com.uxellence.tv.v3.update.UpdateState.DOWNLOADING
+
+                    // Register receiver for download completion
+                    downloadReceiver = updateManager.registerDownloadReceiver {
+                        updateState = com.uxellence.tv.v3.update.UpdateState.INSTALLING
+                    }
+
+                    // Start download
+                    updateManager.downloadApk(updateInfo!!)
+                },
+                onInstall = {
+                    updateManager.installApk()
+                },
+                onDismiss = {
+                    showUpdateDialog = false
+                    updateInfo = null
+                    updateState = com.uxellence.tv.v3.update.UpdateState.READY
+                }
+            )
         }
     }
 }

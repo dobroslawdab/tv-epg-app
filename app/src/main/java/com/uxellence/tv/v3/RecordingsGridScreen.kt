@@ -219,7 +219,7 @@ fun RecordingsGridScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFF48227C))
+            .background(Color(0xFF281443))  // Same as start pages
             .onPreviewKeyEvent { event ->
                 if (event.type == KeyEventType.KeyDown) {
                     // Handle dropdown navigation if expanded
@@ -561,9 +561,9 @@ fun RecordingsGridScreen(
                 .zIndex(5f)
                 .background(
                     brush = Brush.verticalGradient(
-                        0.0f to Color(0xFF48227C),
-                        0.7f to Color(0xFF48227C),
-                        1.0f to Color(0x0048227C)
+                        0.0f to Color(0xFF281443),
+                        0.7f to Color(0xFF281443),
+                        1.0f to Color(0x00281443)
                     )
                 )
         )
@@ -820,9 +820,9 @@ private fun FullScreenPicker(
             .fillMaxSize()
             .background(
                 brush = Brush.verticalGradient(
-                    0.0f to Color(0xFF48227C),
-                    0.5f to Color(0xFF48227C),
-                    1.0f to Color(0xFF2A1245)
+                    0.0f to Color(0xFF281443),
+                    0.5f to Color(0xFF281443),
+                    1.0f to Color(0xFF1A0C2C)
                 )
             )
             .onPreviewKeyEvent { event ->

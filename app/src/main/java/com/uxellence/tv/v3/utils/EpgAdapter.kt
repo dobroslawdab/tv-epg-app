@@ -316,6 +316,61 @@ object EpgAdapter {
     }
 
     /**
+     * Get Olympics programs (Winter Olympics 2026 - Milano-Cortina)
+     * Returns EPG content from last week + next week matching Olympics keywords
+     */
+    suspend fun getOlympicsProgramsAsVodContent(
+        epgRepository: EpgRepository
+    ): List<VodContent> {
+        android.util.Log.d("EpgAdapter", "=== Getting Olympics programs ===")
+
+        try {
+            val olympicsPrograms = epgRepository.getOlympicsPrograms()
+            android.util.Log.d("EpgAdapter", "Found ${olympicsPrograms.size} Olympics programs")
+
+            return olympicsPrograms.map { program ->
+                val channelName = getChannelNameFromId(program.channelId)
+
+                android.util.Log.d("EpgAdapter", "  ${program.title} on $channelName")
+                android.util.Log.d("EpgAdapter", "    ${program.startUtc} - ${program.endUtc}")
+                android.util.Log.d("EpgAdapter", "    categories: ${program.categories}")
+
+                VodContent(
+                    id = "epg_olympics_${program.channelId.replace(" ", "_")}_${program.startUtc.epochSecond}",
+                    title = program.title,
+                    description = buildDescriptionForOlympics(channelName, program),
+                    category = buildMetadataString(program),
+                    imageUrl = program.iconUrl ?: getChannelLogo(channelName),
+                    channelLogoUrl = getChannelLogo(channelName),
+                    link = "${program.startUtc}|${program.endUtc}|${program.channelId}|$channelName"
+                )
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("EpgAdapter", "Error getting Olympics programs", e)
+            return emptyList()
+        }
+    }
+
+    private fun buildDescriptionForOlympics(channelName: String, program: EpgProgram): String {
+        val parts = mutableListOf<String>()
+
+        // Row 1: Channel + time
+        parts.add("$channelName | ${formatProgramTime(program)}")
+
+        // Row 2: SubTitle (episode/event name)
+        if (!program.subTitle.isNullOrBlank()) {
+            parts.add("\"${program.subTitle}\"")
+        }
+
+        // Row 3+: Description (if not metadata)
+        if (!program.description.isNullOrBlank() && !program.description.startsWith("G:")) {
+            parts.add(program.description)
+        }
+
+        return parts.joinToString("\n\n")
+    }
+
+    /**
      * Get EPG programs for category collections (for "Kategorie EPG" slider)
      * Returns 5 programs - one from each category
      */

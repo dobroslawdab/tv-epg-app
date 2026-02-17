@@ -402,6 +402,76 @@ class EpgRepository private constructor(context: Context) {
         return uniqueGameShows
     }
 
+    /**
+     * Get Olympics content from last 7 days + next 7 days
+     * Filters by title/description containing Olympics-related keywords
+     */
+    suspend fun getOlympicsPrograms(): List<EpgProgram> {
+        val now = Instant.now()
+        val lastWeek = now.minus(Duration.ofDays(7))
+        val nextWeek = now.plus(Duration.ofDays(7))
+
+        android.util.Log.d("EpgRepository", "getOlympicsPrograms: $lastWeek to $nextWeek")
+
+        // Pobierz wszystkie programy z 2-tygodniowego okna
+        val allPrograms = programDao.getProgramsInTimeWindow(lastWeek, nextWeek)
+            .map { it.toEpgProgram() }
+
+        android.util.Log.d("EpgRepository", "Total programs in 2-week window: ${allPrograms.size}")
+
+        // Słowa kluczowe dla Igrzysk Olimpijskich
+        val olympicsKeywords = setOf(
+            // Polish keywords
+            "igrzyska", "olimpijskie", "olimpiada", "olimpijski", "olimpijska",
+            "zimowe igrzyska", "letnie igrzyska",
+            "milano-cortina", "milano cortina", "mediolan",
+            // English keywords
+            "olympics", "olympic", "olympic games", "winter olympics",
+            // Sports often in Olympics broadcasts
+            "biathlon", "narciarstwo alpejskie", "narciarstwo biegowe",
+            "skoki narciarskie", "łyżwiarstwo", "hokej na lodzie",
+            "curling", "bobsleje", "saneczkarstwo", "skeleton"
+        )
+
+        // Filtruj programy olimpijskie - szukaj w tytule, opisie i kategoriach
+        val olympicsPrograms = allPrograms.filter { program ->
+            val titleLower = program.title.lowercase()
+            val descLower = (program.description ?: "").lowercase()
+            val categoriesLower = program.categories.map { it.lowercase() }
+
+            // Sprawdź tytuł
+            val titleMatch = olympicsKeywords.any { keyword ->
+                titleLower.contains(keyword)
+            }
+
+            // Sprawdź opis
+            val descMatch = olympicsKeywords.any { keyword ->
+                descLower.contains(keyword)
+            }
+
+            // Sprawdź kategorie
+            val categoryMatch = categoriesLower.any { category ->
+                olympicsKeywords.any { keyword ->
+                    category.contains(keyword)
+                }
+            }
+
+            titleMatch || descMatch || categoryMatch
+        }
+
+        android.util.Log.d("EpgRepository", "Olympics programs found: ${olympicsPrograms.size}")
+
+        // Sortuj po czasie startu (przyszłe najpierw, potem przeszłe)
+        // Usuń duplikaty
+        val uniqueOlympics = olympicsPrograms
+            .sortedBy { kotlin.math.abs(Duration.between(now, it.startUtc).toMinutes()) }
+            .distinctBy { it.title.lowercase().trim() }
+
+        android.util.Log.d("EpgRepository", "Unique Olympics after deduplication: ${uniqueOlympics.size}")
+
+        return uniqueOlympics
+    }
+
     // Clear EPG cache (force refresh on next load)
     suspend fun clearCache() {
         android.util.Log.d("EpgRepository", "=== Clearing EPG cache ===")

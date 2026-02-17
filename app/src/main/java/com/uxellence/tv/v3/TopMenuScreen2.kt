@@ -1,5 +1,6 @@
 package com.uxellence.tv.v3
 import com.uxellence.tv.v3.R
+import com.uxellence.tv.v3.BuildConfig
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -1297,7 +1298,8 @@ fun TopMenuScreen2(
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },  // Navigate to KINO grid (Akcja, Horror - vertical posters)
     onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> },  // Navigate to Recordings grid (Zarządzaj nagraniami)
     onNavigateToMovieDetail: (VodSlideData) -> Unit = {},  // Navigate to MovieDetailScreen from KINO PLAY slider
-    onNavigateToPurchase: (VodSlideData) -> Unit = {}  // Navigate directly to PurchaseScreen (quick mode)
+    onNavigateToPurchase: (VodSlideData) -> Unit = {},  // Navigate directly to PurchaseScreen (quick mode)
+    onNavigateToOlympics: (content: List<VodContent>, sourceSection: String) -> Unit = { _, _ -> }  // Navigate to Olympics page
 ) {
     val configuration = LocalConfiguration.current
     val scaleX = configuration.screenWidthDp / 1920f
@@ -1970,7 +1972,8 @@ fun TopMenuScreen2(
                 v3SliderAutoSlideEnabled = v3SliderAutoSlideEnabled,  // Key.Eight toggle for V3 slider
                 onFocusedChannelChange = { signal ->
                     isTelewizjaSkrotyFocused = signal == "SHOW_GRADIENT"
-                }
+                },
+                onNavigateToOlympics = onNavigateToOlympics
             )
         }
 
@@ -3621,7 +3624,8 @@ private fun FullPageContent(
     onShowNagraniaV2Change: (Boolean) -> Unit = {},
     sliderVersion: Int = 1,  // 1 = V1 with carousel, 2 = V2 with border
     v3SliderAutoSlideEnabled: Boolean = false,  // Key.Eight toggle for V3 slider auto-slide and bullets
-    onFocusedChannelChange: (String) -> Unit = {}  // Callback when focused channel changes (for top gradient on Skróty+)
+    onFocusedChannelChange: (String) -> Unit = {},  // Callback when focused channel changes (for top gradient on Skróty+)
+    onNavigateToOlympics: (content: List<VodContent>, sourceSection: String) -> Unit = { _, _ -> }  // Navigate to Olympics page
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
 
@@ -3636,7 +3640,12 @@ private fun FullPageContent(
 
     when (selectedSection) {
         "SEARCH" -> {
-            SearchScreenNew(onReturnToMenu = onReturnToMenu, shouldAutoFocus = isFreshEntry)
+            // Placeholder - ekran w przygotowaniu
+            SearchPlaceholderScreen(
+                globalFocusState = globalFocusState,
+                sx = sx,
+                sy = sy
+            )
         }
         "MOJE" -> {
             MojeScreenContent(
@@ -3658,6 +3667,7 @@ private fun FullPageContent(
                 onNavigateToChannelGrid = onNavigateToChannelGrid,
                 onNavigateToVodGrid = onNavigateToVodGrid,
                 onNavigateToEpgDay = onNavigateToEpgDay,
+                onNavigateToOlympics = onNavigateToOlympics,
                 appIconsData = emptyMap(),  // TODO: Pass real appIconsData
                 sx = sx,
                 sy = sy,
@@ -3673,6 +3683,7 @@ private fun FullPageContent(
                 sy = sy,
                 onNavigateToEpg = onNavigateToEpg,
                 onNavigateToEpgDay = onNavigateToEpgDay,
+                onNavigateToOlympics = onNavigateToOlympics,
                 onFocusRestored = onFocusRestored,
                 restoredTelewizjaFocus = restoredTelewizjaFocus,
                 onNavigateToChannelGrid = onNavigateToChannelGrid,
@@ -3709,12 +3720,9 @@ private fun FullPageContent(
             )
         }
         "APLIKACJE" -> {
-            AplikacjeScreenContent(
+            // Placeholder - ekran w przygotowaniu
+            AplikacjePlaceholderScreen(
                 globalFocusState = globalFocusState,
-                onNavigateToChannelGrid = onNavigateToChannelGrid,
-                onNavigateToVodGrid = onNavigateToVodGrid,
-                onNavigateToKinoGrid = onNavigateToKinoGrid,
-                appIconsData = emptyMap(),  // TODO: Pass real appIconsData
                 sx = sx,
                 sy = sy
             )
@@ -3859,6 +3867,7 @@ private fun OdkrywajScreenContent(
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> },
+    onNavigateToOlympics: (content: List<VodContent>, sourceSection: String) -> Unit = { _, _ -> },
     appIconsData: Map<String, List<TvChannel>> = emptyMap(),
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
@@ -3888,6 +3897,7 @@ private fun OdkrywajScreenContent(
         onNavigateToVodGrid = onNavigateToVodGrid,
         onNavigateToKinoGrid = onNavigateToKinoGrid,
         onNavigateToEpgDay = onNavigateToEpgDay,
+        onNavigateToOlympics = onNavigateToOlympics,
         appIconsData = appIconsData,
         sx = sx,
         sy = sy,
@@ -3905,6 +3915,7 @@ private fun TelewizjaScreenContent(
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     onNavigateToEpg: () -> Unit = {},
     onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> },
+    onNavigateToOlympics: (content: List<VodContent>, sourceSection: String) -> Unit = { _, _ -> },  // Navigate to Olympics page
     onFocusRestored: () -> Unit = {},
     restoredTelewizjaFocus: FocusState? = null,
     onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
@@ -3936,6 +3947,7 @@ private fun TelewizjaScreenContent(
         resetTrigger = resetTrigger,
         onNavigateToEpg = onNavigateToEpg,
         onNavigateToEpgDay = onNavigateToEpgDay,
+        onNavigateToOlympics = onNavigateToOlympics,
         onContentFocusRestored = { row ->
             // Update globalFocusState to deactivate menu focus
             globalFocusState.value = globalFocusState.value.copy(currentRow = row)
@@ -3964,6 +3976,7 @@ private fun OdkrywajChannelsScreen(
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> },
+    onNavigateToOlympics: (content: List<VodContent>, sourceSection: String) -> Unit = { _, _ -> },
     appIconsData: Map<String, List<TvChannel>> = emptyMap(),
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
@@ -3983,13 +3996,21 @@ private fun OdkrywajChannelsScreen(
     // State for "Teraz w TV" - current programs from EPG
     var terazWTvPrograms by remember { mutableStateOf<List<VodContent>>(emptyList()) }
 
-    // Load EPG data for "Teraz w TV"
+    // State for Olympics content (Winter Olympics 2026 - Milano-Cortina)
+    var olympicsContent by remember { mutableStateOf<List<VodContent>>(emptyList()) }
+
+    // Load EPG data for "Teraz w TV" and Olympics
     LaunchedEffect(Unit) {
         try {
             Log.d("ODKRYWAJ_EPG", "Loading current programs from EPG...")
             epgRepository.startBackgroundRefresh()
             terazWTvPrograms = com.uxellence.tv.v3.utils.EpgAdapter.getCurrentProgramsAsVodContent(epgRepository, context)
             Log.d("ODKRYWAJ_EPG", "Loaded ${terazWTvPrograms.size} current TV programs")
+
+            // Load Olympics content
+            Log.d("ODKRYWAJ_EPG", "Loading Olympics content from EPG...")
+            olympicsContent = com.uxellence.tv.v3.utils.EpgAdapter.getOlympicsProgramsAsVodContent(epgRepository)
+            Log.d("ODKRYWAJ_EPG", "Loaded ${olympicsContent.size} Olympics programs")
         } catch (e: Exception) {
             Log.e("ODKRYWAJ_EPG", "Failed to load EPG", e)
         }
@@ -4211,8 +4232,8 @@ private fun OdkrywajChannelsScreen(
         mutableMapOf<Pair<Int, Int>, FocusRequester>().apply {
             repeat(channels.size) { rowIndex ->
                 if (rowIndex == 1) {
-                    // Row 1 (shortcuts): create FocusRequesters for items 0-5 (5 shortcuts + plus button) - BEZ ZMIAN
-                    repeat(6) { colIndex ->
+                    // Row 1 (shortcuts): create FocusRequesters for items 0-6 (7 shortcuts including Igrzyska Zimowe)
+                    repeat(7) { colIndex ->
                         put(Pair(rowIndex, colIndex), FocusRequester())
                     }
                 } else if (rowIndex == 3) {
@@ -4326,6 +4347,7 @@ private fun OdkrywajChannelsScreen(
             onNavigateToVodGrid = onNavigateToVodGrid,
             onNavigateToKinoGrid = onNavigateToKinoGrid,
             onNavigateToEpgDay = onNavigateToEpgDay,
+            onNavigateToOlympics = { onNavigateToOlympics(olympicsContent, "ODKRYWAJ") },
             appIconsData = appIconsData,
             lazyListStates = lazyListStates,
             sx = sx,
@@ -4358,6 +4380,7 @@ private fun TelewizjaChannelsScreen(
     resetTrigger: Int = 0,
     onNavigateToEpg: () -> Unit = {},
     onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> },
+    onNavigateToOlympics: (content: List<VodContent>, sourceSection: String) -> Unit = { _, _ -> },  // Navigate to Olympics page
     onContentFocusRestored: (Int) -> Unit = {},
     onFocusRestored: () -> Unit = {},
     restoredTelewizjaFocus: FocusState? = null,
@@ -4438,6 +4461,9 @@ private fun TelewizjaChannelsScreen(
     // State dla "Teleturnieje" - teleturnieje z ostatnich 24h
     var teleturniejePrograms by remember { mutableStateOf<List<VodContent>>(emptyList()) }
 
+    // State dla Olympics content (Winter Olympics 2026 - Milano-Cortina)
+    var olympicsContent by remember { mutableStateOf<List<VodContent>>(emptyList()) }
+
     // State dla "Kategorie EPG" - current EPG programs
     var epgCategoriesProgramsAll by remember { mutableStateOf<List<VodContent>>(emptyList()) }
     var epgCategoriesVisibleCount by remember { mutableStateOf(9) } // Show 9 initially
@@ -4483,6 +4509,10 @@ private fun TelewizjaChannelsScreen(
             // Load "Popularne teraz" - shuffled current programs from other channels
             popularneTerazPrograms = com.uxellence.tv.v3.utils.EpgAdapter.getPopularneTerazAsVodContent(epgRepository, context)
             android.util.Log.d("EPG_DEBUG", "Popularne teraz loaded: ${popularneTerazPrograms.size}")
+
+            // Load Olympics content (Winter Olympics 2026 - Milano-Cortina)
+            olympicsContent = com.uxellence.tv.v3.utils.EpgAdapter.getOlympicsProgramsAsVodContent(epgRepository)
+            android.util.Log.d("EPG_DEBUG", "Olympics programs loaded: ${olympicsContent.size}")
         } catch (e: Exception) {
             android.util.Log.e("EPG_DEBUG", "Failed to load EPG categories", e)
         }
@@ -4677,8 +4707,8 @@ private fun TelewizjaChannelsScreen(
                         put(Pair(rowIndex, 0), FocusRequester()) // Only content focus
                     }
                     channelName == "Skróty v2" -> {
-                        // Shortcuts v2: direct focus colIndex 0-3 (no CategoryIcon)
-                        repeat(4) { colIndex ->
+                        // Shortcuts v2: direct focus colIndex 0-5 (6 shortcuts including Igrzyska Olimpijskie)
+                        repeat(6) { colIndex ->
                             put(Pair(rowIndex, colIndex), FocusRequester())
                         }
                     }
@@ -5037,6 +5067,7 @@ private fun TelewizjaChannelsScreen(
                 sy = sy,
                 onNavigateToEpg = onNavigateToEpg,
                 onNavigateToEpgDay = onNavigateToEpgDay,
+                onNavigateToOlympics = { onNavigateToOlympics(olympicsContent, "TELEWIZJA") },
                 sectionId = sectionId,
                 onNavigateToChannelGrid = onNavigateToChannelGrid,
                 onNavigateToVodGrid = onNavigateToVodGrid,
@@ -6633,6 +6664,7 @@ private fun ShortcutCardV4(
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> },
     onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> },
+    onNavigateToOlympics: () -> Unit = { },
     appIconsData: Map<String, List<TvChannel>> = emptyMap(),
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
@@ -6718,8 +6750,11 @@ private fun ShortcutCardV4(
                         }
                         // Igrzyska Olimpijskie
                         plainTitle.contains("Igrzyska", ignoreCase = true) ||
-                        plainTitle.contains("Olimpijskie", ignoreCase = true) -> {
-                            android.util.Log.d("SHORTCUT_V4", "Navigating to Olympics content...")
+                        plainTitle.contains("Olimpijskie", ignoreCase = true) ||
+                        plainTitle.contains("Olimpiada", ignoreCase = true) ||
+                        plainTitle.contains("zimowa", ignoreCase = true) -> {
+                            android.util.Log.d("SHORTCUT_V4", "Navigating to Olympics page...")
+                            onNavigateToOlympics()
                         }
                         // Polsat Viasat Nature
                         plainTitle.contains("Viasat", ignoreCase = true) ||
@@ -7887,58 +7922,11 @@ fun MojeUnifiedChannelRow(
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    // NAGRANIA Groups - Three separate background groups with different expansion behaviors
+    // NAGRANIA Groups - NO BACKGROUND (user request: remove purple background)
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    // Group 1: "Moje nagrania" (old expandable) + sub-channels - EXPANDABLE background
-    val isMojeNagraniaGroup = channel in listOf("Moje nagrania", "Skróty", "Pojedyncze nagrania", "SERIE", "ZAPLANOWANE")
-
-    // Group 2: "Nagrania" (new channel) - EXPANDABLE background (same as old Moje nagrania)
-    val isNagraniaNewExpandable = channel == "Nagrania"
-
-    // Group 3: Header + Skróty v2 - FIXED height (non-expandable)
-    val isNagraniaNewFixed = channel.startsWith("[HEADER-RIGHT]") || channel == "Skróty v2 Moje"
 
     Box(modifier = Modifier.fillMaxWidth().padding(vertical = sy(20))) {
-        // Background Box - purple #3A1B63 for all three groups
-        if (isMojeNagraniaGroup || isNagraniaNewExpandable || isNagraniaNewFixed) {
-            val isCurrentRow = rowIndex == focusedRowIndex
-            val isShortcuts = channel == "Skróty"
-            val isHeader = channel.startsWith("[HEADER-RIGHT]")
-            val isNewShortcuts = channel == "Skróty v2 Moje"
-
-            // Y offset calculation
-            val backgroundYOffset = when {
-                // Fixed channels - always -20px
-                isHeader -> sy(-20)
-                isNewShortcuts -> sy(-20)
-                isShortcuts -> sy(-20)
-                // Expandable channels - shift up when content focused
-                (isMojeNagraniaGroup || isNagraniaNewExpandable) && isCurrentRow && focusedColIndex >= 0 -> sy(-120)
-                // Default - normal offset
-                else -> sy(-20)
-            }
-
-            // Height calculation
-            val animatedBackgroundHeight = when {
-                // Fixed heights for non-expandable channels
-                isHeader -> sy(80)                               // Header: 80px total
-                isNewShortcuts -> sy(180)                        // Skróty v2: 120px card + 60px spacing
-                isShortcuts -> sy(170)                           // Skróty (old): 90px card + 80px spacing
-                // Expandable channels - expand when content focused
-                (isMojeNagraniaGroup || isNagraniaNewExpandable) && isCurrentRow && focusedColIndex >= 0 -> sy(546)  // EXPANDED: CategoryIcon (216px) + miniatures (290px) + spacing (40px)
-                // Default - normal height
-                else -> sy(256)                                   // NORMAL: CategoryIcon (216px) + spacing (40px)
-            }
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .offset(y = backgroundYOffset)  // Animate position
-                    .height(animatedBackgroundHeight)  // Animate height
-                    .background(Color(0xFF3A1B63))  // Solid purple #3A1B63
-                    .zIndex(-2f)  // Behind all content
-            )
-        }
+        // Background removed - no purple #3A1B63 background for any nagrania channels
 
         // Content wrapper Box without padding (content fills entire background)
         Box(modifier = Modifier.fillMaxWidth()) {
@@ -9093,8 +9081,8 @@ fun handleOdkrywajNavigation(
             if (focusedRowIndex == 0) {
                 return false // Let VodHeroSliderV2 handle RIGHT key
             } else if (focusedRowIndex == 1) {
-                // Shortcuts: direct focus navigation (NO scrolling, items 0-5, item 5 = plus button)
-                if (focusedColIndex < 5) {
+                // Shortcuts: direct focus navigation (NO scrolling, items 0-6, 7 shortcuts including Igrzyska Zimowe)
+                if (focusedColIndex < 6) {
                     val newColIndex = focusedColIndex + 1
                     onFocusChange(focusedRowIndex, newColIndex)
                     channelFocusRequesters[Pair(focusedRowIndex, newColIndex)]?.requestFocus()
@@ -10355,6 +10343,7 @@ fun OdkrywajChannelRowsLayout(
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> },
+    onNavigateToOlympics: () -> Unit = {},  // Navigate to Olympics page with pre-loaded content
     appIconsData: Map<String, List<TvChannel>> = emptyMap(),
     lazyListStates: Map<Int, LazyListState>,
     sx: (Int) -> androidx.compose.ui.unit.Dp,
@@ -10418,6 +10407,7 @@ fun OdkrywajChannelRowsLayout(
                     onNavigateToVodGrid = onNavigateToVodGrid,
                     onNavigateToKinoGrid = onNavigateToKinoGrid,
                     onNavigateToEpgDay = onNavigateToEpgDay,
+                    onNavigateToOlympics = onNavigateToOlympics,
                     appIconsData = appIconsData,
                     sx = sx,
                     sy = sy,
@@ -10549,6 +10539,7 @@ fun OdkrywajUnifiedChannelRow(
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> },
+    onNavigateToOlympics: () -> Unit = {},  // Navigate to Olympics page
     appIconsData: Map<String, List<TvChannel>> = emptyMap(),
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
@@ -10758,6 +10749,7 @@ fun OdkrywajUnifiedChannelRow(
                                 android.util.Log.d("SHORTCUTS_V4", "Navigate to recordings: $title")
                             },
                             onNavigateToEpgDay = onNavigateToEpgDay,
+                            onNavigateToOlympics = onNavigateToOlympics,
                             appIconsData = appIconsData,
                             sx = sx,
                             sy = sy,
@@ -11270,6 +11262,7 @@ fun TelewizjaChannelRowsLayout(
     liveOnShowFullscreen: (Boolean) -> Unit = {},
     onNavigateToEpg: () -> Unit = {},
     onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> },
+    onNavigateToOlympics: () -> Unit = {},  // Navigate to Olympics page
     sectionId: String = "TELEWIZJA",
     onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
@@ -11323,6 +11316,7 @@ fun TelewizjaChannelRowsLayout(
                     onNavigateToVodGrid = onNavigateToVodGrid,
                     onNavigateToKinoGrid = onNavigateToKinoGrid,
                     onNavigateToRecordingsGrid = onNavigateToRecordingsGrid,
+                    onNavigateToOlympics = onNavigateToOlympics,
                     appIconsData = appIconsData
                 )
             }
@@ -11438,6 +11432,7 @@ fun TelewizjaUnifiedChannelRow(
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> },
+    onNavigateToOlympics: () -> Unit = {},  // Navigate to Olympics page
     appIconsData: Map<String, List<TvChannel>> = emptyMap()
 ) {
     val isCurrentRow = rowIndex == focusedRowIndex
@@ -12103,6 +12098,7 @@ fun TelewizjaUnifiedChannelRow(
                         onNavigateToKinoGrid = onNavigateToKinoGrid,
                         onNavigateToRecordingsGrid = onNavigateToRecordingsGrid,
                         onNavigateToEpgDay = onNavigateToEpgDay,
+                        onNavigateToOlympics = onNavigateToOlympics,
                         appIconsData = appIconsData,
                         sx = sx,
                         sy = sy,
@@ -14137,13 +14133,12 @@ private fun SliderV4Card(
                         }
                     }
 
-                    // NOT FOCUSED + HAS LOGO: Show logo at top only
+                    // NOT FOCUSED + HAS LOGO: Show logo centered vertically
                     // Logo width limited to half of slide width (1468 / 2 = 734px)
                     if (!isSliderFocused && !item.selectedLogoUrl.isNullOrBlank()) {
                         Box(
                             modifier = Modifier
-                                .align(Alignment.TopStart)
-                                .padding(top = sy(160))
+                                .align(Alignment.CenterStart)  // Centered vertically, left aligned
                         ) {
                             AsyncImage(
                                 model = item.selectedLogoUrl,
@@ -14701,13 +14696,12 @@ private fun SliderV2CardStateBased(
                         }
                     }
 
-                    // NOT FOCUSED + HAS LOGO: Show logo at top only
+                    // NOT FOCUSED + HAS LOGO: Show logo centered vertically
                     // Logo width limited to half of slide width (1468 / 2 = 734px)
                     if (!isSliderFocused && !item.selectedLogoUrl.isNullOrBlank()) {
                         Box(
                             modifier = Modifier
-                                .align(Alignment.TopStart)
-                                .padding(top = sy(160))
+                                .align(Alignment.CenterStart)  // Centered vertically, left aligned
                         ) {
                             AsyncImage(
                                 model = item.selectedLogoUrl,
@@ -15790,6 +15784,11 @@ private fun CollectionSliderCard(
     var isPlayingLive by remember { mutableStateOf(false) }
     var isLoadingStream by remember { mutableStateOf(false) }
 
+    // Metadata visibility state - show for 5 seconds after focus, then hide
+    // DEFAULT: hidden (only logo, title, progress bar visible)
+    // FOCUSED: metadata appears for 5 seconds, then hides
+    var showMetadata by remember { mutableStateOf(false) }
+
     // ExoPlayer instance
     val player = remember {
         com.google.android.exoplayer2.ExoPlayer.Builder(context).build()
@@ -15851,6 +15850,20 @@ private fun CollectionSliderCard(
     DisposableEffect(Unit) {
         onDispose {
             player.release()
+        }
+    }
+
+    // Timer to show metadata for 5 seconds after focus, then hide
+    LaunchedEffect(isFocused) {
+        if (isFocused) {
+            // Show metadata when focused
+            showMetadata = true
+            // Wait 5 seconds, then hide metadata
+            kotlinx.coroutines.delay(5000)
+            showMetadata = false
+        } else {
+            // Hide metadata when unfocused
+            showMetadata = false
         }
     }
 
@@ -15923,14 +15936,12 @@ private fun CollectionSliderCard(
                 }
 
                 // Gradient overlay - PNG images from Figma
-                // For EPG cards: bottom_gradient.png (thumbnail) or bottom_gradient_live.png (video playing)
+                // For EPG cards: always use same gradient (bottom_gradient.png)
                 // For non-EPG: horizontal purple gradient
                 if (isEpgCard) {
-                    // EPG cards: use PNG gradient images
+                    // EPG cards: always use the same taller gradient
                     Image(
-                        painter = painterResource(
-                            if (isPlayingLive) R.drawable.bottom_gradient_live else R.drawable.bottom_gradient
-                        ),
+                        painter = painterResource(R.drawable.bottom_gradient),
                         contentDescription = null,
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
@@ -15965,6 +15976,10 @@ private fun CollectionSliderCard(
                 animationSpec = tween(durationMillis = 300),
                 label = "overlay_alpha"
             )
+
+            // Metadata visibility is controlled by showMetadata state
+            // Hidden by default, appears for 5 seconds on focus, then animates out
+            // Using AnimatedVisibility for smooth height animation (no gap when hidden)
 
             if (isEpgCard && epgData != null) {
                 // EPG Layout according to Figma:
@@ -16002,8 +16017,8 @@ private fun CollectionSliderCard(
                     }
                 }
 
-                // Channel LOGO in bottom LEFT corner - hide when video playing
-                if (channelLogoUrl.isNotBlank() && !isPlayingLive) {
+                // Channel LOGO in bottom LEFT corner - always visible
+                if (channelLogoUrl.isNotBlank()) {
                     AsyncImage(
                         model = channelLogoUrl,
                         contentDescription = "Channel logo",
@@ -16017,29 +16032,12 @@ private fun CollectionSliderCard(
                     )
                 }
 
-                // Content area - when video playing: only title; otherwise: full content
-                if (isPlayingLive) {
-                    // Minimal mode - only title
-                    Text(
-                        text = vodContent.title,
-                        color = Color(0xFFEEEEEE),
-                        fontSize = (31 * (sy(1).value / 1.dp.value)).sp,
-                        fontFamily = ManropeFamily,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        letterSpacing = 0.64.sp,
+                // Content area - always full content (title, metadata, progress bar)
+                // Same layout for both thumbnail and live video modes
+                Column(
                         modifier = Modifier
                             .align(Alignment.BottomStart)
-                            .padding(start = sx(32), bottom = sy(16), end = sx(32))
-                            .alpha(overlayAlpha)  // Fade with shortcuts focus
-                    )
-                } else {
-                    // Full mode (image showing) - Title Bold, metadata, progress bar
-                    Column(
-                        modifier = Modifier
-                            .align(Alignment.BottomStart)
-                            .padding(start = sx(136), bottom = sy(16), end = sx(32))  // +20px right, lower position
+                            .padding(start = sx(136), bottom = sy(26), end = sx(32))  // +10px higher from bottom
                             .fillMaxWidth()
                             .alpha(overlayAlpha),  // Fade with shortcuts focus
                         verticalArrangement = Arrangement.spacedBy(sy(4))  // Reduced spacing
@@ -16058,40 +16056,56 @@ private fun CollectionSliderCard(
                         )
 
                         // Metadata row: time | age - 18sp Medium, Manrope
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(sx(12)),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // Time range
-                            Text(
-                                text = channelAndTime.substringAfter(" | ").ifEmpty { channelAndTime },
-                                color = Color(0xFFEEEEEE).copy(alpha = 0.8f),
-                                fontSize = (18 * (sy(1).value / 1.dp.value)).sp,
-                                fontFamily = ManropeFamily,
-                                fontWeight = FontWeight.Medium,
-                                maxLines = 1,
-                                letterSpacing = 0.4.sp
+                        // AnimatedVisibility: smooth fade + height animation (no gap when hidden)
+                        // Appears for 5 seconds on focus, then slides out
+                        androidx.compose.animation.AnimatedVisibility(
+                            visible = showMetadata,
+                            enter = androidx.compose.animation.fadeIn(
+                                animationSpec = tween(durationMillis = 300)
+                            ) + androidx.compose.animation.expandVertically(
+                                animationSpec = tween(durationMillis = 300)
+                            ),
+                            exit = androidx.compose.animation.fadeOut(
+                                animationSpec = tween(durationMillis = 400)
+                            ) + androidx.compose.animation.shrinkVertically(
+                                animationSpec = tween(durationMillis = 400)
                             )
-                            // Divider + Category (if fits)
-                            if (vodContent.category.isNotBlank()) {
-                                Box(
-                                    modifier = Modifier
-                                        .width(sx(2))
-                                        .height(sy(18))
-                                        .background(Color(0xFFEEEEEE).copy(alpha = 0.4f))
-                                )
-                                // Category/age - truncate if doesn't fit
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(sx(12)),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // Time range
                                 Text(
-                                    text = vodContent.category,
+                                    text = channelAndTime.substringAfter(" | ").ifEmpty { channelAndTime },
                                     color = Color(0xFFEEEEEE).copy(alpha = 0.8f),
                                     fontSize = (18 * (sy(1).value / 1.dp.value)).sp,
                                     fontFamily = ManropeFamily,
                                     fontWeight = FontWeight.Medium,
                                     maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
                                     letterSpacing = 0.4.sp
                                 )
+                                // Divider + Category (if fits)
+                                if (vodContent.category.isNotBlank()) {
+                                    Box(
+                                        modifier = Modifier
+                                            .width(sx(2))
+                                            .height(sy(18))
+                                            .background(Color(0xFFEEEEEE).copy(alpha = 0.4f))
+                                    )
+                                    // Category/age - truncate if doesn't fit
+                                    Text(
+                                        text = vodContent.category,
+                                        color = Color(0xFFEEEEEE).copy(alpha = 0.8f),
+                                        fontSize = (18 * (sy(1).value / 1.dp.value)).sp,
+                                        fontFamily = ManropeFamily,
+                                        fontWeight = FontWeight.Medium,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        letterSpacing = 0.4.sp
+                                    )
+                                }
                             }
                         }
 
@@ -16112,7 +16126,6 @@ private fun CollectionSliderCard(
                             )
                         }
                     }
-                }
             } else if (!isEpgCard) {
                 // Collection Layout: Title + Description + Logo
                 Column(
@@ -16172,6 +16185,10 @@ private fun CollectionSliderCard(
 }
 
 // EPG Collection Slider Card for TELEWIZJA "Kategorie EPG" channel
+// States:
+// - Unfocused: show logo, title, progress bar (NO metadata)
+// - Focused: show metadata (time, category) for 5 seconds, then hide
+// - Playing live: different gradient
 @Composable
 private fun EpgCollectionSliderCard(
     epgProgram: com.uxellence.tv.v3.epg.EpgProgram,
@@ -16184,6 +16201,23 @@ private fun EpgCollectionSliderCard(
 ) {
     val cardWidth = sx(640)  // Figma: 640px
     val cardHeight = sy(360)  // Figma: 360px
+
+    // Metadata visibility state - show for 5 seconds after focus, then hide
+    var showMetadata by remember { mutableStateOf(false) }
+
+    // Timer to hide metadata after 5 seconds of focus
+    LaunchedEffect(isFocused) {
+        if (isFocused) {
+            // Show metadata when focused
+            showMetadata = true
+            // Wait 5 seconds, then hide metadata
+            kotlinx.coroutines.delay(5000)
+            showMetadata = false
+        } else {
+            // Hide metadata when unfocused
+            showMetadata = false
+        }
+    }
 
     // Calculate progress (how much of the program has elapsed)
     val now = java.time.Instant.now()
@@ -16256,11 +16290,11 @@ private fun EpgCollectionSliderCard(
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .padding(start = sx(136), bottom = sy(16), end = sx(32))  // +20px right, lower position
+                    .padding(start = sx(136), bottom = sy(26), end = sx(32))  // +10px higher from bottom
                     .fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(sy(4))  // Reduced spacing
             ) {
-                // Program title - 31sp Medium, Manrope
+                // Program title - 31sp Medium, Manrope (ALWAYS VISIBLE)
                 Text(
                     text = epgProgram.title,
                     color = Color(0xFFEEEEEE),
@@ -16273,46 +16307,48 @@ private fun EpgCollectionSliderCard(
                     letterSpacing = 0.64.sp
                 )
 
-                // Metadata row - 18sp Medium, Manrope
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(sx(12)),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Time
-                    Text(
-                        text = "$startTime - $endTime",
-                        color = Color(0xFFEEEEEE).copy(alpha = 0.8f),
-                        fontSize = (18 * (sy(1).value / 1.dp.value)).sp,
-                        fontFamily = ManropeFamily,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        letterSpacing = 0.4.sp
-                    )
-                    // Divider + Category (if fits)
-                    val categoriesText = epgProgram.categories.firstOrNull() ?: ""
-                    if (categoriesText.isNotBlank()) {
-                        Box(
-                            modifier = Modifier
-                                .width(sx(2))
-                                .height(sy(18))
-                                .background(Color(0xFFEEEEEE).copy(alpha = 0.4f))
-                        )
-                        // Category - truncate if doesn't fit
+                // Metadata row - 18sp Medium, Manrope (ONLY VISIBLE when focused for first 5 seconds)
+                if (showMetadata) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(sx(12)),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Time
                         Text(
-                            text = categoriesText,
+                            text = "$startTime - $endTime",
                             color = Color(0xFFEEEEEE).copy(alpha = 0.8f),
                             fontSize = (18 * (sy(1).value / 1.dp.value)).sp,
                             fontFamily = ManropeFamily,
                             fontWeight = FontWeight.Medium,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
                             letterSpacing = 0.4.sp
                         )
+                        // Divider + Category (if fits)
+                        val categoriesText = epgProgram.categories.firstOrNull() ?: ""
+                        if (categoriesText.isNotBlank()) {
+                            Box(
+                                modifier = Modifier
+                                    .width(sx(2))
+                                    .height(sy(18))
+                                    .background(Color(0xFFEEEEEE).copy(alpha = 0.4f))
+                            )
+                            // Category - truncate if doesn't fit
+                            Text(
+                                text = categoriesText,
+                                color = Color(0xFFEEEEEE).copy(alpha = 0.8f),
+                                fontSize = (18 * (sy(1).value / 1.dp.value)).sp,
+                                fontFamily = ManropeFamily,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                letterSpacing = 0.4.sp
+                            )
+                        }
                     }
                 }
 
-                // Progress bar - Figma: 8px height, radius-8
+                // Progress bar - Figma: 8px height, radius-8 (ALWAYS VISIBLE)
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -17514,12 +17550,12 @@ private fun WideoChannelsScreen(
 ) {
     val context = LocalContext.current
 
-    // Row 0 = menu, Row 1 = Slider Mix, Row 2 = Skróty v2 (vertical), Row 3+ = horizontal channels
+    // Row 0 = menu, Row 1 = Slider Mix, Row 2-3 = content channels, Row 4 = Skróty v3, Row 5+ = more channels
     val channels = listOf(
         "Slider Mix",
-        "Skróty v2",
         "Seriale",
         "Filmy fabularne",
+        "Skróty v3",
         "Cinemax",
         "Filmy dokumentalne",
         "Świetna rozrywka",
@@ -17527,13 +17563,15 @@ private fun WideoChannelsScreen(
         "KOLEKCJE"
     )
 
-    // Vertical shortcuts for Row 2 (Skróty v2) - with Material Design icons
+    // Shortcuts for Row 4 (Skróty v3) - same categories as KINO_PLAY
     val verticalShortcuts = remember {
         listOf(
-            ShortcutItem("1", "Kolekcje", ShortcutIcon.MaterialIcon("add")),
-            ShortcutItem("2", "Dla dzieci", ShortcutIcon.MaterialIcon("star")),
-            ShortcutItem("3", "Filmy", ShortcutIcon.MaterialIcon("search")),
-            ShortcutItem("4", "Seriale", ShortcutIcon.MaterialIcon("person"))
+            ShortcutItem("1", "AKCJA", ShortcutIcon.VectorIcon(R.drawable.ic_shortcut_akcja), categoryFilter = "Akcja|Action"),
+            ShortcutItem("2", "BIOGRAFICZNY", ShortcutIcon.VectorIcon(R.drawable.ic_shortcut_biograficzny), categoryFilter = "Biograficzny|Biography|Biographical"),
+            ShortcutItem("3", "DOKUMENTALNE", ShortcutIcon.VectorIcon(R.drawable.ic_shortcut_dokumentalne), categoryFilter = "Dokumentalny|Documentary"),
+            ShortcutItem("4", "PRZYGODOWE", ShortcutIcon.VectorIcon(R.drawable.ic_shortcut_przygodowe), categoryFilter = "Przygodowy|Adventure"),
+            ShortcutItem("5", "HORROR", ShortcutIcon.VectorIcon(R.drawable.ic_shortcut_horror), categoryFilter = "Horror"),
+            ShortcutItem("6", "FILMY POLSKIE", ShortcutIcon.VectorIcon(R.drawable.ic_shortcut_filmy_polskie), categoryFilter = "Polski|Polish")
         )
     }
 
@@ -17542,7 +17580,7 @@ private fun WideoChannelsScreen(
         if (vodContentList.isNotEmpty()) {
             channels.associateWith { channelName ->
                 when (channelName) {
-                    "Slider Mix", "Skróty v2" -> emptyList() // No horizontal content
+                    "Slider Mix", "Skróty v3" -> emptyList() // No horizontal content
                     else -> vodContentList.shuffled().take(10)
                 }
             }
@@ -17551,7 +17589,7 @@ private fun WideoChannelsScreen(
         }
     }
 
-    // Row 1 = Slider Mix, Row 2 = Skróty v2, Row 3+ = channels
+    // Row 1 = Slider Mix, Row 2-3 = Seriale/Filmy, Row 4 = Skróty v3, Row 5+ = other channels
     var focusedRowIndex by remember { mutableStateOf(1) } // Start at slider
     var focusedColIndex by remember { mutableStateOf(-2) } // -2 = brak fokusa na starcie
 
@@ -17564,7 +17602,7 @@ private fun WideoChannelsScreen(
     }
 
     // Notify parent when focused row changes (for top gradient visibility)
-    // WIDEO: gradient shows from Skróty v2 (row 2) and below
+    // WIDEO: gradient shows from row 2 (Seriale) and below
     LaunchedEffect(focusedRowIndex) {
         val showGradient = focusedRowIndex >= 2
         onFocusedChannelChange(if (showGradient) "SHOW_GRADIENT" else "")
@@ -17575,13 +17613,19 @@ private fun WideoChannelsScreen(
             // Row 1 = Slider Mix (colIndex 0 = rent button)
             put(Pair(1, 0), FocusRequester())
 
-            // Row 2 = Skróty v2 (colIndex 0-3 = 4 horizontal shortcuts, NO CategoryIcon)
-            repeat(verticalShortcuts.size) { colIndex ->
-                put(Pair(2, colIndex), FocusRequester())
+            // Row 2-3 = Seriale, Filmy fabularne (horizontal channels)
+            for (rowIndex in 2..3) {
+                put(Pair(rowIndex, -1), FocusRequester()) // CategoryIcon
+                put(Pair(rowIndex, 0), FocusRequester()) // Fixed focus position
             }
 
-            // Row 3+ = horizontal channels (CategoryIcon -1 + content 0)
-            for (rowIndex in 3 until channels.size + 1) {
+            // Row 4 = Skróty v3 (colIndex 0-5 = 6 horizontal shortcuts, NO CategoryIcon)
+            repeat(verticalShortcuts.size) { colIndex ->
+                put(Pair(4, colIndex), FocusRequester())
+            }
+
+            // Row 5+ = horizontal channels (CategoryIcon -1 + content 0)
+            for (rowIndex in 5 until channels.size + 1) {
                 put(Pair(rowIndex, -1), FocusRequester()) // CategoryIcon
                 put(Pair(rowIndex, 0), FocusRequester()) // Fixed focus position
             }
@@ -17590,8 +17634,11 @@ private fun WideoChannelsScreen(
 
     val lazyListStates = remember(channels.size) {
         mutableMapOf<Int, LazyListState>().apply {
-            // Row 3+ = horizontal channels with LazyRow
-            for (rowIndex in 3 until channels.size + 1) {
+            // Row 2-3 and 5+ = horizontal channels with LazyRow (skip row 4 = Skróty)
+            for (rowIndex in 2..3) {
+                put(rowIndex, LazyListState())
+            }
+            for (rowIndex in 5 until channels.size + 1) {
                 put(rowIndex, LazyListState())
             }
         }
@@ -17604,7 +17651,9 @@ private fun WideoChannelsScreen(
     LaunchedEffect(focusedRowIndex, focusedColIndex, isInitialized) {
         if (isInitialized) {
             kotlinx.coroutines.delay(0)
-            for (rowIndex in 3 until channels.size + 1) {
+            // Reset rows 2-3 and 5+ (skip row 4 = Skróty which has no LazyRow)
+            val horizontalRows = (2..3).toList() + (5 until channels.size + 1).toList()
+            for (rowIndex in horizontalRows) {
                 if (rowIndex != focusedRowIndex) {
                     val lazyListState = lazyListStates[rowIndex]
                     if (lazyListState != null && lazyListState.firstVisibleItemIndex > 0) {
@@ -17708,11 +17757,11 @@ private fun handleWideoChannelsNavigation(
 
                     // Determine target colIndex using "preserve type" principle
                     val targetColIndex = when {
-                        // Moving TO Row 2 (Skróty v2): always go to first shortcut (col=0)
-                        newRowIndex == 2 -> 0
-                        // Moving FROM Row 2 (Skróty v2) to normal channel:
+                        // Moving TO Row 4 (Skróty v3): always go to first shortcut (col=0)
+                        newRowIndex == 4 -> 0
+                        // Moving FROM Row 4 (Skróty v3) to normal channel:
                         // If on first shortcut -> CategoryIcon, else -> content
-                        focusedRowIndex == 2 -> if (focusedColIndex == 0) -1 else 0
+                        focusedRowIndex == 4 -> if (focusedColIndex == 0) -1 else 0
                         // Normal navigation: preserve type (CategoryIcon->CategoryIcon, content->content)
                         else -> if (focusedColIndex == -1) -1 else 0
                     }
@@ -17732,11 +17781,11 @@ private fun handleWideoChannelsNavigation(
 
                     // Determine target colIndex using "preserve type" principle
                     val targetColIndex = when {
-                        // Moving TO Row 2 (Skróty v2): always go to first shortcut (col=0)
-                        newRowIndex == 2 -> 0
-                        // Moving FROM Row 2 (Skróty v2) to normal channel:
+                        // Moving TO Row 4 (Skróty v3): always go to first shortcut (col=0)
+                        newRowIndex == 4 -> 0
+                        // Moving FROM Row 4 (Skróty v3) to normal channel:
                         // If on first shortcut -> CategoryIcon, else -> content
-                        focusedRowIndex == 2 -> if (focusedColIndex == 0) -1 else 0
+                        focusedRowIndex == 4 -> if (focusedColIndex == 0) -1 else 0
                         // Normal navigation: preserve type (CategoryIcon->CategoryIcon, content->content)
                         else -> if (focusedColIndex == -1) -1 else 0
                     }
@@ -17752,8 +17801,8 @@ private fun handleWideoChannelsNavigation(
             when (focusedRowIndex) {
                 // Row 1 (Slider Mix): Delegate to SliderMixScreen to handle carousel (like START)
                 1 -> return false
-                // Row 2 (Skróty v2): Direct focus navigation (NO scrolling, like APLIKACJE)
-                2 -> {
+                // Row 4 (Skróty v3): Direct focus navigation (NO scrolling, like APLIKACJE)
+                4 -> {
                     if (focusedColIndex > 0) {
                         val newColIndex = focusedColIndex - 1
                         onChannelContentFocusChange(focusedRowIndex, newColIndex)
@@ -17761,7 +17810,7 @@ private fun handleWideoChannelsNavigation(
                     }
                     return true
                 }
-                // Rows 3+ (Normal channels): CategoryIcon + scrolling content
+                // Rows 2-3 and 5+ (Normal channels): CategoryIcon + scrolling content
                 else -> {
                     when (focusedColIndex) {
                         -1 -> return true // Already on CategoryIcon
@@ -17786,8 +17835,8 @@ private fun handleWideoChannelsNavigation(
             when (focusedRowIndex) {
                 // Row 1 (Slider Mix): Delegate to SliderMixScreen to handle carousel (like START)
                 1 -> return false
-                // Row 2 (Skróty v2): Direct focus navigation (NO scrolling, like APLIKACJE)
-                2 -> {
+                // Row 4 (Skróty v3): Direct focus navigation (NO scrolling, like APLIKACJE)
+                4 -> {
                     if (focusedColIndex < verticalShortcuts.size - 1) {
                         val newColIndex = focusedColIndex + 1
                         onChannelContentFocusChange(focusedRowIndex, newColIndex)
@@ -17795,7 +17844,7 @@ private fun handleWideoChannelsNavigation(
                     }
                     return true
                 }
-                // Rows 3+ (Normal channels): CategoryIcon + scrolling content
+                // Rows 2-3 and 5+ (Normal channels): CategoryIcon + scrolling content
                 else -> {
                     when (focusedColIndex) {
                         -1 -> {
@@ -17871,9 +17920,9 @@ fun WideoChannelRowsLayout(
             )
         }
 
-        // Row 2+: All channels (Skróty v2 + horizontal channels) using unified component
+        // Row 2+: All channels (Skróty v3 at row 4 + horizontal channels) using unified component
         for (channelIndex in 1 until channels.size) {
-            val rowIndex = channelIndex + 1 // Row 2 = Skróty v2, Row 3+ = horizontal channels
+            val rowIndex = channelIndex + 1 // Row 2-3 = Seriale/Filmy, Row 4 = Skróty v3, Row 5+ = horizontal channels
             val channelName = channels[channelIndex]
             val rowContent = gridContent[channelName] ?: emptyList()
             val lazyListState = lazyListStates[rowIndex] ?: LazyListState()
@@ -18030,11 +18079,11 @@ fun WideoUnifiedChannelRow(
     lazyListState: LazyListState
 ) {
     val isCurrentRow = rowIndex == focusedRowIndex
-    val isShortcutsV2 = channel == "Skróty v2"
+    val isShortcutsV3 = channel == "Skróty v3"
     var showDetailsWithDelay by remember { mutableStateOf(false) }
 
     LaunchedEffect(isCurrentRow, focusedColIndex) {
-        val shouldShowDetails = !isShortcutsV2 && isCurrentRow && focusedColIndex == 0
+        val shouldShowDetails = !isShortcutsV3 && isCurrentRow && focusedColIndex == 0
         if (shouldShowDetails) {
             kotlinx.coroutines.delay(350)
             showDetailsWithDelay = true
@@ -18046,13 +18095,13 @@ fun WideoUnifiedChannelRow(
     Box(modifier = Modifier.fillMaxWidth()) {
         val isMiniaturesOnScreen = isCurrentRow && focusedColIndex >= 0
         val miniaturesYOffset by animateDpAsState(
-            targetValue = if (!isShortcutsV2 && isMiniaturesOnScreen) sy(290) else sy(0),
+            targetValue = if (!isShortcutsV3 && isMiniaturesOnScreen) sy(290) else sy(0),
             animationSpec = tween(durationMillis = 350, easing = androidx.compose.animation.core.EaseInOutCubic),
             label = "wideo_miniatures_y_offset_$rowIndex"
         )
 
         // Normal channel content (LazyRow with scrolling)
-        if (!isShortcutsV2) {
+        if (!isShortcutsV3) {
             LazyRow(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -18092,20 +18141,24 @@ fun WideoUnifiedChannelRow(
             }
         }
 
-        // Skróty v2 row (NO scrolling, direct focus navigation, horizontal layout like APLIKACJE)
-        if (isShortcutsV2) {
-            Row(
+        // Skróty v3 row - IDENTICAL to KINO_PLAY (LazyRow with ShortcutCard 235x208px)
+        if (isShortcutsV3) {
+            LazyRow(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .offset(y = miniaturesYOffset)
-                    .padding(start = sx(100)),
-                horizontalArrangement = Arrangement.spacedBy(sx(20))
+                    .height(sy(208)) // Figma: 208px card height - fixed, no animation
+                    .offset(y = miniaturesYOffset),
+                contentPadding = PaddingValues(
+                    start = sx(80), // Align with CategoryIcon position (same as KINO_PLAY)
+                    end = sx(20)
+                ),
+                horizontalArrangement = Arrangement.spacedBy(sx(24)) // Figma: 24px spacing (same as KINO_PLAY)
             ) {
-                shortcuts.forEachIndexed { colIndex, shortcut ->
+                itemsIndexed(shortcuts) { colIndex, shortcut ->
                     val isItemFocused = rowIndex == focusedRowIndex && colIndex == focusedColIndex
                     val focusRequester = channelFocusRequesters[Pair(rowIndex, colIndex)] ?: FocusRequester()
 
-                    ShortcutCardV2(
+                    ShortcutCard(
                         shortcut = shortcut,
                         isFocused = isItemFocused,
                         focusRequester = focusRequester,
@@ -18115,9 +18168,13 @@ fun WideoUnifiedChannelRow(
                             if (isFocused) onChannelContentFocusChange(rowIndex, colIndex)
                         },
                         onClick = {
-                            // Navigate to VodGridScreen with shortcut-specific filtered content
+                            // Navigate to VodGridScreen with shortcut-specific filtered content (like KINO_PLAY)
                             val vodList = VodDataCache.getVodContentList()
-                            val filtered = filterVodByWIDEOCategory(vodList, shortcut.title)
+                            val filtered = if (shortcut.categoryFilter != null) {
+                                filterMoviesByCategory(vodList, shortcut.categoryFilter)
+                            } else {
+                                vodList.shuffled().take(10)
+                            }
                             onNavigateToVodGrid(shortcut.title, filtered, "WIDEO")
                         }
                     )
@@ -18125,8 +18182,8 @@ fun WideoUnifiedChannelRow(
             }
         }
 
-        // Details overlay (only for normal channels, not Skróty v2)
-        if (!isShortcutsV2 && isCurrentRow && focusedColIndex == 0 && showDetailsWithDelay) {
+        // Details overlay (only for normal channels, not Skróty v3)
+        if (!isShortcutsV3 && isCurrentRow && focusedColIndex == 0 && showDetailsWithDelay) {
             val firstVisibleContent = rowContent.getOrNull(lazyListState.firstVisibleItemIndex)
             if (firstVisibleContent != null) {
                 Box(
@@ -18169,8 +18226,8 @@ fun WideoUnifiedChannelRow(
             }
         }
 
-        // CategoryIcon (only for normal channels, NOT for Skróty v2)
-        if (!isShortcutsV2) {
+        // CategoryIcon (only for normal channels, NOT for Skróty v3)
+        if (!isShortcutsV3) {
             Box(modifier = Modifier.offset(x = sx(80), y = sy(0))) {
                 val categoryIsFocused = rowIndex == focusedRowIndex && focusedColIndex == -1
                 val categoryFocusRequester = channelFocusRequesters[Pair(rowIndex, -1)]
@@ -18226,21 +18283,20 @@ private fun calculateWideoRowYPosition(
     val HORIZONTAL_NORMAL_HEIGHT = 256 // CategoryIcon (216px) + spacing (40px)
     val HORIZONTAL_EXPANDED_HEIGHT = 546 // CategoryIcon (216px) + miniatures (290px) + spacing (40px)
 
+    // Row heights: 1=Slider, 2-3=Seriale/Filmy, 4=Skróty, 5+=other channels
+    fun getRowHeight(row: Int): Int = when (row) {
+        1 -> SLIDER_MIX_HEIGHT
+        4 -> SHORTCUTS_V2_HEIGHT  // Skróty v3 is at row 4
+        else -> HORIZONTAL_NORMAL_HEIGHT
+    }
+
     return when {
         rowIndex < focusedRowIndex -> {
             // Rows above focused row
-            var cumulativeHeight = FIXED_FOCUS_Y - when (rowIndex) {
-                1 -> SLIDER_MIX_HEIGHT
-                2 -> SHORTCUTS_V2_HEIGHT
-                else -> HORIZONTAL_NORMAL_HEIGHT
-            }
+            var cumulativeHeight = FIXED_FOCUS_Y - getRowHeight(rowIndex)
 
             for (i in (rowIndex + 1) until focusedRowIndex) {
-                cumulativeHeight -= when (i) {
-                    1 -> SLIDER_MIX_HEIGHT
-                    2 -> SHORTCUTS_V2_HEIGHT
-                    else -> HORIZONTAL_NORMAL_HEIGHT
-                }
+                cumulativeHeight -= getRowHeight(i)
             }
 
             sy(cumulativeHeight)
@@ -18252,7 +18308,7 @@ private fun calculateWideoRowYPosition(
             // Rows below focused row
             val focusedRowExpansion = when (focusedRowIndex) {
                 1 -> SLIDER_MIX_HEIGHT
-                2 -> SHORTCUTS_V2_HEIGHT
+                4 -> SHORTCUTS_V2_HEIGHT  // Skróty v3 is at row 4
                 else -> {
                     if (focusedColIndex >= 0) HORIZONTAL_EXPANDED_HEIGHT else HORIZONTAL_NORMAL_HEIGHT
                 }
@@ -18261,11 +18317,7 @@ private fun calculateWideoRowYPosition(
             var cumulativeHeight = FIXED_FOCUS_Y + focusedRowExpansion
 
             for (i in (focusedRowIndex + 1) until rowIndex) {
-                cumulativeHeight += when (i) {
-                    1 -> SLIDER_MIX_HEIGHT
-                    2 -> SHORTCUTS_V2_HEIGHT
-                    else -> HORIZONTAL_NORMAL_HEIGHT
-                }
+                cumulativeHeight += getRowHeight(i)
             }
 
             sy(cumulativeHeight)
@@ -18455,6 +18507,154 @@ private fun PakietyScreenContent(
             // Description
             Text(
                 text = "Tutaj znajdziesz dostępne pakiety kanałów\ndo wyboru i aktywacji",
+                color = Color(0x99EEEEEE),
+                fontSize = (24 * sy(1).value / 1).sp,
+                textAlign = TextAlign.Center,
+                lineHeight = (36 * sy(1).value / 1).sp
+            )
+
+            // Navigation hint
+            Text(
+                text = "Naciśnij BACK aby wrócić do menu",
+                color = Color(0x80EEEEEE),
+                fontSize = (24 * sy(1).value / 1).sp,
+                modifier = Modifier.padding(top = sy(60))
+            )
+        }
+    }
+}
+
+// ============================================================================
+// APLIKACJE PLACEHOLDER SCREEN
+// ============================================================================
+
+/**
+ * Aplikacje section placeholder
+ * Shows "Ekran w przygotowaniu" message
+ */
+@Composable
+private fun AplikacjePlaceholderScreen(
+    globalFocusState: MutableState<GlobalFocusState>,
+    sx: (Int) -> Dp,
+    sy: (Int) -> Dp
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF281443))
+            .onPreviewKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown && event.key == Key.Back) {
+                    globalFocusState.value = GlobalFocusManager.returnToMenu(globalFocusState.value)
+                    return@onPreviewKeyEvent true
+                }
+                false
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(sy(40))
+        ) {
+            // Icon
+            Icon(
+                imageVector = Icons.Default.Star,
+                contentDescription = "Aplikacje",
+                modifier = Modifier.size(sx(120)),
+                tint = TopMenuDesign.COLOR_FOCUS_BORDER
+            )
+
+            // Title
+            Text(
+                text = "Aplikacje",
+                color = Color.White,
+                fontSize = (48 * sy(1).value / 1).sp,
+                fontWeight = FontWeight.Bold
+            )
+
+            // Placeholder info
+            Text(
+                text = "Ekran w przygotowaniu",
+                color = Color(0xCCEEEEEE),
+                fontSize = (32 * sy(1).value / 1).sp
+            )
+
+            // Description
+            Text(
+                text = "Tutaj znajdziesz dostępne aplikacje\nNetflix, YouTube, Disney+ i więcej",
+                color = Color(0x99EEEEEE),
+                fontSize = (24 * sy(1).value / 1).sp,
+                textAlign = TextAlign.Center,
+                lineHeight = (36 * sy(1).value / 1).sp
+            )
+
+            // Navigation hint
+            Text(
+                text = "Naciśnij BACK aby wrócić do menu",
+                color = Color(0x80EEEEEE),
+                fontSize = (24 * sy(1).value / 1).sp,
+                modifier = Modifier.padding(top = sy(60))
+            )
+        }
+    }
+}
+
+// ============================================================================
+// SEARCH PLACEHOLDER SCREEN
+// ============================================================================
+
+/**
+ * Search section placeholder
+ * Shows "Ekran w przygotowaniu" message
+ */
+@Composable
+private fun SearchPlaceholderScreen(
+    globalFocusState: MutableState<GlobalFocusState>,
+    sx: (Int) -> Dp,
+    sy: (Int) -> Dp
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF281443))
+            .onPreviewKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown && event.key == Key.Back) {
+                    globalFocusState.value = GlobalFocusManager.returnToMenu(globalFocusState.value)
+                    return@onPreviewKeyEvent true
+                }
+                false
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(sy(40))
+        ) {
+            // Icon
+            Icon(
+                imageVector = Icons.Default.Search,
+                contentDescription = "Szukaj",
+                modifier = Modifier.size(sx(120)),
+                tint = TopMenuDesign.COLOR_FOCUS_BORDER
+            )
+
+            // Title
+            Text(
+                text = "Szukaj",
+                color = Color.White,
+                fontSize = (48 * sy(1).value / 1).sp,
+                fontWeight = FontWeight.Bold
+            )
+
+            // Placeholder info
+            Text(
+                text = "Ekran w przygotowaniu",
+                color = Color(0xCCEEEEEE),
+                fontSize = (32 * sy(1).value / 1).sp
+            )
+
+            // Description
+            Text(
+                text = "Tutaj będziesz mógł wyszukiwać\nfilmy, seriale i programy TV",
                 color = Color(0x99EEEEEE),
                 fontSize = (24 * sy(1).value / 1).sp,
                 textAlign = TextAlign.Center,
@@ -19124,6 +19324,19 @@ private fun AccountChannelsScreen(
                 )
             }
         }
+
+        // Version number in bottom left corner
+        Text(
+            text = "v${BuildConfig.VERSION_NAME}",
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = sx(60), bottom = sy(40)),
+            style = TextStyle(
+                fontSize = (16 * sx(1).value).sp,
+                fontWeight = FontWeight.Normal,
+                color = Color(0xFFAAAAAA)
+            )
+        )
     }
 }
 
