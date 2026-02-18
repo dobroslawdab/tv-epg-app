@@ -1167,7 +1167,9 @@ private fun ChannelListCard(
     onFocusChange: () -> Unit,
     onClick: () -> Unit = {},
     sx: (Int) -> androidx.compose.ui.unit.Dp,
-    sy: (Int) -> androidx.compose.ui.unit.Dp
+    sy: (Int) -> androidx.compose.ui.unit.Dp,
+    displayNumber: Int? = null,  // Custom number to display (null = use channel.channelNumber)
+    useZeroPadding: Boolean = true  // true = "01", false = "1"
 ) {
     Column(
         modifier = Modifier
@@ -1226,7 +1228,10 @@ private fun ChannelListCard(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = (channel.channelNumber ?: 0).toString().padStart(2, '0'),  // Use channel's assigned number
+                text = run {
+                    val number = displayNumber ?: channel.channelNumber ?: 0
+                    if (useZeroPadding) number.toString().padStart(2, '0') else number.toString()
+                },
                 fontSize = (24 * sy(1).value / 1).sp,  // Figma: 24px
                 fontWeight = FontWeight.Medium,  // Figma: Medium (500)
                 lineHeight = (28 * sy(1).value / 1).sp,  // Reduced from 32px to 28px - fits in 54px box without cutoff
@@ -4407,6 +4412,14 @@ private fun TelewizjaChannelsScreen(
     var terazWTvPrograms by remember { mutableStateOf<List<VodContent>>(emptyList()) }
     var isLoadingEpg by remember { mutableStateOf(true) }
 
+    // Stan skrótu "Utwórz/Edytuj Moją listę kanałów": false = "Utwórz", true = "Edytuj"
+    var isMyListCreated by remember {
+        mutableStateOf(
+            context.getSharedPreferences("tv_prefs", Context.MODE_PRIVATE)
+                .getBoolean("my_list_created", false)
+        )
+    }
+
     // Załadować EPG i aktualne programy
     LaunchedEffect(Unit) {
         val startTime = System.currentTimeMillis()
@@ -4528,6 +4541,27 @@ private fun TelewizjaChannelsScreen(
     val newsChannels = remember { filterTvChannelsByCategory(context, tvChannelLogos, "informacyjne") }  // 200-209
     val mojaListaChannels = remember { filterTvChannelsByCategory(context, tvChannelLogos, "moja-lista") }  // 1-9
 
+    // Transformed mojaListaChannels - when isMyListCreated, reorder channels
+    // New order: Polsat News(6), Polsat News Polityka(3), Polsat(2), TVP1(1), 4Fun(4), TV4(5), TVP3(7), TVN24(8), TVP Sport(9)
+    val transformedMojaListaChannels = remember(isMyListCreated, mojaListaChannels) {
+        if (isMyListCreated && mojaListaChannels.size >= 9) {
+            // Reorder: [5, 2, 1, 0, 3, 4, 6, 7, 8] (0-indexed)
+            listOf(
+                mojaListaChannels[5],  // 01: Polsat News (was 6)
+                mojaListaChannels[2],  // 02: Polsat News Polityka (was 3)
+                mojaListaChannels[1],  // 03: Polsat (was 2)
+                mojaListaChannels[0],  // 04: TVP1 (was 1)
+                mojaListaChannels[3],  // 05: 4Fun TV (was 4)
+                mojaListaChannels[4],  // 06: TV4 (was 5)
+                mojaListaChannels[6],  // 07: TVP3 (was 7)
+                mojaListaChannels[7],  // 08: TVN24 (was 8)
+                mojaListaChannels[8]   // 09: TVP Sport (was 9)
+            )
+        } else {
+            mojaListaChannels // Unmodified
+        }
+    }
+
     // EPG section collapse state - MOVED TO TOP (now defined globally for keyboard shortcut access)
     // var isEpgSectionExpanded - defined at line ~710
 
@@ -4608,7 +4642,7 @@ private fun TelewizjaChannelsScreen(
         )
     }
 
-    val gridContent = remember(isEpgSectionExpanded, terazWTvPrograms, najczesciejMovies, serialePrograms, sportPrograms, teleturniejePrograms, epgCategoriesPrograms, popularneTerazPrograms) {
+    val gridContent = remember(isEpgSectionExpanded, terazWTvPrograms, najczesciejMovies, serialePrograms, sportPrograms, teleturniejePrograms, epgCategoriesPrograms, popularneTerazPrograms, isMyListCreated, mojaListaChannels) {
         val vodContentList = VodDataCache.getVodContentList()
         val kinoPlayMovies = VodDataCache.getKinoPlayMovies()
 
@@ -4619,8 +4653,24 @@ private fun TelewizjaChannelsScreen(
                 "[HEADER] Teraz w TV", "[HEADER] Było w TV - oglądaj teraz" -> emptyList() // Headers have no content
                 "Skróty v2" -> emptyList() // No horizontal content
                 "Kategorie EPG" -> {
-                    android.util.Log.d("GRID_CONTENT", "Kategorie EPG: ${epgCategoriesPrograms.size} current programs")
-                    epgCategoriesPrograms // Current EPG programs
+                    android.util.Log.d("GRID_CONTENT", "Kategorie EPG: ${epgCategoriesPrograms.size} current programs, isMyListCreated=$isMyListCreated")
+                    // Transform EPG categories when "Moja lista" is created
+                    // New order: [5, 2, 1, 0, 3, 4, 6, 7, 8] (0-indexed)
+                    if (isMyListCreated && epgCategoriesPrograms.size >= 9) {
+                        listOf(
+                            epgCategoriesPrograms[5],  // 01: Polsat News (was 6)
+                            epgCategoriesPrograms[2],  // 02: Polsat News Polityka (was 3)
+                            epgCategoriesPrograms[1],  // 03: Polsat (was 2)
+                            epgCategoriesPrograms[0],  // 04: TVP1 (was 1)
+                            epgCategoriesPrograms[3],  // 05: 4Fun TV (was 4)
+                            epgCategoriesPrograms[4],  // 06: TV4 (was 5)
+                            epgCategoriesPrograms[6],  // 07: TVP3 (was 7)
+                            epgCategoriesPrograms[7],  // 08: TVN24 (was 8)
+                            epgCategoriesPrograms[8]   // 09: TVP Sport (was 9)
+                        )
+                    } else {
+                        epgCategoriesPrograms // Current EPG programs (unmodified)
+                    }
                 }
                 "Popularne teraz" -> {
                     android.util.Log.d("GRID_CONTENT", "Popularne teraz: ${popularneTerazPrograms.size} shuffled programs")
@@ -4655,10 +4705,10 @@ private fun TelewizjaChannelsScreen(
         }
     }
 
-    // App-icons data for TELEWIZJA channels
-    val appIconsData = remember {
+    // App-icons data for TELEWIZJA channels - uses transformedMojaListaChannels for consistent ordering with Kategorie EPG
+    val appIconsData = remember(isMyListCreated, transformedMojaListaChannels) {
         mapOf(
-            "Moja lista kanałów" to mojaListaChannels,  // 1-9
+            "Moja lista kanałów" to transformedMojaListaChannels,  // 1-9 (same order as Kategorie EPG)
             "Wszystkie kanały" to tvChannelLogos,  // 1-119
             "Dla dzieci" to kidsChannels,  // 600-687
             "Sport" to sportChannels,  // 700-805 (NEW CATEGORY)
@@ -4668,8 +4718,35 @@ private fun TelewizjaChannelsScreen(
         )
     }
 
-    // Shortcuts v2 data for "Skróty v2" channel
-    val shortcuts = telewizjaShortcutsV2
+    // Shortcuts v2 data for "Skróty v2" channel - DYNAMIC based on isMyListCreated
+    val shortcuts = remember(isMyListCreated) {
+        listOf(
+            ShortcutItem("1", "Program\ntelewizyjny", ShortcutIcon.VectorIcon(R.drawable.ic_epg_tv)),
+            // NOWY SKRÓT - pozycja 2: Utwórz/Edytuj Moją listę kanałów
+            ShortcutItem(
+                "2",
+                if (isMyListCreated) "Edytuj Moją\nlistę kanałów" else "Utwórz Moją\nlistę kanałów",
+                ShortcutIcon.VectorIcon(
+                    if (isMyListCreated) R.drawable.ic_edit_list else R.drawable.ic_create_list
+                )
+            ),
+            ShortcutItem("3", "Widok listy\nkanałów", ShortcutIcon.VectorIcon(R.drawable.ic_channel_grid)),
+            ShortcutItem("4", "Nagrania", ShortcutIcon.VectorIcon(R.drawable.ic_recordings_tv)),
+            ShortcutItem("5", "Pakiety\ntelewizyjne", ShortcutIcon.VectorIcon(R.drawable.ic_tv_packages)),
+            ShortcutItem("6", "Igrzyska\nOlimpijskie", ShortcutIcon.VectorIcon(R.drawable.ic_olympics_2026)),
+            ShortcutItem("7", "Polsat Viasat\nNature", ShortcutIcon.VectorIcon(R.drawable.ic_viasat_nature))
+        )
+    }
+
+    // Callback for toggling "Utwórz/Edytuj Moją listę kanałów"
+    val onToggleMyList: () -> Unit = {
+        android.util.Log.d("SHORTCUT_V4", "Toggle My List: isMyListCreated = ${!isMyListCreated}")
+        isMyListCreated = !isMyListCreated
+        context.getSharedPreferences("tv_prefs", Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean("my_list_created", isMyListCreated)
+            .apply()
+    }
 
     var focusedRowIndex by remember { mutableStateOf(0) }
     var focusedColIndex by remember { mutableStateOf(-2) } // -2 = brak fokusa na starcie
@@ -4707,8 +4784,8 @@ private fun TelewizjaChannelsScreen(
                         put(Pair(rowIndex, 0), FocusRequester()) // Only content focus
                     }
                     channelName == "Skróty v2" -> {
-                        // Shortcuts v2: direct focus colIndex 0-5 (6 shortcuts including Igrzyska Olimpijskie)
-                        repeat(6) { colIndex ->
+                        // Shortcuts v2: direct focus colIndex 0-6 (7 shortcuts including Utwórz/Edytuj lista)
+                        repeat(7) { colIndex ->
                             put(Pair(rowIndex, colIndex), FocusRequester())
                         }
                     }
@@ -5072,7 +5149,10 @@ private fun TelewizjaChannelsScreen(
                 onNavigateToChannelGrid = onNavigateToChannelGrid,
                 onNavigateToVodGrid = onNavigateToVodGrid,
                 onNavigateToKinoGrid = onNavigateToKinoGrid,
-                onNavigateToRecordingsGrid = onNavigateToRecordingsGrid
+                onNavigateToRecordingsGrid = onNavigateToRecordingsGrid,
+                onToggleMyList = onToggleMyList,  // NEW: pass toggle callback
+                mojaListaChannels = transformedMojaListaChannels,  // NEW: for "Kategorie EPG" channel logos (transformed when isMyListCreated)
+                isMyListCreated = isMyListCreated  // NEW: for zero-padding (01-09)
             )
         }
     }
@@ -6665,6 +6745,7 @@ private fun ShortcutCardV4(
     onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> },
     onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> },
     onNavigateToOlympics: () -> Unit = { },
+    onToggleMyList: () -> Unit = { },  // NEW: Callback for "Utwórz/Edytuj Moją listę kanałów"
     appIconsData: Map<String, List<TvChannel>> = emptyMap(),
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
@@ -6725,7 +6806,13 @@ private fun ShortcutCardV4(
                             android.util.Log.d("SHORTCUT_V4", "Nawigacja do pakietów TV")
                             // TODO: Navigate to TV packages screen
                         }
-                        // Moja lista kanałów
+                        // Utwórz/Edytuj Moją listę kanałów (toggle state)
+                        plainTitle.contains("listę kanałów", ignoreCase = true) &&
+                        (plainTitle.contains("Utwórz", ignoreCase = true) || plainTitle.contains("Edytuj", ignoreCase = true)) -> {
+                            android.util.Log.d("SHORTCUT_V4", "Toggle My List clicked: $plainTitle")
+                            onToggleMyList()
+                        }
+                        // Moja lista kanałów (navigate to channel grid)
                         plainTitle.contains("lista kanałów", ignoreCase = true) -> {
                             onNavigateToChannelGrid(
                                 "Moja lista kanałów",
@@ -8036,7 +8123,9 @@ fun MojeUnifiedChannelRow(
                             onNavigateToEpgDay("Moja lista kanałów", epgId, 0, "MOJE")
                         },
                         sx = sx,
-                        sy = sy
+                        sy = sy,
+                        displayNumber = colIndex + 1,  // Position 1-9
+                        useZeroPadding = true  // 01-09
                     )
                 }
 
@@ -11267,7 +11356,10 @@ fun TelewizjaChannelRowsLayout(
     onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
-    onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> }
+    onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> },
+    onToggleMyList: () -> Unit = {},  // NEW: Callback for "Utwórz/Edytuj Moją listę kanałów"
+    mojaListaChannels: List<TvChannel> = emptyList(),  // NEW: for "Kategorie EPG" channel numbers/logos
+    isMyListCreated: Boolean = false  // NEW: for zero-padding (01-09) when true
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         channels.forEachIndexed { rowIndex, channelName ->
@@ -11317,7 +11409,10 @@ fun TelewizjaChannelRowsLayout(
                     onNavigateToKinoGrid = onNavigateToKinoGrid,
                     onNavigateToRecordingsGrid = onNavigateToRecordingsGrid,
                     onNavigateToOlympics = onNavigateToOlympics,
-                    appIconsData = appIconsData
+                    onToggleMyList = onToggleMyList,  // NEW: pass toggle callback
+                    appIconsData = appIconsData,
+                    mojaListaChannels = mojaListaChannels,  // NEW: pass for "Kategorie EPG" channel numbers/logos
+                    isMyListCreated = isMyListCreated  // NEW: for zero-padding (01-09)
                 )
             }
         }
@@ -11433,7 +11528,10 @@ fun TelewizjaUnifiedChannelRow(
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> },
     onNavigateToOlympics: () -> Unit = {},  // Navigate to Olympics page
-    appIconsData: Map<String, List<TvChannel>> = emptyMap()
+    onToggleMyList: () -> Unit = {},  // NEW: Callback for "Utwórz/Edytuj Moją listę kanałów"
+    appIconsData: Map<String, List<TvChannel>> = emptyMap(),
+    mojaListaChannels: List<TvChannel> = emptyList(),  // NEW: for "Kategorie EPG" channel numbers/logos
+    isMyListCreated: Boolean = false  // NEW: for zero-padding (01-09) when true
 ) {
     val isCurrentRow = rowIndex == focusedRowIndex
     val isShortcutsV2 = channel == "Skróty v2"
@@ -11672,6 +11770,8 @@ fun TelewizjaUnifiedChannelRow(
                             // ⭐ Each item gets its own FocusRequester (from map or new) - like APLIKACJE
                             val focusRequester = channelFocusRequesters[Pair(rowIndex, colIndex)] ?: FocusRequester()
 
+                            // "Moja lista kanałów" uses position 01-09, others use channel number without zero
+                            val isMojaLista = channel == "Moja lista kanałów"
                             ChannelListCard(
                                 channel = tvChannel,
                                 isFocused = isItemFocused,
@@ -11687,7 +11787,9 @@ fun TelewizjaUnifiedChannelRow(
                                     onNavigateToEpgDay(channel, epgId, 0, sectionId)  // Pass row name as channelId, epgId as itemId
                                 },
                                 sx = sx,
-                                sy = sy
+                                sy = sy,
+                                displayNumber = if (isMojaLista) colIndex + 1 else null,  // Moja lista: 1-9, others: channel number
+                                useZeroPadding = isMojaLista  // Moja lista: 01-09, others: 1, 2, 3...
                             )
                         }
 
@@ -11797,6 +11899,9 @@ fun TelewizjaUnifiedChannelRow(
                                     focusedColIndex == 0
                             val focusRequester = channelFocusRequesters[Pair(rowIndex, colIndex)] ?: FocusRequester()
 
+                            // Get corresponding mojaListaChannel for this position
+                            val mojaListaChannel = mojaListaChannels.getOrNull(colIndex)
+
                             CollectionSliderCard(
                                 vodContent = vodContent,
                                 isFocused = isItemFocused,
@@ -11808,7 +11913,12 @@ fun TelewizjaUnifiedChannelRow(
                                 },
                                 sx = sx,
                                 sy = sy,
-                                hideOverlayContent = hideCollectionSliderContent  // Hide when shortcuts focused
+                                hideOverlayContent = hideCollectionSliderContent,  // Hide when shortcuts focused
+                                mojaListaChannel = mojaListaChannel,  // NEW: pass channel for correct logo
+                                positionNumber = colIndex + 1,  // NEW: position-based number (1-9)
+                                useZeroPadding = isMyListCreated,  // NEW: "01" when true, "1" when false
+                                showPolecaneLabel = !isMyListCreated && colIndex == 0,  // "polecane" only on first tile (default list)
+                                showMojeLabel = isMyListCreated  // "moje" on all tiles (after "Utwórz listę")
                             )
                         }
 
@@ -12099,6 +12209,7 @@ fun TelewizjaUnifiedChannelRow(
                         onNavigateToRecordingsGrid = onNavigateToRecordingsGrid,
                         onNavigateToEpgDay = onNavigateToEpgDay,
                         onNavigateToOlympics = onNavigateToOlympics,
+                        onToggleMyList = onToggleMyList,  // NEW: pass toggle callback
                         appIconsData = appIconsData,
                         sx = sx,
                         sy = sy,
@@ -15746,7 +15857,12 @@ private fun CollectionSliderCard(
     onClick: () -> Unit = {},
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
-    hideOverlayContent: Boolean = false  // Hide title, metadata, progress bar, logo when shortcuts focused
+    hideOverlayContent: Boolean = false,  // Hide title, metadata, progress bar, logo when shortcuts focused
+    mojaListaChannel: TvChannel? = null,  // NEW: channel from "Moja lista kanałów" for correct logo
+    positionNumber: Int = 0,              // NEW: position-based number (1-9)
+    useZeroPadding: Boolean = false,      // NEW: true = "01", false = "1"
+    showPolecaneLabel: Boolean = false,   // NEW: show "polecane" label in top left
+    showMojeLabel: Boolean = false        // NEW: show "moje" label in top left
 ) {
     val cardWidth = sx(640)  // Figma: 640x360px
     val cardHeight = sy(360)
@@ -15988,33 +16104,70 @@ private fun CollectionSliderCard(
                 // - Title, metadata, progress bar in bottom area
                 val (progress, channelAndTime, channelName) = epgData
 
-                // Get channel data (logo URL and number) from helper function
+                // Get channel logo - prioritize mojaListaChannel over getTvChannelByEpgId
                 val tvChannelData = getTvChannelByEpgId(channelName)
-                val channelLogoUrl = tvChannelData?.logo ?: vodContent.channelLogoUrl ?: ""
-                val channelNumber = tvChannelData?.channelNumber ?: 0
+                val channelLogoUrl = mojaListaChannel?.logo
+                    ?: tvChannelData?.logo
+                    ?: vodContent.channelLogoUrl
+                    ?: ""
+                // Use position-based number (positionNumber) for display, fallback to channelNumber
+                val displayNumber = if (positionNumber > 0) positionNumber
+                    else mojaListaChannel?.channelNumber
+                    ?: tvChannelData?.channelNumber
+                    ?: 0
 
-                // Channel NUMBER in top RIGHT corner - Figma: channel_label with border
-                if (channelNumber > 0) {
+                // Channel NUMBER in top RIGHT corner - with PNG background and border
+                if (displayNumber > 0) {
                     Box(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
-                            .padding(top = sy(16), end = sx(16))  // Figma: spacing
-                            .size(sx(48), sy(48))  // Square container
                             .alpha(overlayAlpha)  // Fade with shortcuts focus
-                            .border(
-                                width = sx(2),
-                                color = Color(0xFFEEEEEE).copy(alpha = 0.4f),  // Figma: stroke-disabled
-                                shape = RoundedCornerShape(sx(4))
-                            ),
-                        contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = channelNumber.toString(),
-                            color = Color(0xFFEEEEEE),
-                            fontSize = (24 * (sy(1).value / 1.dp.value)).sp,
-                            fontWeight = FontWeight.Medium
+                        // PNG background (Figma: 164x164px) - covers the corner
+                        Image(
+                            painter = painterResource(id = R.drawable.pod_numer),
+                            contentDescription = null,
+                            modifier = Modifier.size(sx(164), sy(164)),
+                            contentScale = ContentScale.Fit
                         )
+                        // Number with border - positioned 24px from top (same as label), 24px from right
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(top = sy(24), end = sx(24))
+                                .height(sy(40))
+                                .widthIn(max = sx(64))
+                                .border(
+                                    width = sx(2),
+                                    color = Color(0xFFEEEEEE).copy(alpha = 0.4f),
+                                    shape = RoundedCornerShape(sx(4))
+                                )
+                                .padding(horizontal = sx(12), vertical = sy(8)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = if (useZeroPadding) displayNumber.toString().padStart(2, '0') else displayNumber.toString(),
+                                color = Color(0xFFEEEEEE),
+                                fontSize = (24 * (sy(1).value / 1.dp.value)).sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
                     }
+                }
+
+                // Label in top LEFT corner - "polecane" or "moje"
+                if (showPolecaneLabel || showMojeLabel) {
+                    Image(
+                        painter = painterResource(
+                            id = if (showMojeLabel) R.drawable.moje_label else R.drawable.polecane_label
+                        ),
+                        contentDescription = if (showMojeLabel) "Moje" else "Polecane",
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(top = sy(24), start = sx(24))  // Figma: 24px padding
+                            .alpha(overlayAlpha),
+                        contentScale = ContentScale.Fit
+                    )
                 }
 
                 // Channel LOGO in bottom LEFT corner - always visible
@@ -16024,7 +16177,7 @@ private fun CollectionSliderCard(
                         contentDescription = "Channel logo",
                         modifier = Modifier
                             .align(Alignment.BottomStart)
-                            .padding(start = sx(32), bottom = sy(16))  // Lower position (half)
+                            .padding(start = sx(32), bottom = sy(16))  // Centered in available space
                             .size(sx(72))  // Logo fills entire space
                             .alpha(overlayAlpha)  // Fade with shortcuts focus
                             .clip(CircleShape),
@@ -16042,17 +16195,17 @@ private fun CollectionSliderCard(
                             .alpha(overlayAlpha),  // Fade with shortcuts focus
                         verticalArrangement = Arrangement.spacedBy(sy(4))  // Reduced spacing
                     ) {
-                        // Program title - 31sp Bold (image mode), Manrope
+                        // Program title - Figma: 24sp Medium, Manrope, line-height 32px, tracking 0.48px
                         Text(
                             text = vodContent.title,
                             color = Color(0xFFEEEEEE),
-                            fontSize = (31 * (sy(1).value / 1.dp.value)).sp,
+                            fontSize = (24 * (sy(1).value / 1.dp.value)).sp,
                             fontFamily = ManropeFamily,
-                            fontWeight = FontWeight.Bold,
-                            lineHeight = (40 * (sy(1).value / 1.dp.value)).sp,
+                            fontWeight = FontWeight.Medium,
+                            lineHeight = (32 * (sy(1).value / 1.dp.value)).sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                            letterSpacing = 0.64.sp
+                            letterSpacing = 0.48.sp
                         )
 
                         // Metadata row: time | age - 18sp Medium, Manrope
