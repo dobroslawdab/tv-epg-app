@@ -19524,7 +19524,46 @@ private fun AccountChannelsScreen(
                     profileFocusRequester = profileFocusRequester,
                     menuListFocusRequesters = menuListFocusRequesters,
                     menuItemsCount = menuItems.size,
-                    onReturnToMenu = onReturnToMenu
+                    onReturnToMenu = onReturnToMenu,
+                    onItemClick = { index ->
+                        val item = menuItems.getOrNull(index) ?: return@handleAccountNavigation
+                        when (item.id) {
+                            "notifications" -> {
+                                if (availableUpdate != null) {
+                                    showNotificationUpdateDialog = true
+                                } else {
+                                    Log.d("ACCOUNT", "Brak nowych powiadomień")
+                                }
+                            }
+                            "startup_mode" -> {
+                                Log.d("ACCOUNT", "Navigate to Startup Mode Selection")
+                                onNavigateToStartupMode()
+                            }
+                            "remote_config" -> {
+                                Log.d("ACCOUNT", "Pobierz parametry clicked - fetching config from Supabase")
+                                coroutineScope.launch {
+                                    val result = ConfigManager.refreshConfig(context)
+                                    result.onSuccess { config ->
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            "Pobrano konfigurację v${config.version}",
+                                            android.widget.Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                    result.onFailure { error ->
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            "Błąd: ${error.message}",
+                                            android.widget.Toast.LENGTH_LONG
+                                        ).show()
+                                    }
+                                }
+                            }
+                            else -> {
+                                Log.d("ACCOUNT", "Clicked: ${item.title}")
+                            }
+                        }
+                    }
                 )
             }
     ) {
@@ -19967,7 +20006,8 @@ private fun handleAccountNavigation(
     profileFocusRequester: FocusRequester,
     menuListFocusRequesters: Map<Int, FocusRequester>,
     menuItemsCount: Int,
-    onReturnToMenu: () -> Unit
+    onReturnToMenu: () -> Unit,
+    onItemClick: ((Int) -> Unit)? = null
 ): Boolean {
     if (event.type != KeyEventType.KeyDown) return false
 
@@ -20015,6 +20055,11 @@ private fun handleAccountNavigation(
                         // At last item, stay in place
                         true
                     }
+                }
+                Key.Enter, Key.DirectionCenter -> {
+                    // ENTER/OK: trigger click on focused item
+                    onItemClick?.invoke(menuListIndex)
+                    true
                 }
                 Key.Back, Key.DirectionLeft -> {
                     // Return to top menu

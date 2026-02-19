@@ -392,16 +392,32 @@ fun TvRoot(
         repository.startBackgroundRefresh()
     }
 
-    // Check for app updates on startup
+    // Check for app updates on startup (show dialog immediately like before)
     LaunchedEffect(Unit) {
         updateManager.cleanupDownloadedApk()
         kotlinx.coroutines.delay(2000)
         val availableUpdate = updateManager.checkForUpdate()
         if (availableUpdate != null) {
             updateInfo = availableUpdate
-            com.uxellence.tv.v3.utils.VersionTracker.setKontoUpdateBadge(context, true)
-            if (availableUpdate.forceUpdate) {
-                showUpdateDialog = true  // Force update nadal pokazuje dialog
+            showUpdateDialog = true  // Show dialog on startup (as before)
+            com.uxellence.tv.v3.utils.VersionTracker.setKontoUpdateBadge(context, true)  // Also set badge on Konto
+            android.util.Log.d("UPDATE", "Update available: ${availableUpdate.versionName}")
+        }
+    }
+
+    // Periodic update check while app is running (every 30 min)
+    // When user is watching and new version appears → badge on Konto + notification
+    LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(30 * 60 * 1000L) // 30 minutes
+            if (updateInfo == null) {
+                // Only check if we don't already know about an update
+                val availableUpdate = updateManager.checkForUpdate()
+                if (availableUpdate != null) {
+                    updateInfo = availableUpdate
+                    com.uxellence.tv.v3.utils.VersionTracker.setKontoUpdateBadge(context, true)
+                    android.util.Log.d("UPDATE", "Periodic check: update found ${availableUpdate.versionName}")
+                }
             }
         }
     }
@@ -1135,7 +1151,7 @@ fun TvRoot(
                 },
                 onDismiss = {
                     showUpdateDialog = false
-                    updateInfo = null
+                    // Keep updateInfo so Konto > Powiadomienia can still show the update
                     updateState = com.uxellence.tv.v3.update.UpdateState.READY
                 }
             )

@@ -22,7 +22,9 @@ Thumbs.db
 app-debug-*.apk
 *_TEMP.kt
 
-# Local properties
+# Local properties & secrets
 local.properties
+scripts/import-movies.cjs
+scripts/update-short-descriptions.cjs
 uxellence-tv-privacy/
 .kotlin/
