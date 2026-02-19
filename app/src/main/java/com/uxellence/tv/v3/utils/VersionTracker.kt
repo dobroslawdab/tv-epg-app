@@ -20,6 +20,7 @@ object VersionTracker {
     private const val KEY_NOTIFICATION_BADGE = "notification_badge"
     private const val KEY_NAGRANIA_VERSION = "nagrania_version"
     private const val KEY_EPG_SECTION_EXPANDED = "epg_section_expanded"
+    private const val KEY_KONTO_UPDATE_BADGE = "konto_update_badge"
 
     // Aktualna wersja aplikacji - zaktualizuj przy każdej zmianie wersji
     private const val CURRENT_VERSION_CODE = 15  // Wersja 3.4.0
@@ -182,6 +183,14 @@ object VersionTracker {
             .edit()
             .putBoolean(KEY_NOTIFICATION_BADGE, visible)
             .apply()
+    }
+
+    fun getKontoUpdateBadge(context: Context): Boolean {
+        return getPreferences(context).getBoolean(KEY_KONTO_UPDATE_BADGE, false)
+    }
+
+    fun setKontoUpdateBadge(context: Context, visible: Boolean) {
+        getPreferences(context).edit().putBoolean(KEY_KONTO_UPDATE_BADGE, visible).apply()
     }
 
     /**

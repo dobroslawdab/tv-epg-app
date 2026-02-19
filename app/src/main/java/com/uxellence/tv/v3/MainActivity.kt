@@ -394,15 +394,15 @@ fun TvRoot(
 
     // Check for app updates on startup
     LaunchedEffect(Unit) {
-        // Cleanup any leftover APK from previous update attempts
         updateManager.cleanupDownloadedApk()
-
-        kotlinx.coroutines.delay(2000) // Wait 2s after startup
+        kotlinx.coroutines.delay(2000)
         val availableUpdate = updateManager.checkForUpdate()
         if (availableUpdate != null) {
             updateInfo = availableUpdate
-            showUpdateDialog = true
-            android.util.Log.d("UPDATE", "Update available: ${availableUpdate.versionName}")
+            com.uxellence.tv.v3.utils.VersionTracker.setKontoUpdateBadge(context, true)
+            if (availableUpdate.forceUpdate) {
+                showUpdateDialog = true  // Force update nadal pokazuje dialog
+            }
         }
     }
 
@@ -1079,6 +1079,21 @@ fun TvRoot(
                         olympicsSourceSection = sourceSection
                         previousScreen = NavigationScreen.TOP_MENU2
                         currentScreen = NavigationScreen.OLYMPICS
+                    },
+                    availableUpdate = updateInfo,
+                    updateState = updateState,
+                    onUpdateDownload = { info ->
+                        updateState = com.uxellence.tv.v3.update.UpdateState.DOWNLOADING
+                        downloadReceiver = updateManager.registerDownloadReceiver {
+                            updateState = com.uxellence.tv.v3.update.UpdateState.INSTALLING
+                        }
+                        updateManager.downloadApk(info)
+                    },
+                    onUpdateInstall = {
+                        updateManager.installApk()
+                    },
+                    onDismissUpdateBadge = {
+                        com.uxellence.tv.v3.utils.VersionTracker.setKontoUpdateBadge(context, false)
                     }
                 )
 

@@ -148,6 +148,9 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import com.uxellence.tv.v3.components.YouTubeTrailerPlayer
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.Lifecycle
 
 // Manrope Font Family
 private val ManropeFamily = FontFamily(
@@ -1304,7 +1307,12 @@ fun TopMenuScreen2(
     onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> },  // Navigate to Recordings grid (Zarządzaj nagraniami)
     onNavigateToMovieDetail: (VodSlideData) -> Unit = {},  // Navigate to MovieDetailScreen from KINO PLAY slider
     onNavigateToPurchase: (VodSlideData) -> Unit = {},  // Navigate directly to PurchaseScreen (quick mode)
-    onNavigateToOlympics: (content: List<VodContent>, sourceSection: String) -> Unit = { _, _ -> }  // Navigate to Olympics page
+    onNavigateToOlympics: (content: List<VodContent>, sourceSection: String) -> Unit = { _, _ -> },  // Navigate to Olympics page
+    availableUpdate: com.uxellence.tv.v3.update.AppUpdateInfo? = null,
+    updateState: com.uxellence.tv.v3.update.UpdateState = com.uxellence.tv.v3.update.UpdateState.READY,
+    onUpdateDownload: (com.uxellence.tv.v3.update.AppUpdateInfo) -> Unit = {},
+    onUpdateInstall: () -> Unit = {},
+    onDismissUpdateBadge: () -> Unit = {}
 ) {
     val configuration = LocalConfiguration.current
     val scaleX = configuration.screenWidthDp / 1920f
@@ -1375,6 +1383,21 @@ fun TopMenuScreen2(
     // Debounce state for PLAY/PAUSE to prevent rapid dialog opens (50ms minimum between opens)
     var lastDialogOpenTime by remember { mutableLongStateOf(0L) }
 
+    // Settings backdrop state - shown when Android settings drawer is open
+    var showSettingsBackdrop by remember { mutableStateOf(false) }
+
+    // Detect return from settings → hide backdrop
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                showSettingsBackdrop = false
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     var isContentLoading by remember { mutableStateOf(false) }
 
     val focusRequesters = remember(menuItems.size) {
@@ -1403,6 +1426,9 @@ fun TopMenuScreen2(
     // State for keyboard shortcuts (loaded from SharedPreferences)
     var isCandyBarVisible by remember { mutableStateOf(com.uxellence.tv.v3.utils.VersionTracker.getCandyBarVisibility(context)) }
     var showProfileNotificationBadge by remember { mutableStateOf(com.uxellence.tv.v3.utils.VersionTracker.getNotificationBadge(context)) }
+    var showKontoUpdateBadge by remember {
+        mutableStateOf(com.uxellence.tv.v3.utils.VersionTracker.getKontoUpdateBadge(context))
+    }
 
     // TopMenu design variant (1-4, cycled with key "4")
     val menuPrefs = remember { context.getSharedPreferences("top_menu_prefs", android.content.Context.MODE_PRIVATE) }
@@ -1978,7 +2004,15 @@ fun TopMenuScreen2(
                 onFocusedChannelChange = { signal ->
                     isTelewizjaSkrotyFocused = signal == "SHOW_GRADIENT"
                 },
-                onNavigateToOlympics = onNavigateToOlympics
+                onNavigateToOlympics = onNavigateToOlympics,
+                availableUpdate = availableUpdate,
+                updateState = updateState,
+                onUpdateDownload = onUpdateDownload,
+                onUpdateInstall = onUpdateInstall,
+                onDismissUpdateBadge = {
+                    onDismissUpdateBadge()
+                    showKontoUpdateBadge = false
+                }
             )
         }
 
@@ -2092,9 +2126,12 @@ fun TopMenuScreen2(
                 focusedRightButton = -1  // Clear right section focus
             },
             onSettingsClick = {
-                // Ustawienia → Open Android TV system settings
-                val intent = android.content.Intent(android.provider.Settings.ACTION_SETTINGS)
-                context.startActivity(intent)
+                showSettingsBackdrop = true
+                coroutineScope.launch {
+                    delay(150)  // Allow backdrop to render before launching settings
+                    val intent = android.content.Intent(android.provider.Settings.ACTION_SETTINGS)
+                    context.startActivity(intent)
+                }
             },
             onProfileClick = {
                 // Profil → Navigate to PROFILE section (profile switching)
@@ -2124,6 +2161,7 @@ fun TopMenuScreen2(
                 isPakietyFocused = false
             },
             showProfileNotificationBadge = showProfileNotificationBadge,
+            showKontoUpdateBadge = showKontoUpdateBadge,
             hazeState = hazeState,  // Pass haze state for blur effect
             variantConfig = currentVariantConfig,  // Design variant (key "4" to cycle)
             modifier = Modifier.align(Alignment.TopCenter).zIndex(10f)
@@ -2155,6 +2193,37 @@ fun TopMenuScreen2(
                     },
                     modifier = Modifier.fillMaxSize()
                 )
+            }
+        }
+
+        // Settings backdrop overlay - dark layer behind Android settings drawer
+        if (showSettingsBackdrop) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .zIndex(50f)
+                    .background(Color(0xFF281443))
+            ) {
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .padding(start = sx(200)),
+                    horizontalAlignment = Alignment.Start
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = null,
+                        tint = Color(0xFFEEEEEE),
+                        modifier = Modifier.size(sx(64))
+                    )
+                    Spacer(modifier = Modifier.height(sy(16)))
+                    Text(
+                        text = "Ustawienia systemowe",
+                        color = Color(0xFFEEEEEE),
+                        fontSize = (64 * sy(1).value).sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
         }
 
@@ -2215,6 +2284,7 @@ internal fun TopMenuBar2(
     isCandyBarVisible: Boolean = false,                                  // Toggle between Pakiety and CandyBar
     onCandyBarClick: () -> Unit = {},                                    // CandyBar -> Points History
     showProfileNotificationBadge: Boolean = false,
+    showKontoUpdateBadge: Boolean = false,
     hazeState: HazeState? = null,                                         // Haze state for blur effect
     variantConfig: TopMenuVariantConfig = MENU_VARIANTS[0],              // Design variant config (key "4" to cycle)
     modifier: Modifier = Modifier
@@ -2437,6 +2507,7 @@ internal fun TopMenuBar2(
                             isSelected = currentSelectedSection == "ACCOUNT",
                             focusRequester = rightButtonFocusRequesters[0]!!,
                             onClick = onKontoClick,
+                            showBadge = showKontoUpdateBadge,
                             onBoundsChanged = { },
                             focusType = variantConfig.focusType,
                             sx = sx,
@@ -2746,6 +2817,7 @@ internal fun TopMenuBar2(
                                     isSelected = currentSelectedSection == "ACCOUNT",
                                     focusRequester = rightButtonFocusRequesters[0]!!,
                                     onClick = onKontoClick,
+                                    showBadge = showKontoUpdateBadge,
                                     onBoundsChanged = { bounds ->
                                         focusBoundsMap["konto"] = bounds
                                     },
@@ -3103,6 +3175,7 @@ private fun KontoButton(
     isSelected: Boolean = false,  // NEW: Selected state when ACCOUNT section is active
     focusRequester: FocusRequester,
     onClick: () -> Unit,
+    showBadge: Boolean = false,  // Red notification dot for update available
     onBoundsChanged: (FocusableBounds) -> Unit = {},  // NEW: Report bounds for AnimatedFocusIndicator
     focusType: FocusType = FocusType.FLOATING_INDICATOR,  // Design variant focus style
     sx: (Int) -> androidx.compose.ui.unit.Dp,
@@ -3164,12 +3237,23 @@ private fun KontoButton(
             },
         contentAlignment = Alignment.Center
     ) {
-        Icon(
-            imageVector = Icons.Default.Person,
-            contentDescription = "Konto",
-            tint = contentColor,
-            modifier = Modifier.size(sx(48), sy(48))  // Figma: 48px icon
-        )
+        Box {
+            Icon(
+                imageVector = Icons.Default.Person,
+                contentDescription = "Konto",
+                tint = contentColor,
+                modifier = Modifier.size(sx(48), sy(48))  // Figma: 48px icon
+            )
+            if (showBadge) {
+                Box(
+                    modifier = Modifier
+                        .size(sx(24), sy(24))
+                        .offset(x = sx(28), y = -sy(4))
+                        .background(Color.Red, CircleShape)
+                        .border(sx(2), Color.White, CircleShape)
+                )
+            }
+        }
     }
 }
 
@@ -3630,7 +3714,12 @@ private fun FullPageContent(
     sliderVersion: Int = 1,  // 1 = V1 with carousel, 2 = V2 with border
     v3SliderAutoSlideEnabled: Boolean = false,  // Key.Eight toggle for V3 slider auto-slide and bullets
     onFocusedChannelChange: (String) -> Unit = {},  // Callback when focused channel changes (for top gradient on Skróty+)
-    onNavigateToOlympics: (content: List<VodContent>, sourceSection: String) -> Unit = { _, _ -> }  // Navigate to Olympics page
+    onNavigateToOlympics: (content: List<VodContent>, sourceSection: String) -> Unit = { _, _ -> },  // Navigate to Olympics page
+    availableUpdate: com.uxellence.tv.v3.update.AppUpdateInfo? = null,
+    updateState: com.uxellence.tv.v3.update.UpdateState = com.uxellence.tv.v3.update.UpdateState.READY,
+    onUpdateDownload: (com.uxellence.tv.v3.update.AppUpdateInfo) -> Unit = {},
+    onUpdateInstall: () -> Unit = {},
+    onDismissUpdateBadge: () -> Unit = {}
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
 
@@ -3738,7 +3827,12 @@ private fun FullPageContent(
                 onNavigateToStartupMode = onNavigateToStartupMode,
                 onPrepareReturnFocus = { onPrepareReturnFocus("ACCOUNT") },
                 sx = sx,
-                sy = sy
+                sy = sy,
+                availableUpdate = availableUpdate,
+                updateState = updateState,
+                onUpdateDownload = onUpdateDownload,
+                onUpdateInstall = onUpdateInstall,
+                onDismissUpdateBadge = onDismissUpdateBadge
             )
         }
         "POINTS_HISTORY" -> {
@@ -19208,7 +19302,12 @@ private fun AccountScreenContent(
     onNavigateToStartupMode: () -> Unit,
     onPrepareReturnFocus: () -> Unit = {},  // Set button focus state BEFORE returning
     sx: (Int) -> Dp,
-    sy: (Int) -> Dp
+    sy: (Int) -> Dp,
+    availableUpdate: com.uxellence.tv.v3.update.AppUpdateInfo? = null,
+    updateState: com.uxellence.tv.v3.update.UpdateState = com.uxellence.tv.v3.update.UpdateState.READY,
+    onUpdateDownload: (com.uxellence.tv.v3.update.AppUpdateInfo) -> Unit = {},
+    onUpdateInstall: () -> Unit = {},
+    onDismissUpdateBadge: () -> Unit = {}
 ) {
     var resetTrigger by remember { mutableStateOf(0) }
 
@@ -19233,7 +19332,12 @@ private fun AccountScreenContent(
         shouldAutoFocus = globalFocusState.value.sectionId == "ACCOUNT" && globalFocusState.value.currentRow > 0,
         sx = sx,
         sy = sy,
-        resetTrigger = resetTrigger
+        resetTrigger = resetTrigger,
+        availableUpdate = availableUpdate,
+        updateState = updateState,
+        onUpdateDownload = onUpdateDownload,
+        onUpdateInstall = onUpdateInstall,
+        onDismissUpdateBadge = onDismissUpdateBadge
     )
 }
 
@@ -19278,17 +19382,22 @@ private fun AccountChannelsScreen(
     shouldAutoFocus: Boolean = false,
     sx: (Int) -> Dp,
     sy: (Int) -> Dp,
-    resetTrigger: Int = 0
+    resetTrigger: Int = 0,
+    availableUpdate: com.uxellence.tv.v3.update.AppUpdateInfo? = null,
+    updateState: com.uxellence.tv.v3.update.UpdateState = com.uxellence.tv.v3.update.UpdateState.READY,
+    onUpdateDownload: (com.uxellence.tv.v3.update.AppUpdateInfo) -> Unit = {},
+    onUpdateInstall: () -> Unit = {},
+    onDismissUpdateBadge: () -> Unit = {}
 ) {
     val context = LocalContext.current
 
     // 10 menu items (Powiadomienia first, then Ekran startowy at row 3)
-    val menuItems = remember(context) {
+    val menuItems = remember(context, availableUpdate) {
         listOf(
             AccountMenuItem(
                 id = "notifications",
                 title = "Powiadomienia",
-                subtitle = "0 powiadomień",
+                subtitle = if (availableUpdate != null) "1 nowe powiadomienie" else "0 powiadomień",
                 icon = Icons.Default.Notifications
             ),
             AccountMenuItem(
@@ -19353,6 +19462,8 @@ private fun AccountChannelsScreen(
             )
         )
     }
+
+    var showNotificationUpdateDialog by remember { mutableStateOf(false) }
 
     // 2-level focus state (Profile, Menu List)
     var focusLevel by remember { mutableStateOf(AccountFocusLevel.PROFILE) }
@@ -19437,11 +19548,15 @@ private fun AccountChannelsScreen(
                         focusLevel = AccountFocusLevel.MENU_LIST
                         menuListIndex = index
                     },
+                    showNewLabel = item.id == "notifications" && availableUpdate != null,
                     onClick = {
                         when (item.id) {
                             "notifications" -> {
-                                Log.d("ACCOUNT", "Powiadomienia clicked - feature coming soon")
-                                // TODO: Implement notifications screen
+                                if (availableUpdate != null) {
+                                    showNotificationUpdateDialog = true
+                                } else {
+                                    Log.d("ACCOUNT", "Brak nowych powiadomień")
+                                }
                             }
                             "startup_mode" -> {
                                 Log.d("ACCOUNT", "Navigate to Startup Mode Selection")
@@ -19491,6 +19606,20 @@ private fun AccountChannelsScreen(
             )
         )
     }
+
+    if (showNotificationUpdateDialog && availableUpdate != null) {
+        com.uxellence.tv.v3.update.UpdateDialog(
+            updateInfo = availableUpdate,
+            currentVersion = BuildConfig.VERSION_NAME,
+            updateState = updateState,
+            onDownload = { onUpdateDownload(availableUpdate) },
+            onInstall = { onUpdateInstall() },
+            onDismiss = {
+                showNotificationUpdateDialog = false
+                onDismissUpdateBadge()
+            }
+        )
+    }
 }
 
 /**
@@ -19521,6 +19650,7 @@ private fun AccountMenuItemCard(
     focusRequester: FocusRequester,
     onFocused: () -> Unit,
     onClick: () -> Unit,
+    showNewLabel: Boolean = false,
     sx: (Int) -> Dp,
     sy: (Int) -> Dp
 ) {
@@ -19599,6 +19729,23 @@ private fun AccountMenuItemCard(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
+            }
+
+            if (showNewLabel) {
+                Box(
+                    modifier = Modifier
+                        .background(Color.Red, RoundedCornerShape(sx(8)))
+                        .padding(horizontal = sx(16), vertical = sy(4))
+                ) {
+                    Text(
+                        text = "Nowe",
+                        style = TextStyle(
+                            fontSize = (20 * sy(1).value).sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    )
+                }
             }
         }
     }
