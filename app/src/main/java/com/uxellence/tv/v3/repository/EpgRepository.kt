@@ -472,6 +472,34 @@ class EpgRepository private constructor(context: Context) {
         return uniqueOlympics
     }
 
+    /**
+     * Search EPG programs by title (last 48h + next 24h) — for Search screen
+     * Returns programs sorted: currently airing first, then future, then past
+     */
+    suspend fun searchByTitle(query: String, maxResults: Int = 20): List<EpgProgram> {
+        if (query.length < 2) return emptyList()
+        val now = Instant.now()
+        val past = now.minus(Duration.ofHours(48))
+        val future = now.plus(Duration.ofHours(24))
+
+        val allPrograms = programDao.getProgramsInTimeWindow(past, future)
+            .map { it.toEpgProgram() }
+
+        val queryLower = query.lowercase()
+        return allPrograms
+            .filter { it.title.lowercase().contains(queryLower) }
+            .distinctBy { "${it.title.lowercase().trim()}_${it.channelId}" }
+            .sortedWith(compareBy<EpgProgram> {
+                // Past (catch-up, watchable now) = 0, currently airing = 1, future = 2
+                when {
+                    it.endUtc.isBefore(now) -> 0         // past = catch-up content
+                    !now.isBefore(it.startUtc) && now.isBefore(it.endUtc) -> 1 // airing now
+                    else -> 2                             // future
+                }
+            }.thenByDescending { it.startUtc })
+            .take(maxResults)
+    }
+
     // Clear EPG cache (force refresh on next load)
     suspend fun clearCache() {
         android.util.Log.d("EpgRepository", "=== Clearing EPG cache ===")

@@ -1307,6 +1307,7 @@ fun TopMenuScreen2(
     onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> },  // Navigate to Recordings grid (Zarządzaj nagraniami)
     onNavigateToMovieDetail: (VodSlideData) -> Unit = {},  // Navigate to MovieDetailScreen from KINO PLAY slider
     onNavigateToPurchase: (VodSlideData) -> Unit = {},  // Navigate directly to PurchaseScreen (quick mode)
+    onNavigateToVodPlayer: (url: String, title: String) -> Unit = { _, _ -> },  // Navigate to VOD player with seeking
     onNavigateToOlympics: (content: List<VodContent>, sourceSection: String) -> Unit = { _, _ -> },  // Navigate to Olympics page
     availableUpdate: com.uxellence.tv.v3.update.AppUpdateInfo? = null,
     updateState: com.uxellence.tv.v3.update.UpdateState = com.uxellence.tv.v3.update.UpdateState.READY,
@@ -1616,6 +1617,11 @@ fun TopMenuScreen2(
                         onReturnToEpgDay()
                         onClosePip()
                         return@onPreviewKeyEvent true
+                    }
+
+                    // SEARCH handles its own BACK (channels→keyboard→menu)
+                    if (globalFocusState.value.sectionId == "SEARCH" && globalFocusState.value.currentRow != 0) {
+                        return@onPreviewKeyEvent false // Let SearchScreen handle BACK
                     }
 
                     // Normal BACK - from content to menu
@@ -1989,6 +1995,7 @@ fun TopMenuScreen2(
                 onNavigateToKinoGrid = onNavigateToKinoGrid,
                 onNavigateToMovieDetail = onNavigateToMovieDetail,
                 onNavigateToPurchase = onNavigateToPurchase,
+                onNavigateToVodPlayer = onNavigateToVodPlayer,
                 quickPurchaseMode = quickPurchaseMode,
                 onNavigateToRecordingsGrid = onNavigateToRecordingsGrid,
                 isEpgSectionExpanded = isEpgSectionExpanded,
@@ -3402,8 +3409,10 @@ private fun MenuSearchIcon2(
         else -> TopMenuDesign.COLOR_TEXT                                         // Figma: #EEEEEE
     }
 
-    // Border: ONLY for selected state when NOT using classic fill or floating fill
-    val showSelectedBorder = isSelected && !(isFocused && !isInStartContent) && !useClassicFill && !useFloatingFill
+    // Border: ONLY for selected state when NOT using any modern focus type
+    // FLOATING_INDICATOR uses AnimatedFocusIndicator — no internal border needed
+    val isFloatingIndicator = focusType == FocusType.FLOATING_INDICATOR
+    val showSelectedBorder = isSelected && !(isFocused && !isInStartContent) && !useClassicFill && !useFloatingFill && !isFloatingIndicator
     val borderWidth = if (showSelectedBorder) sx(TopMenuDesign.SELECTED_BORDER_WIDTH) else 0.dp  // 4px white
     val borderColor = if (showSelectedBorder) TopMenuDesign.COLOR_SELECTED_BORDER else Color.Transparent
 
@@ -3705,6 +3714,7 @@ private fun FullPageContent(
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToMovieDetail: (VodSlideData) -> Unit = {},  // Navigate to MovieDetailScreen from KINO PLAY slider
     onNavigateToPurchase: (VodSlideData) -> Unit = {},  // Navigate directly to PurchaseScreen (quick mode)
+    onNavigateToVodPlayer: (url: String, title: String) -> Unit = { _, _ -> },  // Navigate to VOD player with seeking
     quickPurchaseMode: Boolean = false,  // When true, skip MovieDetail and go directly to Purchase
     onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> },
     isEpgSectionExpanded: Boolean = false,
@@ -3734,11 +3744,14 @@ private fun FullPageContent(
 
     when (selectedSection) {
         "SEARCH" -> {
-            // Placeholder - ekran w przygotowaniu
-            SearchPlaceholderScreen(
+            com.uxellence.tv.v3.search.SearchScreen(
                 globalFocusState = globalFocusState,
                 sx = sx,
-                sy = sy
+                sy = sy,
+                onNavigateToMovieDetail = onNavigateToMovieDetail,
+                onReturnToMenu = {
+                    globalFocusState.value = GlobalFocusManager.returnToMenu(globalFocusState.value)
+                }
             )
         }
         "MOJE" -> {
@@ -3767,7 +3780,8 @@ private fun FullPageContent(
                 sy = sy,
                 sliderVersion = sliderVersion,  // V3 shortcuts when sliderVersion == 2
                 v3SliderAutoSlideEnabled = v3SliderAutoSlideEnabled,  // Key.Eight toggle for V3 slider
-                onFocusedChannelChange = onFocusedChannelChange
+                onFocusedChannelChange = onFocusedChannelChange,
+                onNavigateToVodPlayer = onNavigateToVodPlayer
             )
         }
         "TELEWIZJA" -> {
@@ -3796,6 +3810,7 @@ private fun FullPageContent(
                 onNavigateToKinoGrid = onNavigateToKinoGrid,
                 onNavigateToMovieDetail = onNavigateToMovieDetail,
                 onNavigateToPurchase = onNavigateToPurchase,
+                onNavigateToVodPlayer = onNavigateToVodPlayer,
                 quickPurchaseMode = quickPurchaseMode,
                 sx = sx,
                 sy = sy,
@@ -3972,7 +3987,8 @@ private fun OdkrywajScreenContent(
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     sliderVersion: Int = 2,  // 2 = V3 shortcuts (bigger cards), 1 = V2 shortcuts (smaller cards)
     v3SliderAutoSlideEnabled: Boolean = false,  // Key.Eight toggle for V3 slider auto-slide and bullets
-    onFocusedChannelChange: (String) -> Unit = {}  // Callback when focused channel changes (for top gradient)
+    onFocusedChannelChange: (String) -> Unit = {},  // Callback when focused channel changes (for top gradient)
+    onNavigateToVodPlayer: (url: String, title: String) -> Unit = { _, _ -> }  // Navigate to VOD player
 ) {
     var resetTrigger by remember { mutableIntStateOf(0) }
 
@@ -4003,7 +4019,8 @@ private fun OdkrywajScreenContent(
         resetTrigger = resetTrigger,
         sliderVersion = sliderVersion,  // V3 shortcuts when sliderVersion == 2
         v3SliderAutoSlideEnabled = v3SliderAutoSlideEnabled,  // Key.Eight toggle for V3 slider
-        onFocusedChannelChange = onFocusedChannelChange
+        onFocusedChannelChange = onFocusedChannelChange,
+        onNavigateToVodPlayer = onNavigateToVodPlayer
     )
 }
 
@@ -4082,7 +4099,8 @@ private fun OdkrywajChannelsScreen(
     resetTrigger: Int = 0,
     sliderVersion: Int = 2,  // 2 = V3 shortcuts (bigger cards), 1 = V2 shortcuts (smaller cards)
     v3SliderAutoSlideEnabled: Boolean = false,  // Key.Eight toggle for V3 slider auto-slide and bullets
-    onFocusedChannelChange: (String) -> Unit = {}  // Callback when focused channel changes (for top gradient visibility)
+    onFocusedChannelChange: (String) -> Unit = {},  // Callback when focused channel changes (for top gradient visibility)
+    onNavigateToVodPlayer: (url: String, title: String) -> Unit = { _, _ -> }  // Navigate to VOD player
 ) {
     val context = LocalContext.current
 
@@ -4419,7 +4437,9 @@ private fun OdkrywajChannelsScreen(
                     onReturnToMenu = onReturnToMenu,
                     // === Slider button index for KINO PLAY content ===
                     sliderButtonIndex = sliderButtonIndex,
-                    onSliderButtonIndexChange = { sliderButtonIndex = it }
+                    onSliderButtonIndexChange = { sliderButtonIndex = it },
+                    // === VOD Player navigation ===
+                    onNavigateToVodPlayer = onNavigateToVodPlayer
                 )
             }
             .focusable()
@@ -9126,7 +9146,9 @@ fun handleOdkrywajNavigation(
     onReturnToMenu: () -> Unit,
     // === Slider button index for KINO PLAY content ===
     sliderButtonIndex: Int = 0,
-    onSliderButtonIndexChange: (Int) -> Unit = {}
+    onSliderButtonIndexChange: (Int) -> Unit = {},
+    // === VOD Player navigation ===
+    onNavigateToVodPlayer: (url: String, title: String) -> Unit = { _, _ -> }
 ): Boolean {
     android.util.Log.d("ODKRYWAJ_NAV", "handleOdkrywajNavigation: key=${event.key}, focusedRow=$focusedRowIndex, focusedCol=$focusedColIndex")
     if (event.nativeKeyEvent.action != android.view.KeyEvent.ACTION_DOWN) return false
@@ -9311,6 +9333,35 @@ fun handleOdkrywajNavigation(
                         lazyListState.animateScrollToItem(lazyListState.firstVisibleItemIndex + 1)
                     }
                 }
+            }
+            return true
+        }
+
+        Key.Enter, Key.DirectionCenter -> {
+            if (focusedColIndex == -2) return false
+
+            // Row 0 (slider-max) - delegate to VodHeroSliderV2
+            if (focusedRowIndex == 0) {
+                return false
+            }
+
+            // For content rows: find the focused item and navigate to VOD player
+            val channelName = channels.getOrNull(focusedRowIndex) ?: return false
+            val rowContent = gridContent[channelName] ?: return false
+
+            // Calculate actual item index from LazyList scroll position + focus offset
+            val lazyListState = lazyListStates[focusedRowIndex]
+            val itemIndex = if (focusedColIndex >= 0) {
+                (lazyListState?.firstVisibleItemIndex ?: 0) + focusedColIndex
+            } else {
+                return false // CategoryIcon pressed - no action
+            }
+
+            val item = rowContent.getOrNull(itemIndex)
+            if (item != null && !item.youtubeUrl.isNullOrBlank()) {
+                android.util.Log.d("ODKRYWAJ_NAV", "OK pressed: playing '${item.title}' url=${item.youtubeUrl}")
+                onNavigateToVodPlayer(item.youtubeUrl!!, item.title)
+                return true
             }
             return true
         }
@@ -12436,6 +12487,7 @@ private fun VodScreenContent(
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToMovieDetail: (VodSlideData) -> Unit = {},  // Navigate to MovieDetailScreen from KINO PLAY slider
     onNavigateToPurchase: (VodSlideData) -> Unit = {},  // Navigate directly to PurchaseScreen (quick mode)
+    onNavigateToVodPlayer: (url: String, title: String) -> Unit = { _, _ -> },  // Navigate to VOD player
     onFocusedChannelChange: (String) -> Unit = {},  // Callback for top gradient
     quickPurchaseMode: Boolean = false,  // When true, skip MovieDetail and go directly to Purchase
     sx: (Int) -> androidx.compose.ui.unit.Dp,
@@ -12460,6 +12512,7 @@ private fun VodScreenContent(
         onNavigateToKinoGrid = onNavigateToKinoGrid,
         onNavigateToMovieDetail = onNavigateToMovieDetail,
         onNavigateToPurchase = onNavigateToPurchase,
+        onNavigateToVodPlayer = onNavigateToVodPlayer,
         quickPurchaseMode = quickPurchaseMode,
         sx = sx,
         sy = sy,
@@ -12554,6 +12607,7 @@ private fun VodWithChannels(
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToMovieDetail: (VodSlideData) -> Unit = {},  // Navigate to MovieDetailScreen from KINO PLAY slider
     onNavigateToPurchase: (VodSlideData) -> Unit = {},  // Navigate directly to PurchaseScreen (quick mode)
+    onNavigateToVodPlayer: (url: String, title: String) -> Unit = { _, _ -> },  // Navigate to VOD player
     quickPurchaseMode: Boolean = false,  // When true, skip MovieDetail and go directly to Purchase
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
@@ -12697,7 +12751,9 @@ private fun VodWithChannels(
                     // KINO_PLAY: Always V4 slider with 2 buttons navigation
                     sliderVersion = 4,  // Hardcoded - KINO_PLAY always uses V4
                     v4ButtonIndex = v4ButtonIndex,
-                    onV4ButtonIndexChange = { v4ButtonIndex = it }
+                    onV4ButtonIndexChange = { v4ButtonIndex = it },
+                    // VOD Player navigation
+                    onNavigateToVodPlayer = onNavigateToVodPlayer
                 )
             }
             .focusable()
@@ -17207,7 +17263,9 @@ fun handleVodNavigation(
     // V4 slider button navigation (optional - only used when sliderVersion == 4)
     sliderVersion: Int = 2,
     v4ButtonIndex: Int = 0,
-    onV4ButtonIndexChange: (Int) -> Unit = {}
+    onV4ButtonIndexChange: (Int) -> Unit = {},
+    // VOD Player navigation
+    onNavigateToVodPlayer: (url: String, title: String) -> Unit = { _, _ -> }
 ): Boolean {
     if (event.nativeKeyEvent.action != android.view.KeyEvent.ACTION_DOWN) return false
 
@@ -17396,6 +17454,30 @@ fun handleVodNavigation(
                         }
                     }
                 }
+            }
+            return true
+        }
+
+        Key.Enter, Key.DirectionCenter -> {
+            // Row 1 = slider - delegate to VodHeroSlider
+            if (focusedRowIndex == 1) {
+                return false
+            }
+
+            // Row 2+ = channel content - find focused item and open VOD player
+            if (focusedColIndex < 0) return true // CategoryIcon - no action
+
+            val channelIndex = focusedRowIndex - 2
+            val channelName = channels.getOrNull(channelIndex) ?: return true
+            val rowContent = gridContent[channelName] ?: return true
+
+            val lazyListState = lazyListStates[channelIndex]
+            val itemIndex = (lazyListState?.firstVisibleItemIndex ?: 0) + focusedColIndex
+            val item = rowContent.getOrNull(itemIndex)
+
+            if (item != null && !item.youtubeUrl.isNullOrBlank()) {
+                android.util.Log.d("VOD_NAV", "OK pressed: playing '${item.title}' url=${item.youtubeUrl}")
+                onNavigateToVodPlayer(item.youtubeUrl!!, item.title)
             }
             return true
         }

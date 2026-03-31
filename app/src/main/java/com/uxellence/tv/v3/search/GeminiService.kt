@@ -45,6 +45,47 @@ object GeminiService {
         val poster_path: String? = null
     )
 
+    // TMDB multi-search response with titles
+    @Serializable
+    data class TMDBMultiResult(
+        val id: Int = 0,
+        val title: String? = null,       // for movies
+        val name: String? = null,         // for tv shows
+        val media_type: String? = null,
+        val poster_path: String? = null
+    ) {
+        val displayTitle: String get() = title ?: name ?: ""
+    }
+
+    @Serializable
+    data class TMDBMultiSearchResponse(
+        val results: List<TMDBMultiResult> = emptyList()
+    )
+
+    /**
+     * Search TMDB for autocomplete suggestions (movie/tv titles)
+     */
+    suspend fun searchTitles(query: String, maxResults: Int = 6): List<String> {
+        if (query.length < 2) return emptyList()
+        return try {
+            val response: TMDBMultiSearchResponse = client.get("$TMDB_BASE_URL/search/multi") {
+                parameter("api_key", BuildConfig.TMDB_API_KEY)
+                parameter("query", query)
+                parameter("language", "pl-PL")
+                parameter("include_adult", "false")
+            }.body()
+
+            response.results
+                .filter { it.media_type in listOf("movie", "tv") }
+                .mapNotNull { it.displayTitle.takeIf { t -> t.isNotBlank() } }
+                .distinct()
+                .take(maxResults)
+        } catch (e: Exception) {
+            Log.e(TAG, "TMDB search titles error: ${e.message}")
+            emptyList()
+        }
+    }
+
     @Serializable
     data class GeminiRequestBody(
         val contents: List<GeminiContent>,
