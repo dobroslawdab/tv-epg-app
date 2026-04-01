@@ -12,12 +12,26 @@ android {
   namespace = "com.uxellence.tv.v3"
   compileSdk = 36
 
+  signingConfigs {
+      create("release") {
+          val properties = Properties()
+          val localPropertiesFile = rootProject.file("local.properties")
+          if (localPropertiesFile.exists()) {
+              properties.load(localPropertiesFile.inputStream())
+          }
+          storeFile = file(properties.getProperty("RELEASE_STORE_FILE", "${System.getProperty("user.home")}/test_makieta_tv.jks"))
+          storePassword = properties.getProperty("RELEASE_STORE_PASSWORD", "")
+          keyAlias = properties.getProperty("RELEASE_KEY_ALIAS", "")
+          keyPassword = properties.getProperty("RELEASE_KEY_PASSWORD", "")
+      }
+  }
+
       defaultConfig {
           applicationId = "com.uxellence.tv.prod"
           minSdk = 23  // Compose 1.10.0 requires minSdk 23
           targetSdk = 36
-          versionCode = 43
-          versionName = "5.2.2"
+          versionCode = 48
+          versionName = "5.3.2"
   
           // Specify the ABIs to build for. Including both 32-bit and 64-bit ensures compatibility.
           ndk {
@@ -39,6 +53,7 @@ android {
 
   buildTypes {
     release {
+      signingConfig = signingConfigs.getByName("release")
       isMinifyEnabled = false
       proguardFiles(
         getDefaultProguardFile("proguard-android-optimize.txt"),

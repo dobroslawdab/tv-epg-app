@@ -1351,6 +1351,10 @@ fun TopMenuScreen2(
         mutableStateOf(sliderPrefs.getBoolean("v3_auto_slide_enabled", false))
     }
 
+    // Search keyboard mode - Key.Nine toggles ABC keyboard ↔ System keyboard
+    val searchPrefs = remember { context.getSharedPreferences("search_prefs", android.content.Context.MODE_PRIVATE) }
+    var useSystemKeyboard by remember { mutableStateOf(searchPrefs.getBoolean("use_system_keyboard", false)) }
+
     val menuItems = remember {
         listOf(
             MenuItem2("ODKRYWAJ", "Start"),       // Moved from position 1 to 0
@@ -1735,7 +1739,14 @@ fun TopMenuScreen2(
                     return@onPreviewKeyEvent true
                 }
 
-                // Key "9" - Slider cycling REMOVED (fixed versions: ODKRYWAJ=V2, KINO_PLAY=V4, WIDEO=V2)
+                // Key "9" - Toggle Search keyboard mode (ABC keyboard ↔ System keyboard)
+                if (event.key == Key.Nine) {
+                    useSystemKeyboard = !useSystemKeyboard
+                    searchPrefs.edit().putBoolean("use_system_keyboard", useSystemKeyboard).apply()
+                    android.widget.Toast.makeText(context, "Szukaj: ${if (useSystemKeyboard) "Systemowa klawiatura" else "Klawiatura ABC"}", android.widget.Toast.LENGTH_SHORT).show()
+                    android.util.Log.d("TopMenuScreen2", "Key '9' pressed - Search keyboard: ${if (useSystemKeyboard) "SYSTEM" else "ABC"}")
+                    return@onPreviewKeyEvent true
+                }
 
                 // ===== END GLOBAL SHORTCUTS =====
 
@@ -2019,7 +2030,8 @@ fun TopMenuScreen2(
                 onDismissUpdateBadge = {
                     onDismissUpdateBadge()
                     showKontoUpdateBadge = false
-                }
+                },
+                useSystemKeyboard = useSystemKeyboard
             )
         }
 
@@ -3729,7 +3741,8 @@ private fun FullPageContent(
     updateState: com.uxellence.tv.v3.update.UpdateState = com.uxellence.tv.v3.update.UpdateState.READY,
     onUpdateDownload: (com.uxellence.tv.v3.update.AppUpdateInfo) -> Unit = {},
     onUpdateInstall: () -> Unit = {},
-    onDismissUpdateBadge: () -> Unit = {}
+    onDismissUpdateBadge: () -> Unit = {},
+    useSystemKeyboard: Boolean = false
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
 
@@ -3751,7 +3764,8 @@ private fun FullPageContent(
                 onNavigateToMovieDetail = onNavigateToMovieDetail,
                 onReturnToMenu = {
                     globalFocusState.value = GlobalFocusManager.returnToMenu(globalFocusState.value)
-                }
+                },
+                useSystemKeyboard = useSystemKeyboard
             )
         }
         "MOJE" -> {

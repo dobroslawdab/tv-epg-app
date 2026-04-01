@@ -86,6 +86,29 @@ object GeminiService {
         }
     }
 
+    /**
+     * Search TMDB for full movie/tv results with posters
+     */
+    suspend fun searchMovies(query: String, maxResults: Int = 20): List<TMDBMultiResult> {
+        if (query.length < 2) return emptyList()
+        return try {
+            val response: TMDBMultiSearchResponse = client.get("$TMDB_BASE_URL/search/multi") {
+                parameter("api_key", BuildConfig.TMDB_API_KEY)
+                parameter("query", query)
+                parameter("language", "pl-PL")
+                parameter("include_adult", "false")
+            }.body()
+
+            response.results
+                .filter { it.media_type in listOf("movie", "tv") && !it.displayTitle.isNullOrBlank() }
+                .distinctBy { it.displayTitle }
+                .take(maxResults)
+        } catch (e: Exception) {
+            Log.e(TAG, "TMDB search movies error: ${e.message}")
+            emptyList()
+        }
+    }
+
     @Serializable
     data class GeminiRequestBody(
         val contents: List<GeminiContent>,

@@ -115,6 +115,7 @@ private data class SearchItem(
 private const val CHANNEL_TYPE_EPG = "epg"       // horizontal landscape thumbnails
 private const val CHANNEL_TYPE_KINO = "kino"     // vertical posters
 private const val CHANNEL_TYPE_WIDEO = "wideo"   // horizontal landscape thumbnails (from VOD)
+private const val CHANNEL_TYPE_TMDB = "tmdb"     // vertical posters (from TMDB API)
 
 // Channel definitions for search results
 private data class SearchChannel(
@@ -129,9 +130,11 @@ fun SearchScreen(
     sx: (Int) -> Dp,
     sy: (Int) -> Dp,
     onNavigateToMovieDetail: (com.uxellence.tv.v3.VodSlideData) -> Unit = {},
-    onReturnToMenu: () -> Unit = {}
+    onReturnToMenu: () -> Unit = {},
+    useSystemKeyboard: Boolean = false
 ) {
     val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     var searchQuery by remember { mutableStateOf("") }
     var isNumberMode by remember { mutableStateOf(false) }
@@ -149,7 +152,9 @@ fun SearchScreen(
     var channelRow by remember { mutableIntStateOf(0) }
     var channelCol by remember { mutableIntStateOf(0) }
 
-    val context = LocalContext.current
+    // System keyboard mode: track if TextField is actively editing
+    var isInputEditing by remember { mutableStateOf(false) }
+
     val epgRepository = remember { EpgRepository.getInstance(context) }
 
     // All movies from Supabase (Kino Play)
@@ -200,8 +205,29 @@ fun SearchScreen(
         }
     }
 
+    // TMDB search results (debounced)
+    var tmdbResults by remember { mutableStateOf<List<SearchItem>>(emptyList()) }
+    LaunchedEffect(searchQuery) {
+        if (searchQuery.length < 2) {
+            tmdbResults = emptyList()
+            return@LaunchedEffect
+        }
+        kotlinx.coroutines.delay(500)
+        try {
+            val results = GeminiService.searchMovies(searchQuery, maxResults = 20)
+            tmdbResults = results.map { tmdb ->
+                SearchItem(
+                    title = tmdb.displayTitle,
+                    posterUrl = tmdb.poster_path?.let { "https://image.tmdb.org/t/p/w342$it" }
+                )
+            }
+        } catch (e: Exception) {
+            Log.e("SearchScreen", "TMDB search error", e)
+        }
+    }
+
     // Channels — dynamic: default when empty, search results when typing
-    val channels = remember(allMovies, allVodContent, searchQuery, epgResults) {
+    val channels = remember(allMovies, allVodContent, searchQuery, epgResults, tmdbResults) {
         fun SupabaseMovie.toSearchItem() = SearchItem(
             title = title,
             posterUrl = poster_url,
@@ -241,7 +267,8 @@ fun SearchScreen(
             listOf(
                 SearchChannel("W Telewizji", epgResults, CHANNEL_TYPE_EPG),
                 SearchChannel("Kino Play", kinoPlayMatched, CHANNEL_TYPE_KINO),
-                SearchChannel("Wideo", wideoMatched, CHANNEL_TYPE_WIDEO)
+                SearchChannel("Wideo", wideoMatched, CHANNEL_TYPE_WIDEO),
+                SearchChannel("Filmy i seriale", tmdbResults, CHANNEL_TYPE_TMDB)
             ).filter { it.items.isNotEmpty() }
         }
     }
@@ -281,15 +308,15 @@ fun SearchScreen(
         List(channels.size.coerceAtLeast(1)) { androidx.compose.foundation.lazy.LazyListState() }
     }
 
-    // Animate keyboard slide
-    val showKeyboard = focusArea != FOCUS_CHANNELS
+    // Animate keyboard slide (only in ABC mode)
+    val showKeyboard = !useSystemKeyboard && focusArea != FOCUS_CHANNELS
     val keyboardOffset by animateDpAsState(
         targetValue = if (showKeyboard) 0.dp else -sx(480),
         animationSpec = tween(300, easing = EaseInOutCubic),
         label = "kb_offset"
     )
     val contentOffset by animateDpAsState(
-        targetValue = if (showKeyboard) sx(450) else 0.dp,
+        targetValue = if (useSystemKeyboard) 0.dp else if (showKeyboard) sx(450) else 0.dp,
         animationSpec = tween(300, easing = EaseInOutCubic),
         label = "content_offset"
     )
@@ -335,6 +362,7 @@ fun SearchScreen(
         if (globalFocusState.value.currentRow > 0) {
             rootFocusRequester.requestFocus()
             if (focusArea == "NONE") {
+                // Both modes start on input (FOCUS_KEYBOARD = input in system mode)
                 focusArea = FOCUS_KEYBOARD
                 keyboardRow = 0
                 keyboardCol = 0
@@ -384,7 +412,10 @@ fun SearchScreen(
                                 resetChannels()
                             }
                             focusArea == FOCUS_KEYBOARD -> {
-                                if (searchQuery.isNotEmpty()) {
+                                if (isInputEditing) {
+                                    // Exit editing mode first
+                                    isInputEditing = false
+                                } else if (searchQuery.isNotEmpty()) {
                                     searchQuery = ""
                                 } else {
                                     onReturnToMenu()
@@ -399,6 +430,12 @@ fun SearchScreen(
                         when (focusArea) {
                             FOCUS_MIC -> { onReturnToMenu() }
                             FOCUS_KEYBOARD -> {
+                                if (useSystemKeyboard) {
+                                    // System mode: UP from input → menu
+                                    isInputEditing = false
+                                    onReturnToMenu()
+                                    return@onPreviewKeyEvent true
+                                }
                                 if (kbRow > 0) {
                                     keyboardRow = kbRow - 1
                                     keyboardCol = kbCol.coerceIn(0, kbRows[keyboardRow].size - 1)
@@ -419,9 +456,12 @@ fun SearchScreen(
                                         lazyListStates.forEach { it.scrollToItem(0) }
                                     }
                                 } else if (suggestions.isNotEmpty()) {
-                                    // From first channel UP → suggestions
                                     focusArea = FOCUS_SUGGESTIONS
                                     suggestionIndex = 0
+                                } else if (useSystemKeyboard) {
+                                    // System mode: first channel UP → input
+                                    focusArea = FOCUS_KEYBOARD
+                                    resetChannels()
                                 }
                             }
                         }
@@ -436,6 +476,19 @@ fun SearchScreen(
                                 keyboardCol = 0
                             }
                             FOCUS_KEYBOARD -> {
+                                if (useSystemKeyboard) {
+                                    // System mode: DOWN from input → channels
+                                    isInputEditing = false
+                                    if (suggestions.isNotEmpty()) {
+                                        focusArea = FOCUS_SUGGESTIONS
+                                        suggestionIndex = 0
+                                    } else {
+                                        focusArea = FOCUS_CHANNELS
+                                        channelRow = 0
+                                        channelCol = 0
+                                    }
+                                    return@onPreviewKeyEvent true
+                                }
                                 if (kbRow < kbRows.size - 1) {
                                     keyboardRow = kbRow + 1
                                     keyboardCol = kbCol.coerceIn(0, kbRows[keyboardRow].size - 1)
@@ -519,6 +572,11 @@ fun SearchScreen(
                         when (focusArea) {
                             FOCUS_MIC -> { /* TODO: voice search */ }
                             FOCUS_KEYBOARD -> {
+                                if (useSystemKeyboard) {
+                                    // System keyboard mode: toggle editing on input
+                                    isInputEditing = !isInputEditing
+                                    return@onPreviewKeyEvent true
+                                }
                                 val currentKey = kbRows[kbRow][kbCol]
                                 if (isLongPress && !longPressHandled) {
                                     // Long press on letter → Polish diacritic
@@ -600,42 +658,97 @@ fun SearchScreen(
                 )
             }
 
-            // Text input display
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(sy(72))
-                    .background(COLOR_INPUT_BG, RoundedCornerShape(sx(8)))
-                    .padding(horizontal = sx(16)),
-                contentAlignment = Alignment.CenterStart
-            ) {
-                if (searchQuery.isEmpty()) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = null,
-                            tint = COLOR_TEXT_TERTIARY,
-                            modifier = Modifier.size(sx(28))
-                        )
-                        Spacer(modifier = Modifier.width(sx(8)))
-                        Text(
-                            text = "Szukaj filmów, seriali, programów...",
-                            color = COLOR_TEXT_TERTIARY,
-                            fontSize = (28 * sx(1).value).sp,
-                            fontFamily = ManropeFamily,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                } else {
-                    Text(
-                        text = searchQuery,
-                        color = COLOR_TEXT_PRIMARY,
+            if (useSystemKeyboard) {
+                // System keyboard mode: real TextField, OK activates editing with system keyboard
+                val inputFocusRequester = remember { FocusRequester() }
+                val inputFocused = focusArea == FOCUS_KEYBOARD
+                val borderColor = if (isInputEditing) Color.White
+                    else if (inputFocused) COLOR_FOCUS_BORDER
+                    else Color.Transparent
+                val borderWidth = if (inputFocused || isInputEditing) 1.5.dp else 0.dp
+
+                androidx.compose.foundation.text.BasicTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it; suggestionIndex = 0 },
+                    singleLine = true,
+                    readOnly = !isInputEditing,
+                    cursorBrush = androidx.compose.ui.graphics.SolidColor(Color.White),
+                    textStyle = androidx.compose.ui.text.TextStyle(
                         fontSize = (28 * sx(1).value).sp,
                         fontFamily = ManropeFamily,
                         fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                        color = COLOR_TEXT_PRIMARY
+                    ),
+                    decorationBox = { innerTextField ->
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(COLOR_INPUT_BG, RoundedCornerShape(sx(8)))
+                                .padding(horizontal = sx(16), vertical = sy(8)),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            if (searchQuery.isEmpty()) {
+                                Text(
+                                    text = "Szukaj filmów, seriali, programów...",
+                                    color = COLOR_TEXT_TERTIARY,
+                                    fontFamily = ManropeFamily,
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = (28 * sx(1).value).sp
+                                )
+                            }
+                            innerTextField()
+                        }
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(sy(72))
+                        .border(borderWidth, borderColor, RoundedCornerShape(sx(8)))
+                        .focusRequester(inputFocusRequester)
+                )
+                // When entering editing mode, focus the TextField so IME opens
+                LaunchedEffect(isInputEditing) {
+                    if (isInputEditing) {
+                        inputFocusRequester.requestFocus()
+                    }
+                }
+            } else {
+                // ABC keyboard mode: display-only text box
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(sy(72))
+                        .background(COLOR_INPUT_BG, RoundedCornerShape(sx(8)))
+                        .padding(horizontal = sx(16)),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    if (searchQuery.isEmpty()) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = null,
+                                tint = COLOR_TEXT_TERTIARY,
+                                modifier = Modifier.size(sx(28))
+                            )
+                            Spacer(modifier = Modifier.width(sx(8)))
+                            Text(
+                                text = "Szukaj filmów, seriali, programów...",
+                                color = COLOR_TEXT_TERTIARY,
+                                fontSize = (28 * sx(1).value).sp,
+                                fontFamily = ManropeFamily,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    } else {
+                        Text(
+                            text = searchQuery,
+                            color = COLOR_TEXT_PRIMARY,
+                            fontSize = (28 * sx(1).value).sp,
+                            fontFamily = ManropeFamily,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
             }
         }
@@ -649,8 +762,8 @@ fun SearchScreen(
                 .clipToBounds()
         ) {
 
-                // === KEYBOARD PANEL (slides left when channels focused) ===
-                Column(
+                // === KEYBOARD PANEL (slides left when channels focused) — hidden in system keyboard mode ===
+                if (!useSystemKeyboard) Column(
                     modifier = Modifier
                         .width(sx(440))
                         .offset(x = keyboardOffset + sx(62))
@@ -974,6 +1087,7 @@ fun SearchScreen(
                 }
             }
         }
+
     }
 }
 
