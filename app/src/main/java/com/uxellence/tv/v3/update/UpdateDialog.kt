@@ -52,6 +52,7 @@ fun UpdateDialog(
     updateInfo: AppUpdateInfo,
     currentVersion: String,
     updateState: UpdateState,
+    downloadProgress: Int = 0,
     onDownload: () -> Unit,
     onInstall: () -> Unit,
     onDismiss: () -> Unit,
@@ -172,7 +173,7 @@ fun UpdateDialog(
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            text = "Pobieranie aktualizacji...",
+                            text = "Pobieranie aktualizacji... ${downloadProgress}%",
                             fontSize = 18.sp,
                             color = TEXT_SECONDARY
                         )

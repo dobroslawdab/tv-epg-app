@@ -43,6 +43,9 @@ import com.uxellence.tv.v3.epg.ZappingBarController
 import com.uxellence.tv.v3.epg.BackNavigationController
 import com.uxellence.tv.v3.epg.EpgNavigationController
 import com.uxellence.tv.v3.epg.NavigationDirection
+import com.uxellence.tv.v3.epg.TimeshiftController
+import com.uxellence.tv.v3.epg.FrameCaptureManager
+import com.google.android.exoplayer2.DefaultLoadControl
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
@@ -159,6 +162,13 @@ fun EpgDayScreen(
 
     // TOP MENU OVERLAY: Show on startup, hide when GUI appears
     var overlayVisible by remember { mutableStateOf(true) }
+
+    // TIMESHIFT: Seek state for live stream rewind with thumbnail preview
+    var isTimeshiftActive by remember { mutableStateOf(false) }
+    var timeshiftOffsetMs by remember { mutableLongStateOf(0L) }
+    var isAtLiveEdge by remember { mutableStateOf(true) }
+    var playerViewRef by remember { mutableStateOf<com.google.android.exoplayer2.ui.PlayerView?>(null) }
+    val frameCaptureManager = remember { FrameCaptureManager() }
 
     // Set initial PlayerInterfaceManager state based on launch mode
     LaunchedEffect(showTopMenuOverlay) {
@@ -608,7 +618,22 @@ fun EpgDayScreen(
     DisposableEffect(Unit) {
         android.util.Log.d("EpgDayScreen", "Creating persistent ExoPlayer instance")
 
-        val localPlayer = ExoPlayer.Builder(context).build().apply {
+        // Timeshift: 10-minute back-buffer for rewind capability (even without server-side DVR)
+        // retainBackBufferFromKeyframe=false → keeps full duration (not truncated to keyframes)
+        val loadControl = DefaultLoadControl.Builder()
+            .setBackBuffer(10 * 60 * 1000, false)
+            .build()
+
+        // Disable automatic live edge catch-up (allows timeshift to stay at seeked position)
+        val liveSpeedControl = com.google.android.exoplayer2.DefaultLivePlaybackSpeedControl.Builder()
+            .setFallbackMaxPlaybackSpeed(1.0f)
+            .setTargetLiveOffsetIncrementOnRebufferMs(0)
+            .build()
+
+        val localPlayer = ExoPlayer.Builder(context)
+            .setLoadControl(loadControl)
+            .setLivePlaybackSpeedControl(liveSpeedControl)
+            .build().apply {
             playWhenReady = true
 
             // Debug listener to track player state
@@ -645,6 +670,7 @@ fun EpgDayScreen(
             } else {
                 android.util.Log.d("EpgDayScreen", "Player transferred to PIP - not releasing resources")
             }
+            frameCaptureManager.release()
         }
     }
 
@@ -653,13 +679,27 @@ fun EpgDayScreen(
         if (streamUrl.isNotEmpty() && player != null) {
             android.util.Log.d("EpgDayScreen", "Changing stream source to: $streamUrl (trigger=$playerResetTrigger)")
 
-            val mediaItem = MediaItem.fromUri(streamUrl)
+            val mediaItem = MediaItem.Builder()
+                .setUri(streamUrl)
+                .setLiveConfiguration(
+                    MediaItem.LiveConfiguration.Builder()
+                        .setMinPlaybackSpeed(1.0f)   // Disable auto speed-down
+                        .setMaxPlaybackSpeed(1.0f)   // Disable auto catch-up to live edge
+                        .build()
+                )
+                .build()
             player?.apply {
                 stop()
                 setMediaItem(mediaItem)
                 prepare()
                 play()
             }
+
+            // Reset timeshift state on channel switch
+            frameCaptureManager.clear()
+            isTimeshiftActive = false
+            timeshiftOffsetMs = 0L
+            isAtLiveEdge = true
 
             android.util.Log.d("EpgDayScreen", "Stream source changed successfully")
         } else if (streamUrl.isEmpty()) {
@@ -812,6 +852,147 @@ fun EpgDayScreen(
         )
     }
 
+    // Controller 4: Timeshift (LEFT/RIGHT when GUI hidden → seek ±10s with thumbnail preview)
+    // PAUSE on first seek, RESUME on OK/BACK. Capture frame after each seek (player paused = safe).
+    val seekStepMs = TimeshiftController.SEEK_STEP_MS
+
+    // Helper: calculate seek position for live HLS using timeshiftOffsetMs
+    // Live HLS: player.duration = end of seekable window (live edge in window coordinates)
+    // Seek to (liveEdge - offset) to go backwards from live edge
+    fun calculateSeekPosition(p: ExoPlayer): Long {
+        val dur = p.duration
+        val bufPos = p.bufferedPosition
+        val curPos = p.currentPosition
+        // Use best available "live edge" reference
+        val liveEdge = when {
+            dur > 0 && dur != Long.MIN_VALUE + 1 -> dur  // C.TIME_UNSET = Long.MIN_VALUE + 1
+            bufPos > 0 -> bufPos
+            curPos > 0 -> curPos
+            else -> 0L
+        }
+        val target = (liveEdge - timeshiftOffsetMs).coerceAtLeast(0)
+        android.util.Log.d("TimeshiftCtrl", "SEEK: liveEdge=$liveEdge, offset=$timeshiftOffsetMs, target=$target (dur=$dur, buf=$bufPos, cur=$curPos)")
+        return target
+    }
+
+    val timeshiftController = remember {
+        TimeshiftController(
+            onSeekBack = {
+                val p = player ?: return@TimeshiftController
+                if (!isTimeshiftActive) {
+                    p.pause()
+                    android.util.Log.d("TimeshiftCtrl", "PAUSED player for timeshift")
+                }
+                // Limit offset to seekable window (duration = live window size from HLS server)
+                val maxOffset = p.duration.takeIf { it > 0 && it != Long.MIN_VALUE + 1 } ?: 0L
+                if (timeshiftOffsetMs + seekStepMs > maxOffset && maxOffset > 0) {
+                    timeshiftOffsetMs = maxOffset  // Cap at max
+                    android.util.Log.d("TimeshiftCtrl", "Seek back: HIT LIMIT (max=${maxOffset}ms / ${maxOffset/1000}s)")
+                } else {
+                    timeshiftOffsetMs += seekStepMs
+                }
+                val seekPos = calculateSeekPosition(p)
+                p.seekTo(seekPos)
+                isTimeshiftActive = true
+                isAtLiveEdge = false
+                android.util.Log.d("TimeshiftCtrl", "Seek back: offset=${timeshiftOffsetMs}ms, seekPos=${seekPos}ms, max=${maxOffset}ms")
+                // Capture frame at new position (player paused = safe PixelCopy)
+                coroutineScope.launch {
+                    kotlinx.coroutines.delay(200)
+                    frameCaptureManager.captureFrame(playerViewRef, timeshiftOffsetMs)
+                }
+            },
+            onSeekForward = {
+                val p = player ?: return@TimeshiftController
+                if (timeshiftOffsetMs <= seekStepMs) {
+                    // Return to live edge + resume
+                    p.seekToDefaultPosition()
+                    p.play()
+                    isAtLiveEdge = true
+                    isTimeshiftActive = false
+                    timeshiftOffsetMs = 0L
+                    android.util.Log.d("TimeshiftCtrl", "Returned to LIVE edge + RESUMED")
+                } else {
+                    timeshiftOffsetMs = (timeshiftOffsetMs - seekStepMs).coerceAtLeast(0)
+                    val seekPos = calculateSeekPosition(p)
+                    p.seekTo(seekPos)
+                    isTimeshiftActive = true
+                    android.util.Log.d("TimeshiftCtrl", "Seek forward: offset=${timeshiftOffsetMs}ms, seekPos=${seekPos}ms")
+                    // Capture frame at new position
+                    coroutineScope.launch {
+                        kotlinx.coroutines.delay(200)
+                        frameCaptureManager.captureFrame(playerViewRef, timeshiftOffsetMs)
+                    }
+                }
+            },
+            onReturnToLive = {
+                player?.seekToDefaultPosition()
+                player?.play()
+                isAtLiveEdge = true
+                isTimeshiftActive = false
+                timeshiftOffsetMs = 0L
+                android.util.Log.d("TimeshiftCtrl", "Return to LIVE + RESUMED")
+            },
+            onConfirmPosition = {
+                // OK: re-seek to confirm position, then play
+                val p = player ?: return@TimeshiftController
+                val seekPos = calculateSeekPosition(p)
+                p.seekTo(seekPos)
+                p.play()
+                isTimeshiftActive = false
+                android.util.Log.d("TimeshiftCtrl", "OK: offset=${timeshiftOffsetMs}ms, seekPos=${seekPos}ms, RESUMED")
+            }
+        )
+    }
+
+    // TIMESHIFT: Auto-hide overlay after 5 seconds, resume playback from timeshifted position
+    var timeshiftLastInputTime by remember { mutableLongStateOf(0L) }
+    LaunchedEffect(timeshiftOffsetMs, isTimeshiftActive) {
+        if (isTimeshiftActive) {
+            timeshiftLastInputTime = System.currentTimeMillis()
+            kotlinx.coroutines.delay(5000)
+            if (System.currentTimeMillis() - timeshiftLastInputTime >= 4900) {
+                // Auto-confirm: re-seek + resume from timeshifted position
+                player?.let { p ->
+                    val seekPos = calculateSeekPosition(p)
+                    p.seekTo(seekPos)
+                    p.play()
+                }
+                isTimeshiftActive = false
+                android.util.Log.d("TimeshiftCtrl", "Auto-confirm: RESUMED at offset ${timeshiftOffsetMs}ms")
+            }
+        }
+    }
+
+    // TIMESHIFT: Frame capture — pre-capture immediately on ready, then every 5s
+    // Tag frames with offset from live: 0 = live edge, 5000 = 5s ago, etc.
+    // During live playback, each successive capture is 5s older (offset increments by 5000)
+    var liveCaptureOffsetMs by remember { mutableLongStateOf(0L) }
+    LaunchedEffect(player) {
+        val p = player ?: return@LaunchedEffect
+        liveCaptureOffsetMs = 0L
+        // Wait for player to be ready
+        while (p.playbackState != com.google.android.exoplayer2.Player.STATE_READY) {
+            kotlinx.coroutines.delay(200)
+        }
+        // Pre-capture: 3 quick frames at 1s intervals
+        repeat(3) {
+            if (p.isPlaying) {
+                frameCaptureManager.captureFrame(playerViewRef, liveCaptureOffsetMs)
+            }
+            kotlinx.coroutines.delay(1000)
+            liveCaptureOffsetMs += 1000
+        }
+        // Normal periodic capture every 5s
+        while (true) {
+            kotlinx.coroutines.delay(FrameCaptureManager.CAPTURE_INTERVAL_MS)
+            if (p.playbackState == com.google.android.exoplayer2.Player.STATE_READY && p.isPlaying) {
+                frameCaptureManager.captureFrame(playerViewRef, liveCaptureOffsetMs)
+                liveCaptureOffsetMs += FrameCaptureManager.CAPTURE_INTERVAL_MS
+            }
+        }
+    }
+
     // ZAPPING BAR: Set up channel change callback (now switchChannel is available)
     LaunchedEffect(allChannelRows.size) {
         if (allChannelRows.isNotEmpty()) {
@@ -853,7 +1034,18 @@ fun EpgDayScreen(
                     return@onPreviewKeyEvent true
                 }
 
-                // PRIORITY 2: BACK → BackNavigationController (3-level: Collapse+Reset → Hide GUI → Exit)
+                // PRIORITY 2: BACK → Cancel timeshift first, then BackNavigationController
+                if (event.key == Key.Back && (isTimeshiftActive || timeshiftOffsetMs > 0)) {
+                    // Cancel timeshift, return to live, resume playback
+                    player?.seekToDefaultPosition()
+                    player?.play()
+                    isTimeshiftActive = false
+                    isAtLiveEdge = true
+                    timeshiftOffsetMs = 0L
+                    android.util.Log.d("TimeshiftCtrl", "BACK: Cancelled timeshift, returned to LIVE + RESUMED")
+                    return@onPreviewKeyEvent true
+                }
+
                 if (event.key == Key.Back) {
                     return@onPreviewKeyEvent backController.handleBackKey(
                         interfaceState = interfaceState,
@@ -893,6 +1085,19 @@ fun EpgDayScreen(
                             android.util.Log.d("EpgDayScreen", "BACK: Hidden GUI interface")
                         }
                     )
+                }
+
+                // PRIORITY 2.5: Timeshift (LEFT/RIGHT when GUI hidden → seek ±5s)
+                // When GUI visible: return false → LEFT/RIGHT goes to EPG navigation below
+                // When GUI hidden: LEFT=seek back, RIGHT=seek forward
+                if (timeshiftController.handleTimeshiftKeys(
+                        event = event,
+                        interfaceVisible = interfaceVisible,
+                        isTimeshiftAvailable = player != null,
+                        isTimeshiftActive = isTimeshiftActive || timeshiftOffsetMs > 0
+                    )
+                ) {
+                    return@onPreviewKeyEvent true
                 }
 
                 // PRIORITY 3: EPG Navigation (UP/DOWN/LEFT/RIGHT/OK) → EpgNavigationController
@@ -936,11 +1141,12 @@ fun EpgDayScreen(
                 factory = { ctx ->
                     PlayerView(ctx).apply {
                         useController = false
-                    }
+                    }.also { playerViewRef = it }
                 },
                 update = { playerView ->
                     // Update PlayerView with new player when it changes
                     playerView.player = player
+                    playerViewRef = playerView
                     android.util.Log.d("EpgDayScreen", "PlayerView updated with new player: ${player != null}")
                 },
                 modifier = Modifier
@@ -1109,6 +1315,25 @@ fun EpgDayScreen(
                 // No overlay rendering
             }
         }
+
+        // TIMESHIFT OVERLAY: Filmstrip of thumbnails during timeshift
+        // Shows 5 thumbnails: [-20s, -10s, current, +10s, +20s] with center enlarged
+        TimeshiftOverlay(
+            isVisible = isTimeshiftActive,
+            offsetMs = timeshiftOffsetMs,
+            frames = if (isTimeshiftActive) {
+                frameCaptureManager.getFramesAround(
+                    centerPositionMs = timeshiftOffsetMs,  // Offset from live edge
+                    stepMs = TimeshiftController.SEEK_STEP_MS,
+                    sideCount = 3  // 3 on each side = 7 total (full width)
+                )
+            } else emptyList(),
+            isAtLiveEdge = isAtLiveEdge,
+            maxBufferMs = player?.duration?.takeIf { it > 0 && it != Long.MIN_VALUE + 1 } ?: 40_000L,
+            totalOffsetMs = timeshiftOffsetMs,
+            sx = sx,
+            sy = sy
+        )
 
         // TOP MENU OVERLAY: Show ONLY when launched from startup mode (MODE_EPG_DAY)
         // NOT shown when launched from TOP_MENU2 (clicking on channel)

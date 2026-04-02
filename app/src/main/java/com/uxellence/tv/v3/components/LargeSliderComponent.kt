@@ -108,7 +108,7 @@ fun LargeSliderComponent(
                 horizontalArrangement = Arrangement.spacedBy(sx(20)),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                itemsIndexed(movies) { index, movie ->
+                itemsIndexed(movies, key = { _, movie -> movie.id }) { index, movie ->
                     LargeMovieCard(
                         movie = movie,
                         isFocused = index == focusedIndex && isSectionFocused,

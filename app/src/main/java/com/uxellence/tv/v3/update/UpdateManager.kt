@@ -1,10 +1,7 @@
 package com.uxellence.tv.v3.update
 
-import android.app.DownloadManager
-import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.content.pm.PackageInfo
 import android.net.Uri
 import android.os.Build
@@ -14,6 +11,8 @@ import androidx.core.content.FileProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.net.HttpURLConnection
+import java.net.URL
 
 /**
  * Manager for handling app updates
@@ -40,7 +39,8 @@ class UpdateManager(private val context: Context) {
     }
 
     private val repository = UpdateRepository()
-    private var downloadId: Long = -1
+    var downloadProgress: Int = 0
+        private set
 
     /**
      * Get current app version code
@@ -94,32 +94,60 @@ class UpdateManager(private val context: Context) {
     }
 
     /**
-     * Download APK using DownloadManager
-     * Returns download ID for tracking
+     * Download APK using HttpURLConnection (handles GitHub redirects, works with private repos).
+     * Calls onProgress with percentage (0-100) and onComplete when done.
      */
-    fun downloadApk(updateInfo: AppUpdateInfo): Long {
+    suspend fun downloadApk(
+        updateInfo: AppUpdateInfo,
+        onProgress: (Int) -> Unit = {},
+        onComplete: (success: Boolean) -> Unit = {}
+    ) = withContext(Dispatchers.IO) {
         Log.d(TAG, "Starting download from: ${updateInfo.apkUrl}")
 
-        // Delete old APK if exists
         val apkFile = File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), APK_FILE_NAME)
-        if (apkFile.exists()) {
+        if (apkFile.exists()) apkFile.delete()
+
+        try {
+            val conn = URL(updateInfo.apkUrl).openConnection() as HttpURLConnection
+            conn.instanceFollowRedirects = true
+            conn.connectTimeout = 15_000
+            conn.readTimeout = 30_000
+            conn.connect()
+
+            val responseCode = conn.responseCode
+            if (responseCode != HttpURLConnection.HTTP_OK) {
+                Log.e(TAG, "Download failed: HTTP $responseCode")
+                withContext(Dispatchers.Main) { onComplete(false) }
+                return@withContext
+            }
+
+            val totalSize = conn.contentLength.toLong()
+            val input = conn.inputStream
+            val output = apkFile.outputStream()
+            val buffer = ByteArray(8192)
+            var bytesRead: Int
+            var totalRead = 0L
+
+            while (input.read(buffer).also { bytesRead = it } != -1) {
+                output.write(buffer, 0, bytesRead)
+                totalRead += bytesRead
+                if (totalSize > 0) {
+                    val progress = ((totalRead * 100) / totalSize).toInt()
+                    downloadProgress = progress
+                    withContext(Dispatchers.Main) { onProgress(progress) }
+                }
+            }
+            output.close()
+            input.close()
+            conn.disconnect()
+
+            Log.d(TAG, "Download complete: ${apkFile.absolutePath} (${apkFile.length()} bytes)")
+            withContext(Dispatchers.Main) { onComplete(true) }
+        } catch (e: Exception) {
+            Log.e(TAG, "Download error: ${e.message}")
             apkFile.delete()
+            withContext(Dispatchers.Main) { onComplete(false) }
         }
-
-        val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-
-        val request = DownloadManager.Request(Uri.parse(updateInfo.apkUrl))
-            .setTitle("BOX TV Update")
-            .setDescription("Pobieranie wersji ${updateInfo.versionName}...")
-            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-            .setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, APK_FILE_NAME)
-            .setAllowedOverMetered(true)
-            .setAllowedOverRoaming(true)
-
-        downloadId = downloadManager.enqueue(request)
-        Log.d(TAG, "Download started with ID: $downloadId")
-
-        return downloadId
     }
 
     /**
@@ -164,30 +192,6 @@ class UpdateManager(private val context: Context) {
             val deleted = apkFile.delete()
             Log.d(TAG, "Cleanup APK: ${if (deleted) "success" else "failed"}")
         }
-    }
-
-    /**
-     * Register receiver to handle download completion
-     */
-    fun registerDownloadReceiver(onDownloadComplete: () -> Unit): BroadcastReceiver {
-        val receiver = object : BroadcastReceiver() {
-            override fun onReceive(ctx: Context, intent: Intent) {
-                val id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1)
-                if (id == downloadId) {
-                    Log.d(TAG, "Download complete")
-                    onDownloadComplete()
-                }
-            }
-        }
-
-        val filter = IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            context.registerReceiver(receiver, filter)
-        }
-
-        return receiver
     }
 
     /**

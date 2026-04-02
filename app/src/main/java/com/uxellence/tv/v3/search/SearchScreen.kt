@@ -92,6 +92,13 @@ private val POLISH_VARIANTS = mapOf(
     "n" to "ń", "o" to "ó", "s" to "ś", "z" to "ż", "x" to "ź"
 )
 
+// Popular search suggestions (Mode 2 chips)
+private val POPULAR_SEARCHES = listOf(
+    "Jak wytresować smoka", "Furioza", "Zwierzogród",
+    "Piotruś Pan", "Kevin Sam w Domu",
+    "Mecz Barcelona", "Lalka"
+)
+
 // Focus areas
 private const val FOCUS_MIC = "MIC"
 private const val FOCUS_TAB = "TAB"
@@ -131,10 +138,12 @@ fun SearchScreen(
     sy: (Int) -> Dp,
     onNavigateToMovieDetail: (com.uxellence.tv.v3.VodSlideData) -> Unit = {},
     onReturnToMenu: () -> Unit = {},
-    useSystemKeyboard: Boolean = false
+    searchKeyboardMode: Int = 0
 ) {
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
+    val useSystemKeyboard = searchKeyboardMode == 1
+    val isMode2 = searchKeyboardMode == 2
 
     var searchQuery by remember { mutableStateOf("") }
     var isNumberMode by remember { mutableStateOf(false) }
@@ -308,17 +317,32 @@ fun SearchScreen(
         List(channels.size.coerceAtLeast(1)) { androidx.compose.foundation.lazy.LazyListState() }
     }
 
-    // Animate keyboard slide (only in ABC mode)
-    val showKeyboard = !useSystemKeyboard && focusArea != FOCUS_CHANNELS
+    // Animate keyboard slide (only in ABC mode — mode 0)
+    val isAbcMode = searchKeyboardMode == 0
+    val showKeyboard = isAbcMode && focusArea != FOCUS_CHANNELS
     val keyboardOffset by animateDpAsState(
         targetValue = if (showKeyboard) 0.dp else -sx(480),
         animationSpec = tween(300, easing = EaseInOutCubic),
         label = "kb_offset"
     )
     val contentOffset by animateDpAsState(
-        targetValue = if (useSystemKeyboard) 0.dp else if (showKeyboard) sx(450) else 0.dp,
+        targetValue = if (isAbcMode && showKeyboard) sx(450) else 0.dp,
         animationSpec = tween(300, easing = EaseInOutCubic),
         label = "content_offset"
+    )
+
+    // Mode 2: left panel slide animation (hide when channels focused)
+    val mode2PanelWidth = sx(730)
+    val mode2ShowPanel = isMode2 && focusArea != FOCUS_CHANNELS
+    val mode2PanelOffset by animateDpAsState(
+        targetValue = if (mode2ShowPanel) 0.dp else -mode2PanelWidth,
+        animationSpec = tween(300, easing = EaseInOutCubic),
+        label = "m2_panel"
+    )
+    val mode2ContentStart by animateDpAsState(
+        targetValue = if (mode2ShowPanel) mode2PanelWidth else 0.dp,
+        animationSpec = tween(300, easing = EaseInOutCubic),
+        label = "m2_content"
     )
 
     // Vertical scroll: focused channel always at first position
@@ -430,8 +454,8 @@ fun SearchScreen(
                         when (focusArea) {
                             FOCUS_MIC -> { onReturnToMenu() }
                             FOCUS_KEYBOARD -> {
-                                if (useSystemKeyboard) {
-                                    // System mode: UP from input → menu
+                                if (useSystemKeyboard || isMode2) {
+                                    // System keyboard modes (1 & 2): UP → menu
                                     isInputEditing = false
                                     onReturnToMenu()
                                     return@onPreviewKeyEvent true
@@ -444,9 +468,19 @@ fun SearchScreen(
                                 }
                             }
                             FOCUS_SUGGESTIONS -> {
-                                // UP from chips → keyboard
-                                focusArea = FOCUS_KEYBOARD
-                                suggestionIndex = 0
+                                if (isMode2) {
+                                    val cols = 3
+                                    val prevIdx = suggestionIndex - cols
+                                    if (prevIdx >= 0) {
+                                        suggestionIndex = prevIdx
+                                    } else {
+                                        focusArea = FOCUS_KEYBOARD
+                                        suggestionIndex = 0
+                                    }
+                                } else {
+                                    focusArea = FOCUS_KEYBOARD
+                                    suggestionIndex = 0
+                                }
                             }
                             FOCUS_CHANNELS -> {
                                 if (chRow > 0) {
@@ -455,11 +489,20 @@ fun SearchScreen(
                                     coroutineScope.launch {
                                         lazyListStates.forEach { it.scrollToItem(0) }
                                     }
+                                } else if (isMode2) {
+                                    // Mode 2: first channel UP → chips or input
+                                    val chipItems = if (searchQuery.length < 2) POPULAR_SEARCHES else suggestions
+                                    if (chipItems.isNotEmpty()) {
+                                        focusArea = FOCUS_SUGGESTIONS
+                                        suggestionIndex = 0
+                                    } else {
+                                        focusArea = FOCUS_KEYBOARD
+                                    }
+                                    resetChannels()
                                 } else if (suggestions.isNotEmpty()) {
                                     focusArea = FOCUS_SUGGESTIONS
                                     suggestionIndex = 0
                                 } else if (useSystemKeyboard) {
-                                    // System mode: first channel UP → input
                                     focusArea = FOCUS_KEYBOARD
                                     resetChannels()
                                 }
@@ -476,10 +519,15 @@ fun SearchScreen(
                                 keyboardCol = 0
                             }
                             FOCUS_KEYBOARD -> {
-                                if (useSystemKeyboard) {
-                                    // System mode: DOWN from input → channels
+                                if (useSystemKeyboard || isMode2) {
+                                    // System keyboard modes (1 & 2): DOWN → chips or channels
                                     isInputEditing = false
-                                    if (suggestions.isNotEmpty()) {
+                                    val chipItems = if (isMode2 && searchQuery.length < 2) POPULAR_SEARCHES
+                                        else suggestions
+                                    if (isMode2 && chipItems.isNotEmpty()) {
+                                        focusArea = FOCUS_SUGGESTIONS
+                                        suggestionIndex = 0
+                                    } else if (suggestions.isNotEmpty() && !isMode2) {
                                         focusArea = FOCUS_SUGGESTIONS
                                         suggestionIndex = 0
                                     } else {
@@ -489,16 +537,31 @@ fun SearchScreen(
                                     }
                                     return@onPreviewKeyEvent true
                                 }
+                                // Mode 0 only: navigate keyboard rows
                                 if (kbRow < kbRows.size - 1) {
                                     keyboardRow = kbRow + 1
                                     keyboardCol = kbCol.coerceIn(0, kbRows[keyboardRow].size - 1)
                                 }
                             }
                             FOCUS_SUGGESTIONS -> {
-                                // DOWN from chips → channels
-                                focusArea = FOCUS_CHANNELS
-                                channelCol = 0
-                                suggestionIndex = 0
+                                if (isMode2) {
+                                    // Mode 2: DOWN from chips → next chip row or channels
+                                    val chipItems = if (searchQuery.length < 2) POPULAR_SEARCHES else suggestions
+                                    val cols = 3
+                                    val nextIdx = suggestionIndex + cols
+                                    if (nextIdx < chipItems.size) {
+                                        suggestionIndex = nextIdx
+                                    } else {
+                                        focusArea = FOCUS_CHANNELS
+                                        channelRow = 0
+                                        channelCol = 0
+                                        suggestionIndex = 0
+                                    }
+                                } else {
+                                    focusArea = FOCUS_CHANNELS
+                                    channelCol = 0
+                                    suggestionIndex = 0
+                                }
                             }
                             FOCUS_CHANNELS -> {
                                 if (chRow < channels.size - 1) {
@@ -519,10 +582,15 @@ fun SearchScreen(
                                 if (kbCol > 0) keyboardCol = kbCol - 1
                             }
                             FOCUS_SUGGESTIONS -> {
-                                if (suggestionIndex > 0) {
+                                if (isMode2) {
+                                    // Mode 2: chips are in left panel, navigate within chip grid
+                                    val chipItems = if (searchQuery.length < 2) POPULAR_SEARCHES else suggestions
+                                    val cols = 3
+                                    val col = suggestionIndex % cols
+                                    if (col > 0) suggestionIndex -= 1
+                                } else if (suggestionIndex > 0) {
                                     suggestionIndex -= 1
                                 } else {
-                                    // First chip LEFT → keyboard
                                     focusArea = FOCUS_KEYBOARD
                                     suggestionIndex = 0
                                 }
@@ -542,10 +610,15 @@ fun SearchScreen(
                     Key.DirectionRight -> {
                         when (focusArea) {
                             FOCUS_KEYBOARD -> {
+                                if (isMode2) {
+                                    // Mode 2: RIGHT from input → channels
+                                    focusArea = FOCUS_CHANNELS
+                                    channelCol = 0
+                                    return@onPreviewKeyEvent true
+                                }
                                 if (kbCol < kbRows[kbRow].size - 1) {
                                     keyboardCol = kbCol + 1
                                 } else {
-                                    // Right edge → suggestions (if available) or channels
                                     if (suggestions.isNotEmpty()) {
                                         focusArea = FOCUS_SUGGESTIONS
                                         suggestionIndex = 0
@@ -556,7 +629,18 @@ fun SearchScreen(
                                 }
                             }
                             FOCUS_SUGGESTIONS -> {
-                                if (suggestionIndex < suggestions.size - 1) {
+                                if (isMode2) {
+                                    // Mode 2: chips in grid — RIGHT within row or to channels
+                                    val chipItems = if (searchQuery.length < 2) POPULAR_SEARCHES else suggestions
+                                    val cols = 3
+                                    val col = suggestionIndex % cols
+                                    if (col < cols - 1 && suggestionIndex < chipItems.size - 1) {
+                                        suggestionIndex += 1
+                                    } else {
+                                        focusArea = FOCUS_CHANNELS
+                                        channelCol = 0
+                                    }
+                                } else if (suggestionIndex < suggestions.size - 1) {
                                     suggestionIndex += 1
                                 }
                             }
@@ -572,11 +656,12 @@ fun SearchScreen(
                         when (focusArea) {
                             FOCUS_MIC -> { /* TODO: voice search */ }
                             FOCUS_KEYBOARD -> {
-                                if (useSystemKeyboard) {
-                                    // System keyboard mode: toggle editing on input
+                                if (useSystemKeyboard || isMode2) {
+                                    // System keyboard modes (1 & 2): toggle editing on input
                                     isInputEditing = !isInputEditing
                                     return@onPreviewKeyEvent true
                                 }
+                                // Mode 0 only: custom keyboard
                                 val currentKey = kbRows[kbRow][kbCol]
                                 if (isLongPress && !longPressHandled) {
                                     // Long press on letter → Polish diacritic
@@ -603,9 +688,11 @@ fun SearchScreen(
                                 }
                             }
                             FOCUS_SUGGESTIONS -> {
-                                // Apply suggestion to search query
-                                if (suggestions.isNotEmpty()) {
-                                    searchQuery = suggestions[suggestionIndex.coerceIn(0, suggestions.size - 1)]
+                                // Apply suggestion/chip to search query
+                                val chipItems = if (isMode2 && searchQuery.length < 2) POPULAR_SEARCHES
+                                    else suggestions
+                                if (chipItems.isNotEmpty()) {
+                                    searchQuery = chipItems[suggestionIndex.coerceIn(0, chipItems.size - 1)]
                                     focusArea = FOCUS_KEYBOARD
                                     suggestionIndex = 0
                                 }
@@ -626,7 +713,27 @@ fun SearchScreen(
                 }
             }
     ) {
-        // ==================== INPUT BAR (full width, zIndex on top) ====================
+        if (isMode2) {
+            // ==================== MODE 2: Left panel + Right panel ====================
+            Mode2Layout(
+                searchQuery = searchQuery,
+                onSearchQueryChange = { searchQuery = it; suggestionIndex = 0 },
+                isInputEditing = isInputEditing,
+                focusArea = focusArea,
+                suggestionIndex = suggestionIndex,
+                suggestions = suggestions,
+                channels = channels,
+                channelRow = chRow,
+                channelCol = chCol,
+                channelsVerticalOffset = channelsVerticalOffset,
+                lazyListStates = lazyListStates,
+                panelOffset = mode2PanelOffset,
+                contentStart = mode2ContentStart,
+                sx = sx,
+                sy = sy
+            )
+        } else {
+        // ==================== MODES 0 & 1: Full width input + keyboard/channels ====================
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1088,6 +1195,248 @@ fun SearchScreen(
             }
         }
 
+        } // end else (modes 0 & 1)
+    }
+}
+
+@Composable
+private fun Mode2Layout(
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+    isInputEditing: Boolean,
+    focusArea: String,
+    suggestionIndex: Int,
+    suggestions: List<String>,
+    channels: List<SearchChannel>,
+    channelRow: Int,
+    channelCol: Int,
+    channelsVerticalOffset: Dp,
+    lazyListStates: List<androidx.compose.foundation.lazy.LazyListState>,
+    panelOffset: Dp,
+    contentStart: Dp,
+    sx: (Int) -> Dp,
+    sy: (Int) -> Dp
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(top = sy(150))
+    ) {
+        // === LEFT PANEL (slides out when channels focused) ===
+        Column(
+            modifier = Modifier
+                .width(sx(700))
+                .fillMaxHeight()
+                .offset(x = panelOffset)
+                .padding(start = sx(40), top = sy(40), end = sx(20))
+        ) {
+            // System keyboard input (BasicTextField aligned to left panel)
+            val inputFocusRequester = remember { FocusRequester() }
+            val inputFocused = focusArea == FOCUS_KEYBOARD
+            val borderColor = if (isInputEditing) Color.White
+                else if (inputFocused) COLOR_FOCUS_BORDER
+                else Color(0x66EEEEEE)
+
+            androidx.compose.foundation.text.BasicTextField(
+                value = searchQuery,
+                onValueChange = onSearchQueryChange,
+                singleLine = true,
+                readOnly = !isInputEditing,
+                cursorBrush = androidx.compose.ui.graphics.SolidColor(Color.White),
+                textStyle = androidx.compose.ui.text.TextStyle(
+                    fontSize = (24 * sx(1).value).sp,
+                    fontFamily = ManropeFamily,
+                    fontWeight = FontWeight.Medium,
+                    color = COLOR_TEXT_PRIMARY
+                ),
+                decorationBox = { innerTextField ->
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(COLOR_INPUT_BG, RoundedCornerShape(sx(8)))
+                            .padding(horizontal = sx(16), vertical = sy(8)),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        if (searchQuery.isEmpty()) {
+                            Text(
+                                text = "Szukaj filmów, seriali, programów...",
+                                color = COLOR_TEXT_TERTIARY,
+                                fontFamily = ManropeFamily,
+                                fontWeight = FontWeight.Medium,
+                                fontSize = (20 * sx(1).value).sp
+                            )
+                        }
+                        innerTextField()
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(sy(60))
+                    .border(1.5.dp, borderColor, RoundedCornerShape(sx(8)))
+                    .focusRequester(inputFocusRequester)
+            )
+
+            // Focus TextField when editing
+            LaunchedEffect(isInputEditing) {
+                if (isInputEditing) inputFocusRequester.requestFocus()
+            }
+
+            Spacer(modifier = Modifier.height(sy(16)))
+
+            // Chips: popular (when no query) or autocomplete suggestions
+            val chipItems = if (searchQuery.length >= 2 && suggestions.isNotEmpty()) suggestions
+                else POPULAR_SEARCHES
+            val chipCols = 3
+
+            chipItems.chunked(chipCols).forEachIndexed { rowIdx, rowChips ->
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(sx(10)),
+                    modifier = Modifier.padding(bottom = sy(10))
+                ) {
+                    rowChips.forEachIndexed { colIdx, chip ->
+                        val globalIdx = rowIdx * chipCols + colIdx
+                        val isFocused = focusArea == FOCUS_SUGGESTIONS && globalIdx == suggestionIndex
+                        Box(
+                            modifier = Modifier
+                                .background(
+                                    if (isFocused) COLOR_FOCUS_BORDER else Color(0x44EEEEEE),
+                                    RoundedCornerShape(sx(20))
+                                )
+                                .padding(horizontal = sx(16), vertical = sy(8))
+                        ) {
+                            Text(
+                                text = chip,
+                                color = if (isFocused) COLOR_BG else COLOR_TEXT_PRIMARY,
+                                fontSize = (18 * sx(1).value).sp,
+                                fontFamily = ManropeFamily,
+                                fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Medium,
+                                maxLines = 1
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Mic icon below chips
+            Spacer(modifier = Modifier.height(sy(16)))
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(sx(56))
+                        .background(Color(0x66000000), CircleShape)
+                        .border(1.dp, Color(0x66EEEEEE), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Mic,
+                        contentDescription = "Mikrofon",
+                        tint = COLOR_TEXT_PRIMARY,
+                        modifier = Modifier.size(sx(28))
+                    )
+                }
+            }
+        }
+
+        // === RIGHT PANEL (channels — slides to full width when panel hidden) ===
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .offset(x = contentStart)
+                .clipToBounds()
+        ) {
+            Column(
+                modifier = Modifier
+                    .wrapContentHeight(align = Alignment.Top, unbounded = true)
+                    .offset(y = channelsVerticalOffset)
+                    .padding(top = sy(40)),
+                verticalArrangement = Arrangement.spacedBy(sy(20))
+            ) {
+                // Search header
+                if (searchQuery.isNotEmpty()) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(start = sx(20), bottom = sy(8))
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = null,
+                            tint = COLOR_TEXT_PRIMARY,
+                            modifier = Modifier.size(sx(32))
+                        )
+                        Spacer(modifier = Modifier.width(sx(12)))
+                        Text(
+                            text = searchQuery,
+                            color = COLOR_TEXT_PRIMARY,
+                            fontSize = (28 * sx(1).value).sp,
+                            fontFamily = ManropeFamily,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+
+                // Channels
+                channels.forEachIndexed { rowIdx, channel ->
+                    val isCurrentRow = focusArea == FOCUS_CHANNELS && rowIdx == channelRow
+                    val listState = lazyListStates.getOrElse(rowIdx) { androidx.compose.foundation.lazy.rememberLazyListState() }
+
+                    Column {
+                        Text(
+                            text = channel.title,
+                            color = COLOR_TEXT_PRIMARY,
+                            fontSize = (22 * sx(1).value).sp,
+                            fontFamily = ManropeFamily,
+                            fontWeight = FontWeight.Medium,
+                            letterSpacing = 0.44.sp,
+                            modifier = Modifier.padding(start = sx(20))
+                        )
+
+                        Spacer(modifier = Modifier.height(sy(8)))
+
+                        LazyRow(
+                            state = listState,
+                            horizontalArrangement = Arrangement.spacedBy(sx(16)),
+                            contentPadding = PaddingValues(start = sx(20), end = sx(20))
+                        ) {
+                            itemsIndexed(channel.items) { colIdx, item ->
+                                val isFocused = isCurrentRow && colIdx == channelCol
+                                val posterW = sx(220)
+                                val posterH = sy(310)
+
+                                Column(modifier = Modifier.width(posterW)) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(posterH)
+                                            .clip(RoundedCornerShape(sx(8)))
+                                            .background(Color(0x33EEEEEE))
+                                            .then(
+                                                if (isFocused) Modifier.border(3.dp, COLOR_FOCUS_BORDER, RoundedCornerShape(sx(8)))
+                                                else Modifier
+                                            )
+                                    ) {
+                                        if (!item.posterUrl.isNullOrBlank()) {
+                                            AsyncImage(
+                                                model = item.posterUrl,
+                                                contentDescription = item.title,
+                                                contentScale = ContentScale.Crop,
+                                                modifier = Modifier.fillMaxSize()
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(sy(4)))
+                                    HighlightedTitle(title = item.title, query = searchQuery, sx = sx, fontSize = 16, maxWidth = posterW)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

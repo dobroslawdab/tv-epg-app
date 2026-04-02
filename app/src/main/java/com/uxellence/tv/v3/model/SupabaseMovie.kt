@@ -55,7 +55,8 @@ fun SupabaseMovie.toVodContent(): VodContent = VodContent(
     imageUrl = poster_url ?: "",
     channelLogoUrl = logo_url ?: "",
     link = "", // Filmy płatne - brak bezpośredniego linku
-    price = price?.let { "${it} zł/48h" }
+    price = price?.let { "${it} zł/48h" },
+    youtubeUrl = youtube_url
 )
 
 /**

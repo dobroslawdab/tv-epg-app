@@ -79,7 +79,7 @@ class MainActivity : ComponentActivity() {
 }
 
 enum class NavigationScreen {
-    HOME, LIVE, COMPONENT_SHOWCASE, TOP_MENU2, SHORTCUT, CHANNELE, VIDEOSLIDER, SLIDER, SLIDER_MIX, EPG, EPG_DAY, FOCUS_MINI_CARD, VOICE_TEST, SPLASH, WHATS_NEW, STARTUP_MODE_SELECTION, LAUNCHER_SETUP, ZAPPING_BAR, CHANNEL_GRID, WIDEO_GRID, KINO_GRID, VOD_GRID, RECORDINGS_GRID, SERIES_EPISODES, MOVIE_DETAIL, PURCHASE, OLYMPICS
+    HOME, LIVE, COMPONENT_SHOWCASE, TOP_MENU2, SHORTCUT, CHANNELE, VIDEOSLIDER, SLIDER, SLIDER_MIX, EPG, EPG_DAY, FOCUS_MINI_CARD, VOICE_TEST, SPLASH, WHATS_NEW, STARTUP_MODE_SELECTION, LAUNCHER_SETUP, ZAPPING_BAR, CHANNEL_GRID, WIDEO_GRID, KINO_GRID, VOD_GRID, RECORDINGS_GRID, SERIES_EPISODES, MOVIE_DETAIL, PURCHASE, OLYMPICS, VOD_PLAYER
 }
 
 // Helper functions for launcher setup
@@ -363,6 +363,10 @@ fun TvRoot(
     var selectedMovieData by remember { mutableStateOf<VodSlideData?>(null) }
     var cameFromQuickPurchase by remember { mutableStateOf(false) }  // Track if we used quick purchase mode
 
+    // VOD Player navigation parameters
+    var vodPlayerUrl by remember { mutableStateOf("") }
+    var vodPlayerTitle by remember { mutableStateOf("") }
+
     // Save TELEWIZJA focus state for smart BACK navigation (ID-based)
     var savedTelewizjaFocus by remember { mutableStateOf<FocusState?>(null) }
 
@@ -382,10 +386,11 @@ fun TvRoot(
 
     // ====== AUTO-UPDATE SYSTEM ======
     val updateManager = remember { com.uxellence.tv.v3.update.UpdateManager(context) }
+    val coroutineScope = rememberCoroutineScope()
     var showUpdateDialog by remember { mutableStateOf(false) }
     var updateInfo by remember { mutableStateOf<com.uxellence.tv.v3.update.AppUpdateInfo?>(null) }
     var updateState by remember { mutableStateOf(com.uxellence.tv.v3.update.UpdateState.READY) }
-    var downloadReceiver by remember { mutableStateOf<android.content.BroadcastReceiver?>(null) }
+    var downloadProgress by remember { mutableIntStateOf(0) }
 
     // Start background EPG loading on app start
     LaunchedEffect(Unit) {
@@ -425,7 +430,6 @@ fun TvRoot(
     // Cleanup update manager on dispose
     DisposableEffect(Unit) {
         onDispose {
-            downloadReceiver?.let { context.unregisterReceiver(it) }
             updateManager.close()
         }
     }
@@ -962,6 +966,23 @@ fun TvRoot(
                     }
                 }
             }
+            NavigationScreen.VOD_PLAYER -> {
+                val vodConfig = LocalConfiguration.current
+                val scaleX = vodConfig.screenWidthDp / 1920f
+                val scaleY = vodConfig.screenHeightDp / 1080f
+                fun sx(px: Int) = (px * scaleX).dp
+                fun sy(px: Int) = (px * scaleY).dp
+                com.uxellence.tv.v3.vodplayer.VodPlayerScreen(
+                    streamUrl = vodPlayerUrl,
+                    title = vodPlayerTitle,
+                    onBackPressed = {
+                        currentScreen = NavigationScreen.TOP_MENU2
+                        savedTelewizjaSection = "KINO_PLAY"
+                    },
+                    sx = ::sx,
+                    sy = ::sy
+                )
+            }
             NavigationScreen.SLIDER -> {
                 SliderScreen()
             }
@@ -1089,6 +1110,11 @@ fun TvRoot(
                         previousScreen = NavigationScreen.TOP_MENU2
                         currentScreen = NavigationScreen.PURCHASE
                     },
+                    onNavigateToVodPlayer = { url, title ->
+                        vodPlayerUrl = url
+                        vodPlayerTitle = title
+                        currentScreen = NavigationScreen.VOD_PLAYER
+                    },
                     onNavigateToOlympics = { content, sourceSection ->
                         // Navigate to Olympics page
                         olympicsContent = content
@@ -1100,10 +1126,19 @@ fun TvRoot(
                     updateState = updateState,
                     onUpdateDownload = { info ->
                         updateState = com.uxellence.tv.v3.update.UpdateState.DOWNLOADING
-                        downloadReceiver = updateManager.registerDownloadReceiver {
-                            updateState = com.uxellence.tv.v3.update.UpdateState.INSTALLING
+                        coroutineScope.launch {
+                            updateManager.downloadApk(
+                                updateInfo = info,
+                                onProgress = { progress -> downloadProgress = progress },
+                                onComplete = { success ->
+                                    if (success) {
+                                        updateState = com.uxellence.tv.v3.update.UpdateState.INSTALLING
+                                    } else {
+                                        updateState = com.uxellence.tv.v3.update.UpdateState.READY
+                                    }
+                                }
+                            )
                         }
-                        updateManager.downloadApk(info)
                     },
                     onUpdateInstall = {
                         updateManager.installApk()
@@ -1135,23 +1170,29 @@ fun TvRoot(
                 updateInfo = updateInfo!!,
                 currentVersion = updateManager.getCurrentVersionName(),
                 updateState = updateState,
+                downloadProgress = downloadProgress,
                 onDownload = {
                     updateState = com.uxellence.tv.v3.update.UpdateState.DOWNLOADING
-
-                    // Register receiver for download completion
-                    downloadReceiver = updateManager.registerDownloadReceiver {
-                        updateState = com.uxellence.tv.v3.update.UpdateState.INSTALLING
+                    coroutineScope.launch {
+                        updateManager.downloadApk(
+                            updateInfo = updateInfo!!,
+                            onProgress = { progress -> downloadProgress = progress },
+                            onComplete = { success ->
+                                if (success) {
+                                    updateState = com.uxellence.tv.v3.update.UpdateState.INSTALLING
+                                } else {
+                                    updateState = com.uxellence.tv.v3.update.UpdateState.READY
+                                    android.util.Log.e("UPDATE", "Download failed")
+                                }
+                            }
+                        )
                     }
-
-                    // Start download
-                    updateManager.downloadApk(updateInfo!!)
                 },
                 onInstall = {
                     updateManager.installApk()
                 },
                 onDismiss = {
                     showUpdateDialog = false
-                    // Keep updateInfo so Konto > Powiadomienia can still show the update
                     updateState = com.uxellence.tv.v3.update.UpdateState.READY
                 }
             )

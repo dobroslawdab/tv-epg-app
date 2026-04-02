@@ -1351,9 +1351,9 @@ fun TopMenuScreen2(
         mutableStateOf(sliderPrefs.getBoolean("v3_auto_slide_enabled", false))
     }
 
-    // Search keyboard mode - Key.Nine toggles ABC keyboard ↔ System keyboard
+    // Search keyboard mode - Key.Nine cycles: 0=ABC, 1=System fullwidth, 2=System left panel
     val searchPrefs = remember { context.getSharedPreferences("search_prefs", android.content.Context.MODE_PRIVATE) }
-    var useSystemKeyboard by remember { mutableStateOf(searchPrefs.getBoolean("use_system_keyboard", false)) }
+    var searchKeyboardMode by remember { mutableIntStateOf(searchPrefs.getInt("search_keyboard_mode", 0)) }
 
     val menuItems = remember {
         listOf(
@@ -1741,10 +1741,11 @@ fun TopMenuScreen2(
 
                 // Key "9" - Toggle Search keyboard mode (ABC keyboard ↔ System keyboard)
                 if (event.key == Key.Nine) {
-                    useSystemKeyboard = !useSystemKeyboard
-                    searchPrefs.edit().putBoolean("use_system_keyboard", useSystemKeyboard).apply()
-                    android.widget.Toast.makeText(context, "Szukaj: ${if (useSystemKeyboard) "Systemowa klawiatura" else "Klawiatura ABC"}", android.widget.Toast.LENGTH_SHORT).show()
-                    android.util.Log.d("TopMenuScreen2", "Key '9' pressed - Search keyboard: ${if (useSystemKeyboard) "SYSTEM" else "ABC"}")
+                    searchKeyboardMode = (searchKeyboardMode + 1) % 3
+                    searchPrefs.edit().putInt("search_keyboard_mode", searchKeyboardMode).apply()
+                    val modeNames = arrayOf("Klawiatura ABC", "Systemowa klawiatura", "Panel + klawiatura")
+                    android.widget.Toast.makeText(context, "Szukaj: ${modeNames[searchKeyboardMode]}", android.widget.Toast.LENGTH_SHORT).show()
+                    android.util.Log.d("TopMenuScreen2", "Key '9' pressed - Search mode: $searchKeyboardMode (${modeNames[searchKeyboardMode]})")
                     return@onPreviewKeyEvent true
                 }
 
@@ -2031,7 +2032,7 @@ fun TopMenuScreen2(
                     onDismissUpdateBadge()
                     showKontoUpdateBadge = false
                 },
-                useSystemKeyboard = useSystemKeyboard
+                searchKeyboardMode = searchKeyboardMode
             )
         }
 
@@ -3742,7 +3743,7 @@ private fun FullPageContent(
     onUpdateDownload: (com.uxellence.tv.v3.update.AppUpdateInfo) -> Unit = {},
     onUpdateInstall: () -> Unit = {},
     onDismissUpdateBadge: () -> Unit = {},
-    useSystemKeyboard: Boolean = false
+    searchKeyboardMode: Int = 0
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
 
@@ -3765,7 +3766,7 @@ private fun FullPageContent(
                 onReturnToMenu = {
                     globalFocusState.value = GlobalFocusManager.returnToMenu(globalFocusState.value)
                 },
-                useSystemKeyboard = useSystemKeyboard
+                searchKeyboardMode = searchKeyboardMode
             )
         }
         "MOJE" -> {

@@ -268,7 +268,7 @@ fun KinoGridScreen(
             }
 
             // GRID ITEMS: Kino content cards (vertical with scale animation)
-            itemsIndexed(filteredKinoContent) { index, vodContent ->
+            itemsIndexed(filteredKinoContent, key = { _, vod -> vod.id }) { index, vodContent ->
                 val row = index / GRID_COLUMNS
                 val col = index % GRID_COLUMNS
                 val isItemFocused = currentFocusLevel == KinoFocusLevel.GRID &&
@@ -353,9 +353,12 @@ fun KinoGridScreen(
             // +1 for header item
             val targetIndex = focusedRow * GRID_COLUMNS + focusedCol + 1
             if (targetIndex >= 0 && targetIndex < filteredKinoContent.size + 1) {
+                // Dynamic offset: center focused row on screen (responsive to resolution)
+                val cardHeightPx = (380 * scaleY).toInt()
+                val screenCenterOffset = -(configuration.screenHeightDp.toInt() / 2 - cardHeightPx / 2)
                 lazyGridState.animateScrollToItem(
                     index = targetIndex,
-                    scrollOffset = -400  // Offset to center focused row
+                    scrollOffset = screenCenterOffset
                 )
             }
         }
