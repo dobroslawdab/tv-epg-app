@@ -26,6 +26,7 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.SpanStyle
@@ -332,8 +333,9 @@ fun SearchScreen(
     )
 
     // Mode 2: left panel slide animation (hide when channels focused)
-    val mode2PanelWidth = sx(730)
+    val mode2PanelFixedWidth = sx(920)
     val mode2ShowPanel = isMode2 && focusArea != FOCUS_CHANNELS
+    val mode2PanelWidth = mode2PanelFixedWidth
     val mode2PanelOffset by animateDpAsState(
         targetValue = if (mode2ShowPanel) 0.dp else -mode2PanelWidth,
         animationSpec = tween(300, easing = EaseInOutCubic),
@@ -343,6 +345,12 @@ fun SearchScreen(
         targetValue = if (mode2ShowPanel) mode2PanelWidth else 0.dp,
         animationSpec = tween(300, easing = EaseInOutCubic),
         label = "m2_content"
+    )
+    // When panel hidden (channels focused), use same padding as mode 0/1
+    val mode2ChannelPadding by animateDpAsState(
+        targetValue = if (mode2ShowPanel) sx(20) else sx(80),
+        animationSpec = tween(300, easing = EaseInOutCubic),
+        label = "m2_ch_pad"
     )
 
     // Vertical scroll: focused channel always at first position
@@ -728,7 +736,9 @@ fun SearchScreen(
                 channelsVerticalOffset = channelsVerticalOffset,
                 lazyListStates = lazyListStates,
                 panelOffset = mode2PanelOffset,
+                panelWidth = mode2PanelWidth,
                 contentStart = mode2ContentStart,
+                channelPadding = mode2ChannelPadding,
                 sx = sx,
                 sy = sy
             )
@@ -1213,7 +1223,9 @@ private fun Mode2Layout(
     channelsVerticalOffset: Dp,
     lazyListStates: List<androidx.compose.foundation.lazy.LazyListState>,
     panelOffset: Dp,
+    panelWidth: Dp,
     contentStart: Dp,
+    channelPadding: Dp,
     sx: (Int) -> Dp,
     sy: (Int) -> Dp
 ) {
@@ -1225,7 +1237,7 @@ private fun Mode2Layout(
         // === LEFT PANEL (slides out when channels focused) ===
         Column(
             modifier = Modifier
-                .width(sx(700))
+                .width(panelWidth)
                 .fillMaxHeight()
                 .offset(x = panelOffset)
                 .padding(start = sx(40), top = sy(40), end = sx(20))
@@ -1237,48 +1249,73 @@ private fun Mode2Layout(
                 else if (inputFocused) COLOR_FOCUS_BORDER
                 else Color(0x66EEEEEE)
 
-            androidx.compose.foundation.text.BasicTextField(
-                value = searchQuery,
-                onValueChange = onSearchQueryChange,
-                singleLine = true,
-                readOnly = !isInputEditing,
-                cursorBrush = androidx.compose.ui.graphics.SolidColor(Color.White),
-                textStyle = androidx.compose.ui.text.TextStyle(
-                    fontSize = (24 * sx(1).value).sp,
-                    fontFamily = ManropeFamily,
-                    fontWeight = FontWeight.Medium,
-                    color = COLOR_TEXT_PRIMARY
-                ),
-                decorationBox = { innerTextField ->
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(COLOR_INPUT_BG, RoundedCornerShape(sx(8)))
-                            .padding(horizontal = sx(16), vertical = sy(8)),
-                        contentAlignment = Alignment.CenterStart
-                    ) {
-                        if (searchQuery.isEmpty()) {
-                            Text(
-                                text = "Szukaj filmów, seriali, programów...",
-                                color = COLOR_TEXT_TERTIARY,
-                                fontFamily = ManropeFamily,
-                                fontWeight = FontWeight.Medium,
-                                fontSize = (20 * sx(1).value).sp
-                            )
-                        }
-                        innerTextField()
+            // AndroidView EditText with privateImeOptions for Gboard left alignment
+            val editTextRef = remember { mutableStateOf<android.widget.EditText?>(null) }
+            val density = androidx.compose.ui.platform.LocalDensity.current
+            val inputHeightPx = with(density) { sy(60).roundToPx() }
+            val fontSizePx = with(density) { (24 * sx(1).value).sp.toPx() }
+            val hPadPx = with(density) { sx(16).roundToPx() }
+            val borderWidthPx = with(density) { 1.5.dp.roundToPx() }
+
+            androidx.compose.ui.viewinterop.AndroidView(
+                factory = { ctx ->
+                    android.widget.EditText(ctx).apply {
+                        privateImeOptions = "horizontalAlignment=left"
+                        imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH
+                        inputType = android.text.InputType.TYPE_CLASS_TEXT
+                        isSingleLine = true
+                        setTextColor(0xFFEEEEEE.toInt())
+                        setHintTextColor(0x99EEEEEE.toInt())
+                        hint = "Szukaj filmów, seriali, programów..."
+                        setBackgroundColor(0x33000000)
+                        setPadding(hPadPx, 0, hPadPx, 0)
+                        textSize = fontSizePx / ctx.resources.displayMetrics.scaledDensity
+                        try {
+                            val tf = android.graphics.Typeface.createFromAsset(ctx.assets, "font/manrope_medium.ttf")
+                            typeface = tf
+                        } catch (_: Exception) {}
+                        isFocusable = true
+                        isFocusableInTouchMode = true
+
+                        addTextChangedListener(object : android.text.TextWatcher {
+                            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                            override fun afterTextChanged(s: android.text.Editable?) {
+                                onSearchQueryChange(s?.toString() ?: "")
+                            }
+                        })
+                        editTextRef.value = this
                     }
+                },
+                update = { editText ->
+                    if (editText.text.toString() != searchQuery) {
+                        editText.setText(searchQuery)
+                        editText.setSelection(searchQuery.length)
+                    }
+                    // Update border based on focus state
+                    val gd = android.graphics.drawable.GradientDrawable().apply {
+                        setColor(0x33000000)
+                        cornerRadius = with(density) { sx(8).toPx() }
+                        setStroke(borderWidthPx, borderColor.toArgb())
+                    }
+                    editText.background = gd
                 },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(sy(60))
-                    .border(1.5.dp, borderColor, RoundedCornerShape(sx(8)))
-                    .focusRequester(inputFocusRequester)
             )
 
-            // Focus TextField when editing
+            // Show/hide keyboard when editing state changes
             LaunchedEffect(isInputEditing) {
-                if (isInputEditing) inputFocusRequester.requestFocus()
+                val et = editTextRef.value ?: return@LaunchedEffect
+                if (isInputEditing) {
+                    et.requestFocus()
+                    val imm = et.context.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                    imm.showSoftInput(et, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+                } else {
+                    val imm = et.context.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                    imm.hideSoftInputFromWindow(et.windowToken, 0)
+                }
             }
 
             Spacer(modifier = Modifier.height(sy(16)))
@@ -1317,27 +1354,6 @@ private fun Mode2Layout(
                 }
             }
 
-            // Mic icon below chips
-            Spacer(modifier = Modifier.height(sy(16)))
-            Box(
-                modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.Center
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(sx(56))
-                        .background(Color(0x66000000), CircleShape)
-                        .border(1.dp, Color(0x66EEEEEE), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Mic,
-                        contentDescription = "Mikrofon",
-                        tint = COLOR_TEXT_PRIMARY,
-                        modifier = Modifier.size(sx(28))
-                    )
-                }
-            }
         }
 
         // === RIGHT PANEL (channels — slides to full width when panel hidden) ===
@@ -1358,7 +1374,7 @@ private fun Mode2Layout(
                 if (searchQuery.isNotEmpty()) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(start = sx(20), bottom = sy(8))
+                        modifier = Modifier.padding(start = channelPadding, bottom = sy(8))
                     ) {
                         Icon(
                             imageVector = Icons.Default.Search,
@@ -1392,7 +1408,7 @@ private fun Mode2Layout(
                             fontFamily = ManropeFamily,
                             fontWeight = FontWeight.Medium,
                             letterSpacing = 0.44.sp,
-                            modifier = Modifier.padding(start = sx(20))
+                            modifier = Modifier.padding(start = channelPadding)
                         )
 
                         Spacer(modifier = Modifier.height(sy(8)))
@@ -1400,7 +1416,7 @@ private fun Mode2Layout(
                         LazyRow(
                             state = listState,
                             horizontalArrangement = Arrangement.spacedBy(sx(16)),
-                            contentPadding = PaddingValues(start = sx(20), end = sx(20))
+                            contentPadding = PaddingValues(start = channelPadding, end = sx(20))
                         ) {
                             itemsIndexed(channel.items) { colIdx, item ->
                                 val isFocused = isCurrentRow && colIdx == channelCol
