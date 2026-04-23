@@ -23,6 +23,8 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.ui.window.Popup
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -14113,26 +14115,39 @@ private fun VodHeroSliderV4(
     // Trailer auto-play state - key by stableItem.title to be extra stable
     var showTrailer by remember(stableItem?.title ?: "") { mutableStateOf(false) }
 
-    // Auto-play trailer after 2 seconds of focus
+    // Auto-play trailer: 2s after slider focus, 3s after menu idle (slider visible but not focused)
     LaunchedEffect(stableItem?.title) {
         if (stableItem == null) return@LaunchedEffect
         android.util.Log.d("VodHeroSliderV4", "LaunchedEffect started for: ${stableItem.title}")
 
         while (true) {
-            if (isFocused && !trailerUrl.isNullOrBlank() && !showTrailer) {
-                // Wait 2 seconds before showing trailer
-                kotlinx.coroutines.delay(2000)
-                // Double-check focus is still active after delay
-                if (isFocused && !trailerUrl.isNullOrBlank()) {
+            if (!showTrailer && !trailerUrl.isNullOrBlank()) {
+                val wasFocused = isFocused
+                val delayMs = if (wasFocused) 2000L else 3000L
+                kotlinx.coroutines.delay(delayMs)
+                // Only start if focus state did not change during the wait
+                if (!trailerUrl.isNullOrBlank() && isFocused == wasFocused) {
                     showTrailer = true
-                    android.util.Log.d("VodHeroSliderV4", "Trailer START for: ${stableItem.title}")
+                    val reason = if (wasFocused) "slider focus" else "menu idle"
+                    android.util.Log.d("VodHeroSliderV4", "Trailer START ($reason) for: ${stableItem.title}")
                 }
-            } else if (!isFocused && showTrailer) {
-                // Hide trailer when focus is lost
-                showTrailer = false
-                android.util.Log.d("VodHeroSliderV4", "Trailer STOP (focus lost) for: ${stableItem.title}")
             }
             kotlinx.coroutines.delay(100)
+        }
+    }
+
+    // Immersive mode: after 6s of idle on a focused slider (user on Wypożycz, trailer playing),
+    // hide gradients/texts/secondary button/bullets — only trailer + Wypożycz button remain.
+    // Any interaction (slide change, button change, losing focus) resets the timer and exits immersive.
+    var immersiveMode by remember { mutableStateOf(false) }
+    LaunchedEffect(currentSlide, externalButtonIndex, isFocused, showTrailer) {
+        immersiveMode = false
+        if (isFocused && externalButtonIndex == 0) {
+            kotlinx.coroutines.delay(6000)
+            if (isFocused && externalButtonIndex == 0 && showTrailer) {
+                immersiveMode = true
+                android.util.Log.d("VodHeroSliderV4", "Immersive mode ON (6s idle) for: ${stableItem?.title}")
+            }
         }
     }
 
@@ -14225,6 +14240,7 @@ private fun VodHeroSliderV4(
                         isSliderFocused = isFocused,
                         focusedButtonIndex = focusedButtonIndex,
                         showTrailer = showTrailer && index == currentSlide,  // Only show trailer on selected card
+                        immersiveMode = immersiveMode && index == currentSlide,  // Immersive only on selected card
                         onRentClicked = onRentClicked,
                         onMoreInfoClicked = onMoreInfoClicked,
                         sx = sx,
@@ -14234,24 +14250,32 @@ private fun VodHeroSliderV4(
             }
 
             // Slide indicator dots (20px below slider, same as V2)
-            // Only show when showBullets is true (hidden when focused below slider)
+            // Only show when showBullets is true (hidden when focused below slider or immersive mode)
             if (sliderItems.size > 1 && showBullets) {
-                Row(
+                AnimatedVisibility(
+                    visible = !immersiveMode,
+                    enter = fadeIn(animationSpec = tween(300)) +
+                            slideInVertically(animationSpec = tween(300)) { it },
+                    exit = fadeOut(animationSpec = tween(300)) +
+                            slideOutVertically(animationSpec = tween(300)) { it },
                     modifier = Modifier
                         .align(Alignment.TopCenter)
-                        .offset(y = sy(695)),  // 675px slider + 20px gap
-                    horizontalArrangement = Arrangement.spacedBy(sx(12)),
-                    verticalAlignment = Alignment.CenterVertically
+                        .offset(y = sy(695))
                 ) {
-                    sliderItems.forEachIndexed { index, _ ->
-                        Box(
-                            modifier = Modifier
-                                .size(if (index == currentSlide) sx(12) else sx(8))
-                                .background(
-                                    color = if (index == currentSlide) Color.White else Color(0x80EEEEEE),
-                                    shape = CircleShape
-                                )
-                        )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(sx(12)),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        sliderItems.forEachIndexed { index, _ ->
+                            Box(
+                                modifier = Modifier
+                                    .size(if (index == currentSlide) sx(12) else sx(8))
+                                    .background(
+                                        color = if (index == currentSlide) Color.White else Color(0x80EEEEEE),
+                                        shape = CircleShape
+                                    )
+                            )
+                        }
                     }
                 }
             }
@@ -14278,6 +14302,7 @@ private fun SliderV4Card(
     isSliderFocused: Boolean,
     focusedButtonIndex: Int,  // 0=rent, 1=info
     showTrailer: Boolean = false,  // Show video trailer instead of backdrop image
+    immersiveMode: Boolean = false,  // Hide everything except trailer + Wypożycz button
     onRentClicked: ((VodSlideData) -> Unit)?,
     onMoreInfoClicked: ((VodSlideData) -> Unit)?,
     sx: (Int) -> androidx.compose.ui.unit.Dp,
@@ -14305,8 +14330,10 @@ private fun SliderV4Card(
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             // 1. Background: Trailer video OR static image
-            // Trailer plays when menu is focused (slider NOT focused) - focusing slider stops trailer
-            val shouldShowTrailer = showTrailer && !item.youtubeUrl.isNullOrBlank() && isSelected && !isSliderFocused
+            // Trailer plays in two cases (controlled by parent via showTrailer):
+            //  - slider focused for 2s (classic autoplay-on-focus)
+            //  - top menu idle for 3s (ambient autoplay while browsing menu)
+            val shouldShowTrailer = showTrailer && !item.youtubeUrl.isNullOrBlank() && isSelected
 
             Box(
                 modifier = Modifier.fillMaxSize(),
@@ -14336,17 +14363,23 @@ private fun SliderV4Card(
                 }
             }
 
-            // 2. Glow overlay (slide_glow_left.png) - only when slider focused
-            if (!isNextSlide && sectionType == "KINO_PLAY" && isSliderFocused) {
-                Image(
-                    painter = painterResource(id = R.drawable.slide_glow_left),
-                    contentDescription = null,
-                    modifier = Modifier
-                        .width(sx(1151))
-                        .height(sy(675))
-                        .align(Alignment.TopStart),
-                    contentScale = ContentScale.FillBounds
-                )
+            // 2. Glow overlay (slide_glow_left.png) - only when slider focused and not in immersive mode
+            if (!isNextSlide && sectionType == "KINO_PLAY") {
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = isSliderFocused && !immersiveMode,
+                    enter = fadeIn(animationSpec = tween(300)),
+                    exit = fadeOut(animationSpec = tween(300)),
+                    modifier = Modifier.align(Alignment.TopStart)
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.slide_glow_left),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .width(sx(1151))
+                            .height(sy(675)),
+                        contentScale = ContentScale.FillBounds
+                    )
+                }
             }
 
             // 3. Left gradient overlay
@@ -14354,21 +14387,27 @@ private fun SliderV4Card(
             if (!isNextSlide) {
                 val gradientOffset = if (shouldShowTrailer) sx(0) else sx(266)
                 val gradientWidth = if (shouldShowTrailer) sx(856) else sx(590) // 266 + 590 = 856
-                Box(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .width(gradientWidth)
-                        .align(Alignment.CenterStart)
-                        .offset(x = gradientOffset)
-                        .background(
-                            brush = Brush.horizontalGradient(
-                                colors = listOf(
-                                    Color(0xFF281443),
-                                    Color.Transparent
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = !immersiveMode,
+                    enter = fadeIn(animationSpec = tween(300)),
+                    exit = fadeOut(animationSpec = tween(300)),
+                    modifier = Modifier.align(Alignment.CenterStart)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .width(gradientWidth)
+                            .offset(x = gradientOffset)
+                            .background(
+                                brush = Brush.horizontalGradient(
+                                    colors = listOf(
+                                        Color(0xFF281443),
+                                        Color.Transparent
+                                    )
                                 )
                             )
-                        )
-                )
+                    )
+                }
             }
 
             // 4. Content area (hidden for next slide preview)
@@ -14378,13 +14417,20 @@ private fun SliderV4Card(
                         .fillMaxSize()
                         .padding(start = sx(50))
                 ) {
-                    // EMBLEM: Logo + labels at TOP - only when slider focused
-                    if (isSliderFocused) {
+                    // EMBLEM: Logo + labels at TOP - only when slider focused and not in immersive mode
+                    // Enters sliding from above + fade; exits sliding up + fade
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = isSliderFocused && !immersiveMode,
+                        enter = fadeIn(animationSpec = tween(300)) +
+                                slideInVertically(animationSpec = tween(300)) { -it },
+                        exit = fadeOut(animationSpec = tween(300)) +
+                                slideOutVertically(animationSpec = tween(300)) { -it },
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .zIndex(1f)
+                    ) {
                         Box(
-                            modifier = Modifier
-                                .align(Alignment.TopStart)
-                                .height(sy(160))
-                                .zIndex(1f),
+                            modifier = Modifier.height(sy(160)),
                             contentAlignment = Alignment.CenterStart
                         ) {
                             Row(
@@ -14427,54 +14473,69 @@ private fun SliderV4Card(
                         }
                     }
 
-                    // === V4: Content + Buttons at BOTTOM (aligned to bottom, 24px above first button) ===
+                    // === V4: Buttons at BOTTOM ===
+                    // Original order preserved: Wypożycz (button 1) on top, Dowiedz się więcej (button 2) below.
+                    // Each button anchored independently so button 1 never shifts when button 2 / texts animate.
                     val buttonBottomPadding = sy(50)
+                    val button2Height = sy(72)
+                    val buttonGap = sy(24)
 
+                    // Content column ABOVE Button 1 (title/meta/desc or non-focused big title)
                     Column(
                         modifier = Modifier
                             .align(Alignment.BottomStart)
-                            .padding(bottom = buttonBottomPadding),
-                        verticalArrangement = Arrangement.spacedBy(sy(24))  // 24px between all elements
+                            .padding(bottom = buttonBottomPadding + button2Height + buttonGap + sy(72) + buttonGap),
+                        verticalArrangement = Arrangement.spacedBy(sy(24))
                     ) {
-                        // FOCUSED STATE: Title + metadata + description ABOVE buttons
-                        if (isSliderFocused) {
-                            // Title
-                            Text(
-                                text = item.title,
-                                color = Color(0xFFEEEEEE),
-                                fontSize = sy(48).value.sp,
-                                fontWeight = FontWeight.Medium,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                                lineHeight = sy(56).value.sp,
-                                modifier = Modifier.widthIn(max = sx(600))
-                            )
+                        // FOCUSED STATE: Title + metadata + description
+                        // Hidden in immersive mode. Slides down + fade on exit.
+                        AnimatedVisibility(
+                            visible = isSliderFocused && !immersiveMode,
+                            enter = fadeIn(animationSpec = tween(300)) +
+                                    slideInVertically(animationSpec = tween(300)) { it },
+                            exit = fadeOut(animationSpec = tween(300)) +
+                                    slideOutVertically(animationSpec = tween(300)) { it }
+                        ) {
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(sy(24))
+                            ) {
+                                // Title
+                                Text(
+                                    text = item.title,
+                                    color = Color(0xFFEEEEEE),
+                                    fontSize = sy(48).value.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                    lineHeight = sy(56).value.sp,
+                                    modifier = Modifier.widthIn(max = sx(600))
+                                )
 
-                            // Metadata row
-                            SliderMetadataRowV2(
-                                genre = item.genre,
-                                duration = item.duration,
-                                ageRating = item.ageRating,
-                                sectionType = sectionType,
-                                showKrritImage = sectionType == "KINO_PLAY",
-                                sx = sx,
-                                sy = sy
-                            )
+                                // Metadata row
+                                SliderMetadataRowV2(
+                                    genre = item.genre,
+                                    duration = item.duration,
+                                    ageRating = item.ageRating,
+                                    sectionType = sectionType,
+                                    showKrritImage = sectionType == "KINO_PLAY",
+                                    sx = sx,
+                                    sy = sy
+                                )
 
-                            // Description (max 3 lines)
-                            Text(
-                                text = item.description,
-                                color = Color(0xFFEEEEEE),
-                                fontSize = sy(24).value.sp,
-                                fontWeight = FontWeight.Normal,
-                                maxLines = 3,
-                                overflow = TextOverflow.Ellipsis,
-                                lineHeight = sy(32).value.sp,
-                                modifier = Modifier
-                                    .widthIn(max = sx(550))
-                                    .heightIn(max = sy(100))
-                            )
-                            // No extra Spacer - 12px from spacedBy is sufficient (half of previous ~24px)
+                                // Description (max 3 lines)
+                                Text(
+                                    text = item.description,
+                                    color = Color(0xFFEEEEEE),
+                                    fontSize = sy(24).value.sp,
+                                    fontWeight = FontWeight.Normal,
+                                    maxLines = 3,
+                                    overflow = TextOverflow.Ellipsis,
+                                    lineHeight = sy(32).value.sp,
+                                    modifier = Modifier
+                                        .widthIn(max = sx(550))
+                                        .heightIn(max = sy(100))
+                                )
+                            }
                         }
 
                         // NOT FOCUSED + NO LOGO: Title above button
@@ -14492,8 +14553,20 @@ private fun SliderV4Card(
                                     .padding(bottom = sy(16))
                             )
                         }
+                    }
 
-                        // Button 1: Wypożycz
+                    // Button 1 (Wypożycz) — stays up when slider focused with UI visible (space reserved for Button 2 below);
+                    // slides down to the very bottom when slider unfocused OR in immersive mode (Button 2 hidden).
+                    val wypozyczBottomPadding by animateDpAsState(
+                        targetValue = if (isSliderFocused && !immersiveMode) buttonBottomPadding + button2Height + buttonGap else buttonBottomPadding,
+                        animationSpec = tween(300),
+                        label = "wypozyczBottomPadding"
+                    )
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(bottom = wypozyczBottomPadding)
+                    ) {
                         V4SliderButtonVisual(
                             label = "Wypożycz: ${item.price}",
                             iconType = V4ButtonIcon.PLAY,
@@ -14502,18 +14575,27 @@ private fun SliderV4Card(
                             sy = sy,
                             onClick = { onRentClicked?.invoke(item) }
                         )
+                    }
 
-                        // Button 2: Dowiedz się więcej (only when slider focused)
-                        if (isSliderFocused) {
-                            V4SliderButtonVisual(
-                                label = "Dowiedz się więcej",
-                                iconType = V4ButtonIcon.INFO,
-                                isFocused = isCardFocused && focusedButtonIndex == 1,
-                                sx = sx,
-                                sy = sy,
-                                onClick = { onMoreInfoClicked?.invoke(item) }
-                            )
-                        }
+                    // Button 2 (Dowiedz się więcej) — below Wypożycz, animates in/out independently
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = isSliderFocused && !immersiveMode,
+                        enter = fadeIn(animationSpec = tween(300)) +
+                                slideInVertically(animationSpec = tween(300)) { it },
+                        exit = fadeOut(animationSpec = tween(300)) +
+                                slideOutVertically(animationSpec = tween(300)) { it },
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(bottom = buttonBottomPadding)
+                    ) {
+                        V4SliderButtonVisual(
+                            label = "Dowiedz się więcej",
+                            iconType = V4ButtonIcon.INFO,
+                            isFocused = isCardFocused && focusedButtonIndex == 1,
+                            sx = sx,
+                            sy = sy,
+                            onClick = { onMoreInfoClicked?.invoke(item) }
+                        )
                     }
                 }
             }
