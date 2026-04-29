@@ -79,7 +79,7 @@ class MainActivity : ComponentActivity() {
 }
 
 enum class NavigationScreen {
-    HOME, LIVE, COMPONENT_SHOWCASE, TOP_MENU2, SHORTCUT, CHANNELE, VIDEOSLIDER, SLIDER, SLIDER_MIX, EPG, EPG_DAY, FOCUS_MINI_CARD, VOICE_TEST, SPLASH, WHATS_NEW, STARTUP_MODE_SELECTION, LAUNCHER_SETUP, ZAPPING_BAR, CHANNEL_GRID, WIDEO_GRID, KINO_GRID, VOD_GRID, RECORDINGS_GRID, SERIES_EPISODES, MOVIE_DETAIL, PURCHASE, OLYMPICS, VOD_PLAYER
+    HOME, LIVE, COMPONENT_SHOWCASE, TOP_MENU2, SHORTCUT, CHANNELE, VIDEOSLIDER, SLIDER, SLIDER_MIX, EPG, EPG_DAY, FOCUS_MINI_CARD, VOICE_TEST, SPLASH, WHATS_NEW, STARTUP_MODE_SELECTION, LAUNCHER_SETUP, ZAPPING_BAR, CHANNEL_GRID, WIDEO_GRID, KINO_GRID, VOD_GRID, RECORDINGS_GRID, APPS_GRID, SERIES_EPISODES, MOVIE_DETAIL, PURCHASE, OLYMPICS, VOD_PLAYER
 }
 
 // Helper functions for launcher setup
@@ -853,6 +853,14 @@ fun TvRoot(
                     preloadedData = kinoGridPrefiltered
                 )
             }
+            NavigationScreen.APPS_GRID -> {
+                AppsGridScreen(
+                    onBackPressed = {
+                        currentScreen = NavigationScreen.TOP_MENU2
+                        savedTelewizjaSection = "APLIKACJE"
+                    }
+                )
+            }
             NavigationScreen.RECORDINGS_GRID -> {
                 RecordingsGridScreen(
                     onBackPressed = {
@@ -1096,6 +1104,10 @@ fun TvRoot(
                         recordingsGridSourceSection = sourceSection
                         previousScreen = NavigationScreen.TOP_MENU2
                         currentScreen = NavigationScreen.RECORDINGS_GRID
+                    },
+                    onNavigateToAppsGrid = {
+                        previousScreen = NavigationScreen.TOP_MENU2
+                        currentScreen = NavigationScreen.APPS_GRID
                     },
                     onNavigateToMovieDetail = { movieData ->
                         // Navigate to MovieDetailScreen from KINO PLAY slider

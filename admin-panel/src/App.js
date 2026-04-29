@@ -8,6 +8,7 @@ import Colors from './pages/Colors';
 import MovieDetails from './pages/MovieDetails';
 import Slider from './pages/Slider';
 import OdkrywajSlider from './pages/OdkrywajSlider';
+import AplikacjeSlider from './pages/AplikacjeSlider';
 import VodContent from './pages/VodContent';
 import HomepageEditor from './pages/HomepageEditor';
 import Settings from './pages/Settings';
@@ -60,6 +61,7 @@ function App() {
             <Route path="/colors" element={<Colors />} />
             <Route path="/slider" element={<Slider />} />
             <Route path="/odkrywaj-slider" element={<OdkrywajSlider />} />
+            <Route path="/aplikacje-slider" element={<AplikacjeSlider />} />
             <Route path="/vod-content" element={<VodContent />} />
             <Route path="/homepage" element={<HomepageEditor />} />
             <Route path="/settings" element={<Settings />} />

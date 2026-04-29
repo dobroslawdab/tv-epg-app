@@ -922,7 +922,15 @@ body {
 }
 
 .poster-item {
+  position: relative;
   text-align: center;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: transform 0.2s;
+}
+
+.poster-item:hover {
+  transform: scale(1.02);
 }
 
 .poster-item img {

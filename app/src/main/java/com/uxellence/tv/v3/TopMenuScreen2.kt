@@ -1307,6 +1307,7 @@ fun TopMenuScreen2(
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },  // Navigate to VOD grid (Nagrania, Wypożyczone, Do obejrzenia, etc.)
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },  // Navigate to KINO grid (Akcja, Horror - vertical posters)
     onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> },  // Navigate to Recordings grid (Zarządzaj nagraniami)
+    onNavigateToAppsGrid: () -> Unit = {},  // Navigate to grid wszystkich aplikacji (z CategoryIcon "Aplikacje")
     onNavigateToMovieDetail: (VodSlideData) -> Unit = {},  // Navigate to MovieDetailScreen from KINO PLAY slider
     onNavigateToPurchase: (VodSlideData) -> Unit = {},  // Navigate directly to PurchaseScreen (quick mode)
     onNavigateToVodPlayer: (url: String, title: String) -> Unit = { _, _ -> },  // Navigate to VOD player with seeking
@@ -1356,6 +1357,12 @@ fun TopMenuScreen2(
     // Search keyboard mode - Key.Nine cycles: 0=ABC, 1=System fullwidth, 2=System left panel
     val searchPrefs = remember { context.getSharedPreferences("search_prefs", android.content.Context.MODE_PRIVATE) }
     var searchKeyboardMode by remember { mutableIntStateOf(searchPrefs.getInt("search_keyboard_mode", 0)) }
+
+    // APLIKACJE variant - 0=hero slider + channels, 1=channels-only (Aplikacje na top, bez slidera)
+    var aplikacjeVariant by remember { mutableIntStateOf(sliderPrefs.getInt("aplikacje_variant", 0)) }
+
+    // Dev modal — Key.Zero otwiera ekran przełączników trybów
+    var showDevModal by remember { mutableStateOf(false) }
 
     val menuItems = remember {
         listOf(
@@ -1751,6 +1758,13 @@ fun TopMenuScreen2(
                     return@onPreviewKeyEvent true
                 }
 
+                // Key "0" - Open dev modal (przełączniki trybów)
+                if (event.key == Key.Zero) {
+                    showDevModal = true
+                    android.util.Log.d("TopMenuScreen2", "Key '0' pressed - opening dev modal")
+                    return@onPreviewKeyEvent true
+                }
+
                 // ===== END GLOBAL SHORTCUTS =====
 
                 when (globalFocusState.value.currentRow) {
@@ -2012,6 +2026,8 @@ fun TopMenuScreen2(
                 onNavigateToVodPlayer = onNavigateToVodPlayer,
                 quickPurchaseMode = quickPurchaseMode,
                 onNavigateToRecordingsGrid = onNavigateToRecordingsGrid,
+                onNavigateToAppsGrid = onNavigateToAppsGrid,
+                aplikacjeVariant = aplikacjeVariant,
                 isEpgSectionExpanded = isEpgSectionExpanded,
                 onEpgSectionExpandedChange = { expanded ->
                     isEpgSectionExpanded = expanded
@@ -2265,6 +2281,100 @@ fun TopMenuScreen2(
                 sx = ::sx,
                 sy = ::sy
             )
+        }
+
+        // Dev modal (otwierany Key.Zero) — przełączniki trybów / wariantów
+        if (showDevModal) {
+            DevTogglesModal(
+                aplikacjeVariant = aplikacjeVariant,
+                onAplikacjeVariantCycle = {
+                    aplikacjeVariant = (aplikacjeVariant + 1) % 2
+                    sliderPrefs.edit().putInt("aplikacje_variant", aplikacjeVariant).apply()
+                },
+                onDismiss = { showDevModal = false }
+            )
+        }
+    }
+}
+
+/**
+ * Dev modal — przełączniki trybów developerskich. Otwierany Key.Zero.
+ */
+@Composable
+private fun DevTogglesModal(
+    aplikacjeVariant: Int,
+    onAplikacjeVariantCycle: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val aplikacjeVariantLabels = arrayOf("Hero+kanały", "Aplikacje na top + slider")
+    val items: List<Triple<String, String, () -> Unit>> = listOf(
+        Triple("Aplikacje variant", aplikacjeVariantLabels.getOrElse(aplikacjeVariant) { aplikacjeVariant.toString() }, onAplikacjeVariantCycle)
+    )
+    var selectedIndex by remember { mutableStateOf(0) }
+    val focusRequesters = remember(items.size) { List(items.size) { FocusRequester() } }
+    LaunchedEffect(Unit) {
+        if (focusRequesters.isNotEmpty()) focusRequesters[0].requestFocus()
+    }
+
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.55f)
+                .wrapContentHeight()
+                .background(Color(0xFF281443), RoundedCornerShape(16.dp))
+                .border(2.dp, Color(0xFF5FEDD4), RoundedCornerShape(16.dp))
+                .padding(32.dp)
+                .onPreviewKeyEvent { event ->
+                    if (event.type == KeyEventType.KeyDown && event.key == Key.Back) {
+                        onDismiss(); true
+                    } else false
+                }
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = "Tryby (debug)",
+                    color = Color(0xFFEEEEEE),
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                items.forEachIndexed { idx, (label, value, action) ->
+                    val isItemFocused = selectedIndex == idx
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                if (isItemFocused) Color(0xFF5FEDD4).copy(alpha = 0.18f) else Color(0x10FFFFFF),
+                                RoundedCornerShape(8.dp)
+                            )
+                            .padding(horizontal = 16.dp, vertical = 14.dp)
+                            .focusRequester(focusRequesters[idx])
+                            .onFocusChanged { if (it.isFocused) selectedIndex = idx }
+                            .focusable()
+                            .onPreviewKeyEvent { event ->
+                                if (event.type == KeyEventType.KeyDown &&
+                                    (event.key == Key.Enter || event.key == Key.DirectionCenter)
+                                ) {
+                                    action(); true
+                                } else false
+                            },
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(label, color = Color(0xFFEEEEEE), fontSize = 20.sp)
+                        Text(value, color = Color(0xFF5FEDD4), fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+                Text(
+                    text = "↑↓ wybór  ·  OK toggle  ·  BACK zamknij",
+                    color = Color(0x88EEEEEE),
+                    fontSize = 16.sp,
+                    modifier = Modifier.padding(top = 12.dp)
+                )
+            }
         }
     }
 }
@@ -3732,6 +3842,8 @@ private fun FullPageContent(
     onNavigateToVodPlayer: (url: String, title: String) -> Unit = { _, _ -> },  // Navigate to VOD player with seeking
     quickPurchaseMode: Boolean = false,  // When true, skip MovieDetail and go directly to Purchase
     onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> },
+    onNavigateToAppsGrid: () -> Unit = {},  // Navigate to grid wszystkich aplikacji (z CategoryIcon "Aplikacje")
+    aplikacjeVariant: Int = 0,  // 0 = hero+channels, 1 = channels-only (Aplikacje na top)
     isEpgSectionExpanded: Boolean = false,
     onEpgSectionExpandedChange: (Boolean) -> Unit = {},
     showNagraniaV2: Boolean = false,
@@ -3846,11 +3958,12 @@ private fun FullPageContent(
             )
         }
         "APLIKACJE" -> {
-            // Placeholder - ekran w przygotowaniu
-            AplikacjePlaceholderScreen(
+            AplikacjeWithHeroScreen(
                 globalFocusState = globalFocusState,
                 sx = sx,
-                sy = sy
+                sy = sy,
+                onNavigateToAppsGrid = onNavigateToAppsGrid,
+                aplikacjeVariant = aplikacjeVariant
             )
         }
         "ACCOUNT" -> {
@@ -5616,10 +5729,14 @@ private fun AplikacjeChannelsScreen(
     appIconsData: Map<String, List<TvChannel>> = emptyMap(),
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
-    resetTrigger: Int = 0
+    resetTrigger: Int = 0,
+    onFocusedRowChange: (Int) -> Unit = {},
+    onNavigateToAppsGrid: () -> Unit = {},
+    channelsOverride: List<String>? = null,           // override domyślnej listy kanałów (variant 1 wstawia "__SLIDER__")
+    sliderItems: List<VodSlideData> = emptyList()     // używane gdy w channelsOverride jest "__SLIDER__"
 ) {
     val context = LocalContext.current
-    val channels = listOf("Ostatnio używane", "Aplikacje", "Skróty v2", "Netflix", "YouTube", "Prime Video", "Disney+")
+    val channels = channelsOverride ?: listOf("Aplikacje", "Netflix", "YouTube", "Prime Video", "Disney+")
 
     val gridContent = remember {
         val vodContentList = VodDataCache.getVodContentList()
@@ -5674,19 +5791,30 @@ private fun AplikacjeChannelsScreen(
         }
     }
 
+    // Notify parent of focused row changes (so parent can offset hero slider accordingly)
+    LaunchedEffect(focusedRowIndex) {
+        onFocusedRowChange(focusedRowIndex)
+    }
+
     val channelFocusRequesters = remember(channels.size) {
         mutableMapOf<Pair<Int, Int>, FocusRequester>().apply {
             repeat(channels.size) { rowIndex ->
                 val channelName = channels.getOrNull(rowIndex) ?: ""
-                if (channelName == "Skróty v2") {
-                    // Shortcuts v2: direct focus colIndex 0-3 (no CategoryIcon)
-                    repeat(4) { colIndex ->
-                        put(Pair(rowIndex, colIndex), FocusRequester())
+                when (channelName) {
+                    "__SLIDER__" -> {
+                        // Phantom row — slider zarządza własnym FocusRequester wewnętrznie.
                     }
-                } else {
-                    // Normal channels: CategoryIcon (-1) + content (0)
-                    put(Pair(rowIndex, -1), FocusRequester()) // CategoryIcon
-                    put(Pair(rowIndex, 0), FocusRequester()) // Fixed focus position
+                    "Skróty v2" -> {
+                        // Shortcuts v2: direct focus colIndex 0-3 (no CategoryIcon)
+                        repeat(4) { colIndex ->
+                            put(Pair(rowIndex, colIndex), FocusRequester())
+                        }
+                    }
+                    else -> {
+                        // Normal channels: CategoryIcon (-1) + content (0)
+                        put(Pair(rowIndex, -1), FocusRequester()) // CategoryIcon
+                        put(Pair(rowIndex, 0), FocusRequester()) // Fixed focus position
+                    }
                 }
             }
         }
@@ -5793,7 +5921,9 @@ private fun AplikacjeChannelsScreen(
             appIconsData = appIconsData,
             lazyListStates = lazyListStates,
             sx = sx,
-            sy = sy
+            sy = sy,
+            onNavigateToAppsGrid = onNavigateToAppsGrid,
+            sliderItems = sliderItems
         )
     }
 }
@@ -9012,6 +9142,12 @@ fun handleAplikacjeChannelsNavigation(
     android.util.Log.d("APLIKACJE_NAV", "handleAplikacjeChannelsNavigation: key=${event.key}, focusedRow=$focusedRowIndex, focusedCol=$focusedColIndex")
     if (event.nativeKeyEvent.action != android.view.KeyEvent.ACTION_DOWN) return false
 
+    // Phantom row "__SLIDER__" — slider obsługuje LEFT/RIGHT/Enter/UP/DOWN przez swoje callbacki.
+    // Box.onPreviewKeyEvent nie konsumuje, żeby slider mógł je dostać.
+    if (channels.getOrNull(focusedRowIndex) == "__SLIDER__") {
+        return false
+    }
+
     when (event.key) {
         Key.DirectionUp -> {
             android.util.Log.d("APLIKACJE_NAV", "UP pressed: focusedRow=$focusedRowIndex, focusedCol=$focusedColIndex")
@@ -9856,6 +9992,7 @@ private fun calculateAplikacjeChannelYPosition(
     channels: List<String>,
     sy: (Int) -> androidx.compose.ui.unit.Dp
 ): androidx.compose.ui.unit.Dp {
+    val SLIDER_HEIGHT = 750  // Phantom "__SLIDER__" row height
     val channelName = channels.getOrNull(rowIndex) ?: ""
     val isShortcuts = channelName == "Skróty"
 
@@ -9863,54 +10000,49 @@ private fun calculateAplikacjeChannelYPosition(
     val focusedIsShortcuts = focusedChannelName == "Skróty"
     val focusedIsShortcutsV2 = focusedChannelName == "Skróty v2"
     val focusedIsAppIcons = focusedChannelName == "Aplikacje" || focusedChannelName == "Ostatnio używane"
+    val focusedIsSlider = focusedChannelName == "__SLIDER__"
+
+    fun rowHeight(name: String): Int = when (name) {
+        "Skróty" -> APLIKACJE_SHORTCUTS_NORMAL_ROW_HEIGHT
+        "Skróty v2" -> APLIKACJE_SHORTCUTS_V2_NORMAL_ROW_HEIGHT
+        "Aplikacje", "Ostatnio używane" -> APLIKACJE_APP_ICONS_NORMAL_ROW_HEIGHT
+        "__SLIDER__" -> SLIDER_HEIGHT
+        else -> APLIKACJE_HORIZONTAL_NORMAL_ROW_HEIGHT
+    }
+
+    // Variant 1 (channels zawiera "__SLIDER__"): gdy focused row to "Aplikacje" lub slider —
+    // baseline focus Y podnosimy do 214 żeby pierwszy channel nie był schowany pod top menu,
+    // a slider razem z nim też jest podniesiony.
+    val isVariant1 = channels.contains("__SLIDER__")
+    val effectiveFocusY = if (isVariant1 && focusedRowIndex <= 1) 214 else APLIKACJE_FIXED_FOCUS_Y
 
     return when {
-        rowIndex == focusedRowIndex -> sy(APLIKACJE_FIXED_FOCUS_Y)
+        rowIndex == focusedRowIndex -> sy(effectiveFocusY)
         rowIndex < focusedRowIndex -> {
-            val extraSpacing = if (!focusedIsAppIcons && !focusedIsShortcuts && !focusedIsShortcutsV2 && focusedColIndex >= 0) APLIKACJE_CONTENT_FOCUS_EXTRA_SPACING else 0
-            var cumulativeHeight = APLIKACJE_FIXED_FOCUS_Y
+            val extraSpacing = if (!focusedIsAppIcons && !focusedIsShortcuts && !focusedIsShortcutsV2 && !focusedIsSlider && focusedColIndex >= 0) APLIKACJE_CONTENT_FOCUS_EXTRA_SPACING else 0
+            var cumulativeHeight = effectiveFocusY
             for (i in rowIndex until focusedRowIndex) {
-                val betweenChannelName = channels.getOrNull(i) ?: ""
-                val betweenIsShortcuts = betweenChannelName == "Skróty"
-                val betweenIsShortcutsV2 = betweenChannelName == "Skróty v2"
-                val betweenIsAppIcons = betweenChannelName == "Aplikacje" || betweenChannelName == "Ostatnio używane"
-                cumulativeHeight -= when {
-                    betweenIsShortcuts -> APLIKACJE_SHORTCUTS_NORMAL_ROW_HEIGHT
-                    betweenIsShortcutsV2 -> APLIKACJE_SHORTCUTS_V2_NORMAL_ROW_HEIGHT
-                    betweenIsAppIcons -> APLIKACJE_APP_ICONS_NORMAL_ROW_HEIGHT
-                    else -> APLIKACJE_HORIZONTAL_NORMAL_ROW_HEIGHT
-                }
+                cumulativeHeight -= rowHeight(channels.getOrNull(i) ?: "")
             }
             sy(cumulativeHeight - extraSpacing)
         }
         rowIndex > focusedRowIndex -> {
-            val focusedChannelExpansion = if (focusedColIndex >= 0) {
-                when {
+            // V1 + Aplikacje focused: slider 30px bliżej i bez extra spacingu na miniaturce
+            // (NORMAL height - 30 = 226, niezależnie od focusedColIndex).
+            val focusedChannelExpansion = when {
+                isVariant1 && focusedIsAppIcons -> APLIKACJE_APP_ICONS_NORMAL_ROW_HEIGHT - 30
+                focusedColIndex >= 0 -> when {
                     focusedIsShortcuts -> APLIKACJE_SHORTCUTS_EXPANDED_ROW_HEIGHT
                     focusedIsShortcutsV2 -> APLIKACJE_SHORTCUTS_V2_EXPANDED_ROW_HEIGHT
                     focusedIsAppIcons -> APLIKACJE_APP_ICONS_EXPANDED_ROW_HEIGHT
+                    focusedIsSlider -> SLIDER_HEIGHT
                     else -> APLIKACJE_HORIZONTAL_EXPANDED_ROW_HEIGHT
                 }
-            } else {
-                when {
-                    focusedIsShortcuts -> APLIKACJE_SHORTCUTS_NORMAL_ROW_HEIGHT
-                    focusedIsShortcutsV2 -> APLIKACJE_SHORTCUTS_V2_NORMAL_ROW_HEIGHT
-                    focusedIsAppIcons -> APLIKACJE_APP_ICONS_NORMAL_ROW_HEIGHT
-                    else -> APLIKACJE_HORIZONTAL_NORMAL_ROW_HEIGHT
-                }
+                else -> rowHeight(focusedChannelName)
             }
-            var cumulativeHeight = APLIKACJE_FIXED_FOCUS_Y + focusedChannelExpansion
+            var cumulativeHeight = effectiveFocusY + focusedChannelExpansion
             for (i in (focusedRowIndex + 1) until rowIndex) {
-                val betweenChannelName = channels.getOrNull(i) ?: ""
-                val betweenIsShortcuts = betweenChannelName == "Skróty"
-                val betweenIsShortcutsV2 = betweenChannelName == "Skróty v2"
-                val betweenIsAppIcons = betweenChannelName == "Aplikacje" || betweenChannelName == "Ostatnio używane"
-                cumulativeHeight += when {
-                    betweenIsShortcuts -> APLIKACJE_SHORTCUTS_NORMAL_ROW_HEIGHT
-                    betweenIsShortcutsV2 -> APLIKACJE_SHORTCUTS_V2_NORMAL_ROW_HEIGHT
-                    betweenIsAppIcons -> APLIKACJE_APP_ICONS_NORMAL_ROW_HEIGHT
-                    else -> APLIKACJE_HORIZONTAL_NORMAL_ROW_HEIGHT
-                }
+                cumulativeHeight += rowHeight(channels.getOrNull(i) ?: "")
             }
             sy(cumulativeHeight)
         }
@@ -10252,7 +10384,9 @@ fun AplikacjeChannelRowsLayout(
     appIconsData: Map<String, List<TvChannel>> = emptyMap(),
     lazyListStates: Map<Int, LazyListState>,
     sx: (Int) -> androidx.compose.ui.unit.Dp,
-    sy: (Int) -> androidx.compose.ui.unit.Dp
+    sy: (Int) -> androidx.compose.ui.unit.Dp,
+    onNavigateToAppsGrid: () -> Unit = {},
+    sliderItems: List<VodSlideData> = emptyList()
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         channels.forEachIndexed { rowIndex, channelName ->
@@ -10283,7 +10417,32 @@ fun AplikacjeChannelRowsLayout(
             Box(
                 modifier = Modifier.offset(y = channelYOffset)
             ) {
-                AplikacjeUnifiedChannelRow(
+                if (channelName == "__SLIDER__") {
+                    // Phantom row z hero sliderem (variant 1: Aplikacje na top, slider w środku)
+                    val isSliderFocused = rowIndex == focusedRowIndex
+                    if (sliderItems.isNotEmpty()) {
+                        VodHeroSliderV2(
+                            isFocused = isSliderFocused,
+                            items = sliderItems,
+                            sectionType = "APLIKACJE",
+                            sx = sx,
+                            sy = sy,
+                            topPadding = 0,
+                            enableAutoRotate = isSliderFocused,
+                            autoRotateIntervalMs = 8000L,
+                            pauseAfterInteractionMs = 10000L,
+                            showBullets = isSliderFocused,
+                            onNavigateDown = {
+                                // DOWN ze slidera → następny channel (zakładamy że nie jest ostatni)
+                                onChannelContentFocusChange(rowIndex + 1, -1)
+                            },
+                            onReturnToMenu = {
+                                // UP ze slidera → poprzedni channel (np. Aplikacje)
+                                if (rowIndex > 0) onChannelContentFocusChange(rowIndex - 1, -1)
+                            }
+                        )
+                    }
+                } else AplikacjeUnifiedChannelRow(
                     channel = channelName,
                     rowIndex = rowIndex,
                     rowContent = rowContent,
@@ -10295,7 +10454,10 @@ fun AplikacjeChannelRowsLayout(
                     onChannelContentFocusChange = onChannelContentFocusChange,
                     sx = sx,
                     sy = sy,
-                    lazyListState = lazyListState
+                    lazyListState = lazyListState,
+                    onNavigateToAppsGrid = onNavigateToAppsGrid,
+                    // V1 (channels zawiera "__SLIDER__"): compact CategoryIcon dla "Aplikacje"
+                    compactCategory = channelName == "Aplikacje" && channels.contains("__SLIDER__")
                 )
             }
         }
@@ -10315,7 +10477,9 @@ fun AplikacjeUnifiedChannelRow(
     onChannelContentFocusChange: (Int, Int) -> Unit,
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
-    lazyListState: LazyListState
+    lazyListState: LazyListState,
+    onNavigateToAppsGrid: () -> Unit = {},
+    compactCategory: Boolean = false  // gdy true, CategoryIcon ma wysokość ikony aplikacji (170) zamiast 216
 ) {
     val isCurrentRow = rowIndex == focusedRowIndex
     val isShortcuts = channel == "Skróty"
@@ -10349,7 +10513,9 @@ fun AplikacjeUnifiedChannelRow(
                 .offset(y = miniaturesYOffset),
             state = lazyListState,
             contentPadding = PaddingValues(
-                start = sx(380),
+                // Compact (v1, kategoria 170×170): karty zaczynają tuż obok kategorii (80 padding + 170 ikona = 250).
+                // Default: 380 (80 + 240 kategoria + 60 gap).
+                start = if (compactCategory && isAppIcons) sx(280) else sx(380),
                 end = sx(20)
             ),
             horizontalArrangement = Arrangement.spacedBy(if (isAppIcons) sx(12) else sx(20))
@@ -10418,7 +10584,7 @@ fun AplikacjeUnifiedChannelRow(
                 val spacerWidth = when {
                     isShortcuts -> sx(210)
                     isShortcutsV2 -> sx(310)
-                    isAppIcons -> sx(320)
+                    isAppIcons -> if (compactCategory) sx(170) else sx(320)  // compact: tylko szerokość kategorii (lista tuż obok)
                     else -> sx(368)
                 }
                 val spacerHeight = when {
@@ -10555,10 +10721,16 @@ fun AplikacjeUnifiedChannelRow(
             }
 
             if (categoryFocusRequester != null) {
+                val isAplikacjeCategory = channel == "Aplikacje"
                 CategoryIcon(
                     text = channel,
                     isFocused = categoryIsFocused,
-                    onClick = { /* Channel click handler */ },
+                    onClick = {
+                        if (isAplikacjeCategory) {
+                            Log.d("APLIKACJE_DEBUG", "CategoryIcon 'Aplikacje' clicked → otwórz grid wszystkich aplikacji")
+                            onNavigateToAppsGrid()
+                        }
+                    },
                     onFocused = { isFocused ->
                         if (isFocused) {
                             Log.d("APLIKACJE_DEBUG", "CategoryIcon '$channel' (row $rowIndex) gained focus")
@@ -10569,7 +10741,14 @@ fun AplikacjeUnifiedChannelRow(
                     sx = sx,
                     sy = sy,
                     logoUrl = null,
-                    logoDrawableId = categoryLogo
+                    logoDrawableId = categoryLogo,
+                    showChevron = isAplikacjeCategory,
+                    containerHeightOverride = if (compactCategory) sy(170) else null,
+                    containerWidthOverride = if (compactCategory) sx(170) else null,
+                    cornerRadiusOverride = if (compactCategory) sx(12) else null,
+                    iconTextSpacingOverride = if (compactCategory) sy(4) else null,
+                    okPromptAfterDelay = compactCategory && isAplikacjeCategory,
+                    okPromptLabel = if (compactCategory && isAplikacjeCategory) "Wszystkie aplikacje" else ""
                 )
             }
         }
@@ -13058,7 +13237,10 @@ private fun VodHeroSlider(
                         ) {
                             com.uxellence.tv.v3.components.YouTubeTrailerPlayer(
                                 youtubeUrl = url,
-                                modifier = Modifier.fillMaxSize()
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .scale(1.1f),  // hero slider: lekkie powiększenie video
+                                startPositionMs = 2_000L
                             )
                         }
                     }
@@ -14358,7 +14540,9 @@ private fun SliderV4Card(
                         youtubeUrl = item.youtubeUrl!!,
                         modifier = Modifier
                             .fillMaxSize()
-                            .zIndex(2f)
+                            .scale(1.1f)  // hero slider: lekkie powiększenie video
+                            .zIndex(2f),
+                        startPositionMs = 2_000L
                     )
                 }
             }
@@ -14499,17 +14683,28 @@ private fun SliderV4Card(
                             Column(
                                 verticalArrangement = Arrangement.spacedBy(sy(24))
                             ) {
-                                // Title
-                                Text(
-                                    text = item.title,
-                                    color = Color(0xFFEEEEEE),
-                                    fontSize = sy(48).value.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis,
-                                    lineHeight = sy(56).value.sp,
-                                    modifier = Modifier.widthIn(max = sx(600))
-                                )
+                                // Title — gdy jest logo filmu, pokaż logo zamiast pisanego tytułu
+                                if (!item.selectedLogoUrl.isNullOrBlank()) {
+                                    AsyncImage(
+                                        model = item.selectedLogoUrl,
+                                        contentDescription = item.title,
+                                        contentScale = ContentScale.Fit,
+                                        modifier = Modifier
+                                            .heightIn(max = sy(120))
+                                            .widthIn(max = sx(600))
+                                    )
+                                } else {
+                                    Text(
+                                        text = item.title,
+                                        color = Color(0xFFEEEEEE),
+                                        fontSize = sy(48).value.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis,
+                                        lineHeight = sy(56).value.sp,
+                                        modifier = Modifier.widthIn(max = sx(600))
+                                    )
+                                }
 
                                 // Metadata row
                                 SliderMetadataRowV2(
@@ -14983,7 +15178,8 @@ private fun SliderV2CardStateBased(
             // Glow overlay (slide_glow_left.png) - pod tekstem, nad ilustracją
             // Only visible when slider is FOCUSED (like SliderV4Card)
             // Original image: 1151x675px - positioned at left edge of slide
-            if (!isNextSlide && isSliderFocused && sectionType in listOf("KINO_PLAY", "WIDEO", "ODKRYWAJ")) {
+            // APLIKACJE: glow zawsze widoczny (focus i bez focusa). Inne sekcje: tylko gdy focused.
+            if (!isNextSlide && (sectionType == "APLIKACJE" || (isSliderFocused && sectionType in listOf("KINO_PLAY", "WIDEO", "ODKRYWAJ")))) {
                 Image(
                     painter = painterResource(id = R.drawable.slide_glow_left),
                     contentDescription = null,
@@ -15191,6 +15387,26 @@ private fun SliderV2CardStateBased(
                                         )
                                     }
                                 }
+                                "APLIKACJE" -> {
+                                    // Logo aplikacji u góry (sztywno, niezależnie od focus)
+                                    if (!item.selectedLogoUrl.isNullOrEmpty()) {
+                                        AsyncImage(
+                                            model = item.selectedLogoUrl,
+                                            contentDescription = item.title,
+                                            modifier = Modifier
+                                                .heightIn(max = sy(120))
+                                                .widthIn(max = sx(400)),
+                                            contentScale = ContentScale.Fit
+                                        )
+                                    } else {
+                                        Text(
+                                            text = item.title,
+                                            color = Color(0xFFEEEEEE),
+                                            fontSize = sy(32).value.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
                                 else -> {
                                     Text(
                                         text = sectionType,
@@ -15217,21 +15433,24 @@ private fun SliderV2CardStateBased(
                                 color = Color(0xFFEEEEEE),
                                 fontSize = sy(48).value.sp,
                                 fontWeight = FontWeight.Medium,
-                                maxLines = 2,
+                                maxLines = if (sectionType == "APLIKACJE") 3 else 2,
                                 overflow = TextOverflow.Ellipsis,
                                 lineHeight = sy(56).value.sp,
                                 modifier = Modifier.widthIn(max = sx(600))
                             )
 
-                            SliderMetadataRowV2(
-                                genre = item.genre,
-                                duration = item.duration,
-                                ageRating = item.ageRating,
-                                sectionType = sectionType,
-                                showKrritImage = sectionType == "WIDEO",
-                                sx = sx,
-                                sy = sy
-                            )
+                            // Metadata row pomijamy dla APLIKACJE (genre/duration/ageRating nieistotne)
+                            if (sectionType != "APLIKACJE") {
+                                SliderMetadataRowV2(
+                                    genre = item.genre,
+                                    duration = item.duration,
+                                    ageRating = item.ageRating,
+                                    sectionType = sectionType,
+                                    showKrritImage = sectionType == "WIDEO",
+                                    sx = sx,
+                                    sy = sy
+                                )
+                            }
 
                             Text(
                                 text = item.description,
@@ -15267,10 +15486,12 @@ private fun SliderV2CardStateBased(
                         val buttonText = when (sectionType) {
                             "WIDEO" -> "Oglądaj"
                             "ODKRYWAJ" -> item.price
+                            "APLIKACJE" -> item.price  // np. "Otwórz aplikację" / "Zainstaluj aplikację"
                             else -> "Wypożycz: ${item.price}"
                         }
-                        val isStandardButton = item.price.startsWith("Oglądaj") || item.price.startsWith("Wypożycz")
-                        val showIcon = sectionType != "ODKRYWAJ" || isStandardButton
+                        val isStandardButton = item.price.startsWith("Oglądaj") || item.price.startsWith("Wypożycz") || item.price.startsWith("Otwórz") || item.price.startsWith("Zainstaluj")
+                        // APLIKACJE: button bez ikonki, sam tekst
+                        val showIcon = sectionType != "APLIKACJE" && (sectionType != "ODKRYWAJ" || isStandardButton)
                         val usePlayIcon = sectionType == "WIDEO" ||
                             (sectionType == "ODKRYWAJ" && item.price.startsWith("Oglądaj"))
 
@@ -15677,15 +15898,47 @@ private fun ContentCard(
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     lazyListState: LazyListState,
     onClick: () -> Unit = {},
-    showChannelNumber: Boolean = true
+    showChannelNumber: Boolean = true,
+    trailerUrl: String? = null,            // gdy podany i karta focused — po 2s odpala trailer overlay
+    trailerStartPositionMs: Long = 0L      // od jakiej sekundy odpalić trailer
 ) {
-    val itemWidth = sx(368)
-    val itemHeight = sy(208)
+    val baseWidth = sx(368)
+    val baseHeight = sy(208)
+
+    // Globalny zoom-on-focus: animowane width/height (zamiast graphicsLayer scale).
+    // Dzięki temu LazyRow naturalnie przesuwa kolejne kafle w prawo, zachowując margines.
+    val itemWidth by androidx.compose.animation.core.animateDpAsState(
+        targetValue = if (isFocused) baseWidth * 1.22f else baseWidth,
+        animationSpec = androidx.compose.animation.core.tween(durationMillis = 200),
+        label = "card_width_on_focus"
+    )
+    val itemHeight by androidx.compose.animation.core.animateDpAsState(
+        targetValue = if (isFocused) baseHeight * 1.22f else baseHeight,
+        animationSpec = androidx.compose.animation.core.tween(durationMillis = 200),
+        label = "card_height_on_focus"
+    )
+
+    // Autoplay trailer po 2s fokusa
+    var showTrailer by remember { mutableStateOf(false) }
+    LaunchedEffect(isFocused, trailerUrl) {
+        if (isFocused && !trailerUrl.isNullOrBlank()) {
+            kotlinx.coroutines.delay(2000)
+            showTrailer = true
+        } else {
+            showTrailer = false
+        }
+    }
+
+    // Offset w górę o połowę przyrostu height — żeby kafelek rósł symetrycznie góra/dół
+    // (wycentrowany pionowo zamiast tylko w dół).
+    val verticalCenterOffset = -((itemHeight - baseHeight) / 2)
 
     Box(
         modifier = Modifier
             .width(itemWidth)
             .height(itemHeight)
+            .offset(y = verticalCenterOffset)
+            .zIndex(if (isFocused) 1f else 0f)  // focused na wierzchu
             .clip(RoundedCornerShape(sx(12)))
             .then(
                 if (isFocused) Modifier.border(
@@ -15713,6 +15966,26 @@ private fun ContentCard(
             modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.Crop
         )
+
+        // Trailer overlay — pokrywa ilustrację gdy showTrailer (po 2s fokusa)
+        // Modifier.scale(1.3f) powiększa video o 30% — eliminuje czarne pasy,
+        // a clip kafelka (RoundedCornerShape) wycina nadmiar wystający poza kontener.
+        // key(vodContent.id) wymusza recreate playera per kafel — bez tego state z poprzedniego kafla
+        // (wszystkie używają tego samego mock URL) powoduje przesunięcie video.
+        if (showTrailer && !trailerUrl.isNullOrBlank()) {
+            androidx.compose.runtime.key(vodContent.id) {
+                Box(modifier = Modifier.fillMaxSize().zIndex(2f)) {
+                    com.uxellence.tv.v3.components.YouTubeTrailerPlayer(
+                        youtubeUrl = trailerUrl,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .scale(1.3f),
+                        startPositionMs = trailerStartPositionMs,
+                        stretchToFill = true  // mini kafel: stretch zamiast letterbox
+                    )
+                }
+            }
+        }
 
         // Gradient
         Box(
@@ -18001,17 +18274,118 @@ private fun WideoChannelsScreen(
         )
     }
 
-    val gridContent = remember {
+    // Filmy fabularne — hardcoded lista z mock data (9 filmów PlayNow z DASH trailers)
+    val filmyFabularne = remember {
+        val server = "n-1411-3"
+        fun trailer(uuid: String) = "https://$server.dcs.redcdn.pl/dash/play/playtv/trailer/$uuid/TRAILER/AVC1/dash.smil"
+        listOf(
+            com.uxellence.tv.v3.version001.VodContent(
+                id = "fab_zamachowiec",
+                title = "Zamachowiec",
+                description = "Były agent CIA, James Dial, zostaje wezwany do ostatniej akcji. Ma udać się do Londynu i zabić terrorystę, który ma stanąć przed sądem.",
+                category = "Akcja",
+                imageUrl = "https://r.playcdn.tv/scale/play/playtv/upload/tvod/10871425/images/808755390?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&quality=80&type=1",
+                channelLogoUrl = "",
+                link = "https://playnow.pl/tvod/10871425",
+                youtubeUrl = "https://n-1401-13.dcs.redcdn.pl/dash/play/playtv/trailer/1fbea93f-3985-4b92-a9f3-63ef55be97ba/TRAILER/AVC1/dash.smil"
+            ),
+            com.uxellence.tv.v3.version001.VodContent(
+                id = "fab_opiekun",
+                title = "Opiekun",
+                description = "Inspirująca i poruszająca opowieść o borykającym się z kryzysem małżeńskim dziennikarzu, który dostaje polecenie, aby opowiedzieć współczesne historie ludzi.",
+                category = "Dramat",
+                imageUrl = "https://r.playcdn.tv/scale/play/playtv/upload/tvod/21821171/images/938471621?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&quality=80&type=1",
+                channelLogoUrl = "",
+                link = "https://playnow.pl/tvod/21821171",
+                youtubeUrl = trailer("9ee5ed35-b7eb-4418-b275-0972b243d7a0")
+            ),
+            com.uxellence.tv.v3.version001.VodContent(
+                id = "fab_exit8",
+                title = "Exit 8",
+                description = "Młody mężczyzna gubi się w niekończącym się korytarzu metra. Aby się z niego wydostać, musi przestrzegać kilku pozornie prostych zasad.",
+                category = "Thriller",
+                imageUrl = "https://r.playcdn.tv/scale/play/playtv/images/vod/14553dc0-8bf5-41fa-84b0-96e5e06b23b6/ps_exit8.jpg?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&quality=80&type=1",
+                channelLogoUrl = "",
+                link = "https://playnow.pl/tvod/40340037",
+                youtubeUrl = null  // brak trailera
+            ),
+            com.uxellence.tv.v3.version001.VodContent(
+                id = "fab_dustwalker",
+                title = "Dustwalker",
+                description = "Na australijskiej pustyni rozbija się nieznany obiekt z kosmosu, z którego wydostaje się niebezpieczny pasożyt. Przenoszony przez niego wirus atakuje ludzkie mózgi i powoduje, że zarażeni stają się zdezorientowani, nadludzko silni i szalenie agresywni.",
+                category = "Thriller",
+                imageUrl = "https://r.playcdn.tv/scale/play/playtv/upload/tvod/11728580/images/816508975?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&quality=80&type=1",
+                channelLogoUrl = "",
+                link = "https://playnow.pl/tvod/11728580",
+                youtubeUrl = null  // brak trailera
+            ),
+            com.uxellence.tv.v3.version001.VodContent(
+                id = "fab_klondike",
+                title = "Klondike",
+                description = "Historia ukraińskiego małżeństwa, Irki i Tolika mieszkającego w czasie wojny na pograniczu Rosji i Ukrainy.",
+                category = "Dramat",
+                imageUrl = "https://r.playcdn.tv/scale/play/playtv/upload/tvod/19449504/images/888721338?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&quality=80&type=1",
+                channelLogoUrl = "",
+                link = "https://playnow.pl/tvod/19449504",
+                youtubeUrl = trailer("76f01bac-e86d-42ac-b3a2-bb2e91f4ebb5")
+            ),
+            com.uxellence.tv.v3.version001.VodContent(
+                id = "fab_goscie",
+                title = "Goście",
+                description = "Szczęśliwa rodzina jedzie na wakacje do nowo poznanych znajomych. Wspólny weekend stopniowo przyjmuje koszmarny obrót.",
+                category = "Thriller",
+                imageUrl = "https://r.playcdn.tv/scale/play/playtv/images/vod/15ed14ce-96ce-46fa-901d-ee7c35ec94fe/billboard_73.jpg?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&quality=80&type=1",
+                channelLogoUrl = "",
+                link = "https://playnow.pl/tvod/18411991",
+                youtubeUrl = trailer("15ed14ce-96ce-46fa-901d-ee7c35ec94fe")
+            ),
+            com.uxellence.tv.v3.version001.VodContent(
+                id = "fab_scooby",
+                title = "Scooby-Doo: Wesołego Halloween!",
+                description = "Nadeszło ulubione święto Scooby-Doo i Kudłatego! Pobliska działka z dyniami zostaje skażona toksycznym szlamem.",
+                category = "Familijny",
+                imageUrl = "https://r.playcdn.tv/scale/play/playtv/images/vod/405abd78-a1fa-4de2-8ab4-c3db6dde094e/billboard_mobile.jpg?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&quality=80&type=1",
+                channelLogoUrl = "",
+                link = "https://playnow.pl/tvod/24279750",
+                youtubeUrl = null
+            ),
+            com.uxellence.tv.v3.version001.VodContent(
+                id = "fab_po_prostu_przyjazn",
+                title = "Po prostu przyjaźń",
+                description = "Wielowątkowa, wzruszająca komedia o grupie przyjaciół, których relacje – w obliczu życiowych przeciwności – zostają wystawione na niejedną próbę.",
+                category = "Komedia",
+                imageUrl = "https://r.playcdn.tv/scale/play/playtv/upload/tvod/11262643/images/812447103?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&quality=80&type=1",
+                channelLogoUrl = "",
+                link = "https://playnow.pl/tvod/11262643",
+                youtubeUrl = trailer("92ec6a23-da2b-4b41-b00f-60b47497a370")
+            ),
+            com.uxellence.tv.v3.version001.VodContent(
+                id = "fab_ostatni_wiking",
+                title = "Ostatni Wiking",
+                description = "Po czternastu latach odsiadki Anker wychodzi z więzienia z jednym celem: odzyskać zrabowaną fortunę. Problem w tym, że łup ukrył jego brat.",
+                category = "Komedia",
+                imageUrl = "https://r.playcdn.tv/scale/play/playtv/upload/tvod/40131969/images/1093005789?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&quality=80&type=1",
+                channelLogoUrl = "",
+                link = "https://playnow.pl/tvod/40131969",
+                youtubeUrl = trailer("1fd35d5b-1929-4a82-b9a5-df7a6bb0ccfc")
+            )
+        )
+    }
+
+    val gridContent = remember(filmyFabularne) {
         val vodContentList = VodDataCache.getVodContentList()
         if (vodContentList.isNotEmpty()) {
             channels.associateWith { channelName ->
                 when (channelName) {
                     "Slider Mix", "Skróty v3" -> emptyList() // No horizontal content
+                    "Filmy fabularne" -> filmyFabularne   // Hardcoded mock z DASH trailerami
                     else -> vodContentList.shuffled().take(10)
                 }
             }
         } else {
-            emptyMap()
+            channels.associateWith { channelName ->
+                if (channelName == "Filmy fabularne") filmyFabularne else emptyList()
+            }
         }
     }
 
@@ -18548,6 +18922,11 @@ fun WideoUnifiedChannelRow(
                         FocusRequester()
                     }
 
+                    // "Filmy fabularne": każdy film ma swój trailer URL w vodContent.youtubeUrl
+                    // (DASH manifesty z PlayNow). Start od 2s.
+                    val mockTrailer = if (channel == "Filmy fabularne") vodContent.youtubeUrl else null
+                    val mockTrailerStart = if (channel == "Filmy fabularne") 2_000L else 0L
+
                     ContentCard(
                         vodContent = vodContent,
                         channelNumber = String.format("%03d", (rowIndex * 10 + colIndex + 1)),
@@ -18557,7 +18936,9 @@ fun WideoUnifiedChannelRow(
                         sx = sx,
                         sy = sy,
                         lazyListState = lazyListState,
-                        showChannelNumber = false  // Hide number badge in WIDEO
+                        showChannelNumber = false,
+                        trailerUrl = mockTrailer,
+                        trailerStartPositionMs = mockTrailerStart
                     )
                 }
 
@@ -18953,6 +19334,190 @@ private fun PakietyScreenContent(
 // ============================================================================
 // APLIKACJE PLACEHOLDER SCREEN
 // ============================================================================
+
+/**
+ * Aplikacje section — hero slider + existing channel rows.
+ * Hero zawiera mock app banners (HBO Max, Netflix Premium, Disney+, Prime, Apple TV+)
+ * korzystając z VodHeroSliderV2 (auto-rotate). Pod nim jak dotychczas AplikacjeChannelsScreen.
+ */
+@Composable
+private fun AplikacjeWithHeroScreen(
+    globalFocusState: MutableState<GlobalFocusState>,
+    sx: (Int) -> Dp,
+    sy: (Int) -> Dp,
+    onNavigateToAppsGrid: () -> Unit = {},
+    aplikacjeVariant: Int = 0
+) {
+    // Pobieranie banerów z Supabase (tabela aplikacje_slider).
+    // Mock pokazujemy DOPIERO po zakończeniu ładowania (loadComplete=true) — w przeciwnym
+    // razie przy entering migotałyby mock przed Supabase response.
+    var supabaseBanners by remember { mutableStateOf<List<com.uxellence.tv.v3.aplikacje.AplikacjeSliderItem>>(emptyList()) }
+    var loadComplete by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        val repo = com.uxellence.tv.v3.aplikacje.AplikacjeSliderRepository()
+        repo.fetchActiveBanners()
+            .onSuccess { items -> supabaseBanners = items }
+            .onFailure { Log.w("AplikacjeWithHero", "Supabase fetch failed, using mock", it) }
+        loadComplete = true
+        repo.close()
+    }
+
+    val mockBanners = remember {
+        val vodList = VodDataCache.getVodContentList()
+        val sampleSize = vodList.size.coerceAtLeast(1)
+        // android.resource:// URI ładowane przez Coil/AsyncImage z drawable
+        val pkg = "com.uxellence.tv.prod"
+        // CTA mockup: niektóre apki "zainstalowane" (Otwórz), niektóre nie (Zainstaluj)
+        data class AppBannerSpec(
+            val title: String, val genre: String, val description: String,
+            val cta: String, val logoDrawable: String
+        )
+        listOf(
+            AppBannerSpec("HBO Max", "Streaming", "Oglądaj najlepsze seriale oryginalne, filmy i programy rozrywkowe", "Zainstaluj aplikację", "hbo_max_logo"),
+            AppBannerSpec("Netflix Premium", "Streaming", "Filmy, seriale i programy bez limitu w jakości 4K Ultra HD", "Otwórz aplikację", "netflix_logo"),
+            AppBannerSpec("Disney+", "Streaming", "Disney, Pixar, Marvel, Star Wars i National Geographic w jednym miejscu", "Zainstaluj aplikację", "disney_plus_logo"),
+            AppBannerSpec("Prime Video", "Streaming", "Tysiące filmów i seriali oraz oryginalne produkcje Amazon", "Otwórz aplikację", "prime_video_logo"),
+            AppBannerSpec("Apple TV+", "Streaming", "Oryginalne filmy i seriale z gwiazdami światowego formatu", "Zainstaluj aplikację", "imgi_68_apple_tv_2x")
+        ).mapIndexed { i, spec ->
+            val sample = vodList.getOrNull(i % sampleSize)
+            VodSlideData(
+                title = spec.title,
+                genre = spec.genre,
+                duration = "",
+                year = "",
+                country = "",
+                ageRating = "",
+                description = spec.description,
+                price = spec.cta,
+                backgroundUrl = sample?.imageUrl ?: "",
+                posterUrl = sample?.imageUrl ?: "",
+                youtubeUrl = null,
+                showKrrit = false,
+                isKinoPlay = false,
+                selectedLogoUrl = "android.resource://$pkg/drawable/${spec.logoDrawable}"
+            )
+        }
+    }
+
+    // Banery wynikowe:
+    //   - Supabase niepuste → użyj Supabase (preferowane)
+    //   - loadComplete && Supabase puste/error → fallback do mock
+    //   - jeszcze ładujemy → empty list (slider się nie pokaże, brak migotania)
+    val appBanners = when {
+        supabaseBanners.isNotEmpty() -> supabaseBanners.map { item ->
+            VodSlideData(
+                title = item.title,
+                genre = "",
+                duration = "",
+                year = "",
+                country = "",
+                ageRating = "",
+                description = item.description,
+                price = item.resolveButtonLabel(),
+                backgroundUrl = item.backdropUrl,
+                posterUrl = item.backdropUrl,
+                youtubeUrl = null,
+                showKrrit = false,
+                isKinoPlay = false,
+                selectedLogoUrl = item.logoUrl
+            )
+        }
+        loadComplete -> mockBanners
+        else -> emptyList()
+    }
+
+    // Variant 1: tylko channels (Aplikacje na top). Hero locked off, slider niewidoczny.
+    val heroEnabled = aplikacjeVariant == 0
+    var heroFocused by remember(aplikacjeVariant) { mutableStateOf(heroEnabled) }
+    var resetTrigger by remember { mutableStateOf(0) }
+    var focusedChannelRow by remember { mutableStateOf(0) }
+
+    LaunchedEffect(globalFocusState.value.currentRow, globalFocusState.value.sectionId, aplikacjeVariant) {
+        if (globalFocusState.value.sectionId == "APLIKACJE" && globalFocusState.value.currentRow == 0) {
+            resetTrigger++
+            heroFocused = heroEnabled
+        }
+    }
+
+    // Gdy slider przejmuje fokus (z menu lub z channels) — zresetuj wewnętrzny focus state
+    // w channels żeby nie rysowały aqua bordera na ostatnio focused karcie.
+    LaunchedEffect(heroFocused) {
+        if (heroFocused) {
+            resetTrigger++
+        }
+    }
+
+    // Variant 0: 586px = SLIDER_MIX_HEIGHT z WIDEO. Variant 1: channels od top (0).
+    val channelsOffsetY by animateDpAsState(
+        targetValue = when {
+            !heroEnabled -> sy(0)  // wariant 1 — channels zawsze od top
+            heroFocused -> sy(586)
+            else -> sy(0)
+        },
+        animationSpec = tween(durationMillis = 300),
+        label = "aplikacje_channels_offset_y"
+    )
+
+    // Slider offset (irrelevant w wariancie 1 bo slider niewidoczny)
+    val sliderTargetY = when {
+        heroFocused -> 0
+        focusedChannelRow == 0 -> -640
+        else -> -900
+    }
+    val sliderOffsetY by animateDpAsState(
+        targetValue = sy(sliderTargetY),
+        animationSpec = tween(durationMillis = 300),
+        label = "aplikacje_slider_offset_y"
+    )
+
+    // Variant 1: lista channels z phantom "__SLIDER__" pomiędzy "Aplikacje" a Netflix
+    val variant1Channels = listOf("Aplikacje", "__SLIDER__", "Netflix", "YouTube", "Prime Video", "Disney+")
+
+    Box(modifier = Modifier
+        .fillMaxSize()
+        .background(Color(0xFF281443))
+    ) {
+        Box(modifier = Modifier.offset(y = channelsOffsetY)) {
+            AplikacjeChannelsScreen(
+                onReturnToMenu = {
+                    if (heroEnabled) heroFocused = true
+                    else globalFocusState.value = GlobalFocusManager.returnToMenu(globalFocusState.value)
+                },
+                shouldAutoFocus = (!heroEnabled || !heroFocused) && globalFocusState.value.currentRow > 0,
+                sx = sx,
+                sy = sy,
+                resetTrigger = resetTrigger,
+                onFocusedRowChange = { row -> focusedChannelRow = row },
+                onNavigateToAppsGrid = onNavigateToAppsGrid,
+                channelsOverride = if (!heroEnabled) variant1Channels else null,
+                sliderItems = if (!heroEnabled) appBanners else emptyList()
+            )
+        }
+
+        // Overlay slider tylko w wariancie 0 (w wariancie 1 slider jest wewnątrz channels list jako "__SLIDER__")
+        if (heroEnabled && appBanners.isNotEmpty()) {
+            Box(modifier = Modifier.offset(y = sliderOffsetY)) {
+                VodHeroSliderV2(
+                    isFocused = heroFocused && globalFocusState.value.currentRow > 0,
+                    items = appBanners,
+                    sectionType = "APLIKACJE",
+                    sx = sx,
+                    sy = sy,
+                    topPadding = 200,
+                    // Auto-rotate i bullets aktywne tylko gdy slider ma fokus
+                    enableAutoRotate = heroFocused,
+                    autoRotateIntervalMs = 8000L,
+                    pauseAfterInteractionMs = 10000L,
+                    showBullets = heroFocused,
+                    onNavigateDown = { heroFocused = false },
+                    onReturnToMenu = {
+                        globalFocusState.value = GlobalFocusManager.returnToMenu(globalFocusState.value)
+                    }
+                )
+            }
+        }
+    }
+}
 
 /**
  * Aplikacje section placeholder

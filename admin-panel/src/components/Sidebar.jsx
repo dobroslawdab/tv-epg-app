@@ -35,6 +35,11 @@ function Sidebar({ onLogout }) {
           Slider ODKRYWAJ
         </NavLink>
 
+        <NavLink to="/aplikacje-slider" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
+          <span className="nav-icon">📱</span>
+          Slider APLIKACJE
+        </NavLink>
+
         <NavLink to="/vod-content" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
           <span className="nav-icon">📺</span>
           Wideo (VOD)

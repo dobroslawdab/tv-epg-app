@@ -1,5 +1,6 @@
 package com.uxellence.tv.v3.version001
 
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.background
@@ -616,11 +617,30 @@ fun CategoryIcon(
     showBackgroundWhenFocused: Boolean = false,
     isExpanded: Boolean = false,
     showChevron: Boolean = false,
-    onChevronClick: (() -> Unit)? = null
+    onChevronClick: (() -> Unit)? = null,
+    containerHeightOverride: Dp? = null,    // optional override (np. dopasowanie do wysokości kafelków obok)
+    containerWidthOverride: Dp? = null,     // optional override (np. kwadratowa kategoria 170×170)
+    cornerRadiusOverride: Dp? = null,       // optional override (np. 12dp jak na AppIconCard)
+    iconTextSpacingOverride: Dp? = null,    // optional override (np. 8 zamiast 16)
+    okPromptAfterDelay: Boolean = false,    // gdy true: po 2s fokusa pokaż kółko OK + label
+    okPromptLabel: String = ""              // tekst pod kółkiem OK (np. "Wszystkie aplikacje")
 ) {
     // Rozmiary z Figma
-    val containerWidth = sx(240)
-    val containerHeight = sy(216)
+    val containerWidth = containerWidthOverride ?: sx(240)
+    val containerHeight = containerHeightOverride ?: sy(216)
+    val cornerShape = RoundedCornerShape(cornerRadiusOverride ?: sx(4))
+    val iconTextSpacing = iconTextSpacingOverride ?: sy(16)
+
+    // 4-sec delay focus → switch to "OK" prompt
+    var showOkPrompt by remember(isFocused) { androidx.compose.runtime.mutableStateOf(false) }
+    androidx.compose.runtime.LaunchedEffect(isFocused, okPromptAfterDelay) {
+        if (isFocused && okPromptAfterDelay) {
+            kotlinx.coroutines.delay(4000)
+            showOkPrompt = true
+        } else {
+            showOkPrompt = false
+        }
+    }
     val borderColor = if (isFocused) Color(0xFF5AECD3) else Color.Transparent
 
     // Chevron rotation animation (350ms smooth rotation)
@@ -639,13 +659,13 @@ fun CategoryIcon(
                     Modifier.border(
                         width = (6 * sx(1).value / 1.dp.value).dp, // border width: 6 z Figma
                         color = borderColor,
-                        shape = RoundedCornerShape(sx(4))
+                        shape = cornerShape
                     )
                 } else {
                     Modifier // brak obramowania gdy nie focused
                 }
             )
-            .clip(RoundedCornerShape(sx(4)))
+            .clip(cornerShape)
             .then(
                 if (showBackgroundWhenFocused) {
                     if (isFocused) {
@@ -676,78 +696,133 @@ fun CategoryIcon(
         ) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = if (showIcon) Arrangement.spacedBy(sy(16)) else Arrangement.Center, // spacing: 16 z Figma tylko gdy pokazujemy ikonę
-                modifier = Modifier.fillMaxSize()
+                verticalArrangement = if (showIcon) Arrangement.spacedBy(iconTextSpacing) else Arrangement.Center,
+                modifier = Modifier.fillMaxWidth()
             ) {
-                // Ikona 96x96 - logo lub placeholder (tylko gdy showIcon = true)
+                // Ikona 96x96 - logo lub placeholder. Z animowanym przejściem do "OK" prompt (slide-in od dołu).
                 if (showIcon) {
-                    Box(
-                        modifier = Modifier
-                            .size(sx(96)) // 96x96 z Figma
-                            .clip(RoundedCornerShape(sx(8))),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        when {
-                            logoDrawableId != null -> {
-                                // Pokazuj lokalne SVG drawable (bez tint - zachowaj oryginalne kolory)
-                                Icon(
-                                    painter = painterResource(id = logoDrawableId),
-                                    contentDescription = text,
-                                    modifier = Modifier.size(sx(68)),
-                                    tint = Color.Unspecified
+                    androidx.compose.animation.AnimatedContent(
+                        targetState = showOkPrompt,
+                        transitionSpec = {
+                            (androidx.compose.animation.slideInVertically(
+                                animationSpec = androidx.compose.animation.core.tween(durationMillis = 300)
+                            ) { fullHeight -> fullHeight } +
+                                androidx.compose.animation.fadeIn(
+                                    animationSpec = androidx.compose.animation.core.tween(durationMillis = 300)
                                 )
-                            }
-                            logoUrl != null -> {
-                                // Pokazuj logo z URL
-                                AsyncImage(
-                                    model = logoUrl,
-                                    contentDescription = text,
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Fit
-                                )
-                            }
-                            else -> {
-                                // Placeholder - pierwsze 2 litery
-                                Text(
-                                    text = text.take(2).uppercase(),
-                                    color = Color(0xFFEEEEEE),
-                                    fontSize = (24 * (sx(1).value / 1.dp.value)).sp,
-                                    fontWeight = FontWeight.Bold
-                                )
+                            ) togetherWith androidx.compose.animation.slideOutVertically(
+                                animationSpec = androidx.compose.animation.core.tween(durationMillis = 300)
+                            ) { fullHeight -> -fullHeight } + androidx.compose.animation.fadeOut(
+                                animationSpec = androidx.compose.animation.core.tween(durationMillis = 300)
+                            )
+                        },
+                        label = "category_icon_swap"
+                    ) { isOk ->
+                        Box(
+                            modifier = Modifier
+                                .size(sx(96))
+                                .clip(RoundedCornerShape(sx(8))),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            when {
+                                isOk -> {
+                                    // OK przycisk — białe kółko z ciemnym tłem (jak na pilocie)
+                                    Box(
+                                        modifier = Modifier
+                                            .size(sx(52))
+                                            .clip(androidx.compose.foundation.shape.CircleShape)
+                                            .background(Color(0xFF281443))
+                                            .border(
+                                                width = sx(2),
+                                                color = Color(0xFFEEEEEE),
+                                                shape = androidx.compose.foundation.shape.CircleShape
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "OK",
+                                            color = Color(0xFFEEEEEE),
+                                            fontSize = (15 * (sx(1).value / 1.dp.value)).sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                                logoDrawableId != null -> {
+                                    Icon(
+                                        painter = painterResource(id = logoDrawableId),
+                                        contentDescription = text,
+                                        modifier = Modifier.size(sx(68)),
+                                        tint = Color.Unspecified
+                                    )
+                                }
+                                logoUrl != null -> {
+                                    AsyncImage(
+                                        model = logoUrl,
+                                        contentDescription = text,
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Fit
+                                    )
+                                }
+                                else -> {
+                                    Text(
+                                        text = text.take(2).uppercase(),
+                                        color = Color(0xFFEEEEEE),
+                                        fontSize = (24 * (sx(1).value / 1.dp.value)).sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                             }
                         }
                     }
                 }
 
-                // Tekst kategorii + chevron (dla expandable channels)
-                Row(
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.widthIn(max = sx(200))
-                ) {
-                    Text(
-                        text = text,
-                        textAlign = TextAlign.Center,
-                        color = Color(0xFFEEEEEE),
-                        fontSize = (24 * (sy(1).value / 1.dp.value)).sp, // fontSize: 24 z Figma
-                        fontWeight = FontWeight.Medium, // fontWeight: 500 z Figma
-                        letterSpacing = (0.48 * (sy(1).value / 1.dp.value)).sp, // letterSpacing: 0.48 z Figma
-                        lineHeight = (24 * 1.33f * (sy(1).value / 1.dp.value)).sp, // lineHeight: 1.33 z Figma
-                        maxLines = 2, // Umożliwia 2 linie dla dłuższych nazw EPG
-                        modifier = Modifier.weight(1f, fill = false)
-                    )
-
-                    // Chevron icon for expandable channels (NAGRANIA)
-                    if (showChevron) {
-                        Spacer(modifier = Modifier.width(sx(8)))
-                        Icon(
-                            imageVector = Icons.Filled.KeyboardArrowDown,
-                            contentDescription = if (isExpanded) "Collapse" else "Expand",
-                            tint = Color(0xFFEEEEEE),
-                            modifier = Modifier
-                                .size(sx(20), sy(20))
-                                .rotate(chevronRotation)
+                // Tekst kategorii + chevron (dla expandable channels). Tekst też z animacją slide.
+                androidx.compose.animation.AnimatedContent(
+                    targetState = showOkPrompt,
+                    transitionSpec = {
+                        (androidx.compose.animation.slideInVertically(
+                            animationSpec = androidx.compose.animation.core.tween(durationMillis = 300)
+                        ) { fullHeight -> fullHeight } +
+                            androidx.compose.animation.fadeIn(
+                                animationSpec = androidx.compose.animation.core.tween(durationMillis = 300)
+                            )
+                        ) togetherWith androidx.compose.animation.slideOutVertically(
+                            animationSpec = androidx.compose.animation.core.tween(durationMillis = 300)
+                        ) { fullHeight -> -fullHeight } + androidx.compose.animation.fadeOut(
+                            animationSpec = androidx.compose.animation.core.tween(durationMillis = 300)
                         )
+                    },
+                    label = "category_text_swap"
+                ) { isOk ->
+                    Row(
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.widthIn(max = sx(200))
+                    ) {
+                        Text(
+                            text = if (isOk) okPromptLabel else text,
+                            textAlign = TextAlign.Center,
+                            color = Color(0xFFEEEEEE),
+                            fontSize = (24 * (sy(1).value / 1.dp.value)).sp,
+                            fontWeight = FontWeight.Medium,
+                            letterSpacing = (0.48 * (sy(1).value / 1.dp.value)).sp,
+                            lineHeight = (24 * 1.33f * (sy(1).value / 1.dp.value)).sp,
+                            maxLines = 2,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+
+                        // Chevron — tylko gdy CategoryIcon ma fokus i NIE w OK-prompt mode
+                        if (showChevron && isFocused && !isOk) {
+                            Spacer(modifier = Modifier.width(sx(8)))
+                            Icon(
+                                imageVector = Icons.Filled.KeyboardArrowDown,
+                                contentDescription = if (isExpanded) "Collapse" else "Expand",
+                                tint = Color(0xFFEEEEEE),
+                                modifier = Modifier
+                                    .size(sx(20), sy(20))
+                                    .rotate(chevronRotation)
+                            )
+                        }
                     }
                 }
             }

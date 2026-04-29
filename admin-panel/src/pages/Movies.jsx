@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase';
+import MovieAddFromTmdbModal from '../components/MovieAddFromTmdbModal';
 
 const ITEMS_PER_PAGE = 50;
 
@@ -30,6 +31,9 @@ function Movies() {
 
   // Sort order
   const [sortOrder, setSortOrder] = useState('newest'); // 'newest', 'oldest', 'display_order'
+
+  // Add from TMDB modal
+  const [tmdbModalOpen, setTmdbModalOpen] = useState(false);
 
   const fetchMovies = useCallback(async () => {
     setLoading(true);
@@ -270,7 +274,24 @@ function Movies() {
 
   return (
     <div className="movies-page">
-      <h1>Movies Management</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h1>Movies Management</h1>
+        <button
+          onClick={() => setTmdbModalOpen(true)}
+          style={{
+            padding: '10px 18px', background: '#3b82f6', color: '#fff', border: 'none',
+            borderRadius: 6, cursor: 'pointer', fontSize: 14, fontWeight: 'bold'
+          }}
+        >
+          + Dodaj z TMDB
+        </button>
+      </div>
+
+      <MovieAddFromTmdbModal
+        open={tmdbModalOpen}
+        onClose={() => setTmdbModalOpen(false)}
+        onSaved={() => fetchMovies()}
+      />
 
       <div className="filters">
         <input

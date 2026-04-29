@@ -28,6 +28,9 @@ function MovieDetails() {
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
 
+  // Trailer URL input (manual entry — DASH .smil / .mpd / MP4 / YouTube)
+  const [trailerInput, setTrailerInput] = useState('');
+
   // Modal "Dodaj do slidera"
   const [sliderModal, setSliderModal] = useState(false);
   const [slotNumber, setSlotNumber] = useState('');
@@ -53,6 +56,7 @@ function MovieDetails() {
       setError('Movie not found');
     } else {
       setMovie(data);
+      setTrailerInput(data.youtube_url || '');
     }
     setLoading(false);
   };
@@ -169,6 +173,25 @@ function MovieDetails() {
     } else {
       setMessage('Backdrop zapisany!');
       setMovie({ ...movie, backdrop_url: backdropUrl });
+    }
+    setSaving(false);
+    setTimeout(() => setMessage(''), 3000);
+  };
+
+  const savePosterToSupabase = async (posterPath) => {
+    setSaving(true);
+    const posterUrl = `${TMDB_IMAGE_BASE}/original${posterPath}`;
+
+    const { error } = await supabase
+      .from('movies')
+      .update({ poster_url: posterUrl, tmdb_poster_url: posterUrl })
+      .eq('id', id);
+
+    if (error) {
+      setMessage('Błąd zapisu plakata: ' + error.message);
+    } else {
+      setMessage('Plakat zapisany!');
+      setMovie({ ...movie, poster_url: posterUrl, tmdb_poster_url: posterUrl });
     }
     setSaving(false);
     setTimeout(() => setMessage(''), 3000);
@@ -477,14 +500,51 @@ function MovieDetails() {
                   <span style={{ color: '#5AECD3' }}>{movie.tmdb_id}</span>
                 </div>
               )}
-              {movie?.youtube_url && (
-                <div className="field">
-                  <label>🎬 Trailer:</label>
-                  <a href={movie.youtube_url} target="_blank" rel="noreferrer" style={{ color: '#ff6b6b' }}>
-                    {movie.youtube_url}
-                  </a>
+              <div className="field" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+                <label>🎬 Trailer (DASH .smil / .mpd / MP4 / YouTube):</label>
+                <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+                  <input
+                    type="text"
+                    value={trailerInput}
+                    onChange={e => setTrailerInput(e.target.value)}
+                    placeholder="np. https://n-1411-3.dcs.redcdn.pl/dash/.../dash.smil lub https://www.youtube.com/watch?v=..."
+                    style={{
+                      flex: 1, padding: '8px 12px', fontSize: 13,
+                      background: '#0d0d0d', color: '#eee',
+                      border: '1px solid #444', borderRadius: 4
+                    }}
+                  />
+                  <button
+                    onClick={() => saveFieldToSupabase('youtube_url', trailerInput.trim() || null, 'Trailer URL')}
+                    disabled={saving || trailerInput === (movie?.youtube_url || '')}
+                    style={{
+                      padding: '8px 14px', background: '#3b82f6', color: '#fff',
+                      border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 13
+                    }}
+                  >
+                    {saving ? '…' : '💾 Zapisz'}
+                  </button>
+                  {trailerInput && (
+                    <button
+                      onClick={() => { setTrailerInput(''); saveFieldToSupabase('youtube_url', null, 'Trailer URL'); }}
+                      disabled={saving}
+                      style={{
+                        padding: '8px 12px', background: '#7f1d1d', color: '#fff',
+                        border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 13
+                      }}
+                    >
+                      🗑️
+                    </button>
+                  )}
                 </div>
-              )}
+                {movie?.youtube_url && (
+                  <a href={movie.youtube_url} target="_blank" rel="noreferrer"
+                     style={{ color: '#ff6b6b', fontSize: 12, marginTop: 4, wordBreak: 'break-all' }}>
+                    Aktualnie: {movie.youtube_url}
+                  </a>
+                )}
+              </div>
+
               {movie?.slider_glow_color && (
                 <div className="field">
                   <label>🎨 Glow Color:</label>
@@ -784,16 +844,33 @@ function MovieDetails() {
               {tmdbImages?.posters && tmdbImages.posters.length > 0 && (
                 <div className="images-section">
                   <h3>🎬 POSTERY ({tmdbImages.posters.length})</h3>
+                  <p className="hint">Kliknij na plakat, aby zapisać go do Supabase</p>
                   <div className="posters-grid">
-                    {tmdbImages.posters.slice(0, posterPage * ITEMS_PER_PAGE.posters).map((poster, idx) => (
-                      <div key={idx} className="poster-item">
-                        <img
-                          src={`${TMDB_IMAGE_BASE}/w300${poster.file_path}`}
-                          alt={`Poster ${idx + 1}`}
-                        />
-                        <span>{poster.width}x{poster.height}</span>
-                      </div>
-                    ))}
+                    {tmdbImages.posters.slice(0, posterPage * ITEMS_PER_PAGE.posters).map((poster, idx) => {
+                      const fullUrl = `${TMDB_IMAGE_BASE}/original${poster.file_path}`;
+                      const isCurrent = movie?.poster_url === fullUrl;
+                      return (
+                        <div
+                          key={idx}
+                          className="poster-item"
+                          onClick={() => savePosterToSupabase(poster.file_path)}
+                          style={{
+                            cursor: 'pointer',
+                            outline: isCurrent ? '4px solid #5FEDD4' : 'none',
+                            outlineOffset: -4
+                          }}
+                        >
+                          <img
+                            src={`${TMDB_IMAGE_BASE}/w300${poster.file_path}`}
+                            alt={`Poster ${idx + 1}`}
+                          />
+                          <div className="backdrop-info">
+                            <span>{poster.width}x{poster.height}</span>
+                            <button className="select-btn">{isCurrent ? '✓ Wybrany' : 'Wybierz'}</button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                   {tmdbImages.posters.length > posterPage * ITEMS_PER_PAGE.posters && (
                     <button onClick={() => setPosterPage(p => p + 1)} className="load-more-btn">

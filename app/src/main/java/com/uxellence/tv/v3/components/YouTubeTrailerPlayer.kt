@@ -21,6 +21,7 @@ import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.Player
 import com.google.android.exoplayer2.ui.AspectRatioFrameLayout
 import com.google.android.exoplayer2.ui.StyledPlayerView
+import com.google.android.exoplayer2.util.MimeTypes
 import com.uxellence.tv.v3.utils.YouTubeStreamExtractor
 
 private const val TAG = "YouTubeTrailerPlayer"
@@ -37,7 +38,11 @@ private const val TAG = "YouTubeTrailerPlayer"
 @Composable
 fun YouTubeTrailerPlayer(
     youtubeUrl: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    startPositionMs: Long = 0L,
+    // true → TextureView (stretch — dla mini kafli WIDEO które chcą wypełnić bez letterboxa)
+    // false → StyledPlayerView z RESIZE_MODE_ZOOM (zachowuje aspect — dla slidera Kino Play)
+    stretchToFill: Boolean = false
 ) {
     val context = LocalContext.current
 
@@ -45,6 +50,9 @@ fun YouTubeTrailerPlayer(
     val isDirectUrl = remember(youtubeUrl) {
         youtubeUrl.endsWith(".mp4") ||
         youtubeUrl.endsWith(".m3u8") ||
+        youtubeUrl.endsWith(".mpd") ||
+        youtubeUrl.endsWith(".smil") ||
+        youtubeUrl.contains("/dash/") ||
         youtubeUrl.contains("supabase.co/storage")
     }
 
@@ -114,12 +122,23 @@ fun YouTubeTrailerPlayer(
             // Loop forever
             repeatMode = Player.REPEAT_MODE_ALL
 
-            // Set media source
-            val mediaItem = MediaItem.fromUri(streamUrl!!)
+            // Set media source — DASH/SMIL wymaga jawnego MimeType, inne formaty auto-detect
+            val isDash = streamUrl!!.endsWith(".mpd") || streamUrl!!.endsWith(".smil") || streamUrl!!.contains("/dash/")
+            val mediaItem = if (isDash) {
+                MediaItem.Builder()
+                    .setUri(streamUrl!!)
+                    .setMimeType(MimeTypes.APPLICATION_MPD)
+                    .build()
+            } else {
+                MediaItem.fromUri(streamUrl!!)
+            }
             setMediaItem(mediaItem)
 
             // Prepare and auto-play
             prepare()
+            if (startPositionMs > 0L) {
+                seekTo(startPositionMs)
+            }
             playWhenReady = true
 
             Log.d(TAG, "ExoPlayer created with SOUND ENABLED for: ${streamUrl?.take(80)}...")
@@ -141,30 +160,42 @@ fun YouTubeTrailerPlayer(
         }
     }
 
-    // Use StyledPlayerView with RESIZE_MODE_ZOOM for fullscreen without letterboxing
-    // Key forces recreation when URL changes (fixes state issues on trailer switch)
-    key(streamUrl) {
-        AndroidView(
-            factory = { ctx ->
-                StyledPlayerView(ctx).apply {
-                    // RESIZE_MODE_ZOOM = CENTER_CROP - fills screen, crops excess
-                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-
-                    // Hide all controls (trailer runs silently in background)
-                    useController = false
-
-                    // Attach player
-                    player = exoPlayer
-
-                    Log.d(TAG, "StyledPlayerView created for: ${streamUrl?.take(50)}")
+    // Dwa tryby renderingu:
+    // - stretchToFill=true: TextureView — wypełnia kontener bez letterboxa, akceptuje lekkie
+    //   rozciągnięcie. Używane przy miniaturach WIDEO (16:9 vs 16:9 = brak zniekształceń).
+    // - stretchToFill=false: StyledPlayerView z RESIZE_MODE_ZOOM — zachowuje aspect ratio
+    //   (CENTER_CROP). Używane w sliderze hero (Kino Play, Aplikacje).
+    key(streamUrl, stretchToFill) {
+        if (stretchToFill) {
+            AndroidView(
+                factory = { ctx ->
+                    android.view.TextureView(ctx).also { textureView ->
+                        exoPlayer.setVideoTextureView(textureView)
+                        Log.d(TAG, "TextureView (stretch) created for: ${streamUrl?.take(50)}")
+                    }
+                },
+                modifier = modifier.background(Color.Transparent),
+                update = { textureView ->
+                    exoPlayer.setVideoTextureView(textureView)
                 }
-            },
-            modifier = modifier.background(Color.Black),
-            update = { playerView ->
-                // Re-attach player if changed
-                playerView.player = exoPlayer
-            }
-        )
+            )
+        } else {
+            AndroidView(
+                factory = { ctx ->
+                    StyledPlayerView(ctx).apply {
+                        resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                        useController = false
+                        setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
+                        player = exoPlayer
+                        Log.d(TAG, "StyledPlayerView (zoom) created for: ${streamUrl?.take(50)}")
+                    }
+                },
+                modifier = modifier.background(Color.Transparent),
+                update = { playerView ->
+                    playerView.player = exoPlayer
+                }
+            )
+        }
     }
 }
 

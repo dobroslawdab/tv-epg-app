@@ -28,6 +28,12 @@ function Slider() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewData, setPreviewData] = useState(null);
 
+  // Wybór assetów + trailer URL przy zatwierdzaniu slotu
+  const [selectedPosterUrl, setSelectedPosterUrl] = useState(null);
+  const [selectedBackdropUrl, setSelectedBackdropUrl] = useState(null);
+  const [selectedLogoUrl, setSelectedLogoUrl] = useState(null);
+  const [selectedTrailerUrl, setSelectedTrailerUrl] = useState('');
+
   // Slider preview state
   const [activeSlide, setActiveSlide] = useState(0);
 
@@ -277,7 +283,59 @@ function Slider() {
     setPreviewLoading(true);
     setPreviewData(null);
 
-    // If movie has tmdb_id, fetch full data from TMDB
+    // PRIMARY SOURCE: dane już zsynchronizowane w bazie (movies.tmdb_*).
+    // Fallback do TMDB API tylko gdy w bazie pusto a movie ma tmdb_id.
+    const hasDbAssets = (movie.tmdb_posters?.length || 0) > 0
+        || (movie.tmdb_backdrops?.length || 0) > 0
+        || (movie.tmdb_logos?.length || 0) > 0;
+
+    if (hasDbAssets) {
+      const directors = (movie.tmdb_directors || []).map(d => d.name || d);
+      const cast = (movie.tmdb_cast || []).slice(0, 10).map(a => ({
+        name: a.name, character: a.character, profile_path: a.profile_path
+      }));
+      const videos = (movie.tmdb_videos || []).filter(v => v.site === 'YouTube').slice(0, 5);
+      const backdrops = (movie.tmdb_backdrops || []).slice(0, 6);
+      const logos = (movie.tmdb_logos || []).slice(0, 3);
+      const posters = (movie.tmdb_posters || []).slice(0, 12);
+
+      const defaultBackdrop = movie.backdrop_url
+        || (movie.tmdb_backdrops?.[0]?.file_path ? `${TMDB_IMAGE_BASE}/original${movie.tmdb_backdrops[0].file_path}` : null);
+      const defaultPoster = movie.poster_url
+        || movie.tmdb_poster_url
+        || (movie.tmdb_posters?.[0]?.file_path ? `${TMDB_IMAGE_BASE}/original${movie.tmdb_posters[0].file_path}` : null);
+      const defaultLogo = movie.selected_logo_url
+        || movie.tmdb_logo_url
+        || (movie.tmdb_logos?.[0]?.file_path ? `${TMDB_IMAGE_BASE}/original${movie.tmdb_logos[0].file_path}` : null);
+
+      setPreviewData({
+        ...movie,
+        tmdb_details: {
+          release_date: movie.tmdb_release_date,
+          runtime: movie.tmdb_runtime,
+          vote_average: movie.tmdb_vote_average,
+          genres: movie.tmdb_genres || [],
+          overview: movie.tmdb_overview
+        },
+        tmdb_directors: directors,
+        tmdb_cast: cast,
+        tmdb_videos: videos,
+        tmdb_backdrops: backdrops,
+        tmdb_logos: logos,
+        tmdb_posters: posters,
+        backdrop_url: defaultBackdrop,
+        poster_url: defaultPoster,
+        logo_url: defaultLogo,
+      });
+      setSelectedBackdropUrl(defaultBackdrop);
+      setSelectedPosterUrl(defaultPoster);
+      setSelectedLogoUrl(defaultLogo);
+      setSelectedTrailerUrl(movie.youtube_url || '');
+      setPreviewLoading(false);
+      return;
+    }
+
+    // Fallback: brak danych w bazie — fetch z TMDB
     if (movie.tmdb_id) {
       try {
         const [detailsRes, videosRes, imagesRes] = await Promise.all([
@@ -295,6 +353,13 @@ function Slider() {
         const videos = videosData.results?.filter(v => v.site === 'YouTube').slice(0, 5) || [];
         const backdrops = imagesData.backdrops?.slice(0, 6) || [];
         const logos = imagesData.logos?.slice(0, 3) || [];
+        const posters = imagesData.posters?.slice(0, 12) || [];
+
+        const defaultBackdrop = details.backdrop_path ? `${TMDB_IMAGE_BASE}/original${details.backdrop_path}` : movie.backdrop_url;
+        const defaultPoster = details.poster_path ? `${TMDB_IMAGE_BASE}/original${details.poster_path}` : movie.poster_url;
+        const defaultLogo = imagesData.logos?.[0]?.file_path
+          ? `${TMDB_IMAGE_BASE}/original${imagesData.logos[0].file_path}`
+          : movie.selected_logo_url || movie.tmdb_logo_url;
 
         setPreviewData({
           ...movie,
@@ -304,16 +369,30 @@ function Slider() {
           tmdb_videos: videos,
           tmdb_backdrops: backdrops,
           tmdb_logos: logos,
-          backdrop_url: details.backdrop_path ? `${TMDB_IMAGE_BASE}/original${details.backdrop_path}` : movie.backdrop_url,
-          poster_url: details.poster_path ? `${TMDB_IMAGE_BASE}/original${details.poster_path}` : movie.poster_url,
-          logo_url: imagesData.logos?.[0]?.file_path ? `${TMDB_IMAGE_BASE}/original${imagesData.logos[0].file_path}` : movie.tmdb_logo_url,
+          tmdb_posters: posters,
+          backdrop_url: defaultBackdrop,
+          poster_url: defaultPoster,
+          logo_url: defaultLogo,
         });
+        // Pre-fill wybory zatwierdzenia
+        setSelectedBackdropUrl(defaultBackdrop);
+        setSelectedPosterUrl(defaultPoster);
+        setSelectedLogoUrl(defaultLogo);
+        setSelectedTrailerUrl(movie.youtube_url || '');
       } catch (err) {
         console.error('TMDB fetch error:', err);
         setPreviewData(movie); // fallback to local data
+        setSelectedBackdropUrl(movie.backdrop_url);
+        setSelectedPosterUrl(movie.poster_url);
+        setSelectedLogoUrl(movie.selected_logo_url || movie.tmdb_logo_url);
+        setSelectedTrailerUrl(movie.youtube_url || '');
       }
     } else {
       setPreviewData(movie); // No TMDB ID, use local data
+      setSelectedBackdropUrl(movie.backdrop_url);
+      setSelectedPosterUrl(movie.poster_url);
+      setSelectedLogoUrl(movie.selected_logo_url || movie.tmdb_logo_url);
+      setSelectedTrailerUrl(movie.youtube_url || '');
     }
     setPreviewLoading(false);
   };
@@ -334,14 +413,14 @@ function Slider() {
           .eq('id', String(currentSlot.id));
       }
 
-      // 2. Oznacz wybrany film jako slider
+      // 2. Oznacz wybrany film jako slider — z wybranymi assetami i trailerem
       const updateData = {
         is_slider: true,
         slider_order: slotPosition,
-        // Aktualizuj też dane z TMDB jeśli dostępne
-        backdrop_url: previewData?.backdrop_url || movie.backdrop_url,
-        poster_url: previewData?.poster_url || movie.poster_url,
-        logo_url: previewData?.logo_url || movie.logo_url,
+        backdrop_url: selectedBackdropUrl || previewData?.backdrop_url || movie.backdrop_url,
+        poster_url: selectedPosterUrl || previewData?.poster_url || movie.poster_url,
+        selected_logo_url: selectedLogoUrl || previewData?.logo_url || movie.selected_logo_url || movie.tmdb_logo_url,
+        youtube_url: selectedTrailerUrl.trim() || movie.youtube_url || null,
       };
 
       const { error } = await supabase
@@ -1274,37 +1353,104 @@ function Slider() {
                     </div>
                   )}
 
-                  {/* Backdrops */}
-                  {previewData.tmdb_backdrops?.length > 0 && (
+                  {/* Posters — klikalne, wybór plakata */}
+                  {previewData.tmdb_posters?.length > 0 && (
                     <div className="preview-section">
-                      <h3>🖼️ Zdjęcia</h3>
+                      <h3>🎞️ Plakat (kliknij aby wybrać)</h3>
                       <div className="preview-backdrops">
-                        {previewData.tmdb_backdrops.map((img, i) => (
-                          <img
-                            key={i}
-                            src={`${TMDB_IMAGE_BASE}/w500${img.file_path}`}
-                            alt={`Backdrop ${i + 1}`}
-                          />
-                        ))}
+                        {previewData.tmdb_posters.map((p, i) => {
+                          const fullUrl = `${TMDB_IMAGE_BASE}/original${p.file_path}`;
+                          const isPicked = selectedPosterUrl === fullUrl;
+                          return (
+                            <img
+                              key={i}
+                              src={`${TMDB_IMAGE_BASE}/w185${p.file_path}`}
+                              alt={`Poster ${i + 1}`}
+                              onClick={() => setSelectedPosterUrl(fullUrl)}
+                              style={{
+                                cursor: 'pointer',
+                                outline: isPicked ? '4px solid #5FEDD4' : 'none',
+                                opacity: isPicked ? 1 : 0.65,
+                                transition: 'all 0.15s'
+                              }}
+                            />
+                          );
+                        })}
                       </div>
                     </div>
                   )}
 
-                  {/* Logos */}
-                  {previewData.tmdb_logos?.length > 0 && (
+                  {/* Backdrops — klikalne, wybór tła */}
+                  {previewData.tmdb_backdrops?.length > 0 && (
                     <div className="preview-section">
-                      <h3>✨ Logo</h3>
-                      <div className="preview-logos">
-                        {previewData.tmdb_logos.map((logo, i) => (
-                          <img
-                            key={i}
-                            src={`${TMDB_IMAGE_BASE}/w300${logo.file_path}`}
-                            alt={`Logo ${i + 1}`}
-                          />
-                        ))}
+                      <h3>🖼️ Zdjęcie tła (kliknij aby wybrać)</h3>
+                      <div className="preview-backdrops">
+                        {previewData.tmdb_backdrops.map((img, i) => {
+                          const fullUrl = `${TMDB_IMAGE_BASE}/original${img.file_path}`;
+                          const isPicked = selectedBackdropUrl === fullUrl;
+                          return (
+                            <img
+                              key={i}
+                              src={`${TMDB_IMAGE_BASE}/w500${img.file_path}`}
+                              alt={`Backdrop ${i + 1}`}
+                              onClick={() => setSelectedBackdropUrl(fullUrl)}
+                              style={{
+                                cursor: 'pointer',
+                                outline: isPicked ? '4px solid #5FEDD4' : 'none',
+                                opacity: isPicked ? 1 : 0.65,
+                                transition: 'all 0.15s'
+                              }}
+                            />
+                          );
+                        })}
                       </div>
                     </div>
                   )}
+
+                  {/* Logos — klikalne, wybór logo */}
+                  {previewData.tmdb_logos?.length > 0 && (
+                    <div className="preview-section">
+                      <h3>✨ Logo (kliknij aby wybrać)</h3>
+                      <div className="preview-logos">
+                        {previewData.tmdb_logos.map((logo, i) => {
+                          const fullUrl = `${TMDB_IMAGE_BASE}/original${logo.file_path}`;
+                          const isPicked = selectedLogoUrl === fullUrl;
+                          return (
+                            <img
+                              key={i}
+                              src={`${TMDB_IMAGE_BASE}/w300${logo.file_path}`}
+                              alt={`Logo ${i + 1}`}
+                              onClick={() => setSelectedLogoUrl(fullUrl)}
+                              style={{
+                                cursor: 'pointer',
+                                outline: isPicked ? '4px solid #5FEDD4' : 'none',
+                                opacity: isPicked ? 1 : 0.65,
+                                transition: 'all 0.15s'
+                              }}
+                            />
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Trailer URL — używany w sliderze hero */}
+                  <div className="preview-section">
+                    <h3>🎥 Link do zwiastuna (DASH .smil / .mpd / MP4 / YouTube)</h3>
+                    <input
+                      type="text"
+                      value={selectedTrailerUrl}
+                      onChange={e => setSelectedTrailerUrl(e.target.value)}
+                      placeholder="np. https://n-1411-3.dcs.redcdn.pl/dash/.../dash.smil"
+                      style={{
+                        width: '100%', padding: '10px 14px', fontSize: 14,
+                        background: '#0d0d0d', color: '#eee', border: '1px solid #444', borderRadius: 6
+                      }}
+                    />
+                    <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>
+                      Trailer odtwarzany w sliderze Kino Play po fokusie. Aktualnie: {selectedTrailerUrl ? '✓' : '— brak'}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Action buttons */}
