@@ -111,7 +111,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.height
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.uxellence.tv.v3.ui.theme.figmaRadialBackground
 import com.uxellence.tv.v3.version001.Version001Screen
 import com.uxellence.tv.v3.version001.*
@@ -1364,6 +1366,12 @@ fun TopMenuScreen2(
     // Dev modal — Key.Zero otwiera ekran przełączników trybów
     var showDevModal by remember { mutableStateOf(false) }
 
+    // Profil variant — 0=tooltip "Profil", 1=tooltip "Wyjdź z profilu"
+    var profileVariant by remember { mutableIntStateOf(sliderPrefs.getInt("profile_variant", 0)) }
+
+    // Wybrany profil (id z UserProfile w ProfileScreenContent: "1"=Piotr, "2"=Angelika, "kids"=Dzieci)
+    var selectedProfileId by remember { mutableStateOf(sliderPrefs.getString("selected_profile", "1") ?: "1") }
+
     val menuItems = remember {
         listOf(
             MenuItem2("ODKRYWAJ", "Start"),       // Moved from position 1 to 0
@@ -1385,6 +1393,14 @@ fun TopMenuScreen2(
         initialPosition = MenuPositions.getPositionForSection(restoredSection ?: "ODKRYWAJ"),  // Match position to section
         initialSection = restoredSection ?: "ODKRYWAJ"  // Restore saved section or default to ODKRYWAJ
     )
+
+    // Aktualizuj selectedProfileId po opuszczeniu sekcji PROFILE (gdy profil został wybrany)
+    LaunchedEffect(globalFocusState.value.sectionId) {
+        if (globalFocusState.value.sectionId != "PROFILE") {
+            val current = sliderPrefs.getString("selected_profile", "1") ?: "1"
+            if (current != selectedProfileId) selectedProfileId = current
+        }
+    }
 
     // Track fresh PIP mode (resets automatically when pipPlayer changes)
     var freshPipMode by remember(pipPlayer) {
@@ -1539,10 +1555,10 @@ fun TopMenuScreen2(
     // v4.0.0: Profil is on LEFT side, CandyBar/Konto/Ustawienia on RIGHT side
     // Same 350ms debounce pattern for consistent behavior
     // Also handles returning to main tabs - updates sectionId when focus leaves special buttons
-    LaunchedEffect(focusedRightButton, isPakietyFocused, isLeftProfilFocused) {
+    LaunchedEffect(focusedRightButton, isPakietyFocused, isLeftProfilFocused, profileVariant) {
         if (globalFocusState.value.currentRow == 0) {
             val targetSection = when {
-                isLeftProfilFocused -> "PROFILE"  // Left Profil button
+                isLeftProfilFocused && profileVariant == 0 -> "PROFILE"  // v1 only: auto-preview na fokus. v2: dopiero po ENTER.
                 isPakietyFocused && isCandyBarVisible -> "POINTS_HISTORY"
                 isPakietyFocused && !isCandyBarVisible -> "PAKIETY"
                 focusedRightButton == 0 -> "ACCOUNT"
@@ -2028,6 +2044,14 @@ fun TopMenuScreen2(
                 onNavigateToRecordingsGrid = onNavigateToRecordingsGrid,
                 onNavigateToAppsGrid = onNavigateToAppsGrid,
                 aplikacjeVariant = aplikacjeVariant,
+                onProfileSelected = { profile ->
+                    // Zapisz wybrany profil i wróć na ekran główny — UI top menu zaktualizuje się przez LaunchedEffect na zmianę sectionId
+                    sliderPrefs.edit().putString("selected_profile", profile.id).apply()
+                    isLeftProfilFocused = false
+                    // Bezpośrednio zmień sectionId na obecną pozycję menu (bypass LaunchedEffect debounce)
+                    val targetSection = MenuPositions.getSectionForPosition(globalFocusState.value.currentPosition)
+                    globalFocusState.value = GlobalFocusManager.returnToMenu(globalFocusState.value).copy(sectionId = targetSection)
+                },
                 isEpgSectionExpanded = isEpgSectionExpanded,
                 onEpgSectionExpandedChange = { expanded ->
                     isEpgSectionExpanded = expanded
@@ -2136,7 +2160,9 @@ fun TopMenuScreen2(
             isMenuFocused = globalFocusState.value.currentRow == 0 && focusedRightButton == -1 && !isPakietyFocused && !isLeftProfilFocused
         )
 
-        TopMenuBar2(
+        // v2: ukryj top menu na ekranie profilu — user musi wybrać profil bez rozpraszania
+        val hideTopMenu = profileVariant == 1 && globalFocusState.value.sectionId == "PROFILE"
+        if (!hideTopMenu) TopMenuBar2(
             menuItems = menuItems,
             menuState = compatMenuState,
             focusRequesters = focusRequesters,
@@ -2179,6 +2205,8 @@ fun TopMenuScreen2(
                 )
                 isLeftProfilFocused = false  // Clear left Profil focus
             },
+            profileVariant = profileVariant,
+            selectedProfileId = selectedProfileId,
             onPakietyClick = {
                 // Pakiety → Navigate to PAKIETY section
                 globalFocusState.value = GlobalFocusManager.transitionToContent(
@@ -2291,6 +2319,11 @@ fun TopMenuScreen2(
                     aplikacjeVariant = (aplikacjeVariant + 1) % 2
                     sliderPrefs.edit().putInt("aplikacje_variant", aplikacjeVariant).apply()
                 },
+                profileVariant = profileVariant,
+                onProfileVariantCycle = {
+                    profileVariant = (profileVariant + 1) % 2
+                    sliderPrefs.edit().putInt("profile_variant", profileVariant).apply()
+                },
                 onDismiss = { showDevModal = false }
             )
         }
@@ -2304,11 +2337,15 @@ fun TopMenuScreen2(
 private fun DevTogglesModal(
     aplikacjeVariant: Int,
     onAplikacjeVariantCycle: () -> Unit,
+    profileVariant: Int,
+    onProfileVariantCycle: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val aplikacjeVariantLabels = arrayOf("Hero+kanały", "Aplikacje na top + slider")
+    val profileVariantLabels = arrayOf("Wersja 1 (Profil)", "Wersja 2 (Wyjdź z profilu)")
     val items: List<Triple<String, String, () -> Unit>> = listOf(
-        Triple("Aplikacje variant", aplikacjeVariantLabels.getOrElse(aplikacjeVariant) { aplikacjeVariant.toString() }, onAplikacjeVariantCycle)
+        Triple("Aplikacje variant", aplikacjeVariantLabels.getOrElse(aplikacjeVariant) { aplikacjeVariant.toString() }, onAplikacjeVariantCycle),
+        Triple("Profil variant", profileVariantLabels.getOrElse(profileVariant) { profileVariant.toString() }, onProfileVariantCycle)
     )
     var selectedIndex by remember { mutableStateOf(0) }
     val focusRequesters = remember(items.size) { List(items.size) { FocusRequester() } }
@@ -2419,6 +2456,8 @@ internal fun TopMenuBar2(
     showKontoUpdateBadge: Boolean = false,
     hazeState: HazeState? = null,                                         // Haze state for blur effect
     variantConfig: TopMenuVariantConfig = MENU_VARIANTS[0],              // Design variant config (key "4" to cycle)
+    profileVariant: Int = 0,                                             // 0=tooltip "Profil", 1=tooltip "Wyjdź z profilu"
+    selectedProfileId: String = "1",                                     // Aktywny profil: "1"=Piotr, "2"=Angelika, "kids"=Dzieci
     modifier: Modifier = Modifier
 ) {
     var currentTime by remember { mutableStateOf(LocalTime.now()) }
@@ -2493,6 +2532,7 @@ internal fun TopMenuBar2(
                             showBadge = showProfileNotificationBadge,
                             onBoundsChanged = { },
                             focusType = variantConfig.focusType,
+                            selectedProfileId = selectedProfileId,
                             sx = sx,
                             sy = sy
                         )
@@ -2847,6 +2887,7 @@ internal fun TopMenuBar2(
                                         focusBoundsMap["profile"] = bounds
                                     },
                                     focusType = variantConfig.focusType,
+                                    selectedProfileId = selectedProfileId,
                                     sx = sx,
                                     sy = sy
                                 )
@@ -2857,7 +2898,7 @@ internal fun TopMenuBar2(
                                         offset = IntOffset(0, sy(95).value.toInt())  // Below button (80px height + 15px gap)
                                     ) {
                                         Text(
-                                            text = "Profil",
+                                            text = if (profileVariant == 1) "Wyjdź z profilu" else "Profil",
                                             color = Color(0xFF5FEDD4),  // Aqua
                                             fontSize = (24 * sy(1).value).sp,
                                             fontWeight = FontWeight.Medium
@@ -3403,6 +3444,7 @@ private fun ProfilButton(
     showBadge: Boolean = false,
     onBoundsChanged: (FocusableBounds) -> Unit = {},  // NEW: Report bounds for AnimatedFocusIndicator
     focusType: FocusType = FocusType.FLOATING_INDICATOR,  // Design variant focus style
+    selectedProfileId: String = "1",  // "1"=Piotr (litera P), "2"=Angelika (gwiazdka), "kids"=Dzieci (litera D)
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     modifier: Modifier = Modifier
@@ -3465,13 +3507,35 @@ private fun ProfilButton(
         contentAlignment = Alignment.Center
     ) {
         Box {
-            // Avatar/profile letter "P"
-            Text(
-                text = "P",
-                color = contentColor,
-                fontSize = (36 * sy(1).value / 1).sp,
-                fontWeight = FontWeight.Bold
-            )
+            // Avatar zależny od wybranego profilu
+            when (selectedProfileId) {
+                "2" -> {
+                    // Angelika — lampka Pixar
+                    androidx.compose.foundation.Image(
+                        painter = androidx.compose.ui.res.painterResource(id = R.drawable.av_pixar_lamp),
+                        contentDescription = "Angelika",
+                        modifier = Modifier.size(sx(48))
+                    )
+                }
+                "kids" -> {
+                    // Dzieci — litera D
+                    Text(
+                        text = "D",
+                        color = contentColor,
+                        fontSize = (36 * sy(1).value / 1).sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                else -> {
+                    // Piotr (default "1") — litera P
+                    Text(
+                        text = "P",
+                        color = contentColor,
+                        fontSize = (36 * sy(1).value / 1).sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
 
             // Notification badge
             if (showBadge) {
@@ -3844,6 +3908,7 @@ private fun FullPageContent(
     onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> },
     onNavigateToAppsGrid: () -> Unit = {},  // Navigate to grid wszystkich aplikacji (z CategoryIcon "Aplikacje")
     aplikacjeVariant: Int = 0,  // 0 = hero+channels, 1 = channels-only (Aplikacje na top)
+    onProfileSelected: (UserProfile) -> Unit = {},  // Wywoływane po kliknięciu profilu w ProfileScreenContent
     isEpgSectionExpanded: Boolean = false,
     onEpgSectionExpandedChange: (Boolean) -> Unit = {},
     showNagraniaV2: Boolean = false,
@@ -4014,6 +4079,7 @@ private fun FullPageContent(
             ProfileScreenContent(
                 globalFocusState = globalFocusState,
                 onPrepareReturnFocus = { onPrepareReturnFocus("PROFILE") },
+                onProfileSelected = onProfileSelected,
                 sx = sx,
                 sy = sy
             )
@@ -8695,8 +8761,8 @@ private const val ODKRYWAJ_SLIDER_MAX_NORMAL_ROW_HEIGHT = 742 // Big slider (742
 private const val ODKRYWAJ_SLIDER_MAX_EXPANDED_ROW_HEIGHT = 742 // Same as normal (no expansion needed)
 private const val ODKRYWAJ_SHORTCUTS_NORMAL_ROW_HEIGHT = 406 // Shortcuts V2 base height (279px cards + spacing)
 private const val ODKRYWAJ_SHORTCUTS_EXPANDED_ROW_HEIGHT = 406 // NO expansion for shortcuts V2
-private const val ODKRYWAJ_SHORTCUTS_V3_NORMAL_ROW_HEIGHT = 450 // Shortcuts V3 (314px cards + spacing)
-private const val ODKRYWAJ_SHORTCUTS_V3_EXPANDED_ROW_HEIGHT = 450 // NO expansion for shortcuts V3
+private const val ODKRYWAJ_SHORTCUTS_V3_NORMAL_ROW_HEIGHT = 136 // chip 80px + 56px spacing po dolnej krawędzi
+private const val ODKRYWAJ_SHORTCUTS_V3_EXPANDED_ROW_HEIGHT = 136 // NO expansion for shortcuts V3
 private const val ODKRYWAJ_SHORTCUTS_V4_NORMAL_ROW_HEIGHT = 390 // Shortcuts V4 (244px cards + spacing)
 private const val ODKRYWAJ_SHORTCUTS_V4_EXPANDED_ROW_HEIGHT = 390 // NO expansion for shortcuts V4
 private const val ODKRYWAJ_TOP10_NORMAL_ROW_HEIGHT = 406 // CategoryIcon (216px) + spacing (130px) + 60px extra
@@ -12692,8 +12758,20 @@ private fun VodScreenContent(
 ) {
     var resetTrigger by remember { mutableStateOf(0) }
 
+    // Skip the very first run of the reset detector when we're restoring focus from
+    // MovieDetail. Otherwise the initial currentRow=0 (fresh GlobalFocusState after remount)
+    // would bump resetTrigger and VodWithChannels would yank focusedRowIndex back to 1
+    // (slider) before our restoration delay finishes.
+    var hasSeenFirstCurrentRow by remember {
+        mutableStateOf(VodDataCache.savedKinoPlayFocus == null)
+    }
+
     // Detect when user returns to menu to trigger focus reset
     LaunchedEffect(globalFocusState.value.currentRow) {
+        if (!hasSeenFirstCurrentRow) {
+            hasSeenFirstCurrentRow = true
+            return@LaunchedEffect
+        }
         if (globalFocusState.value.currentRow == 0 && globalFocusState.value.sectionId == "KINO_PLAY") {
             resetTrigger++
         }
@@ -12782,6 +12860,201 @@ private fun filterVodByWIDEOCategory(vodList: List<VodContent>, wideoCategory: S
     }.take(100)  // Limit dla wydajności
 }
 
+// ===========================================================================
+// Hardcoded title lists per Kino Play "Sekcje redakcyjne" channel (Figma).
+// Tytuły kuratorowane — używane do filter'a `movie.title.equals(target, ignoreCase=true)`.
+// W bazie nie ma fields `studio`/`distributor`/`country` więc ręczna lista to single source of truth.
+// ===========================================================================
+
+/** Lista 54 polskich tytułów (channel "Polskie filmy"; podzbiór z `Komedia` genre to "Polskie komedie"). */
+private val POLISH_TITLES = listOf(
+    "Zapiski śmiertelnika", "Lany poniedziałek", "Camper", "Diabeł", "Sami swoi. Początek",
+    "Don't F**k with Liroy", "Brat", "Prześwit", "Wrooklyn ZOO", "Przepiękne!", "Światłoczuła",
+    "Skrzyżowanie", "Dwie siostry", "Innego końca nie będzie", "Minghun", "Czerwone Maki",
+    "Budda. Dzieciak '98", "WinEverything", "Powstaniec 1863", "Jedna dusza", "Święto ognia",
+    "W nich cała nadzieja", "O psie, który jeździł koleją", "Niebezpieczni dżentelmeni",
+    "Zielona granica", "Czas na pogodę", "Porady na zdrady 2", "Francuski numer", "Bliscy",
+    "Kebab i horoskop", "Wyrwa", "Prawdziwe życie aniołów", "Opiekun", "Życie w błocie się złoci",
+    "Dziewczyny z Dubaju", "Maszyna Goldberga", "Chleb i sól", "Śubuk", "Masz ci los!",
+    "Ślub doskonały", "Matecznik", "Kobieta na dachu", "E=mc2", "Orzeł. Ostatni patrol", "Zołza",
+    "Bez paniki z odrobiną histerii", "Lokal zamknięty", "Diablo. Wyścig o wszystko",
+    "Bestie ze Złego", "Każdy wie lepiej", "Na chwilę, na zawsze", "Być jak Kazimierz Deyna",
+    "Teraz ja", "Komedia małżeńska"
+)
+
+/** Lista 35 tytułów Universal TVOD na Play NOW (channel "Universal"). */
+private val UNIVERSAL_TITLES = listOf(
+    "Hamnet",
+    "Jak wytresować smoka 3", "Jak wytresować smoka 2", "Jak wytresować smoka",
+    "Jak wytresować smoka (remake)",
+    "Zaginiony Świat: Jurassic Park",
+    "Jurassic World: Dominion", "Jurassic World", "Jurassic World: Odrodzenie",
+    "Szybcy i wściekli 10",
+    "Kung Fu Panda 2", "Kung Fu Panda 3", "Kung Fu Panda", "Kung Fu Panda 4",
+    "Sekretne życie zwierzaków domowych", "Sekretne życie zwierzaków domowych 2",
+    "Gru, Dru i Minionki", "Gru i Minionki: Pod przykrywką",
+    "Sing", "Jak ukraść Księżyc", "Minionki rozrabiają",
+    "Song Sung Blue", "The Brutalist", "Fenicki układ",
+    "Krudowie 2: Nowa era", "Dziki robot",
+    "Nosferatu", "Wicked", "Wicked: Na dobre",
+    "Oppenheimer",
+    "Pięć koszmarnych nocy 2", "Nikt 2", "Kaskader", "Wolf Man", "Motocykliści"
+)
+
+/** Lista 119 tytułów Disney/Pixar/Marvel/Fox TVOD (channel "Disney"). */
+private val DISNEY_TITLES = listOf(
+    "Avatar: Ogień i popiół", "Zwierzogród 2", "Predator: Strefa zagrożenia", "Ella McCay",
+    "Tron: Ares", "Państwo Rose", "Zakręcony piątek 2", "Fantastyczna 4: Pierwsze kroki",
+    "Elio", "Amator", "Faworyta", "Lincoln", "Ja, robot", "Szklana pułapka 4.0", "Le Mans '66",
+    "Kapitan Ameryka: Nowy wspaniały świat", "Mufasa: Król Lew", "Gorący towar", "Pocahontas",
+    "Dzień Niepodległości", "Historia Studia Pixar", "Oz: Wielki i Potężny", "Buzz Astral",
+    "Czarownica 2", "Duchy w Wenecji", "Szklana pułapka 2", "Fantastyczna Czwórka",
+    "Szklana pułapka 3", "Ewolucja planety małp", "Szklana pułapka",
+    "Diabeł ubiera się u Prady", "Piorun", "Wielka Szóstka", "Dawno temu w trawie",
+    "Duchy Inisherin", "Twórca", "Opowieści z Narnii: Lew, czarownica i stara szafa",
+    "Merida Waleczna", "Boogeyman", "Ad Astra", "Alita: Battle Angel", "Bohemian Rhapsody",
+    "Epoka lodowcowa", "Aladyn", "Cruella", "Armageddon", "Czarownica", "Luca", "Nomadland",
+    "Gdzie jest Dory", "Zjawa", "Kingsman: Tajne służby", "Marsjanin", "Kingsman: Złoty Krąg",
+    "Rio", "Prawdziwy ból", "Vaiana 2", "Obcy: Romulus", "Deadpool & Wolverine",
+    "Toy Story 3", "Toy Story 2", "Toy Story", "Iniemamocni 2", "Naprzód",
+    "Trzy billboardy za Ebbing, Missouri", "Ron Usterka", "Free Guy",
+    "King's Man: Pierwsza misja", "Śmierć na Nilu", "Kopciuszek", "Prometeusz",
+    "Logan: Wolverine", "Predator 2", "Nasze magiczne Encanto", "Predator",
+    "Obcy - decydujące starcie", "Obcy: Przymierze", "Obcy - 8. pasażer \"Nostromo\"", "Coco",
+    "Obcy 3", "Obcy kontra Predator", "Obcy kontra Predator 2", "W głowie się nie mieści 2",
+    "Życzenie", "Epoka lodowcowa: Mocne uderzenie", "Epoka lodowcowa 4: Wędrówka kontynentów",
+    "Epoka lodowcowa 3: Era dinozaurów", "Epoka lodowcowa 2: Odwilż", "Vaiana: Skarb oceanu",
+    "Auta 3", "Auta 2", "Auta", "Piękna i Bestia", "Co w duszy gra", "Marvels", "Mulan",
+    "Eternals", "Gdzie jest Nemo", "Król Lew", "Król Lew (1994)", "Alicja w Krainie Czarów",
+    "Piraci z Karaibów: Klątwa Czarnej Perły", "Piraci z Karaibów: Zemsta Salazara",
+    "Piraci z Karaibów: Na krańcu świata", "Piraci z Karaibów: Skrzynia umarlaka",
+    "Piraci z Karaibów: Na nieznanych wodach", "Omen: Początek", "Dobrzy nieznajomi",
+    "Biedne istoty", "Avatar", "Thor: Miłość i grom", "Iron Man 2",
+    "Captain America: Pierwsze starcie", "Thor", "Thor: Ragnarok", "Strażnicy Galaktyki",
+    "Kapitan Marvel", "Kapitan Ameryka: Zimowy Żołnierz", "Kapitan Ameryka: Wojna Bohaterów"
+)
+
+/** Lista tytułów Warner Bros (137 z 160 w bazie wg sprawdzenia 2026-05-05). */
+private val WARNER_BROS_TITLES = listOf(
+    "Panna młoda!", "Wichrowe wzgórza", "Obecność 4: Ostatnie namaszczenie", "Superman",
+    "Zniknięcia", "Oszukać przeznaczenie: Więzy krwi", "Grzesznicy", "Minecraft: Film",
+    "The Alto Knights", "Towarzysz", "Władca Pierścieni: Wojna Rohirrimów", "Joker: Folie à Deux",
+    "Beetlejuice Beetlejuice", "Twisters", "Pułapka", "Piekielna głębia 3", "Furiosa: Saga Mad Max",
+    "The Watchers", "Godzilla i Kong: Nowe imperium", "Seks w wielkim mieście", "Daphne i Velma",
+    "Scooby-Doo! spotyka ducha łasucha", "Podróż w niepamięć", "Przemytnik",
+    "Scooby Doo! i Batman: Odważniacy i Straszaki", "Jak romantycznie!",
+    "Blinded By The Light - Siła Muzyki", "Meg", "Topielisko. Klątwa La Lorony", "15:17 do Paryża",
+    "Szczygieł", "Tylko sprawiedliwość", "Osierocony Brooklyn", "Królowe Zbrodni",
+    "Richard Jewell", "Western Stars", "CHiPs Motopatrol", "Cienki Bolek",
+    "Batman Kontra Wojownicze Żółwie Ninja", "LEGO DC Super Hero Girls: Szkoła łotrów", "Focus",
+    "Seks w wielkim mieście 2", "Batman i Harley Quinn", "Legion Samobójców Piekielna Misja",
+    "Dom Wygranych", "Ben 10 kontra wszechświat: Film", "Doktor Sen",
+    "Mortal Kombat Legends: Scorpion's Revenge",
+    "Ptaki Nocy (i fantastyczna emancypacja pewnej Harley Quinn)",
+    "Scooby-Doo: Wesołego Halloween!", "Droga Powrotna", "Scooby-Doo: Pora księżycowego potwora",
+    "Legendy Mortal Kombat: Starcie królestw", "Scooby-Doo! i klątwa trzynastego ducha",
+    "Wieczór gier", "Geosztorm", "Kryptonim U.N.C.L.E.", "Złoty kompas",
+    "300: Początek imperium", "Zanim odejdą wody", "Krwawy diament",
+    "Obecność 3: Na rozkaz diabła", "Interstellar", "Ocean's 13",
+    "Happy Feet: Tupot małych stóp 2", "Happy Feet: Tupot małych stóp", "Małe rzeczy", "300",
+    "Kosmiczny mecz", "San Andreas", "Praktykant", "Pakt z diabłem", "Egzekutor: Odrodzenie",
+    "Ci, którzy życzą mi śmierci", "Sok z żuka", "Więzienny rock", "Masz wiadomość", "Dzień próby",
+    "Psy i koty", "Troja", "Pacific Rim", "Obecność", "Sherlock Holmes: Gra Cieni",
+    "Szefowie wrogowie", "Szefowie wrogowie 2", "Legendy Mortal Kombat Niewidzący wojownik",
+    "Jestem legendą", "Reminiscencja", "Brudny Harry", "Od wesela do wesela",
+    "Ocean's Eleven: Ryzykowna gra", "Ocean's Twelve: Dogrywka", "Kac Vegas",
+    "Kac Vegas w Bangkoku", "Millerowie", "Wcielenie", "Kac Vegas III", "Diuna: Część druga",
+    "Godzilla vs. Kong", "Aquaman i Zaginione Królestwo", "Legion samobójców", "Grawitacja",
+    "Operacja Argo", "Wielki Gatsby", "Mad Max: Na drodze gniewu",
+    "Harry Potter i Kamień Filozoficzny", "Harry Potter i Insygnia Śmierci Część 2",
+    "Harry Potter i Insygnia Śmierci Część 1", "Harry Potter i Czara Ognia",
+    "Harry Potter i Zakon Feniksa", "Harry Potter i więzień Azkabanu",
+    "Harry Potter i Książę Półkrwi", "Harry Potter i Komnata Tajemnic",
+    "Matrix Rewolucje", "Matrix Reaktywacja", "Matrix", "To", "Wonder Woman",
+    "Bajecznie Bogaci Azjaci", "Player One", "LEGO® Przygoda 2", "To: Rozdział 2",
+    "Annabelle wraca do domu", "Matrix Zmartwychwstania", "Batman - Początek", "Mroczny Rycerz",
+    "LEGO® Batman Film", "Annabelle: Narodziny zła", "Dunkierka", "Cry Macho",
+    "Skazani na Shawshank", "Mroczny Rycerz powstaje", "Aquaman",
+    "Fantastyczne Zwierzęta Zbrodnie Grindelwalda",
+    "Fantastyczne zwierzęta Tajemnice Dumbledore'a", "Shazam!",
+    "Fantastyczne zwierzęta i jak je znaleźć", "Magic Mike XXL", "Shazam! Gniew bogów",
+    "DC Liga Super-Pets", "Wszyscy święci New Jersey", "Flash", "Elvis", "Lego® Przygoda",
+    "Kong: Wyspa Czaszki", "LEGO Ninjago film", "Rampage: Dzika furia", "Czarny Adam",
+    "Narodziny gwiazdy", "Magic Mike's Last Dance", "Godzilla II Król Potworów",
+    "King Richard: Zwycięska rodzina", "Joker", "Batman", "Batman Forever", "Barbie",
+    "Meg 2: Głębia", "Kłamstwo doskonałe", "Casablanca", "Kocha, lubi, szanuje"
+)
+
+/** Lista tytułów Sony Pictures (170 z 178 w bazie wg sprawdzenia 2026-05-05). */
+private val SONY_PICTURES_TITLES = listOf(
+    "Snajper: Bez narodu", "28 lat później: Świątynia kości", "Anakonda", "Clika", "Chórzyści",
+    "It Ends With Us", "W potrzasku", "Until Dawn", "Becoming Led Zeppelin", "Kierowca z przypadku",
+    "The Outrun", "Venom 3: Ostatni taniec", "Kraven Łowca", "Ona Słucha", "Porwanie 1971",
+    "Przewrotne liściki", "Bad Boys: Ride or Die", "Garfield", "Ktoś jak ty", "Słychać dzwony",
+    "Tarot: Karta Śmierci", "Jesteśmy już duzi", "Aniołowie są wśród nas",
+    "Pogromcy Duchów: Imperium Lodu", "Tylko nie ty", "Pokój nauczycielski", "Oślepiony",
+    "Shayda", "Jules", "Miasteczko Owl", "Margines", "Ucieczka z ciemności", "Madame Web",
+    "Wykolejeńcy", "Gran Turismo", "Ostatnia sesja Freuda", "The Hill", "Strach",
+    "Gdy zgasną światła", "Bez litości", "Obozowa kryjówka", "Wyjęta spod prawa",
+    "Mankamenty", "Americanish", "Po kryjomu", "Powrót do siebie", "Carlos", "Brutalna szczerość",
+    "Bez litości 3. Ostatni rozdział", "Jeszcze jeden strzał", "Droga do Betlejem",
+    "Snajper: Jednostka specjalna G.R.I.T.", "Piekarz", "Perska wersja",
+    "John Farnham: Szukając głosu", "Bez litości 2", "To jeszcze nie koniec",
+    "Jesteś tam, Boże? To ja, Margaret", "Naznaczony: Czerwone drzwi", "Bez urazy",
+    "Gdzieś w Queens", "Spider-Man: Poprzez multiwersum", "Hotel Transylwania: Transformania",
+    "Sun Moon", "Dampyr", "Missing", "Paint", "Resident Evil: Wyspa śmierci", "Miłość Na Nowo",
+    "65", "Syn", "Rycerze Zodiaku", "Carmen", "Sisu",
+    "Przeżyj każdą stronę: Przygody Roberta Caro i Roberta Gottlieba", "Jesus Revolution",
+    "Wielki George Foreman", "Moving On", "Egzorcysta Papieża", "Wypadek",
+    "Mężczyzna imieniem Otto", "Królowa Wojownik",
+    "Whitney Houston - I Wanna Dance with Somebody", "Living", "Wielki zielony krokodyl domowy",
+    "5000 pledów", "Obóz rodzinny", "Wszystko jest możliwe", "Boxing Day", "Bullet Train",
+    "Hallelujah: Leonard Cohen", "Morbius", "Król nie żyje", "Kopciuszek", "Uncharted",
+    "Studio 666", "Pogromcy duchów II", "Pogromcy duchów", "Resident Evil Degeneracja",
+    "Resident Evil: Ostatni Rozdział", "Resident Evil: Witajcie w Raccoon City",
+    "Spider-Man: Bez drogi do domu", "Pogromcy duchów. Dziedzictwo",
+    "Ghostbusters. Pogromcy duchów", "Dziewczyna w sieci pająka", "MIB International",
+    "Pewnego Razu... w Hollywood", "Angry Birds 2 - Film", "Jumanji: Następny poziom",
+    "Hotel Transylwania 3", "Bad Boys For Life", "Venom 2: Carnage",
+    "Mitchellowie kontra maszyny", "Nie oddychaj 2", "Escape Room: Najlepsi z Najlepszych",
+    "Hotel Transylvania", "Spider-Man: Homecoming", "Venom", "Spider-Man: Uniwersum",
+    "Spider-Man", "Spider-Man: Daleko od domu", "Spider-Man 2", "Spider-Man 3",
+    "Piotruś Królik", "Niesamowity Spider-Man 2", "Niesamowity Spider-Man",
+    "Hotel Transylwania 2", "Nie oddychaj", "Snajper 2", "Dziewczyna z tatuażem",
+    "Anakonda 3: Potomstwo", "Kod Da Vinci", "Lake Placid: Ostatni rozdział",
+    "Jedz, módl się, kochaj", "Rok na całe życie", "Zamachowiec",
+    "Dzikie żądze: Nieoszlifowane diamenty", "Skazaniec", "Wampiry: Przemiana",
+    "Przerwana lekcja muzyki", "Anioły i demony", "Resident Evil 2: Apokalipsa",
+    "Szkoła czarownic: Dziedzictwo", "Django", "Anakondy: Krwawe ślady", "Żona na niby",
+    "Lake Placid 3", "Pogranicze", "Polowanie na drużbów",
+    "Seks i kłamstwa w mieście grzechu", "50 pierwszych randek", "Lepiej być nie może",
+    "Resident Evil", "Jerry Maguire", "Dorwać byłą", "Pamiętne Halloween",
+    "Bezsenność w Seattle", "Zombieland", "Drakula", "Resident Evil - Zagłada",
+    "Resident Evil: Afterlife", "Salt", "Hancock", "Jumanji: Przygoda w dżungli", "Spotlight",
+    "Faceci w czerni 3", "Resident Evil: Retrybucja", "Faceci w czerni", "Pasażerowie",
+    "Faceci w czerni 2", "Blade Runner 2049",
+    "Avengers Confidential: Czarna Wdowa i Punisher", "Green Hornet", "Wyatt Earp: Zemsta",
+    "Spis drani", "Świat w płomieniach", "Terminator: Ocalenie", "Na fali 2"
+)
+
+// Pre-computed lowercase HashSets — O(1) lookup zamiast O(n) iteration przez listę
+private val POLISH_TITLES_SET = POLISH_TITLES.map { it.trim().lowercase() }.toHashSet()
+private val UNIVERSAL_TITLES_SET = UNIVERSAL_TITLES.map { it.trim().lowercase() }.toHashSet()
+private val DISNEY_TITLES_SET = DISNEY_TITLES.map { it.trim().lowercase() }.toHashSet()
+private val WARNER_BROS_TITLES_SET = WARNER_BROS_TITLES.map { it.trim().lowercase() }.toHashSet()
+private val SONY_PICTURES_TITLES_SET = SONY_PICTURES_TITLES.map { it.trim().lowercase() }.toHashSet()
+
+/** Helper: O(1) lookup w pre-computed HashSet (lowercase). */
+private fun matchesAnyTitle(movieTitle: String, targetsSet: Set<String>): Boolean =
+    movieTitle.trim().lowercase() in targetsSet
+
+/** Legacy overload (List) — utrzymane dla kompatybilności, ale zalecane: użyj wersji z Set. */
+@Suppress("unused")
+private fun matchesAnyTitle(movieTitle: String, targets: List<String>): Boolean {
+    val trimmed = movieTitle.trim()
+    return targets.any { it.trim().equals(trimmed, ignoreCase = true) }
+}
+
 /**
  * Filter movies by category supporting multiple category names (e.g., "Akcja|Action")
  */
@@ -12813,7 +13086,35 @@ private fun VodWithChannels(
     onFocusedChannelChange: (String) -> Unit = {}  // Callback for top gradient
 ) {
     val context = LocalContext.current
-    val channels = listOf("Kino Play", "Skróty v3", "Polecane", "Top 10", "Ostatnio dodane\nwideo", "Akcja", "Komedie", "Horror", "Biograficzne")
+    // Figma "Sekcje redakcyjne" — 26 channels w nowej kolejności
+    val channels = listOf(
+        "Polecane",
+        "Top 10",
+        "Wszystkie",                          // CategoryIcon (no icon) + chipy 0..10
+        "Ostatnio dodane",
+        "Jason Statham",
+        "Obcy kontra Predator",
+        "Polskie filmy",
+        "Polskie komedie",
+        "Universal",
+        "Disney",
+        "Warner Bros",
+        "Sony Pictures",
+        "MAGICZNY ŚWIAT HARRY'EGO POTTERA",
+        "GWIEZDNE WOJNY",
+        "SCI-FI",
+        "ROMANS",
+        "KOMEDIA ROMANTYCZNA",
+        "NA POPRAWĘ HUMORU",
+        "FAMILIJNE",
+        "ANIMOWANE",
+        "PORUSZAJĄCE HISTORIE",
+        "FILMY GROZY",
+        "DRESZCZOWCE",
+        "HISTORIE NA FAKTACH",
+        "DOKUMENT",
+        "Więcej"                              // ENTER → grid wszystkich filmów
+    )
 
     // State to track Supabase initialization for recomposition
     var supabaseInitialized by remember { mutableStateOf(VodDataCache.isSupabaseInitialized()) }
@@ -12826,28 +13127,99 @@ private fun VodWithChannels(
         }
     }
 
-    // Grid content from Supabase (with fallback to local JSON in VodDataCache)
-    // Uses supabaseInitialized as key to recompose when data becomes available
-    val gridContent = remember(supabaseInitialized) {
-        channels.associateWith { channelName ->
-            when (channelName) {
-                "Skróty v3" -> emptyList() // Shortcuts don't have grid content
-                "Kino Play" -> VodDataCache.getSupabaseMovies().take(10) // Hero slider
-                "Polecane" -> VodDataCache.getNewest() // Recommended (newest movies)
-                "Top 10" -> VodDataCache.getTop10() // Top 10 from Supabase (is_top10=true, ORDER BY top10_order)
-                "Ostatnio dodane\nwideo" -> VodDataCache.getNewest() // Recently added (ORDER BY created_at DESC)
-                "Akcja" -> VodDataCache.getByGenre("Akcja")
-                "Komedie" -> VodDataCache.getByGenre("Komedia")
-                "Horror" -> VodDataCache.getByGenre("Horror")
-                "Biograficzne" -> VodDataCache.getByGenre("Biograficzny")
-                else -> emptyList()
+    // Grid content — zbudowane jednym przejściem przez listę filmów na background thread.
+    // Każdy film klasyfikowany do wszystkich pasujących channels w jednym lookup'ie.
+    // Optymalizacja: O(N filmów) zamiast O(N × 26 channels). Plus async (Dispatchers.Default)
+    // żeby nie blokować main thread podczas pierwszego renderu Kino Play.
+    val gridContent by produceState<Map<String, List<VodContent>>>(initialValue = emptyMap(), supabaseInitialized) {
+        value = withContext(kotlinx.coroutines.Dispatchers.Default) {
+            val allMovies = VodDataCache.getKinoPlayMovies()
+            val byChannel = LinkedHashMap<String, MutableList<VodContent>>()
+            channels.forEach { byChannel[it] = mutableListOf() }
+
+            // Pre-fetched curated lists (już zoptymalizowane w VodDataCache)
+            byChannel["Polecane"]?.addAll(VodDataCache.getNewest())
+            byChannel["Top 10"]?.addAll(VodDataCache.getTop10())
+            byChannel["Ostatnio dodane"]?.addAll(VodDataCache.getNewest())
+
+            // Single-pass classification — każdy film przeglądany RAZ, klasyfikowany do wielu channels
+            allMovies.forEach { movie ->
+                val titleLower = movie.title.trim().lowercase()
+                val titleRaw = movie.title  // dla contains (Harry Potter, Gwiezdne wojny, Obcy/Predator)
+                val genreLower = movie.category.lowercase()
+                val isPolish = titleLower in POLISH_TITLES_SET
+
+                // Title-based curated lists (HashSet O(1) lookup)
+                if (isPolish) byChannel["Polskie filmy"]?.add(movie)
+                if (isPolish && genreLower.contains("komedia")) byChannel["Polskie komedie"]?.add(movie)
+                if (titleLower in UNIVERSAL_TITLES_SET) byChannel["Universal"]?.add(movie)
+                if (titleLower in DISNEY_TITLES_SET) byChannel["Disney"]?.add(movie)
+                if (titleLower in WARNER_BROS_TITLES_SET) byChannel["Warner Bros"]?.add(movie)
+                if (titleLower in SONY_PICTURES_TITLES_SET) byChannel["Sony Pictures"]?.add(movie)
+
+                // Title contains (franchise/saga)
+                if (titleRaw.contains("Harry Potter", ignoreCase = true) ||
+                    titleRaw.contains("Fantastyczne zwierzęta", ignoreCase = true))
+                    byChannel["MAGICZNY ŚWIAT HARRY'EGO POTTERA"]?.add(movie)
+                if (titleRaw.contains("Gwiezdne wojny", ignoreCase = true))
+                    byChannel["GWIEZDNE WOJNY"]?.add(movie)
+                if (titleRaw.contains("Obcy", ignoreCase = true) || titleRaw.contains("Predator", ignoreCase = true))
+                    byChannel["Obcy kontra Predator"]?.add(movie)
+
+                // Jason Statham — cast field + title fallbacks
+                if (movie.cast?.contains("Statham", ignoreCase = true) == true ||
+                    movie.description.contains("Statham", ignoreCase = true) ||
+                    titleRaw.contains("Niezniszczalni", ignoreCase = true) ||
+                    titleRaw.contains("Pszczelarz", ignoreCase = true) ||
+                    titleRaw.contains("Transporter", ignoreCase = true))
+                    byChannel["Jason Statham"]?.add(movie)
+
+                // Genre-based filters (raw contains — szybkie dla single keyword)
+                if (genreLower.contains("sci-fi") || genreLower.contains("science fiction"))
+                    byChannel["SCI-FI"]?.add(movie)
+                if (genreLower.contains("romans") || genreLower.contains("romance"))
+                    byChannel["ROMANS"]?.add(movie)
+                if (genreLower.contains("romantic") || genreLower.contains("romance") || genreLower.contains("komedia"))
+                    byChannel["KOMEDIA ROMANTYCZNA"]?.add(movie)
+                if (genreLower.contains("komedia") || genreLower.contains("comedy"))
+                    byChannel["NA POPRAWĘ HUMORU"]?.add(movie)
+                if (genreLower.contains("familijny") || genreLower.contains("family"))
+                    byChannel["FAMILIJNE"]?.add(movie)
+                if (genreLower.contains("animacja") || genreLower.contains("animation"))
+                    byChannel["ANIMOWANE"]?.add(movie)
+                if (genreLower.contains("dramat") || genreLower.contains("drama"))
+                    byChannel["PORUSZAJĄCE HISTORIE"]?.add(movie)
+                if (genreLower.contains("horror"))
+                    byChannel["FILMY GROZY"]?.add(movie)
+                if (genreLower.contains("thriller") || genreLower.contains("suspense"))
+                    byChannel["DRESZCZOWCE"]?.add(movie)
+                if (genreLower.contains("biograficzny") || genreLower.contains("biography") || genreLower.contains("historical"))
+                    byChannel["HISTORIE NA FAKTACH"]?.add(movie)
+                if (genreLower.contains("dokumentalny") || genreLower.contains("documentary"))
+                    byChannel["DOKUMENT"]?.add(movie)
             }
+
+            byChannel
         }
     }
 
-    // Row 0 = menu, Row 1 = slider, Row 2+ = channels
-    var focusedRowIndex by remember { mutableStateOf(1) } // Start at slider
-    var focusedColIndex by remember { mutableStateOf(-2) } // -2 = brak fokusa na starcie
+    // Expose grid content to VodDataCache so KinoGridScreen can offer the same
+    // collections (Gwiezdne Wojny, Harry Potter, Disney, ...) as filterable categories.
+    LaunchedEffect(gridContent) {
+        if (gridContent.isNotEmpty()) {
+            VodDataCache.kinoChannelMap = gridContent
+        }
+    }
+
+    // Row 0 = menu, Row 1 = slider, Row 2+ = channels.
+    // Restore previously-saved focus when returning from MovieDetail (consumed once).
+    // For regular channels we only restore the CHANNEL (focusedColIndex=0) — exact-poster
+    // restore turned out to fight too many internal mechanisms (LazyRow lazy composition,
+    // miniaturesYOffset 350ms animation, transient FocusRequester rebinding) and made
+    // navigation unstable. For "Wszystkie" we restore col directly (it has stable FRs 0..10).
+    val initialFocusRestore = remember { VodDataCache.savedKinoPlayFocus.also { VodDataCache.savedKinoPlayFocus = null } }
+    var focusedRowIndex by remember { mutableStateOf(initialFocusRestore?.row ?: 1) }
+    var focusedColIndex by remember { mutableStateOf(initialFocusRestore?.col ?: -2) }
 
     // V4 slider button index (0 = Wypożycz, 1 = Dowiedz się więcej)
     var v4ButtonIndex by remember { mutableStateOf(0) }
@@ -12875,15 +13247,22 @@ private fun VodWithChannels(
                 val adjustedRowIndex = rowIndex + 2 // Channels start at row 2
                 val channelName = channels[rowIndex]
 
-                if (channelName == "Skróty v3") {
-                    // Shortcuts row: 6 horizontal items (col 0-5), NO CategoryIcon
-                    repeat(6) { colIndex ->
-                        put(Pair(adjustedRowIndex, colIndex), FocusRequester())
+                when (channelName) {
+                    "Wszystkie" -> {
+                        // Wszystkie: same chipy 0..10 (NO CategoryIcon, jak poprzednie Skróty v3)
+                        repeat(11) { colIndex ->
+                            put(Pair(adjustedRowIndex, colIndex), FocusRequester())
+                        }
                     }
-                } else {
-                    // Regular channels: CategoryIcon + content
-                    put(Pair(adjustedRowIndex, -1), FocusRequester()) // CategoryIcon
-                    put(Pair(adjustedRowIndex, 0), FocusRequester()) // Fixed focus position
+                    "Więcej" -> {
+                        // Więcej: tylko CategoryIcon (ENTER → grid wszystkich)
+                        put(Pair(adjustedRowIndex, -1), FocusRequester())
+                    }
+                    else -> {
+                        // Regular channels: CategoryIcon + content
+                        put(Pair(adjustedRowIndex, -1), FocusRequester())
+                        put(Pair(adjustedRowIndex, 0), FocusRequester())
+                    }
                 }
             }
         }
@@ -12900,12 +13279,62 @@ private fun VodWithChannels(
     val coroutineScope = rememberCoroutineScope()
     var isInitialized by remember { mutableStateOf(false) }
 
+    // Track whether we already consumed the restored focus, so the shouldAutoFocus effect
+    // (which can fire AGAIN later when currentRow flips 0→>0) doesn't reset us back to slider.
+    var hasRestoredKinoPlayFocus by remember { mutableStateOf(false) }
+
+    // One-shot restoration when returning from MovieDetail.
+    // focusedRowIndex/focusedColIndex are seeded from frame 1 above. Here we just push
+    // currentRow > 0 into the parent globalFocusState (so the menu's currentRow==0 effect
+    // doesn't hijack focus to the menu tab) and request focus once the item is laid out.
+    LaunchedEffect(Unit) {
+        if (initialFocusRestore != null) {
+            globalFocusState.value = globalFocusState.value.copy(currentRow = focusedRowIndex)
+            kotlinx.coroutines.delay(150) // let LazyRow attach modifiers
+            val target = Pair(focusedRowIndex, focusedColIndex)
+            val requester = channelFocusRequesters[target]
+                ?: channelFocusRequesters[Pair(focusedRowIndex, 0)]
+            try { requester?.requestFocus() } catch (_: Exception) {}
+            hasRestoredKinoPlayFocus = true
+        }
+        isInitialized = true
+    }
+
+    // Outer-Box FocusRequester — needs to be declared before the LaunchedEffect that
+    // uses it (Kotlin local vals don't have forward references). Bound at the Box modifier
+    // chain below.
+    val rootBoxFocusRequester = remember { FocusRequester() }
+
+    // OVERLAY-MODE refocus: fired by MainActivity when MovieDetail closes back onto a
+    // still-mounted KINO_PLAY tab. focusedRowIndex/focusedColIndex AND lazyListStates
+    // (=channel scroll positions) are still intact — what we lost is Compose's actual
+    // keyboard-focus owner (MovieDetail captured it). Instead of trying to re-target a
+    // specific LazyRow item (which may be off-screen / unmounted after scroll), we just
+    // refocus the outer Box. Box.onPreviewKeyEvent (handleVodNavigation) then gets keys
+    // again, and the visual focus indicator on the saved poster keeps working through
+    // the existing isItemFocused == firstVisibleItemIndex pattern.
+    LaunchedEffect(VodDataCache.kinoPlayRefocusTrigger.value) {
+        if (VodDataCache.kinoPlayRefocusTrigger.value > 0 && focusedRowIndex >= 1) {
+            // Re-assert "inside section" so the menu hijack effect doesn't snatch focus.
+            globalFocusState.value = globalFocusState.value.copy(currentRow = focusedRowIndex)
+            kotlinx.coroutines.delay(50)
+            if (focusedRowIndex >= 2) {
+                // Channel: refocus outer Box (visual focus on saved poster preserved by
+                // the existing isItemFocused == firstVisibleItemIndex pattern).
+                try { rootBoxFocusRequester.requestFocus() } catch (_: Exception) {}
+            }
+            // Slider (focusedRowIndex == 1): VodHeroSliderV4's own LaunchedEffect on
+            // refocusTriggerKey takes care of requestFocus on its internal FR.
+        }
+    }
+
     LaunchedEffect(shouldAutoFocus) {
-        if (shouldAutoFocus) {
+        // Don't reset focus if we just restored from MovieDetail — we want to stay on
+        // the channel/poster the user was on, not jump back to the slider.
+        if (shouldAutoFocus && initialFocusRestore == null && !hasRestoredKinoPlayFocus) {
             focusedRowIndex = 1 // Start at slider
             focusedColIndex = 0 // Focus on rent button
         }
-        isInitialized = true
     }
 
     // Auto-reset LazyListState for unfocused rows (like MOJE)
@@ -12929,6 +13358,7 @@ private fun VodWithChannels(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF281443))
+            .focusRequester(rootBoxFocusRequester)
             .onPreviewKeyEvent { event ->
                 handleVodNavigation(
                     event = event,
@@ -12949,7 +13379,44 @@ private fun VodWithChannels(
                     v4ButtonIndex = v4ButtonIndex,
                     onV4ButtonIndexChange = { v4ButtonIndex = it },
                     // VOD Player navigation
-                    onNavigateToVodPlayer = onNavigateToVodPlayer
+                    onNavigateToVodPlayer = onNavigateToVodPlayer,
+                    // Klik na CategoryIcon dowolnego channela → grid z filmami tego channela
+                    // (używamy już pre-zbudowanego gridContent — single source of truth)
+                    onCategoryEnter = { channelName ->
+                        val filtered = gridContent[channelName] ?: emptyList()
+                        if (filtered.isNotEmpty()) {
+                            onNavigateToKinoGrid(channelName, filtered, "KINO_PLAY")
+                        }
+                    },
+                    // ENTER na plakacie → MovieDetailScreen (zamiast VOD player)
+                    onMovieClicked = { vodContent ->
+                        // Save focus AND the channel's LazyRow scroll position so BACK
+                        // from MovieDetail returns to exactly the same poster (regular
+                        // channels show visual focus on whichever item is firstVisible).
+                        val channelIdx = focusedRowIndex - 2
+                        val firstVisible = lazyListStates[channelIdx]?.firstVisibleItemIndex ?: 0
+                        VodDataCache.savedKinoPlayFocus = VodDataCache.SavedKinoFocus(
+                            row = focusedRowIndex,
+                            col = focusedColIndex,
+                            listFirstVisible = firstVisible
+                        )
+                        val slideData = VodSlideData(
+                            title = vodContent.title,
+                            genre = vodContent.category,
+                            duration = "",
+                            year = "",
+                            country = "Polska",
+                            ageRating = "13 lat",
+                            description = vodContent.description,
+                            price = vodContent.price ?: "19 zł/48h",
+                            backgroundUrl = vodContent.backdropUrl ?: "",  // backdrop, NIE poster — pusty gdy brak
+                            posterUrl = vodContent.imageUrl,
+                            youtubeUrl = vodContent.youtubeUrl,
+                            isKinoPlay = true,
+                            cast = vodContent.cast
+                        )
+                        onNavigateToMovieDetail(slideData)
+                    }
                 )
             }
             .focusable()
@@ -13039,7 +13506,9 @@ private fun VodLayoutWithSlider(
                 onRentClicked = { item -> onNavigateToPurchase(item) },
                 onMoreInfoClicked = { item -> onNavigateToMovieDetail(item) },
                 onReturnToMenu = { /* callback do menu */ },
-                showBullets = focusedRowIndex < 2  // Hide bullets when focused on channels below slider
+                showBullets = focusedRowIndex < 2,  // Hide bullets when focused on channels below slider
+                isOnChannelsBelow = focusedRowIndex >= 2,  // Stop trailer gdy fokus zszedł na channels
+                refocusTriggerKey = VodDataCache.kinoPlayRefocusTrigger.value  // overlay refocus after MovieDetail close
             )
         }
 
@@ -14276,7 +14745,9 @@ private fun VodHeroSliderV4(
     onRentClicked: ((VodSlideData) -> Unit)? = null,
     onMoreInfoClicked: ((VodSlideData) -> Unit)? = null,
     onReturnToMenu: () -> Unit = {},
-    showBullets: Boolean = true  // Hide bullets when focused below slider (KINO PLAY, WIDEO)
+    showBullets: Boolean = true,  // Hide bullets when focused below slider (KINO PLAY, WIDEO)
+    isOnChannelsBelow: Boolean = false,  // gdy true (fokus na channels pod sliderem) — zatrzymaj trailer
+    refocusTriggerKey: Int = 0  // Increment from outside to force re-requestFocus (e.g., after MovieDetail overlay closes)
 ) {
     // Shuffle items once on first composition
     val sliderItems = remember(items) { items.shuffled() }
@@ -14296,19 +14767,29 @@ private fun VodHeroSliderV4(
 
     // Trailer auto-play state - key by stableItem.title to be extra stable
     var showTrailer by remember(stableItem?.title ?: "") { mutableStateOf(false) }
+    // Suppress trailer auto-restart after the user comes back from MovieDetail overlay.
+    // Set true by the refocusTriggerKey effect below; cleared on first user interaction.
+    var suppressTrailerAfterOverlayBack by remember { mutableStateOf(false) }
 
-    // Auto-play trailer: 2s after slider focus, 3s after menu idle (slider visible but not focused)
-    LaunchedEffect(stableItem?.title) {
+    // Auto-play trailer: 2s after slider focus, 3s after menu idle (slider visible but not focused).
+    // STOP gdy isOnChannelsBelow=true (user zszedł na channels pod sliderem).
+    LaunchedEffect(stableItem?.title, isOnChannelsBelow, suppressTrailerAfterOverlayBack) {
         if (stableItem == null) return@LaunchedEffect
         android.util.Log.d("VodHeroSliderV4", "LaunchedEffect started for: ${stableItem.title}")
 
-        while (true) {
-            if (!showTrailer && !trailerUrl.isNullOrBlank()) {
+        // Wymuś stop trailer'a gdy zszedł na channels
+        if (isOnChannelsBelow && showTrailer) {
+            showTrailer = false
+            android.util.Log.d("VodHeroSliderV4", "Trailer STOP (channels below focused) for: ${stableItem.title}")
+        }
+
+        while (!isOnChannelsBelow) {
+            if (!showTrailer && !trailerUrl.isNullOrBlank() && !suppressTrailerAfterOverlayBack) {
                 val wasFocused = isFocused
                 val delayMs = if (wasFocused) 2000L else 3000L
                 kotlinx.coroutines.delay(delayMs)
-                // Only start if focus state did not change during the wait
-                if (!trailerUrl.isNullOrBlank() && isFocused == wasFocused) {
+                // Only start if focus state did not change during the wait AND nadal nie jesteśmy na channels
+                if (!trailerUrl.isNullOrBlank() && isFocused == wasFocused && !isOnChannelsBelow && !suppressTrailerAfterOverlayBack) {
                     showTrailer = true
                     val reason = if (wasFocused) "slider focus" else "menu idle"
                     android.util.Log.d("VodHeroSliderV4", "Trailer START ($reason) for: ${stableItem.title}")
@@ -14338,6 +14819,30 @@ private fun VodHeroSliderV4(
         if (isFocused) {
             focusRequester.requestFocus()
         }
+    }
+
+    // External-trigger refocus: when the parent flips refocusTriggerKey (e.g. KINO_PLAY's
+    // overlay refocus signal after MovieDetail closes), re-grab keyboard focus on the
+    // slider's FR. Needed because LaunchedEffect(isFocused) above only fires on
+    // isFocused TRANSITIONS — when isFocused stays true across overlay open/close,
+    // Compose's actual focus owner was lost (MovieDetail captured it) but the parameter
+    // never changed, so no re-trigger.
+    //
+    // Also: stop the trailer (player ended while we were in MovieDetail anyway) and
+    // suppress auto-restart, so the user lands on a static poster instead of an
+    // unexpected re-playing trailer. Suppression lifts the moment the user does anything
+    // (changes slide / switches button / leaves slider).
+    LaunchedEffect(refocusTriggerKey) {
+        if (refocusTriggerKey > 0 && isFocused) {
+            showTrailer = false
+            suppressTrailerAfterOverlayBack = true
+            kotlinx.coroutines.delay(50)
+            try { focusRequester.requestFocus() } catch (_: Exception) {}
+        }
+    }
+    // Lift trailer suppression on any user interaction with the slider
+    LaunchedEffect(currentSlide, externalButtonIndex, isOnChannelsBelow) {
+        if (suppressTrailerAfterOverlayBack) suppressTrailerAfterOverlayBack = false
     }
 
     // Scroll to current slide
@@ -15553,32 +16058,47 @@ private fun VodChannelRows(
             Box(
                 modifier = Modifier.offset(y = channelYOffset)
             ) {
-                if (channelName == "Skróty v3") {
-                    // Special rendering for Skróty v3 - horizontal shortcuts row
-                    VodShortcutsV3Row(
-                        actualRowIndex = actualRowIndex,
-                        focusedRowIndex = focusedRowIndex,
-                        focusedColIndex = focusedColIndex,
-                        channelFocusRequesters = channelFocusRequesters,
-                        onChannelContentFocusChange = onChannelContentFocusChange,
-                        onNavigateToKinoGrid = onNavigateToKinoGrid,
-                        sx = sx,
-                        sy = sy
-                    )
-                } else {
-                    VodUnifiedChannelRow(
-                        channel = channelName,
-                        actualRowIndex = actualRowIndex,
-                        rowContent = rowContent,
-                        focusedRowIndex = focusedRowIndex,
-                        focusedColIndex = focusedColIndex,
-                        channelFocusRequesters = channelFocusRequesters,
-                        onChannelContentFocusChange = onChannelContentFocusChange,
-                        onNavigateToKinoGrid = onNavigateToKinoGrid,
-                        sx = sx,
-                        sy = sy,
-                        lazyListState = lazyListState
-                    )
+                when (channelName) {
+                    "Wszystkie" -> {
+                        VodWszystkieRow(
+                            actualRowIndex = actualRowIndex,
+                            focusedRowIndex = focusedRowIndex,
+                            focusedColIndex = focusedColIndex,
+                            channelFocusRequesters = channelFocusRequesters,
+                            onChannelContentFocusChange = onChannelContentFocusChange,
+                            onNavigateToKinoGrid = onNavigateToKinoGrid,
+                            lazyListState = lazyListState,
+                            sx = sx,
+                            sy = sy
+                        )
+                    }
+                    "Więcej" -> {
+                        VodWiecejRow(
+                            actualRowIndex = actualRowIndex,
+                            focusedRowIndex = focusedRowIndex,
+                            focusedColIndex = focusedColIndex,
+                            channelFocusRequesters = channelFocusRequesters,
+                            onChannelContentFocusChange = onChannelContentFocusChange,
+                            onNavigateToKinoGrid = onNavigateToKinoGrid,
+                            sx = sx,
+                            sy = sy
+                        )
+                    }
+                    else -> {
+                        VodUnifiedChannelRow(
+                            channel = channelName,
+                            actualRowIndex = actualRowIndex,
+                            rowContent = rowContent,
+                            focusedRowIndex = focusedRowIndex,
+                            focusedColIndex = focusedColIndex,
+                            channelFocusRequesters = channelFocusRequesters,
+                            onChannelContentFocusChange = onChannelContentFocusChange,
+                            onNavigateToKinoGrid = onNavigateToKinoGrid,
+                            sx = sx,
+                            sy = sy,
+                            lazyListState = lazyListState
+                        )
+                    }
                 }
             }
         }
@@ -15779,7 +16299,7 @@ private fun VodUnifiedChannelRow(
             }
         }
 
-        // Details overlay
+        // Details overlay (KINO_PLAY VodUnifiedChannelRow)
         if (isCurrentRow && focusedColIndex == 0 && showDetailsWithDelay) {
             val firstVisibleContent = rowContent.getOrNull(lazyListState.firstVisibleItemIndex)
             if (firstVisibleContent != null) {
@@ -15878,10 +16398,10 @@ private fun VodUnifiedChannelRow(
                 focusRequester = categoryFocusRequester ?: FocusRequester(),
                 sx = sx,
                 sy = sy,
-                logoUrl = if (!isVodCategoryChannel) logoUrl else null,
-                logoDrawableId = if (!isVodCategoryChannel) logoDrawableId else null,
-                showIcon = !isVodCategoryChannel,                    // text-only dla kategorii VOD
-                showBackgroundWhenFocused = isVodCategoryChannel     // czarne tło dla kategorii VOD
+                logoUrl = null,
+                logoDrawableId = null,
+                showIcon = false,                                    // Figma "Sekcje redakcyjne": wszystkie Kino Play channels text-only
+                showBackgroundWhenFocused = true                     // czarne tło na fokusie (jak EPG channels)
             )
         }
     }
@@ -17171,8 +17691,14 @@ private fun VerticalContentCard(
     }
 }
 
+/**
+ * "Wszystkie" channel — same chipy (BEZ CategoryIcon), 11 pozycji.
+ * Layout taki sam jak poprzedni "Skróty v3" + 56px spacing po dolnej krawędzi.
+ *
+ * focusedColIndex semantyka: 0..10 → chip focused.
+ */
 @Composable
-private fun VodShortcutsV3Row(
+private fun VodWszystkieRow(
     actualRowIndex: Int,
     focusedRowIndex: Int,
     focusedColIndex: Int,
@@ -17180,43 +17706,45 @@ private fun VodShortcutsV3Row(
     onChannelContentFocusChange: (Int, Int) -> Unit,
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    lazyListState: LazyListState,
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp
 ) {
-    val configuration = LocalConfiguration.current
-
-    val shortcuts = remember {
+    // 11 chipów — pierwszy "Wszystkie" otwiera grid bez filtra
+    val categories = remember {
         listOf(
-            ShortcutItem("1", "AKCJA", ShortcutIcon.VectorIcon(R.drawable.ic_shortcut_akcja), categoryFilter = "Akcja|Action"),
-            ShortcutItem("2", "BIOGRAFICZNY", ShortcutIcon.VectorIcon(R.drawable.ic_shortcut_biograficzny), categoryFilter = "Biograficzny|Biography|Biographical"),
-            ShortcutItem("3", "DOKUMENTALNE", ShortcutIcon.VectorIcon(R.drawable.ic_shortcut_dokumentalne), categoryFilter = "Dokumentalny|Documentary"),
-            ShortcutItem("4", "PRZYGODOWE", ShortcutIcon.VectorIcon(R.drawable.ic_shortcut_przygodowe), categoryFilter = "Przygodowy|Adventure"),
-            ShortcutItem("5", "HORROR", ShortcutIcon.VectorIcon(R.drawable.ic_shortcut_horror), categoryFilter = "Horror"),
-            ShortcutItem("6", "FILMY POLSKIE", ShortcutIcon.VectorIcon(R.drawable.ic_shortcut_filmy_polskie), categoryFilter = "Polski|Polish")
+            "Wszystkie" to null,
+            "Nowości 🔥" to "__NEW__",
+            "Akcja" to "Akcja|Action",
+            "Biograficzne" to "Biograficzny|Biography|Biographical",
+            "Disney" to "Disney",
+            "Dokument" to "Dokumentalny|Documentary",
+            "Dramat" to "Dramat|Drama",
+            "Familijne" to "Familijny|Family",
+            "Filmy polskie" to "Polski|Polish",
+            "Gwiezdne Wojny" to "Star Wars|Gwiezdne Wojny",
+            "Universal" to "Universal"
         )
     }
 
     val isCurrentRow = actualRowIndex == focusedRowIndex
 
-    // Skróty v3: NO expansion animation - keep constant size
-    // Horizontal LazyRow with 6 shortcuts (Figma: card width 235px + spacing 24px)
     LazyRow(
+        state = lazyListState,
         modifier = Modifier
             .fillMaxWidth()
-            .height(sy(208)), // Figma: 208px card height - fixed, no animation
-        contentPadding = PaddingValues(
-            start = sx(80), // Align with CategoryIcon position
-            end = sx(20)
-        ),
-        horizontalArrangement = Arrangement.spacedBy(sx(24)) // Figma: 24px spacing
+            .height(sy(80)),
+        contentPadding = PaddingValues(start = sx(80), end = sx(20)),
+        horizontalArrangement = Arrangement.spacedBy(sx(24)),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        itemsIndexed(shortcuts) { index, shortcut ->
-            val isFocused = isCurrentRow && focusedColIndex == index
+        itemsIndexed(categories) { index, (label, filter) ->
+            val isChipFocused = isCurrentRow && focusedColIndex == index
             val focusRequester = channelFocusRequesters[Pair(actualRowIndex, index)] ?: FocusRequester()
 
-            ShortcutCard(
-                shortcut = shortcut,
-                isFocused = isFocused,
+            CategoryChip(
+                label = label,
+                isFocused = isChipFocused,
                 focusRequester = focusRequester,
                 sx = sx,
                 sy = sy,
@@ -17224,17 +17752,129 @@ private fun VodShortcutsV3Row(
                     if (focused) onChannelContentFocusChange(actualRowIndex, index)
                 },
                 onClick = {
-                    // Navigate to KinoGridScreen with shortcut-specific filtered content
                     val vodList = VodDataCache.getKinoPlayMovies()
-                    val filtered = if (shortcut.categoryFilter != null) {
-                        filterMoviesByCategory(vodList, shortcut.categoryFilter)
-                    } else {
-                        vodList.shuffled().take(10)
+                    val filtered = when {
+                        filter == null -> vodList
+                        filter == "__NEW__" -> vodList.shuffled().take(10)
+                        else -> filterMoviesByCategory(vodList, filter)
                     }
-                    onNavigateToKinoGrid(shortcut.title, filtered, "KINO_PLAY")
+                    onNavigateToKinoGrid(label, filtered, "KINO_PLAY")
                 }
             )
         }
+    }
+}
+
+/**
+ * "Więcej" channel — sam CategoryIcon, ENTER → grid wszystkich filmów Kino Play.
+ */
+@Composable
+private fun VodWiecejRow(
+    actualRowIndex: Int,
+    focusedRowIndex: Int,
+    focusedColIndex: Int,
+    channelFocusRequesters: Map<Pair<Int, Int>, FocusRequester>,
+    onChannelContentFocusChange: (Int, Int) -> Unit,
+    onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    sx: (Int) -> androidx.compose.ui.unit.Dp,
+    sy: (Int) -> androidx.compose.ui.unit.Dp
+) {
+    val isCurrentRow = actualRowIndex == focusedRowIndex
+    val isFocused = isCurrentRow && focusedColIndex == -1
+    val focusRequester = channelFocusRequesters[Pair(actualRowIndex, -1)] ?: FocusRequester()
+
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(start = sx(80)),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        CategoryIcon(
+            text = "Więcej",
+            isFocused = isFocused,
+            onClick = {
+                onNavigateToKinoGrid("Wszystkie filmy", null, "KINO_PLAY")
+            },
+            onFocused = { focused ->
+                if (focused) onChannelContentFocusChange(actualRowIndex, -1)
+            },
+            focusRequester = focusRequester,
+            sx = sx,
+            sy = sy,
+            showIcon = false,
+            showBackgroundWhenFocused = true
+        )
+    }
+}
+
+/**
+ * Chip-style category button for KinoPlay shortcuts row.
+ *
+ * Source: Figma "Nowa strona główna BOX" → Kategorie (node 3061:27419)
+ *
+ * Specs (Figma):
+ * - Padding: 16px horizontal, 24px vertical
+ * - Border radius: 16px
+ * - Background: rgba(0,0,0,0.4) — gradient/black-40%
+ * - Border (default): 2px solid rgba(238,238,238,0.2)
+ * - Border (focused): 8px solid #5FEDD4 (aqua)
+ * - Gap between chips: 24px (handled by parent LazyRow)
+ * - Text width: max 170px, ellipsis on overflow
+ *
+ * Typography (Figma "Caption medium"):
+ * - Font: Manrope Medium 24px
+ * - Color: #EEEEEE
+ * - Letter-spacing: 0.48 (2% of 24px)
+ * - Line-height: 32px
+ * - Align: center
+ */
+@Composable
+private fun CategoryChip(
+    label: String,
+    isFocused: Boolean,
+    focusRequester: FocusRequester,
+    sx: (Int) -> androidx.compose.ui.unit.Dp,
+    sy: (Int) -> androidx.compose.ui.unit.Dp,
+    onClick: () -> Unit,
+    onFocusChange: (Boolean) -> Unit
+) {
+    // Figma: stroke/stroke-focused (#5FEDD4) when focused, rgba(238,238,238,0.2) otherwise
+    val borderColor = if (isFocused) Color(0xFF5FEDD4) else Color(0x33EEEEEE)
+    // Figma: stroke/stroke-8 (8px) focused, stroke/stroke-2 (2px) default
+    val borderWidth = if (isFocused) sx(8) else sx(2)
+    // Figma: radius/radius-16
+    val shape = RoundedCornerShape(sx(16))
+
+    Box(
+        modifier = Modifier
+            .size(sx(202), sy(80))                                      // Figma: chip W=202px, H=80px (fixed)
+            .clip(shape)
+            .background(Color(0x66000000))                              // Figma: rgba(0,0,0,0.4)
+            .border(width = borderWidth, color = borderColor, shape = shape)
+            .padding(horizontal = sx(16), vertical = sy(24))            // Figma: px-16 horizontal, py-24 vertical
+            .focusRequester(focusRequester)
+            .onPreviewKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown &&
+                    (event.key == Key.Enter || event.key == Key.DirectionCenter)) {
+                    onClick()
+                    true
+                } else false
+            }
+            .onFocusChanged { onFocusChange(it.isFocused) }
+            .focusable(),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            color = Color(0xFFEEEEEE),                       // Figma: text/text-primary #EEE
+            fontSize = (24 * sy(1).value).sp,                // Figma: 24px
+            fontFamily = ManropeFamily,                      // Figma: family/manrope
+            fontWeight = FontWeight.Medium,                  // Figma: weight/medium (500)
+            letterSpacing = 0.48.sp,                         // Figma: tracking 0.48
+            lineHeight = (32 * sy(1).value).sp,              // Figma: line-height 32
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.widthIn(max = sx(170))       // Figma: max-w 170px
+        )
     }
 }
 
@@ -17517,19 +18157,22 @@ private fun calculateVodChannelYPosition(
     // Convert channelIndex to rowIndex (channels start at row 2)
     val rowIndex = channelIndex + 2
 
-    // Determine if channel is horizontal, vertical, or Skróty v3
+    // Determine if channel is horizontal, vertical, Wszystkie (chipy + CategoryIcon), or Więcej
     val isHorizontal = channelName in emptyList<String>() // No horizontal channels anymore - all use vertical posters
-    val isShortcutsV3 = channelName == "Skróty v3"
+    val isShortcutsV3 = channelName == "Wszystkie"  // (zmienna name retained for diff readability)
+    val isWiecej = channelName == "Więcej"
 
     val normalRowHeight = when {
         isHorizontal -> VOD_HORIZONTAL_NORMAL_ROW_HEIGHT
-        isShortcutsV3 -> 278 // Figma: 208px card + 70px spacing
+        isShortcutsV3 -> 136  // CategoryIcon 216 + spacing 40
+        isWiecej -> 256       // CategoryIcon "Więcej" + spacing
         else -> VOD_VERTICAL_NORMAL_ROW_HEIGHT
     }
 
     val expandedRowHeight = when {
         isHorizontal -> VOD_HORIZONTAL_EXPANDED_ROW_HEIGHT
-        isShortcutsV3 -> 278 // Same as normal - no expansion for Skróty v3
+        isShortcutsV3 -> 136
+        isWiecej -> 256
         else -> VOD_VERTICAL_EXPANDED_ROW_HEIGHT
     }
 
@@ -17542,10 +18185,12 @@ private fun calculateVodChannelYPosition(
             for (i in 0 until channelIndex) {
                 val prevChannelName = channels.getOrNull(i) ?: ""
                 val prevIsHorizontal = prevChannelName in emptyList<String>() // No horizontal channels anymore - all use vertical posters
-                val prevIsShortcutsV3 = prevChannelName == "Skróty v3"
+                val prevIsShortcutsV3 = prevChannelName == "Wszystkie"
+                val prevIsWiecej = prevChannelName == "Więcej"
                 cumulativeHeight += when {
                     prevIsHorizontal -> VOD_HORIZONTAL_NORMAL_ROW_HEIGHT
-                    prevIsShortcutsV3 -> 278
+                    prevIsShortcutsV3 -> 136
+                    prevIsWiecej -> 256
                     else -> VOD_VERTICAL_NORMAL_ROW_HEIGHT
                 }
             }
@@ -17557,17 +18202,23 @@ private fun calculateVodChannelYPosition(
         }
         // Channels above focused - scroll up
         rowIndex < focusedRowIndex -> {
-            // Extra 100px spacing when content is focused (focusedColIndex >= 0)
-            val extraSpacing = if (focusedColIndex >= 0) VOD_CONTENT_FOCUS_EXTRA_SPACING else 0
+            // Extra 100px spacing when content is focused (focusedColIndex >= 0); pomijamy dla Skróty v3 (no expansion)
+            val focusedChannelName = channels.getOrNull(focusedRowIndex - 2) ?: ""
+            val focusedIsShortcutsV3 = focusedChannelName == "Wszystkie"
+            val focusedIsWiecej = focusedChannelName == "Więcej"
+            val extraSpacing = if (focusedColIndex >= 0 && !focusedIsShortcutsV3 && !focusedIsWiecej) VOD_CONTENT_FOCUS_EXTRA_SPACING else 0
             // Calculate cumulative height from focused to this channel
+            // Subtract heights of channels FROM current TO (focused-1), inclusive of current channel itself
             var cumulativeHeight = VOD_FIXED_FOCUS_Y
             for (i in channelIndex until focusedRowIndex - 2) {
-                val betweenChannelName = channels.getOrNull(i + 1) ?: ""
+                val betweenChannelName = channels.getOrNull(i) ?: ""  // FIX: było channels[i+1] (skipowało własną wysokość, brało focusedRow)
                 val betweenIsHorizontal = betweenChannelName in emptyList<String>() // No horizontal channels anymore - all use vertical posters
-                val betweenIsShortcutsV3 = betweenChannelName == "Skróty v3"
+                val betweenIsShortcutsV3 = betweenChannelName == "Wszystkie"
+                val betweenIsWiecej = betweenChannelName == "Więcej"
                 cumulativeHeight -= when {
                     betweenIsHorizontal -> VOD_HORIZONTAL_NORMAL_ROW_HEIGHT
-                    betweenIsShortcutsV3 -> 278
+                    betweenIsShortcutsV3 -> 136
+                    betweenIsWiecej -> 256
                     else -> VOD_VERTICAL_NORMAL_ROW_HEIGHT
                 }
             }
@@ -17578,31 +18229,36 @@ private fun calculateVodChannelYPosition(
             // Check if focused channel is expanded (content focused)
             val focusedChannelName = channels.getOrNull(focusedRowIndex - 2) ?: ""
             val focusedIsHorizontal = focusedChannelName in emptyList<String>() // No horizontal channels anymore - all use vertical posters
-            val focusedIsShortcutsV3 = focusedChannelName == "Skróty v3"
+            val focusedIsShortcutsV3 = focusedChannelName == "Wszystkie"
+            val focusedIsWiecej = focusedChannelName == "Więcej"
             val focusedChannelExpansion = if (focusedColIndex >= 0) {
                 when {
                     focusedIsHorizontal -> VOD_HORIZONTAL_EXPANDED_ROW_HEIGHT
-                    focusedIsShortcutsV3 -> 278 // Same as normal - no expansion for Skróty v3
+                    focusedIsShortcutsV3 -> 136
+                    focusedIsWiecej -> 256
                     else -> VOD_VERTICAL_EXPANDED_ROW_HEIGHT
                 }
             } else {
                 when {
                     focusedIsHorizontal -> VOD_HORIZONTAL_NORMAL_ROW_HEIGHT
-                    focusedIsShortcutsV3 -> 278
+                    focusedIsShortcutsV3 -> 136
+                    focusedIsWiecej -> 256
                     else -> VOD_VERTICAL_NORMAL_ROW_HEIGHT
                 }
             }
-            // 30px extra spacing for vertical channels when content is focused
-            val verticalExtraSpacing = if (!focusedIsHorizontal && focusedColIndex >= 0) 30 else 0
+            // 30px extra spacing for vertical channels when content is focused; pomijamy dla Wszystkie/Więcej (no expansion)
+            val verticalExtraSpacing = if (!focusedIsHorizontal && !focusedIsShortcutsV3 && !focusedIsWiecej && focusedColIndex >= 0) 30 else 0
             // Calculate cumulative height from focused to this channel
             var cumulativeHeight = VOD_FIXED_FOCUS_Y + focusedChannelExpansion + verticalExtraSpacing
             for (i in (focusedRowIndex - 2 + 1) until channelIndex) {
                 val betweenChannelName = channels.getOrNull(i) ?: ""
                 val betweenIsHorizontal = betweenChannelName in emptyList<String>() // No horizontal channels anymore - all use vertical posters
-                val betweenIsShortcutsV3 = betweenChannelName == "Skróty v3"
+                val betweenIsShortcutsV3 = betweenChannelName == "Wszystkie"
+                val betweenIsWiecej = betweenChannelName == "Więcej"
                 cumulativeHeight += when {
                     betweenIsHorizontal -> VOD_HORIZONTAL_NORMAL_ROW_HEIGHT
-                    betweenIsShortcutsV3 -> 278
+                    betweenIsShortcutsV3 -> 136
+                    betweenIsWiecej -> 256
                     else -> VOD_VERTICAL_NORMAL_ROW_HEIGHT
                 }
             }
@@ -17613,10 +18269,10 @@ private fun calculateVodChannelYPosition(
     }
 }
 
-// Helper to detect if channel is Skróty v3 (shortcuts without CategoryIcon)
+// Helper to detect if channel uses chip-row layout (Wszystkie — chips obok CategoryIcon)
 private fun isShortcutsV3Channel(rowIndex: Int, channels: List<String>): Boolean {
     val channelIndex = rowIndex - 2
-    return channels.getOrNull(channelIndex) == "Skróty v3"
+    return channels.getOrNull(channelIndex) == "Wszystkie"
 }
 
 fun handleVodNavigation(
@@ -17634,8 +18290,12 @@ fun handleVodNavigation(
     sliderVersion: Int = 2,
     v4ButtonIndex: Int = 0,
     onV4ButtonIndexChange: (Int) -> Unit = {},
-    // VOD Player navigation
-    onNavigateToVodPlayer: (url: String, title: String) -> Unit = { _, _ -> }
+    // VOD Player navigation (legacy — używane gdy nie chcemy MovieDetail)
+    onNavigateToVodPlayer: (url: String, title: String) -> Unit = { _, _ -> },
+    // Wywoływany gdy ENTER na CategoryIcon (kanał) — np. "Akcja" → otwórz grid filmów akcji
+    onCategoryEnter: (channelName: String) -> Unit = {},
+    // Wywoływany gdy ENTER na plakacie filmu — otwórz MovieDetailScreen
+    onMovieClicked: (VodContent) -> Unit = {}
 ): Boolean {
     if (event.nativeKeyEvent.action != android.view.KeyEvent.ACTION_DOWN) return false
 
@@ -17789,18 +18449,15 @@ fun handleVodNavigation(
             val isShortcutsV3 = isShortcutsV3Channel(focusedRowIndex, channels)
 
             if (isShortcutsV3) {
-                // Shortcuts v3: move between items 0-5 (6 items total)
-                when {
-                    focusedColIndex < 5 -> {
-                        // Move right within shortcuts
-                        onFocusChange(focusedRowIndex, focusedColIndex + 1)
-                        channelFocusRequesters[Pair(focusedRowIndex, focusedColIndex + 1)]?.requestFocus()
-                    }
-                    focusedColIndex == 5 -> {
-                        // At last shortcut - can't go right
-                        return true
-                    }
+                // Shortcuts v3: dynamiczna liczba itemów w channelFocusRequesters dla tego rzędu
+                val maxColIndex = (channelFocusRequesters.keys
+                    .filter { it.first == focusedRowIndex }
+                    .maxOfOrNull { it.second } ?: 0)
+                if (focusedColIndex < maxColIndex) {
+                    onFocusChange(focusedRowIndex, focusedColIndex + 1)
+                    channelFocusRequesters[Pair(focusedRowIndex, focusedColIndex + 1)]?.requestFocus()
                 }
+                // At last shortcut - can't go right (return true below)
             } else {
                 // Regular channel logic
                 if (focusedColIndex == -1) {
@@ -17835,19 +18492,27 @@ fun handleVodNavigation(
             }
 
             // Row 2+ = channel content - find focused item and open VOD player
-            if (focusedColIndex < 0) return true // CategoryIcon - no action
+            if (focusedColIndex < 0) {
+                // CategoryIcon — wywołaj nawigację do gridu kategorii
+                val channelIndex = focusedRowIndex - 2
+                val channelName = channels.getOrNull(channelIndex) ?: return true
+                onCategoryEnter(channelName)
+                return true
+            }
 
             val channelIndex = focusedRowIndex - 2
             val channelName = channels.getOrNull(channelIndex) ?: return true
-            val rowContent = gridContent[channelName] ?: return true
+            val rowContent = gridContent[channelName]
+            // Channels bez content (np. "Skróty v3") — deleguj ENTER do child composable (np. ShortcutCard.onClick)
+            if (rowContent.isNullOrEmpty()) return false
 
             val lazyListState = lazyListStates[channelIndex]
             val itemIndex = (lazyListState?.firstVisibleItemIndex ?: 0) + focusedColIndex
             val item = rowContent.getOrNull(itemIndex)
 
-            if (item != null && !item.youtubeUrl.isNullOrBlank()) {
-                android.util.Log.d("VOD_NAV", "OK pressed: playing '${item.title}' url=${item.youtubeUrl}")
-                onNavigateToVodPlayer(item.youtubeUrl!!, item.title)
+            if (item != null) {
+                android.util.Log.d("VOD_NAV", "OK pressed on '${item.title}' → MovieDetailScreen")
+                onMovieClicked(item)
             }
             return true
         }
@@ -19746,17 +20411,27 @@ private fun ProfileAvatar(
                     )
                 }
                 is ProfileAvatarType.Icon -> {
-                    // Use Material Icons as placeholders
-                    Icon(
-                        imageVector = when (profile.avatarContent) {
-                            "monster" -> Icons.Default.Star
-                            "pokemon" -> Icons.Default.Info
-                            else -> Icons.Default.Person
-                        },
-                        contentDescription = profile.name,
-                        tint = Color(0xFFEEEEEE),
-                        modifier = Modifier.size(sx(96))
-                    )
+                    when (profile.avatarContent) {
+                        "monster" -> {
+                            // Angelika — lampka Pixar
+                            androidx.compose.foundation.Image(
+                                painter = androidx.compose.ui.res.painterResource(id = R.drawable.av_pixar_lamp),
+                                contentDescription = profile.name,
+                                modifier = Modifier.size(sx(120))
+                            )
+                        }
+                        else -> {
+                            Icon(
+                                imageVector = when (profile.avatarContent) {
+                                    "pokemon" -> Icons.Default.Info
+                                    else -> Icons.Default.Person
+                                },
+                                contentDescription = profile.name,
+                                tint = Color(0xFFEEEEEE),
+                                modifier = Modifier.size(sx(96))
+                            )
+                        }
+                    }
                 }
                 is ProfileAvatarType.Kids -> {
                     Text(

@@ -347,6 +347,8 @@ fun TvRoot(
     var kinoGridTitle by remember { mutableStateOf("Lista Kino") }
     var kinoGridPrefiltered by remember { mutableStateOf<List<VodContent>?>(null) }  // Prefiltered KINO data
     var kinoGridSourceSection by remember { mutableStateOf<String?>(null) }  // "KINO_PLAY"
+    var kinoGridInitialCategory by remember { mutableStateOf<String?>(null) }  // Pre-selected category filter
+    var kinoGridLastClickedMovieId by remember { mutableStateOf<String?>(null) }  // Restore focus after MovieDetail back
 
     // RecordingsGridScreen navigation parameters
     var recordingsGridSourceSection by remember { mutableStateOf<String?>(null) }  // "MOJE"
@@ -516,6 +518,177 @@ fun TvRoot(
             .fillMaxSize()
             .figmaRadialBackground()
     ) {
+        // OVERLAY: keep TopMenuScreen2 mounted while MovieDetail is showing on top of it
+        // (only when MovieDetail was launched from KINO_PLAY tab — i.e. previousScreen
+        // was TOP_MENU2). This preserves all VodWithChannels state — focusedRowIndex,
+        // focusedColIndex, lazyListStates, channelFocusRequesters, focus binding — so
+        // BACK from MovieDetail can refocus the exact same poster the user was on.
+        // See VodWithChannels' LaunchedEffect on `kinoPlayRefocusTrigger`.
+        val showTopMenuAsBase = currentScreen == NavigationScreen.MOVIE_DETAIL &&
+            previousScreen == NavigationScreen.TOP_MENU2
+
+        // movableContentOf lets us render the SAME TopMenuScreen2 instance from two
+        // different positions in the `when` (TOP_MENU2 case OR MOVIE_DETAIL case as base
+        // layer) without losing internal state on transitions.
+        val topMenuMovable = remember {
+            movableContentOf {
+                // Clear saved focus after delay when returning from EPG Day Test
+                LaunchedEffect(currentScreen, savedTelewizjaFocus) {
+                    if (currentScreen == NavigationScreen.TOP_MENU2 && savedTelewizjaFocus != null) {
+                        android.util.Log.d("TELEWIZJA_FOCUS", "Returned to TOP_MENU2 with saved focus, will clear after 5000ms")
+                        kotlinx.coroutines.delay(5000)
+                        savedTelewizjaFocus = null
+                        android.util.Log.d("TELEWIZJA_FOCUS", "Cleared savedTelewizjaFocus after delay")
+                    }
+                }
+
+                TopMenuScreen2(
+                    onBackPressed = { isMenuFocused ->
+                        false
+                    },
+                    onReturnToEpgDay = {
+                        android.util.Log.d("PIP_NAVIGATION", "Returning to EPG Day Test from PIP")
+                        currentScreen = NavigationScreen.EPG_DAY
+                    },
+                    onShowMainMenu = {
+                        currentScreen = NavigationScreen.HOME
+                    },
+                    onNavigateToLiveScreen = { channelName ->
+                        selectedChannelName = channelName
+                        currentScreen = NavigationScreen.LIVE
+                    },
+                    onNavigateToEpg = {
+                        previousScreen = currentScreen
+                        currentScreen = NavigationScreen.EPG
+                    },
+                    onNavigateToEpgDay = { channelId, itemId, scrollPosition, sectionId ->
+                        savedTelewizjaFocus = FocusState(
+                            channelId = channelId,
+                            itemId = itemId,
+                            scrollPosition = scrollPosition
+                        )
+                        savedTelewizjaSection = sectionId
+                        previousScreen = currentScreen
+                        isEpgDayFromStartup = false
+                        currentScreen = NavigationScreen.EPG_DAY
+                    },
+                    onNavigateToStartupMode = {
+                        previousScreen = NavigationScreen.TOP_MENU2
+                        currentScreen = NavigationScreen.STARTUP_MODE_SELECTION
+                    },
+                    onFocusRestored = { },
+                    restoredTelewizjaFocus = savedTelewizjaFocus,
+                    restoredSection = savedTelewizjaSection,
+                    pipPlayer = pipPlayer,
+                    onClosePip = {
+                        pipPlayer?.stop()
+                        pipPlayer?.release()
+                        pipPlayer = null
+                        pipStreamUrl = null
+                        pipMode = false
+                    },
+                    onNavigateToChannelGrid = { title, category, filter, channelList ->
+                        channelGridSourceScreen = NavigationScreen.TOP_MENU2
+                        channelGridSourceSection = savedTelewizjaSection ?: "TELEWIZJA"
+                        channelGridTitle = title
+                        channelGridCategory = category
+                        channelGridFilter = filter
+                        channelGridChannelList = channelList
+                        currentScreen = NavigationScreen.CHANNEL_GRID
+                    },
+                    onNavigateToVodGrid = { title, prefiltered, sourceSection ->
+                        vodGridTitle = title
+                        vodGridPrefiltered = prefiltered
+                        vodGridSourceSection = sourceSection
+                        previousScreen = NavigationScreen.TOP_MENU2
+                        currentScreen = NavigationScreen.VOD_GRID
+                    },
+                    onNavigateToKinoGrid = { title, prefiltered, sourceSection ->
+                        kinoGridTitle = title
+                        kinoGridPrefiltered = prefiltered
+                        kinoGridSourceSection = sourceSection
+                        kinoGridInitialCategory = when {
+                            title == "Nowości 🔥" -> title
+                            VodDataCache.kinoChannelMap.containsKey(title) -> title
+                            else -> prefiltered?.firstOrNull()?.category
+                        }
+                        previousScreen = NavigationScreen.TOP_MENU2
+                        currentScreen = NavigationScreen.KINO_GRID
+                    },
+                    onNavigateToRecordingsGrid = { _, sourceSection ->
+                        recordingsGridSourceSection = sourceSection
+                        previousScreen = NavigationScreen.TOP_MENU2
+                        currentScreen = NavigationScreen.RECORDINGS_GRID
+                    },
+                    onNavigateToAppsGrid = {
+                        previousScreen = NavigationScreen.TOP_MENU2
+                        currentScreen = NavigationScreen.APPS_GRID
+                    },
+                    onNavigateToMovieDetail = { movieData ->
+                        selectedMovieData = movieData
+                        previousScreen = NavigationScreen.TOP_MENU2
+                        currentScreen = NavigationScreen.MOVIE_DETAIL
+                    },
+                    onNavigateToPurchase = { movieData ->
+                        selectedMovieData = movieData
+                        cameFromQuickPurchase = true
+                        previousScreen = NavigationScreen.TOP_MENU2
+                        currentScreen = NavigationScreen.PURCHASE
+                    },
+                    onNavigateToVodPlayer = { url, title ->
+                        vodPlayerUrl = url
+                        vodPlayerTitle = title
+                        currentScreen = NavigationScreen.VOD_PLAYER
+                    },
+                    onNavigateToOlympics = { content, sourceSection ->
+                        olympicsContent = content
+                        olympicsSourceSection = sourceSection
+                        previousScreen = NavigationScreen.TOP_MENU2
+                        currentScreen = NavigationScreen.OLYMPICS
+                    },
+                    availableUpdate = updateInfo,
+                    updateState = updateState,
+                    onUpdateDownload = { info ->
+                        updateState = com.uxellence.tv.v3.update.UpdateState.DOWNLOADING
+                        coroutineScope.launch {
+                            updateManager.downloadApk(
+                                updateInfo = info,
+                                onProgress = { progress -> downloadProgress = progress },
+                                onComplete = { success ->
+                                    if (success) {
+                                        updateState = com.uxellence.tv.v3.update.UpdateState.INSTALLING
+                                    } else {
+                                        updateState = com.uxellence.tv.v3.update.UpdateState.READY
+                                    }
+                                }
+                            )
+                        }
+                    },
+                    onUpdateInstall = {
+                        updateManager.installApk()
+                    },
+                    onDismissUpdateBadge = {
+                        com.uxellence.tv.v3.utils.VersionTracker.setKontoUpdateBadge(context, false)
+                    }
+                )
+
+                DisposableEffect(currentScreen) {
+                    onDispose {
+                        if (currentScreen != NavigationScreen.TOP_MENU2 &&
+                            currentScreen != NavigationScreen.MOVIE_DETAIL &&
+                            pipPlayer != null) {
+                            android.util.Log.d("PIP", "Leaving TOP_MENU2 - cleaning up PIP player")
+                            pipPlayer?.stop()
+                            pipPlayer?.release()
+                            pipPlayer = null
+                            pipStreamUrl = null
+                            pipMode = false
+                        }
+                    }
+                }
+            }
+        }
+
         when (currentScreen) {
             NavigationScreen.SPLASH -> {
                 // Splash screen with start.png logo
@@ -836,21 +1009,40 @@ fun TvRoot(
             NavigationScreen.KINO_GRID -> {
                 KinoGridScreen(
                     onBackPressed = {
-                        // Smart BACK: return to previous screen
-                        when (previousScreen) {
-                            NavigationScreen.TOP_MENU2 -> {
-                                // Return to TOP_MENU2 (came from KINO PLAY section)
-                                currentScreen = NavigationScreen.TOP_MENU2
-                                previousScreen = NavigationScreen.HOME
-                            }
-                            else -> {
-                                // Default: return to HOME
-                                currentScreen = NavigationScreen.HOME
-                            }
-                        }
+                        // Restore Kino Play tab in TOP_MENU2 (default to KINO_PLAY when source missing)
+                        currentScreen = NavigationScreen.TOP_MENU2
+                        savedTelewizjaSection = kinoGridSourceSection ?: "KINO_PLAY"
                     },
                     screenTitle = kinoGridTitle,
-                    preloadedData = kinoGridPrefiltered
+                    initialCategory = kinoGridInitialCategory,
+                    initialFocusedMovieId = kinoGridLastClickedMovieId,
+                    onCategoryChanged = { newCategory ->
+                        // Persist user's filter choice so coming back from MovieDetail
+                        // re-mounts the grid with the same category preselected.
+                        kinoGridInitialCategory = newCategory
+                    },
+                    onMovieClicked = { vodContent ->
+                        // Remember which poster was clicked so we can refocus it on BACK
+                        kinoGridLastClickedMovieId = vodContent.id
+                        // Match Kino Play tab behavior — open MovieDetailScreen with full slide data
+                        selectedMovieData = VodSlideData(
+                            title = vodContent.title,
+                            genre = vodContent.category,
+                            duration = "",
+                            year = "",
+                            country = "Polska",
+                            ageRating = "13 lat",
+                            description = vodContent.description,
+                            price = vodContent.price ?: "19 zł/48h",
+                            backgroundUrl = vodContent.backdropUrl ?: "",
+                            posterUrl = vodContent.imageUrl,
+                            youtubeUrl = vodContent.youtubeUrl,
+                            isKinoPlay = true,
+                            cast = vodContent.cast
+                        )
+                        previousScreen = NavigationScreen.KINO_GRID
+                        currentScreen = NavigationScreen.MOVIE_DETAIL
+                    }
                 )
             }
             NavigationScreen.APPS_GRID -> {
@@ -899,13 +1091,28 @@ fun TvRoot(
                 )
             }
             NavigationScreen.MOVIE_DETAIL -> {
+                // Render TopMenuScreen2 underneath as base layer when MovieDetail was
+                // launched from KINO_PLAY tab — preserves all VodWithChannels state so
+                // BACK can refocus the exact poster the user was on.
+                if (showTopMenuAsBase) {
+                    topMenuMovable()
+                }
                 selectedMovieData?.let { movieData ->
                     MovieDetailScreen(
                         item = movieData,
                         onBackPressed = {
-                            // Return to KINO_PLAY section in TOP_MENU2
-                            currentScreen = NavigationScreen.TOP_MENU2
-                            savedTelewizjaSection = "KINO_PLAY"
+                            // Return to whichever screen launched MovieDetail
+                            if (previousScreen == NavigationScreen.KINO_GRID) {
+                                currentScreen = NavigationScreen.KINO_GRID
+                            } else {
+                                // From KINO_PLAY tab — TopMenuScreen2 is still mounted under
+                                // us. Increment refocus trigger so VodWithChannels re-grabs
+                                // focus on the previously focused poster, then flip back.
+                                VodDataCache.kinoPlayRefocusTrigger.value =
+                                    VodDataCache.kinoPlayRefocusTrigger.value + 1
+                                currentScreen = NavigationScreen.TOP_MENU2
+                                savedTelewizjaSection = "KINO_PLAY"
+                            }
                         },
                         onRentClicked = {
                             // Navigate to PurchaseScreen (normal flow from MovieDetail)
@@ -1007,172 +1214,7 @@ fun TvRoot(
                 ShortcutScreen()
             }
             NavigationScreen.TOP_MENU2 -> {
-                // Clear saved focus after delay when returning from EPG Day Test
-                LaunchedEffect(currentScreen, savedTelewizjaFocus) {
-                    if (currentScreen == NavigationScreen.TOP_MENU2 && savedTelewizjaFocus != null) {
-                        android.util.Log.d("TELEWIZJA_FOCUS", "Returned to TOP_MENU2 with saved focus, will clear after 5000ms")
-                        kotlinx.coroutines.delay(5000) // Give restoration time (4000ms timeout + 1000ms buffer) before clearing
-                        savedTelewizjaFocus = null
-                        android.util.Log.d("TELEWIZJA_FOCUS", "Cleared savedTelewizjaFocus after delay")
-                    }
-                }
-
-                TopMenuScreen2(
-                    onBackPressed = { isMenuFocused ->
-                        // Never handle BACK from TopMenuScreen2
-                        // PIP mode: TopMenuScreen2 returns to EPG Day Test via onReturnToEpgDay
-                        // Normal mode: BACK from menu is end of path (do nothing)
-                        false
-                    },
-                    onReturnToEpgDay = {
-                        // Return to EPG Day Test from PIP mode
-                        android.util.Log.d("PIP_NAVIGATION", "Returning to EPG Day Test from PIP")
-                        currentScreen = NavigationScreen.EPG_DAY
-                    },
-                    onShowMainMenu = {
-                        currentScreen = NavigationScreen.HOME
-                    },
-                    onNavigateToLiveScreen = { channelName ->
-                        selectedChannelName = channelName
-                        currentScreen = NavigationScreen.LIVE
-                    },
-                    onNavigateToEpg = {
-                        previousScreen = currentScreen
-                        currentScreen = NavigationScreen.EPG
-                    },
-                    onNavigateToEpgDay = { channelId, itemId, scrollPosition, sectionId ->
-                        // Save current focus state (ID-based) and section for smart BACK navigation
-                        savedTelewizjaFocus = FocusState(
-                            channelId = channelId,
-                            itemId = itemId,
-                            scrollPosition = scrollPosition
-                        )
-                        savedTelewizjaSection = sectionId
-                        previousScreen = currentScreen
-                        isEpgDayFromStartup = false  // Launched from TOP_MENU2 - NO overlay
-                        currentScreen = NavigationScreen.EPG_DAY
-                    },
-                    onNavigateToStartupMode = {
-                        // Navigate to startup mode selection from ACCOUNT section
-                        previousScreen = NavigationScreen.TOP_MENU2
-                        currentScreen = NavigationScreen.STARTUP_MODE_SELECTION
-                    },
-                    onFocusRestored = {
-                        // Callback no longer used - clearing handled by LaunchedEffect above
-                    },
-                    restoredTelewizjaFocus = savedTelewizjaFocus,
-                    restoredSection = savedTelewizjaSection,
-                    pipPlayer = pipPlayer,
-                    onClosePip = {
-                        // Close PIP: stop and release player
-                        pipPlayer?.stop()
-                        pipPlayer?.release()
-                        pipPlayer = null
-                        pipStreamUrl = null
-                        pipMode = false
-                    },
-                    onNavigateToChannelGrid = { title, category, filter, channelList ->
-                        // Save current screen and section before navigation (for BACK button)
-                        channelGridSourceScreen = NavigationScreen.TOP_MENU2
-                        channelGridSourceSection = savedTelewizjaSection ?: "TELEWIZJA"  // Default to TELEWIZJA if null
-
-                        // Navigate to ChannelGridScreen with dynamic parameters
-                        channelGridTitle = title
-                        channelGridCategory = category
-                        channelGridFilter = filter
-                        channelGridChannelList = channelList
-                        currentScreen = NavigationScreen.CHANNEL_GRID
-                    },
-                    onNavigateToVodGrid = { title, prefiltered, sourceSection ->
-                        // Navigate to VOD grid (Nagrania, Wypożyczone, Do obejrzenia, etc.)
-                        vodGridTitle = title
-                        vodGridPrefiltered = prefiltered
-                        vodGridSourceSection = sourceSection
-                        previousScreen = NavigationScreen.TOP_MENU2
-                        currentScreen = NavigationScreen.VOD_GRID
-                    },
-                    onNavigateToKinoGrid = { title, prefiltered, sourceSection ->
-                        // Navigate to KINO grid (Akcja, Horror, etc. - vertical posters)
-                        kinoGridTitle = title
-                        kinoGridPrefiltered = prefiltered
-                        kinoGridSourceSection = sourceSection
-                        previousScreen = NavigationScreen.TOP_MENU2
-                        currentScreen = NavigationScreen.KINO_GRID
-                    },
-                    onNavigateToRecordingsGrid = { _, sourceSection ->
-                        // Navigate to Recordings grid (title is now dynamic based on filter)
-                        recordingsGridSourceSection = sourceSection
-                        previousScreen = NavigationScreen.TOP_MENU2
-                        currentScreen = NavigationScreen.RECORDINGS_GRID
-                    },
-                    onNavigateToAppsGrid = {
-                        previousScreen = NavigationScreen.TOP_MENU2
-                        currentScreen = NavigationScreen.APPS_GRID
-                    },
-                    onNavigateToMovieDetail = { movieData ->
-                        // Navigate to MovieDetailScreen from KINO PLAY slider
-                        selectedMovieData = movieData
-                        previousScreen = NavigationScreen.TOP_MENU2
-                        currentScreen = NavigationScreen.MOVIE_DETAIL
-                    },
-                    onNavigateToPurchase = { movieData ->
-                        // Navigate directly to PurchaseScreen (quick purchase mode)
-                        selectedMovieData = movieData
-                        cameFromQuickPurchase = true  // Mark that we skipped MovieDetailScreen
-                        previousScreen = NavigationScreen.TOP_MENU2
-                        currentScreen = NavigationScreen.PURCHASE
-                    },
-                    onNavigateToVodPlayer = { url, title ->
-                        vodPlayerUrl = url
-                        vodPlayerTitle = title
-                        currentScreen = NavigationScreen.VOD_PLAYER
-                    },
-                    onNavigateToOlympics = { content, sourceSection ->
-                        // Navigate to Olympics page
-                        olympicsContent = content
-                        olympicsSourceSection = sourceSection
-                        previousScreen = NavigationScreen.TOP_MENU2
-                        currentScreen = NavigationScreen.OLYMPICS
-                    },
-                    availableUpdate = updateInfo,
-                    updateState = updateState,
-                    onUpdateDownload = { info ->
-                        updateState = com.uxellence.tv.v3.update.UpdateState.DOWNLOADING
-                        coroutineScope.launch {
-                            updateManager.downloadApk(
-                                updateInfo = info,
-                                onProgress = { progress -> downloadProgress = progress },
-                                onComplete = { success ->
-                                    if (success) {
-                                        updateState = com.uxellence.tv.v3.update.UpdateState.INSTALLING
-                                    } else {
-                                        updateState = com.uxellence.tv.v3.update.UpdateState.READY
-                                    }
-                                }
-                            )
-                        }
-                    },
-                    onUpdateInstall = {
-                        updateManager.installApk()
-                    },
-                    onDismissUpdateBadge = {
-                        com.uxellence.tv.v3.utils.VersionTracker.setKontoUpdateBadge(context, false)
-                    }
-                )
-
-                // PIP lifecycle management: cleanup player when leaving TOP_MENU2
-                DisposableEffect(currentScreen) {
-                    onDispose {
-                        if (currentScreen != NavigationScreen.TOP_MENU2 && pipPlayer != null) {
-                            android.util.Log.d("PIP", "Leaving TOP_MENU2 - cleaning up PIP player")
-                            pipPlayer?.stop()
-                            pipPlayer?.release()
-                            pipPlayer = null
-                            pipStreamUrl = null
-                            pipMode = false
-                        }
-                    }
-                }
+                topMenuMovable()
             }
         }
 

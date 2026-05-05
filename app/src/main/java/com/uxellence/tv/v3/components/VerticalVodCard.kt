@@ -11,10 +11,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -45,8 +51,8 @@ fun VerticalVodCard(
     modifier: Modifier = Modifier,
     onClick: () -> Unit = {}
 ) {
-    val itemWidth = sx(220)
-    val itemHeight = sy(380)
+    val itemWidth = sx(245)
+    val itemHeight = sy(425)
 
     val scale by animateFloatAsState(
         targetValue = if (isFocused) 1.1f else 1.0f,
@@ -57,10 +63,21 @@ fun VerticalVodCard(
         modifier = modifier
             .width(itemWidth)
             .height(itemHeight)
+            .zIndex(if (isFocused) 1f else 0f)  // Focused karta na wierzchu — bez odpychania sąsiadów
             .scale(scale)
             .focusRequester(focusRequester)
             .onFocusChanged { focusState ->
                 if (focusState.isFocused) onFocusChange()
+            }
+            .onPreviewKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown &&
+                    (event.key == Key.Enter ||
+                        event.key == Key.NumPadEnter ||
+                        event.key == Key.DirectionCenter)
+                ) {
+                    onClick()
+                    true
+                } else false
             }
             .focusable(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -69,8 +86,8 @@ fun VerticalVodCard(
         // Poster image
         Box(
             modifier = Modifier
-                .width(sx(200))
-                .height(sy(280))
+                .width(sx(225))
+                .height(sy(315))
                 .clip(RoundedCornerShape(sx(12)))
                 .border(
                     width = if (isFocused) (6 * sx(1).value / 1.dp.value).dp else 0.dp,

@@ -9,6 +9,8 @@ import com.uxellence.tv.v3.model.SupabaseMovie
 import com.uxellence.tv.v3.model.toVodContent
 import com.uxellence.tv.v3.model.toVodSlideData
 import com.uxellence.tv.v3.repository.SupabaseMoviesRepository
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -56,6 +58,30 @@ object VodDataCache {
     // Cache dla slider movies z Supabase (tabela slider_movies)
     @Volatile
     private var sliderMovies: List<VodSlideData>? = null
+
+    // Cache for KINO_PLAY channel→movies mapping (collections like "Gwiezdne Wojny",
+    // "Disney", franchise sagas etc.). Populated by VodScreenContent after its
+    // produceState classification finishes — so KinoGridScreen can expose those
+    // collections as filterable categories without re-running the classification.
+    @Volatile
+    var kinoChannelMap: Map<String, List<VodContent>> = emptyMap()
+
+    // Saved focus position inside Kino Play tab when navigating away to MovieDetail.
+    // Consumed once on the next VodWithChannels mount.
+    //   row, col          — focusedRowIndex / focusedColIndex (logical state)
+    //   listFirstVisible  — channel LazyRow's firstVisibleItemIndex (visual scroll position;
+    //                       for regular channels visual focus tracks this, not col)
+    data class SavedKinoFocus(val row: Int, val col: Int, val listFirstVisible: Int)
+    @Volatile
+    var savedKinoPlayFocus: SavedKinoFocus? = null
+
+    // Compose-observable trigger fired by MainActivity when MovieDetail closes back into a
+    // still-mounted Kino Play tab (overlay scenario). VodWithChannels watches this to
+    // re-grab keyboard focus on the previously-focused poster — TopMenuScreen2 stays
+    // mounted, so all state (LazyListStates, channelFocusRequesters, focusedRowIndex)
+    // is preserved; we just need to re-issue requestFocus() because MovieDetail's content
+    // captured Compose focus while it was visible.
+    val kinoPlayRefocusTrigger: MutableState<Int> = mutableStateOf(0)
 
     private val json = Json { ignoreUnknownKeys = true }
 

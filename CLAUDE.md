@@ -920,6 +920,68 @@ SafeNavigationScope(
 - **Pattern**: For focus types using external indicators (FLOATING_INDICATOR, FLOATING_FILL), the button component should NOT show its own border/fill for selected state
 - **Commit**: `fc104e4`
 
+#### **Issue #9: Skróty v3 Chip Layout & Y-Position Bug** (2026-05-05)
+- **Issue**: Migration z 6 ShortcutCardów (235×208 z ikonami) na 11 chipów tekstowych 202×80 z Figmy. Po zmianie ROW_HEIGHT 278→136, plakaty Kino Play (vertical posters) zaczęły nakładać się na chipy gdy fokus przechodził na Skróty.
+- **Symptoms**:
+  1. Layout nie scrollował wyżej gdy fokus na chipie — Skróty zostawały na pozycji "below Kino Play" zamiast Y=340
+  2. Plakaty Kino Play overlap z chipami when focused on Skróty
+  3. Spacing 56px (między dolną krawędzią chipa a Polecane) wymagany przez design
+  4. Nawigacja zatrzymywała się na 5. chipie (hardcoded `< 5` z czasów 6 ShortcutCardów)
+  5. Auto-reset scrolla X nie działał (LazyRow tworzył własny LazyListState)
+- **Root Cause**: Pre-existing bug w `calculateVodChannelYPosition` linia 17737 — `channels.getOrNull(i + 1)` zamiast `channels.getOrNull(i)`. Formula odejmowała wysokość kolejnego channela (Skróty) zamiast aktualnego (Kino Play). Maskowane przez stare wartości (Skróty=278 ≈ vertical=346); ujawnione po zmianie 278→136.
+- **Solution**:
+  1. **Bug fix**: `i+1` → `i` w `calculateVodChannelYPosition`
+  2. **Constanty**: `ODKRYWAJ_SHORTCUTS_V3_*_ROW_HEIGHT = 136` (chip 80 + 56 spacing dół) + zmiana wszystkich hardcoded 278 → 136 w funkcji
+  3. **Chip spec z Figma**: `size(sx(202), sy(80))` jako pierwszy modifier (NIE `defaultMinSize`/`requiredHeight` — ignorowane przez LazyRow constraints)
+  4. **lazyListState propagation**: `VodShortcutsV3Row` przyjmuje `lazyListState` jako parametr, propaguje do `LazyRow.state` → parent `LaunchedEffect` auto-resetuje scroll
+  5. **Dynamic max col**: `channelFocusRequesters.keys.maxOfOrNull` zamiast hardcoded `< 5` w `handleVodNavigation`
+- **Result**:
+  - ✅ Fokus na chipie scroll'uje stronę: chipy Y=340, Kino Play off-screen
+  - ✅ 56px spacing między chipem (dół) a Polecane (góra)
+  - ✅ Nawigacja przez wszystkie 11 chipów
+  - ✅ Auto-reset scrolla X po opuszczeniu Skróty
+  - ✅ Manrope Medium 24sp, letter-spacing 0.48, line-height 32 zgodnie z Figma
+- **Files**: `TopMenuScreen2.kt` — `VodShortcutsV3Row` (17263+), `CategoryChip` (17354+), `calculateVodChannelYPosition` (17737), `handleVodNavigation` (17963)
+- **Documentation**: `docs/patterns/SHORTCUTS_V3_CHIP_LAYOUT_PATTERN.md` (pełen pattern guide z anti-patterns)
+- **Lesson**: Pre-existing bugs mogą być maskowane przez "happy path" wartości. Po zmianie design tokenu, sprawdź formuły layoutu z większym scrutiny — często są fragile od dawna.
+
+#### **Issue #10: KinoGridScreen + Kino Play Overlay Focus Restoration** (2026-05-05)
+- **Issue**: Two interrelated features:
+  1. New `KinoGridScreen` (full-screen movie grid with category picker) opened from Kino Play needed exact-poster restoration after BACK from MovieDetail
+  2. From the Kino Play tab itself, BACK from MovieDetail dropped the user back on the Start tab (or slider, or first poster of the channel) — never on the actual clicked poster
+- **Symptoms**:
+  1. Grid: focus visibly "jumped" from first card to restored card after data loaded (mignięcie)
+  2. Kino Play tab: BACK returned to TopMenu but lost section, then lost row, then lost column — every layer of focus state was reset
+  3. Many failed restoration attempts caused focus to disappear entirely (Compose limbo state) and arrows stopped working
+- **Root Cause** (multi-layered):
+  1. KinoGridScreen unmounted on every nav, so any `LaunchedEffect`-based restoration always lost the race with internal Compose mechanisms (LazyRow lazy composition, miniaturesYOffset 350ms slide animation, fresh `?: FocusRequester()` per recompose, gradient/details overlay, `LaunchedEffect(selectedCategory)` resetting `focusedRow=0`)
+  2. TopMenuScreen2 also unmounted on MOVIE_DETAIL navigation, dropping `VodWithChannels` state including `lazyListStates` scroll positions and `channelFocusRequesters` focus bindings
+  3. `VodScreenContent` had a `LaunchedEffect(currentRow)` that fired on the default `currentRow=0` after remount, bumping `resetTrigger` and yanking `focusedRowIndex` back to 1 (slider) — overwriting any restoration state set milliseconds earlier
+  4. `TopMenuScreen2` had a `LaunchedEffect(currentRow)` (line ~1607) that on `currentRow==0` requestFocus()ed the menu tab — hijacking any focus we tried to set on a poster
+  5. The "fixed focus position" pattern (`focusedColIndex == 0` always for regular channels, visual focus tracks `lazyListState.firstVisibleItemIndex`) only allocates real `FocusRequester`s for col=0 / col=-1; pre-allocating for all columns broke navigation by triggering `onFocusChanged` callbacks that flipped `focusedColIndex` to non-zero and broke the visual indicator condition
+- **Solution**:
+  1. **KinoGridScreen — synchronous initial state**: Extracted `computeKinoGridInitialState()` that replicates the filter logic; `var ... by remember { mutableStateOf(initState.X) }` for all derived state; `rememberLazyGridState(initialFirstVisibleItemIndex, initialFirstVisibleItemScrollOffset)` for the grid scroll. From frame 1, the right poster is focused, scroll is at the right Y, no `LaunchedEffect` race
+  2. **Kino Play overlay via `movableContentOf`**: Wrapped the entire TopMenuScreen2 invocation (with all its callbacks and the PIP `DisposableEffect`) in `movableContentOf { ... }`. Rendered both for `currentScreen == TOP_MENU2` and as base layer when `currentScreen == MOVIE_DETAIL && previousScreen == TOP_MENU2`. The instance moves between positions without unmounting — all `remember` state survives
+  3. **Refocus signal `VodDataCache.kinoPlayRefocusTrigger: MutableState<Int>`**: Incremented by `MainActivity.MovieDetail.onBackPressed` (when source was Kino Play). VodWithChannels and VodHeroSliderV4 watch it
+  4. **Channel refocus = focus the outer Box, not a specific item**: Added `rootBoxFocusRequester` on the Box that owns `onPreviewKeyEvent { handleVodNavigation(...) }`. After overlay close, requestFocus on the Box — keys flow, the existing `isItemFocused == firstVisibleItemIndex` pattern keeps the visual focus on the saved poster automatically (because the LazyRow's scroll position was preserved)
+  5. **Slider refocus + trailer suppression**: New `refocusTriggerKey: Int` parameter on `VodHeroSliderV4`; second `LaunchedEffect(refocusTriggerKey)` re-grabs focus on the slider's internal FR (the existing `LaunchedEffect(isFocused)` only fires on transitions, useless when isFocused stays true across overlay). Same trigger sets `suppressTrailerAfterOverlayBack=true`, lifted on first user interaction — user lands on a static poster, not an unexpected re-playing trailer
+  6. **Anti-hijack**: In every refocus branch, also push `globalFocusState.value.copy(currentRow = focusedRowIndex)` so `currentRow != 0` and TopMenuScreen2's menu-tab refocus effect doesn't fire
+  7. **`hasSeenFirstCurrentRow` flag in `VodScreenContent`**: When `VodDataCache.savedKinoPlayFocus != null` on mount, skip the FIRST `LaunchedEffect(currentRow)` fire so the default `currentRow=0` doesn't bump resetTrigger and yank focus back to slider
+- **Result**:
+  - ✅ Grid: exact poster from frame 1, no mignięcie, picker scrollable to fullscreen, all categories from chips visible (collections + genres + Nowości 🔥)
+  - ✅ Kino Play tab: BACK from MovieDetail returns to exact channel + exact visible poster + working arrow navigation
+  - ✅ Slider BACK: focus restored, trailer not auto-restarted
+  - ✅ Filter persistence across MovieDetail (selectedCategory survives via `onCategoryChanged` callback to MainActivity)
+  - ✅ Title in grid header reflects active filter (`"Wszystkie filmy"` for All, otherwise selectedCategory)
+  - ✅ ENTER on poster (grid + Kino Play) opens MovieDetail with correctly mapped VodSlideData
+- **Failed approaches** (documented to prevent repeats):
+  - Pre-allocating 60 FRs per channel — broke `focusedColIndex == 0` pattern, navigation got stuck on second column
+  - `LazyListState(initialFirstVisibleItemIndex = saved)` + dynamic FR registration + scrollToItem — multiple races, focus appeared briefly then disappeared
+  - Channel-only restoration without overlay (savedKinoPlayFocus + remount) — channel restored but not poster, plus other state lost
+- **Files**: `KinoGridScreen.kt` (massive rewrite), `MainActivity.kt` (movableContentOf restructure), `TopMenuScreen2.kt` (VodWithChannels rootBoxFocusRequester, VodHeroSliderV4 refocusTriggerKey, VodScreenContent hasSeenFirstCurrentRow), `VodDataCache.kt` (kinoChannelMap, savedKinoPlayFocus data class, kinoPlayRefocusTrigger), `components/VerticalVodCard.kt` (onPreviewKeyEvent for Enter, larger dimensions)
+- **Documentation**: `docs/patterns/KINO_GRID_AND_OVERLAY_FOCUS_PATTERN.md` (full pattern guide with failed approaches and quick-reference for adding overlay restoration to a new section)
+- **Lesson**: When state preservation across navigation is critical, **`movableContentOf` is the right Compose primitive** — better than lifting state up or trying to re-create it via async restoration. For "I need keys to work but the focused item may be off-screen", **focus the parent container that owns the key handler**, not the specific item.
+
 #### **Key Learnings**
 1. **Delegation Pattern**: Sections with complex multi-row navigation (MOJE, START, APLIKACJE, VOD) should delegate ALL keys to child components
 2. **Callback Pattern**: Child components use `onReturnToMenu` callback for menu transitions instead of parent intercepting keys
@@ -928,6 +990,11 @@ SafeNavigationScope(
 5. **Monolithic Handlers Are Anti-patterns**: Extract to specialized controllers (Focus Architect principle) - prevents conflicts, improves maintainability, reduces bugs
 6. **Modal Dialogs Require Input Gating**: Never delegate ALL keys blindly - use whitelist validation to prevent unexpected keys from leaking to background (PIP Dialog pattern)
 7. **External Indicator Pattern**: When using external indicators (AnimatedFocusIndicator), the button component should NOT render its own border/fill for focus/selected states - prevents duplicate indicators
+8. **Layout Formula Bugs Maskowane przez Design Tokens**: Pre-existing bugs w funkcjach pozycjonowania (`calculateVodChannelYPosition` itp.) mogą być ukryte gdy wartości "podobne" do siebie (np. 278 vs 346). Zmiana jednej constanty ujawnia overlap. Sprawdzaj formuły **iteracyjne** uważnie po każdej zmianie tokenu rozmiaru.
+9. **LazyListState Propagation**: `LaunchedEffect` auto-reset scrolla w parent działa **tylko** dla children które używają passed-down `lazyListState`. Custom child composables tworzące własny `LazyListState()` są pomijane. Zawsze propaguj `lazyListState` przez parametr.
+10. **`movableContentOf` for cross-navigation state preservation**: Gdy ekran musi przetrwać nawigację do detail view (np. poster grid → MovieDetail → BACK z exact-poster restoration), zamiast unmount/remount + asynchroniczny restoration, użyj `movableContentOf` w `MainActivity`'s `when (currentScreen)`. Render z dwóch pozycji w drzewie kompozycji zachowuje **tę samą** instancję ze stanem nienaruszonym. Patrz Issue #10.
+11. **Focus the container, not the item**: Gdy musisz przywrócić obsługę klawiszy do parent który ma `onPreviewKeyEvent`, ale dany focusable item może być off-screen (LazyRow lazy unmount), `requestFocus()` na **parent Box's `FocusRequester`** zamiast specific item. Visual focus indicator może osobno śledzić `firstVisibleItemIndex`.
+12. **Synchronous initial state >>> async restoration**: Jeśli dane są dostępne synchronicznie (np. `VodDataCache` cache), seed `remember { mutableStateOf(...) }` od pierwszej klatki zamiast `LaunchedEffect { delay; setState; requestFocus }`. Eliminuje wszystkie race conditions z internal Compose mechanics (LazyRow lazy composition, animacje, recomposition cascades).
 
 ---
 
