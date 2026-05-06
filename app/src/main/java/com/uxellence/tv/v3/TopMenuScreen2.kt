@@ -3962,6 +3962,7 @@ private fun FullPageContent(
                 onNavigateToVodGrid = onNavigateToVodGrid,
                 onNavigateToKinoGrid = onNavigateToKinoGrid,
                 onNavigateToRecordingsGrid = onNavigateToRecordingsGrid,
+                onNavigateToMovieDetail = onNavigateToMovieDetail,
                 sx = sx,
                 sy = sy,
                 showNagraniaV2 = showNagraniaV2,
@@ -4109,6 +4110,7 @@ private fun MojeScreenContent(
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> },
+    onNavigateToMovieDetail: (VodSlideData) -> Unit = {},  // ENTER on rented poster → MovieDetail
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     showNagraniaV2: Boolean = false,
@@ -4131,6 +4133,7 @@ private fun MojeScreenContent(
         onNavigateToVodGrid = onNavigateToVodGrid,
         onNavigateToKinoGrid = onNavigateToKinoGrid,
         onNavigateToRecordingsGrid = onNavigateToRecordingsGrid,
+        onNavigateToMovieDetail = onNavigateToMovieDetail,
         shouldAutoFocus = globalFocusState.value.sectionId == "MOJE" && globalFocusState.value.currentRow > 0,
         sx = sx,
         sy = sy,
@@ -5483,6 +5486,7 @@ private fun MojeChannelsScreen(
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> },
+    onNavigateToMovieDetail: (VodSlideData) -> Unit = {},  // ENTER on rented poster → MovieDetail
     shouldAutoFocus: Boolean = false,
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
@@ -5782,6 +5786,7 @@ private fun MojeChannelsScreen(
             },
             onNavigateToVodGrid = onNavigateToVodGrid,
             onNavigateToKinoGrid = onNavigateToKinoGrid,
+            onNavigateToMovieDetail = onNavigateToMovieDetail,  // ENTER on rented poster
             lazyListStates = lazyListStates,
             sx = sx,
             sy = sy,
@@ -8174,7 +8179,8 @@ fun MojeChannelRowsLayout(
     mojeNagraniaShortcuts: List<ShortcutItem> = emptyList(),  // NEW: for "Skróty v2 Moje"
     mojaListaChannels: List<TvChannel> = emptyList(),  // NEW: for "Moja lista kanałów"
     onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> },  // For TV channel click
-    onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> }
+    onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> },
+    onNavigateToMovieDetail: (VodSlideData) -> Unit = {}  // ENTER on a rented poster → MovieDetail
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         repeat(channels.size) { rowIndex ->
@@ -8217,6 +8223,7 @@ fun MojeChannelRowsLayout(
                     onNavigateToVodGrid = onNavigateToVodGrid,
                     onNavigateToKinoGrid = onNavigateToKinoGrid,
                     onNavigateToRecordingsGrid = onNavigateToRecordingsGrid,
+                    onNavigateToMovieDetail = onNavigateToMovieDetail,
                     sx = sx,
                     sy = sy,
                     lazyListState = lazyListState,
@@ -8316,6 +8323,7 @@ fun MojeUnifiedChannelRow(
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> },
+    onNavigateToMovieDetail: (VodSlideData) -> Unit = {},  // ENTER on rented poster → MovieDetail
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     lazyListState: LazyListState,
@@ -8554,7 +8562,14 @@ fun MojeUnifiedChannelRow(
                                 onFocusChange = { onChannelContentFocusChange(rowIndex, colIndex) },
                                 sx = sx,
                                 sy = sy,
-                                expiryText = if (channel == "Wypożyczone") "rented" else null
+                                expiryText = if (channel == "Wypożyczone") "rented" else null,
+                                onClick = {
+                                    // ENTER on a poster in MOJE Wypożyczone → open MovieDetail
+                                    // (where the rented branch shows "Oglądaj" + countdown).
+                                    if (channel == "Wypożyczone") {
+                                        onNavigateToMovieDetail(vodContent.toVodSlideData())
+                                    }
+                                }
                             )
                         }
                         else -> {
@@ -14897,8 +14912,12 @@ private fun VodHeroSliderV4(
                     androidx.compose.ui.input.key.Key.Enter,
                     androidx.compose.ui.input.key.Key.DirectionCenter -> {
                         sliderItems.getOrNull(currentSlide)?.let { item ->
+                            // If movie is rented, button 0 acts like "Oglądaj" → route to
+                            // MovieDetail (the same place where rented branch shows watch UI).
+                            val rentalsSnapshot = com.uxellence.tv.v3.rental.RentalManager.rentals.value
+                            val isItemRented = (rentalsSnapshot[item.title] ?: 0L) > System.currentTimeMillis()
                             when (focusedButtonIndex) {
-                                0 -> onRentClicked?.invoke(item)
+                                0 -> if (isItemRented) onMoreInfoClicked?.invoke(item) else onRentClicked?.invoke(item)
                                 1 -> onMoreInfoClicked?.invoke(item)
                             }
                         }
@@ -15273,18 +15292,31 @@ private fun SliderV4Card(
                         animationSpec = tween(300),
                         label = "wypozyczBottomPadding"
                     )
+                    // Rented? Flip button label to "Oglądaj" and route ENTER to the
+                    // "watch" path. Read directly from RentalManager so it stays reactive.
+                    val rentalsSnapshot = com.uxellence.tv.v3.rental.RentalManager.rentals.value
+                    val isItemRented = (rentalsSnapshot[item.title] ?: 0L) > System.currentTimeMillis()
+
                     Box(
                         modifier = Modifier
                             .align(Alignment.BottomStart)
                             .padding(bottom = wypozyczBottomPadding)
                     ) {
                         V4SliderButtonVisual(
-                            label = "Wypożycz: ${item.price}",
+                            label = if (isItemRented) "Oglądaj" else "Wypożycz: ${item.price}",
                             iconType = V4ButtonIcon.PLAY,
                             isFocused = isCardFocused && focusedButtonIndex == 0,
                             sx = sx,
                             sy = sy,
-                            onClick = { onRentClicked?.invoke(item) }
+                            onClick = {
+                                // Rented: route to MovieDetail (which exposes "Oglądaj" + countdown).
+                                // Not rented: existing rent path (PurchaseScreen).
+                                if (isItemRented) {
+                                    onMoreInfoClicked?.invoke(item)
+                                } else {
+                                    onRentClicked?.invoke(item)
+                                }
+                            }
                         )
                     }
 
@@ -17897,17 +17929,28 @@ private fun VodContentCard(
     onFocusChange: () -> Unit,
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
-    expiryText: String? = null
+    expiryText: String? = null,
+    onClick: () -> Unit = {}
 ) {
     val itemWidth = sx(220)
     val itemHeight = sy(380)
 
     val scale by animateFloatAsState(if (isFocused) 1.1f else 1.0f)
 
-    // Generate random expiry day for rented content
-    val expiryDay = remember {
-        listOf("piątek", "sobota", "niedziela", "poniedziałek").random()
+    // Real rental expiry (preferred) — falls back to a stable mock day if the movie
+    // isn't tracked by RentalManager (legacy "Wypożyczone" mock list / placeholder).
+    val rentalExpiresAt = com.uxellence.tv.v3.rental.RentalManager.rentals.value[vodContent.title]
+    val realExpiryLabel = remember(rentalExpiresAt) {
+        rentalExpiresAt?.let { ts ->
+            val sdf = java.text.SimpleDateFormat("EEEE", java.util.Locale("pl"))
+            sdf.format(java.util.Date(ts))
+        }
     }
+    val mockExpiryDay = remember(vodContent.title) {
+        val days = listOf("piątek", "sobota", "niedziela", "poniedziałek")
+        days[Math.floorMod(vodContent.title.hashCode(), days.size)]
+    }
+    val expiryDay = realExpiryLabel ?: mockExpiryDay
 
     Column(
         modifier = Modifier
@@ -17917,6 +17960,15 @@ private fun VodContentCard(
             .focusRequester(focusRequester)
             .onFocusChanged { focusState ->
                 if (focusState.isFocused) onFocusChange()
+            }
+            .onPreviewKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown &&
+                    (event.key == Key.Enter ||
+                        event.key == Key.NumPadEnter ||
+                        event.key == Key.DirectionCenter)
+                ) {
+                    onClick(); true
+                } else false
             }
             .focusable(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -17941,8 +17993,17 @@ private fun VodContentCard(
             )
         }
         if (isFocused) {
+            // Rented overrides everything — even if the parent didn't pass `expiryText`,
+            // a real RentalManager entry means we should advertise the watch deadline,
+            // not the price. Falls back to expiryText (legacy "Wypożyczone" channel hint)
+            // and finally to the movie's price string.
+            val labelText = when {
+                rentalExpiresAt != null -> "oglądaj do: $expiryDay"
+                expiryText != null -> "oglądaj do: $expiryDay"
+                else -> vodContent.price ?: "Wypożycz"
+            }
             Text(
-                text = expiryText?.let { "oglądaj do: $expiryDay" } ?: vodContent.price ?: "Wypożycz",
+                text = labelText,
                 color = Color(0xFFEEEEEE),
                 fontSize = (20 * (sy(1).value / 1.dp.value)).sp,
                 fontWeight = FontWeight.W700,

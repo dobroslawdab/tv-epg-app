@@ -1130,6 +1130,11 @@ fun TvRoot(
                             cameFromQuickPurchase = false  // Normal flow, not quick purchase
                             currentScreen = NavigationScreen.PURCHASE
                         },
+                        onWatchClicked = {
+                            // TODO: route to VOD player once player integration lands.
+                            // For now we just log — visual UX (Oglądaj button + countdown) is in place.
+                            android.util.Log.d("MOVIE_DETAIL", "Watch clicked: ${movieData.title}")
+                        },
                         onTrailerClicked = {
                             // TODO: Play trailer
                             android.util.Log.d("MOVIE_DETAIL", "Trailer clicked: ${movieData.title}")
