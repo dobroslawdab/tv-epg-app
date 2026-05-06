@@ -18192,10 +18192,17 @@ private fun Top10ContentCard(
                 )
             }
 
-            // Cena (tylko gdy jest fokus)
+            // Label (tylko gdy jest fokus): rental status overrides price.
             if (isFocused) {
+                val rentalExpiresAt = com.uxellence.tv.v3.rental.RentalManager.rentals.value[vodContent.title]
+                val labelText = if (rentalExpiresAt != null) {
+                    val sdf = java.text.SimpleDateFormat("EEEE", java.util.Locale("pl"))
+                    "oglądaj do: ${sdf.format(java.util.Date(rentalExpiresAt))}"
+                } else {
+                    vodContent.price ?: "Wypożycz"
+                }
                 Text(
-                    text = vodContent.price ?: "Wypożycz",
+                    text = labelText,
                     textAlign = TextAlign.Center,
                     color = Color(0xFFEEEEEE),
                     fontSize = (20 * (sy(1).value / 1.dp.value)).sp,
