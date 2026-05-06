@@ -14841,24 +14841,27 @@ private fun VodHeroSliderV4(
     var suppressTrailerAfterOverlayBack by remember { mutableStateOf(false) }
 
     // Auto-play trailer: 2s after slider focus, 3s after menu idle (slider visible but not focused).
-    // STOP gdy isOnChannelsBelow=true (user zszedł na channels pod sliderem).
-    LaunchedEffect(stableItem?.title, isOnChannelsBelow, suppressTrailerAfterOverlayBack) {
+    // STOP gdy isOnChannelsBelow=true (user zszedł na channels pod sliderem) lub gdy overlay
+    // (MovieDetail / Purchase / RentalProcessing) jest aktywne — wtedy nikt slidera i tak nie widzi,
+    // a w tle ExoPlayer trailera spowalnia obsługę klawiszy w overlay'u.
+    val isOverlayActive = com.uxellence.tv.v3.VodDataCache.overlayActive.value
+    LaunchedEffect(stableItem?.title, isOnChannelsBelow, suppressTrailerAfterOverlayBack, isOverlayActive) {
         if (stableItem == null) return@LaunchedEffect
         android.util.Log.d("VodHeroSliderV4", "LaunchedEffect started for: ${stableItem.title}")
 
-        // Wymuś stop trailer'a gdy zszedł na channels
-        if (isOnChannelsBelow && showTrailer) {
+        // Wymuś stop trailer'a gdy zszedł na channels lub gdy overlay aktywne
+        if ((isOnChannelsBelow || isOverlayActive) && showTrailer) {
             showTrailer = false
-            android.util.Log.d("VodHeroSliderV4", "Trailer STOP (channels below focused) for: ${stableItem.title}")
+            android.util.Log.d("VodHeroSliderV4", "Trailer STOP (channels below or overlay) for: ${stableItem.title}")
         }
 
-        while (!isOnChannelsBelow) {
+        while (!isOnChannelsBelow && !isOverlayActive) {
             if (!showTrailer && !trailerUrl.isNullOrBlank() && !suppressTrailerAfterOverlayBack) {
                 val wasFocused = isFocused
                 val delayMs = if (wasFocused) 2000L else 3000L
                 kotlinx.coroutines.delay(delayMs)
                 // Only start if focus state did not change during the wait AND nadal nie jesteśmy na channels
-                if (!trailerUrl.isNullOrBlank() && isFocused == wasFocused && !isOnChannelsBelow && !suppressTrailerAfterOverlayBack) {
+                if (!trailerUrl.isNullOrBlank() && isFocused == wasFocused && !isOnChannelsBelow && !suppressTrailerAfterOverlayBack && !com.uxellence.tv.v3.VodDataCache.overlayActive.value) {
                     showTrailer = true
                     val reason = if (wasFocused) "slider focus" else "menu idle"
                     android.util.Log.d("VodHeroSliderV4", "Trailer START ($reason) for: ${stableItem.title}")

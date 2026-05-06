@@ -89,6 +89,13 @@ object VodDataCache {
     // leaves Compose with no focus owner and the user has to press BACK twice.
     val mojeRefocusTrigger: MutableState<Int> = mutableStateOf(0)
 
+    // True while a full-screen overlay (MovieDetail / Purchase / RentalProcessing) sits
+    // on top of TopMenuScreen2. The Kino Play slider's auto-trailer loop reads this so
+    // it doesn't keep spinning ExoPlayer in the background — that was suspected to be
+    // the culprit when navigation became unresponsive after sitting on MovieDetail for
+    // a while (~CPU-bound trailer playback under the overlay).
+    val overlayActive: MutableState<Boolean> = mutableStateOf(false)
+
     private val json = Json { ignoreUnknownKeys = true }
 
     /**

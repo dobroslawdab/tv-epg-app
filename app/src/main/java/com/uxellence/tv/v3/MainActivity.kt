@@ -1108,6 +1108,13 @@ fun TvRoot(
                 if (showTopMenuAsBase) {
                     topMenuMovable()
                 }
+                // Suspend the underlying Kino Play slider's trailer player while MovieDetail
+                // is on top — otherwise ExoPlayer keeps decoding video in the background and
+                // key handling on MovieDetail gets sluggish after a while.
+                DisposableEffect(Unit) {
+                    VodDataCache.overlayActive.value = true
+                    onDispose { VodDataCache.overlayActive.value = false }
+                }
                 selectedMovieData?.let { movieData ->
                     MovieDetailScreen(
                         item = movieData,
@@ -1167,6 +1174,10 @@ fun TvRoot(
                 // (same overlay pattern as MovieDetail) so BACK refocuses the slider.
                 if (showTopMenuAsBase) {
                     topMenuMovable()
+                }
+                DisposableEffect(Unit) {
+                    VodDataCache.overlayActive.value = true
+                    onDispose { VodDataCache.overlayActive.value = false }
                 }
                 selectedMovieData?.let { movieData ->
                     PurchaseScreen(
@@ -1229,6 +1240,10 @@ fun TvRoot(
                 // can still refocus the original poster.
                 if (showTopMenuAsBase) {
                     topMenuMovable()
+                }
+                DisposableEffect(Unit) {
+                    VodDataCache.overlayActive.value = true
+                    onDispose { VodDataCache.overlayActive.value = false }
                 }
                 selectedMovieData?.let { movieData ->
                     com.uxellence.tv.v3.moviedetail.RentalProcessingScreen(
