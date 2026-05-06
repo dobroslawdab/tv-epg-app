@@ -5775,7 +5775,13 @@ private fun MojeChannelsScreen(
     // is wired into handleMojeChannelsNavigation (resolves firstVisibleItem on click)
     // so ENTER works regardless of which item Compose currently considers focused.
     val mojeRootBoxFocusRequester = remember { FocusRequester() }
+    // Skip first fire — see kinoPlayRefocusTrigger comment for the same reasoning.
+    var didMojeRefocusInitialFire by remember { mutableStateOf(false) }
     LaunchedEffect(VodDataCache.mojeRefocusTrigger.value) {
+        if (!didMojeRefocusInitialFire) {
+            didMojeRefocusInitialFire = true
+            return@LaunchedEffect
+        }
         if (VodDataCache.mojeRefocusTrigger.value > 0) {
             kotlinx.coroutines.delay(50)
             try { mojeRootBoxFocusRequester.requestFocus() } catch (_: Exception) {}
@@ -13228,7 +13234,13 @@ private fun VodWithChannels(
     // Każdy film klasyfikowany do wszystkich pasujących channels w jednym lookup'ie.
     // Optymalizacja: O(N filmów) zamiast O(N × 26 channels). Plus async (Dispatchers.Default)
     // żeby nie blokować main thread podczas pierwszego renderu Kino Play.
-    val gridContent by produceState<Map<String, List<VodContent>>>(initialValue = emptyMap(), supabaseInitialized) {
+    // Re-build whenever rentals change so "Wypożyczone Kino" channel reflects new
+    // rentals immediately (without leaving and returning to KINO_PLAY tab).
+    val gridContent by produceState<Map<String, List<VodContent>>>(
+        initialValue = emptyMap(),
+        supabaseInitialized,
+        rentalsSnapshot
+    ) {
         value = withContext(kotlinx.coroutines.Dispatchers.Default) {
             val allMovies = VodDataCache.getKinoPlayMovies()
             val byChannel = LinkedHashMap<String, MutableList<VodContent>>()
@@ -13417,14 +13429,22 @@ private fun VodWithChannels(
     // refocus the outer Box. Box.onPreviewKeyEvent (handleVodNavigation) then gets keys
     // again, and the visual focus indicator on the saved poster keeps working through
     // the existing isItemFocused == firstVisibleItemIndex pattern.
+    // Skip the very first fire of this LaunchedEffect — `kinoPlayRefocusTrigger` is a
+    // session-wide counter, so on EVERY remount of VodWithChannels (e.g. user navigating
+    // through the top menu and landing back on KINO_PLAY) the initial fire would
+    // re-trigger refocus + bump currentRow > 0, auto-focusing the slider as soon as the
+    // tab is highlighted. We only want to act on actual increments after mount.
+    var didKinoRefocusInitialFire by remember { mutableStateOf(false) }
     LaunchedEffect(VodDataCache.kinoPlayRefocusTrigger.value) {
+        if (!didKinoRefocusInitialFire) {
+            didKinoRefocusInitialFire = true
+            return@LaunchedEffect
+        }
         if (VodDataCache.kinoPlayRefocusTrigger.value > 0 && focusedRowIndex >= 1) {
             // Re-assert "inside section" so the menu hijack effect doesn't snatch focus.
             globalFocusState.value = globalFocusState.value.copy(currentRow = focusedRowIndex)
             kotlinx.coroutines.delay(50)
             if (focusedRowIndex >= 2) {
-                // Channel: refocus outer Box (visual focus on saved poster preserved by
-                // the existing isItemFocused == firstVisibleItemIndex pattern).
                 try { rootBoxFocusRequester.requestFocus() } catch (_: Exception) {}
             }
             // Slider (focusedRowIndex == 1): VodHeroSliderV4's own LaunchedEffect on
@@ -14939,7 +14959,14 @@ private fun VodHeroSliderV4(
     // suppress auto-restart, so the user lands on a static poster instead of an
     // unexpected re-playing trailer. Suppression lifts the moment the user does anything
     // (changes slide / switches button / leaves slider).
+    // Skip first fire so a non-zero session-wide trigger from earlier rentals doesn't
+    // auto-grab focus on every slider mount.
+    var didSliderRefocusInitialFire by remember { mutableStateOf(false) }
     LaunchedEffect(refocusTriggerKey) {
+        if (!didSliderRefocusInitialFire) {
+            didSliderRefocusInitialFire = true
+            return@LaunchedEffect
+        }
         if (refocusTriggerKey > 0 && isFocused) {
             showTrailer = false
             suppressTrailerAfterOverlayBack = true
@@ -16495,8 +16522,12 @@ private fun VodUnifiedChannelRow(
             // VOD channels that should be text-only (like WIDEO style)
             val isVodCategoryChannel = channel in listOf("Akcja", "Komedie", "Horror", "Biograficzne")
 
+            // "Wypożyczone Kino" channel mirrors MOJE/Wypożyczone visually — icon + label.
+            val isRentedChannel = channel == "Wypożyczone Kino"
+            val rentedIcon = if (isRentedChannel) R.drawable.ic_rented else null
+
             CategoryIcon(
-                text = channel,
+                text = if (isRentedChannel) "Wypożyczone" else channel,
                 isFocused = categoryIsFocused,
                 onClick = {
                     // Navigate to KinoGridScreen with category-specific filtered content
@@ -16523,8 +16554,8 @@ private fun VodUnifiedChannelRow(
                 sx = sx,
                 sy = sy,
                 logoUrl = null,
-                logoDrawableId = null,
-                showIcon = false,                                    // Figma "Sekcje redakcyjne": wszystkie Kino Play channels text-only
+                logoDrawableId = rentedIcon,
+                showIcon = isRentedChannel,                          // Wypożyczone has icon; rest of Kino Play stays text-only per Figma
                 showBackgroundWhenFocused = true                     // czarne tło na fokusie (jak EPG channels)
             )
         }
