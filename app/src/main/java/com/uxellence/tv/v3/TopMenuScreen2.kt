@@ -2399,13 +2399,13 @@ private fun DevTogglesModal(
                     } else false
                 }
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(
                     text = "Tryby (debug)",
                     color = Color(0xFFEEEEEE),
-                    fontSize = 28.sp,
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 8.dp)
+                    modifier = Modifier.padding(bottom = 4.dp)
                 )
                 items.forEachIndexed { idx, (label, value, action) ->
                     val isItemFocused = selectedIndex == idx
@@ -2416,7 +2416,7 @@ private fun DevTogglesModal(
                                 if (isItemFocused) Color(0xFF5FEDD4).copy(alpha = 0.18f) else Color(0x10FFFFFF),
                                 RoundedCornerShape(8.dp)
                             )
-                            .padding(horizontal = 16.dp, vertical = 14.dp)
+                            .padding(horizontal = 16.dp, vertical = 7.dp)
                             .focusRequester(focusRequesters[idx])
                             .onFocusChanged { if (it.isFocused) selectedIndex = idx }
                             .focusable()
@@ -2430,15 +2430,15 @@ private fun DevTogglesModal(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(label, color = Color(0xFFEEEEEE), fontSize = 20.sp)
-                        Text(value, color = Color(0xFF5FEDD4), fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                        Text(label, color = Color(0xFFEEEEEE), fontSize = 10.sp)
+                        Text(value, color = Color(0xFF5FEDD4), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
                 }
                 Text(
                     text = "↑↓ wybór  ·  OK toggle  ·  BACK zamknij",
                     color = Color(0x88EEEEEE),
-                    fontSize = 16.sp,
-                    modifier = Modifier.padding(top = 12.dp)
+                    fontSize = 8.sp,
+                    modifier = Modifier.padding(top = 6.dp)
                 )
             }
         }
@@ -13613,17 +13613,18 @@ private fun VodLayoutWithSlider(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // Slider — slides up off-screen as the user navigates down past it.
-        // sliderRowIndex is 1 in V2 (default) and 2 in V1 (Wypożyczone Kino above slider).
-        // When focus is on rows above the slider (e.g. Wypożyczone in V1), the slider
-        // sits in its NORMAL position so the user can see it shifting under the focused row.
+        // V1 pushes the slider down by the height of the Wypożyczone row above it so
+        // there's room for the channel to render above it. V2 (default) keeps slider at top.
+        val sliderTopOffset = if (sliderRowIndex == 2) 280 else 0
         val isFirstChannelBelowSliderFocused = focusedRowIndex == sliderRowIndex + 1
         val isLowerChannelsFocused = focusedRowIndex >= sliderRowIndex + 2
         val sliderYOffset by animateDpAsState(
             targetValue = when {
-                isLowerChannelsFocused -> sy(-1200)
-                isFirstChannelBelowSliderFocused -> sy(-640)
-                else -> sy(0)
+                isLowerChannelsFocused -> sy(-1200 + sliderTopOffset)
+                isFirstChannelBelowSliderFocused -> sy(-640 + sliderTopOffset)
+                // Wypożyczone (above slider) is focused in V1 — slider tucks slightly under it
+                sliderRowIndex == 2 && focusedRowIndex == 1 -> sy(sliderTopOffset)
+                else -> sy(sliderTopOffset)
             },
             animationSpec = tween(durationMillis = 500),
             label = "vod_slider_y_offset"
@@ -16220,7 +16221,8 @@ private fun VodChannelRows(
                 focusedRowIndex = focusedRowIndex,
                 focusedColIndex = focusedColIndex,
                 channels = channels,
-                sy = sy
+                sy = sy,
+                sliderRowIndex = sliderRowIndex
             )
 
             val channelYOffset by animateDpAsState(
@@ -16291,7 +16293,8 @@ private fun VodChannelRows(
                 focusedRowIndex = focusedRowIndex,
                 focusedColIndex = focusedColIndex,
                 channels = channels,
-                sy = sy
+                sy = sy,
+                sliderRowIndex = sliderRowIndex
             )
             val lastChannelHeight = if (focusedRowIndex == lastActualRowIndex && focusedColIndex >= 0) {
                 sy(VOD_HORIZONTAL_EXPANDED_ROW_HEIGHT)
@@ -18369,9 +18372,24 @@ private fun calculateVodChannelYPosition(
     focusedColIndex: Int,
     channels: List<String>,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
-    firstChannelBaseY: Int = 280
+    firstChannelBaseY: Int = 280,
+    sliderRowIndex: Int = 1  // V1 = 2 (Wypożyczone above slider)
 ): androidx.compose.ui.unit.Dp {
-    // Convert channelIndex to rowIndex (channels start at row 2)
+    // V1: Wypożyczone (channelIndex 0) renders ABOVE the slider; slider has been pushed
+    // down by `sliderTopOffset` (see VodLayoutWithSlider). Other channels (1+) sit below
+    // the slider as in V2 but their entire stack is offset down by sliderTopOffset.
+    val isV1 = sliderRowIndex == 2
+    val sliderTopOffset = if (isV1) 280 else 0
+    val isWypozyczoneAboveSlider = isV1 && channelIndex == 0
+
+    if (isWypozyczoneAboveSlider) {
+        // Focused → fixed focus Y; otherwise tucked at top above slider.
+        return if (focusedRowIndex == 1) sy(VOD_FIXED_FOCUS_Y) else sy(40)
+    }
+
+    // Convert channelIndex to rowIndex.
+    // V2: channelIndex N → row N+2.
+    // V1 (channelIndex>=1): channelIndex N → row N+2 (slider takes the gap on row 2).
     val rowIndex = channelIndex + 2
 
     // Determine if channel is horizontal, vertical, Wszystkie (chipy + CategoryIcon), or Więcej
@@ -18394,14 +18412,18 @@ private fun calculateVodChannelYPosition(
     }
 
     return when {
-        // When on menu (row 0) or slider (row 1) - channels peek 40px above fold
-        focusedRowIndex <= 1 -> {
-            // Calculate cumulative height for all channels above this one
-            // 926 = slider bottom (742px) + spacing (184px)
-            var cumulativeHeight = 926
-            for (i in 0 until channelIndex) {
+        // When on menu (row 0), Wypożyczone-V1 (row 1) or slider (row sliderRowIndex)
+        focusedRowIndex <= sliderRowIndex -> {
+            // Calculate cumulative height for all channels above this one.
+            // 926 = slider bottom (742px) + spacing (184px) in V2; offset by sliderTopOffset
+            // in V1 (slider has been pushed down to make room for Wypożyczone).
+            var cumulativeHeight = 926 + sliderTopOffset
+            // V1: skip channelIndex 0 (Wypożyczone) — it's painted above the slider, not
+            // in the stack below. V2: count from 0 as before.
+            val startIndex = if (isV1) 1 else 0
+            for (i in startIndex until channelIndex) {
                 val prevChannelName = channels.getOrNull(i) ?: ""
-                val prevIsHorizontal = prevChannelName in emptyList<String>() // No horizontal channels anymore - all use vertical posters
+                val prevIsHorizontal = prevChannelName in emptyList<String>()
                 val prevIsShortcutsV3 = prevChannelName == "Wszystkie"
                 val prevIsWiecej = prevChannelName == "Więcej"
                 cumulativeHeight += when {
