@@ -13346,17 +13346,15 @@ private fun VodWithChannels(
     // V4 slider button index (0 = Wypożycz, 1 = Dowiedz się więcej)
     var v4ButtonIndex by remember { mutableStateOf(0) }
 
-    // Reset focus state when returning to menu (like MOJE).
-    // V1 lands on Wypożyczone CategoryIcon; V2 keeps the legacy slider entry point.
+    // Reset focus state when returning to menu (like MOJE/APLIKACJE).
+    // CRITICAL: focusedColIndex MUST be -2 (no focus), not -1 (CategoryIcon focused).
+    // -1 would keep an aqua border on Wypożyczone CategoryIcon while menu has Compose
+    // focus → dual-focus bug. The shouldAutoFocus effect re-targets (1, -1) when user
+    // navigates DOWN back into content.
     LaunchedEffect(resetTrigger) {
         if (resetTrigger > 0) {
-            if (sliderRowIndex == 2) {
-                focusedRowIndex = 1
-                focusedColIndex = -1
-            } else {
-                focusedRowIndex = 1
-                focusedColIndex = -2
-            }
+            focusedRowIndex = 1
+            focusedColIndex = -2
         }
     }
 
@@ -13461,11 +13459,16 @@ private fun VodWithChannels(
             // Re-assert "inside section" so the menu hijack effect doesn't snatch focus.
             globalFocusState.value = globalFocusState.value.copy(currentRow = focusedRowIndex)
             kotlinx.coroutines.delay(50)
-            if (focusedRowIndex >= 2) {
+            // Refocus rootBox for ANY channel row (not slider). In V2 the slider is on
+            // row 1 and channels start at row 2. In V1 Wypożyczone occupies row 1 and
+            // slider sits on row 2 — so a returning row==1 in V1 IS a channel and needs
+            // rootBox refocus, otherwise keys stay routed to MovieDetail's freed scope
+            // and the user has to press BACK to wake navigation up.
+            if (focusedRowIndex != sliderRowIndex) {
                 try { rootBoxFocusRequester.requestFocus() } catch (_: Exception) {}
             }
-            // Slider (focusedRowIndex == 1): VodHeroSliderV4's own LaunchedEffect on
-            // refocusTriggerKey takes care of requestFocus on its internal FR.
+            // Slider (focusedRowIndex == sliderRowIndex): VodHeroSliderV4's own
+            // LaunchedEffect on refocusTriggerKey takes care of requestFocus on its FR.
         }
     }
 
@@ -13474,10 +13477,14 @@ private fun VodWithChannels(
         // the channel/poster the user was on, not jump back to the slider.
         if (shouldAutoFocus && initialFocusRestore == null && !hasRestoredKinoPlayFocus) {
             if (sliderRowIndex == 2) {
-                // V1: DOWN from menu lands on Wypożyczone Kino's CategoryIcon (above slider)
+                // V1: DOWN from menu lands on Wypożyczone Kino's CategoryIcon (above slider).
+                // Small delay so the FocusRequester is attached before requestFocus, otherwise
+                // Compose focus stays on the menu tab → dual-focus bug (selected menu tab + visual
+                // focus indicator on CategoryIcon).
                 focusedRowIndex = 1
                 focusedColIndex = -1
-                channelFocusRequesters[Pair(1, -1)]?.requestFocus()
+                kotlinx.coroutines.delay(50)
+                try { channelFocusRequesters[Pair(1, -1)]?.requestFocus() } catch (_: Exception) {}
             } else {
                 // V2: DOWN from menu lands on slider's rent button
                 focusedRowIndex = 1
@@ -13627,17 +13634,27 @@ private fun VodLayoutWithSlider(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // V1 pushes the slider down by the height of the Wypożyczone row above it so
-        // there's room for the channel to render above it. V2 (default) keeps slider at top.
-        val sliderTopOffset = if (sliderRowIndex == 2) 280 else 0
+        // V1 pushes the slider down to make room for Wypożyczone above it. V2 (default)
+        // keeps slider at top. Slider Y is dynamic in V1 — depends on which row in the
+        // Wypożyczone "lane" is focused (CategoryIcon vs. expanded poster row).
+        val isV1 = sliderRowIndex == 2
+        val sliderTopOffset = if (isV1) VOD_V1_SLIDER_BASELINE_OFFSET else 0
         val isFirstChannelBelowSliderFocused = focusedRowIndex == sliderRowIndex + 1
         val isLowerChannelsFocused = focusedRowIndex >= sliderRowIndex + 2
+        val sliderFocusedInV1 = isV1 && focusedRowIndex == sliderRowIndex
+        // V1: Wypożyczone CategoryIcon focused (focusedColIndex == -1) → channel collapsed,
+        // slider sits at baseline (45 + 216 + 40 = 301). Poster focused (focusedColIndex >= 0)
+        // → channel expanded (+290px miniatures), slider pushed further down.
+        val isWypozyczonePosterFocused = isV1 && focusedRowIndex == 1 && focusedColIndex >= 0
+        // V2 parity: when slider OR channels below are focused, slider behaves like V2
+        // (Wypożyczone is hidden off-screen, slider sits at Y=0/-640/-1200) so the user
+        // sees the same spacing as before Wypożyczone existed.
         val sliderYOffset by animateDpAsState(
             targetValue = when {
-                isLowerChannelsFocused -> sy(-1200 + sliderTopOffset)
-                isFirstChannelBelowSliderFocused -> sy(-640 + sliderTopOffset)
-                // Wypożyczone (above slider) is focused in V1 — slider tucks slightly under it
-                sliderRowIndex == 2 && focusedRowIndex == 1 -> sy(sliderTopOffset)
+                isLowerChannelsFocused -> sy(-1200)
+                isFirstChannelBelowSliderFocused -> sy(-640)
+                sliderFocusedInV1 -> sy(0)
+                isWypozyczonePosterFocused -> sy(VOD_V1_SLIDER_EXPANDED_OFFSET)
                 else -> sy(sliderTopOffset)
             },
             animationSpec = tween(durationMillis = 500),
@@ -13664,7 +13681,8 @@ private fun VodLayoutWithSlider(
                 onReturnToMenu = { /* callback do menu */ },
                 showBullets = focusedRowIndex <= sliderRowIndex,
                 isOnChannelsBelow = focusedRowIndex > sliderRowIndex,
-                refocusTriggerKey = VodDataCache.kinoPlayRefocusTrigger.value
+                refocusTriggerKey = VodDataCache.kinoPlayRefocusTrigger.value,
+                requireFocusForTrailer = isV1  // V1: don't autoplay trailer above Wypożyczone — only when slider focused
             )
         }
 
@@ -14904,7 +14922,8 @@ private fun VodHeroSliderV4(
     onReturnToMenu: () -> Unit = {},
     showBullets: Boolean = true,  // Hide bullets when focused below slider (KINO PLAY, WIDEO)
     isOnChannelsBelow: Boolean = false,  // gdy true (fokus na channels pod sliderem) — zatrzymaj trailer
-    refocusTriggerKey: Int = 0  // Increment from outside to force re-requestFocus (e.g., after MovieDetail overlay closes)
+    refocusTriggerKey: Int = 0,  // Increment from outside to force re-requestFocus (e.g., after MovieDetail overlay closes)
+    requireFocusForTrailer: Boolean = false  // V1 (Wypożyczone above slider): no menu-idle trailer; only play when slider focused
 ) {
     // Shuffle items once on first composition
     val sliderItems = remember(items) { items.shuffled() }
@@ -14933,7 +14952,7 @@ private fun VodHeroSliderV4(
     // (MovieDetail / Purchase / RentalProcessing) jest aktywne — wtedy nikt slidera i tak nie widzi,
     // a w tle ExoPlayer trailera spowalnia obsługę klawiszy w overlay'u.
     val isOverlayActive = com.uxellence.tv.v3.VodDataCache.overlayActive.value
-    LaunchedEffect(stableItem?.title, isOnChannelsBelow, suppressTrailerAfterOverlayBack, isOverlayActive) {
+    LaunchedEffect(stableItem?.title, isOnChannelsBelow, suppressTrailerAfterOverlayBack, isOverlayActive, isFocused, requireFocusForTrailer) {
         if (stableItem == null) return@LaunchedEffect
         android.util.Log.d("VodHeroSliderV4", "LaunchedEffect started for: ${stableItem.title}")
 
@@ -14941,6 +14960,16 @@ private fun VodHeroSliderV4(
         if ((isOnChannelsBelow || isOverlayActive) && showTrailer) {
             showTrailer = false
             android.util.Log.d("VodHeroSliderV4", "Trailer STOP (channels below or overlay) for: ${stableItem.title}")
+        }
+
+        // V1 (requireFocusForTrailer=true): when slider isn't focused, also stop and skip
+        // the loop entirely — no menu-idle autoplay above the Wypożyczone channel.
+        if (requireFocusForTrailer && !isFocused) {
+            if (showTrailer) {
+                showTrailer = false
+                android.util.Log.d("VodHeroSliderV4", "Trailer STOP (V1 requires focus) for: ${stableItem.title}")
+            }
+            return@LaunchedEffect
         }
 
         while (!isOnChannelsBelow && !isOverlayActive) {
@@ -18378,6 +18407,15 @@ private const val VOD_VERTICAL_EXPANDED_ROW_HEIGHT = 636 // CategoryIcon (216px)
 private const val VOD_HORIZONTAL_NORMAL_ROW_HEIGHT = 256 // CategoryIcon (216px) + spacing (40px)
 private const val VOD_HORIZONTAL_EXPANDED_ROW_HEIGHT = 546 // CategoryIcon (216px) + miniatures (290px) + spacing (40px)
 private const val VOD_CONTENT_FOCUS_EXTRA_SPACING = 100 // Extra spacing above focused content row
+// V1 (Wypożyczone above slider) layout constants.
+// Top menu plate occupies Y=0..117 (padding 20 + height 97). Wypożyczone sits 90px below
+// top menu (45 + 45 user-tuned offset) for breathing room under the gradient z-index.
+private const val VOD_V1_WYPOZYCZONE_Y = 207  // 117 (top menu) + 90 (gap) = 207
+// Slider baseline: tucked 80px above the geometric "below CategoryIcon" position so the
+// slider stays comfortably visible without overpowering the channel above it.
+private const val VOD_V1_SLIDER_BASELINE_OFFSET = VOD_V1_WYPOZYCZONE_Y + 216 + 40 - 80  // 383
+// V1: extra push when Wypożyczone poster is focused (channel expands by 290px).
+private const val VOD_V1_SLIDER_EXPANDED_OFFSET = VOD_V1_SLIDER_BASELINE_OFFSET + 290  // 673
 
 private fun calculateVodChannelYPosition(
     channelIndex: Int,
@@ -18393,12 +18431,32 @@ private fun calculateVodChannelYPosition(
     // down by `sliderTopOffset` (see VodLayoutWithSlider). Other channels (1+) sit below
     // the slider as in V2 but their entire stack is offset down by sliderTopOffset.
     val isV1 = sliderRowIndex == 2
-    val sliderTopOffset = if (isV1) 280 else 0
+    // Effective slider Y mirrors VodLayoutWithSlider's animation target. Channels below
+    // the slider must sit relative to the CURRENT slider position, so when the slider
+    // snaps back to Y=0 (V2-like, when slider OR a channel below is focused) those rows
+    // also rise back to their V2 positions — user sees the same spacing as before
+    // Wypożyczone existed.
+    val isV1SliderFocused = isV1 && focusedRowIndex == sliderRowIndex
+    val isV1ChannelsBelowFocused = isV1 && focusedRowIndex > sliderRowIndex
+    val isV1WypozyczonePosterFocused = isV1 && focusedRowIndex == 1 && focusedColIndex >= 0
+    val sliderTopOffset = when {
+        !isV1 -> 0
+        isV1SliderFocused || isV1ChannelsBelowFocused -> 0  // V2 parity
+        isV1WypozyczonePosterFocused -> VOD_V1_SLIDER_EXPANDED_OFFSET
+        else -> VOD_V1_SLIDER_BASELINE_OFFSET
+    }
     val isWypozyczoneAboveSlider = isV1 && channelIndex == 0
 
     if (isWypozyczoneAboveSlider) {
-        // Focused → fixed focus Y; otherwise tucked at top above slider.
-        return if (focusedRowIndex == 1) sy(VOD_FIXED_FOCUS_Y) else sy(40)
+        // Wypożyczone CategoryIcon sits 45px below top menu (at Y=162) ALWAYS when its row
+        // is the focus target or focus is above (menu / Wypożyczone CategoryIcon / poster).
+        // Channel expansion happens internally (miniature row slides down 290px under
+        // CategoryIcon); the row itself doesn't move. When slider or channels below are
+        // focused, slide Wypożyczone off-screen so the slider can sit at Y=0 (V2-like).
+        return when {
+            focusedRowIndex >= sliderRowIndex -> sy(VOD_V1_WYPOZYCZONE_Y - 400)  // off-screen up
+            else -> sy(VOD_V1_WYPOZYCZONE_Y)  // 45px below top menu
+        }
     }
 
     // Convert channelIndex to rowIndex.

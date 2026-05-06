@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase';
 import MovieAddFromTmdbModal from '../components/MovieAddFromTmdbModal';
+import MovieBulkImportFromTmdbModal from '../components/MovieBulkImportFromTmdbModal';
 
 const ITEMS_PER_PAGE = 50;
 
@@ -34,6 +35,7 @@ function Movies() {
 
   // Add from TMDB modal
   const [tmdbModalOpen, setTmdbModalOpen] = useState(false);
+  const [bulkTmdbModalOpen, setBulkTmdbModalOpen] = useState(false);
 
   const fetchMovies = useCallback(async () => {
     setLoading(true);
@@ -276,20 +278,37 @@ function Movies() {
     <div className="movies-page">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1>Movies Management</h1>
-        <button
-          onClick={() => setTmdbModalOpen(true)}
-          style={{
-            padding: '10px 18px', background: '#3b82f6', color: '#fff', border: 'none',
-            borderRadius: 6, cursor: 'pointer', fontSize: 14, fontWeight: 'bold'
-          }}
-        >
-          + Dodaj z TMDB
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            onClick={() => setTmdbModalOpen(true)}
+            style={{
+              padding: '10px 18px', background: '#3b82f6', color: '#fff', border: 'none',
+              borderRadius: 6, cursor: 'pointer', fontSize: 14, fontWeight: 'bold'
+            }}
+          >
+            + Dodaj z TMDB
+          </button>
+          <button
+            onClick={() => setBulkTmdbModalOpen(true)}
+            style={{
+              padding: '10px 18px', background: '#5fedd4', color: '#000', border: 'none',
+              borderRadius: 6, cursor: 'pointer', fontSize: 14, fontWeight: 'bold'
+            }}
+          >
+            ⚡ Bulk import z TMDB
+          </button>
+        </div>
       </div>
 
       <MovieAddFromTmdbModal
         open={tmdbModalOpen}
         onClose={() => setTmdbModalOpen(false)}
+        onSaved={() => fetchMovies()}
+      />
+
+      <MovieBulkImportFromTmdbModal
+        open={bulkTmdbModalOpen}
+        onClose={() => setBulkTmdbModalOpen(false)}
         onSaved={() => fetchMovies()}
       />
 

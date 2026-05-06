@@ -405,6 +405,27 @@ fun SearchScreen(
         }
     }
 
+    // OVERLAY-MODE refocus: fired by MainActivity when MovieDetail / Purchase /
+    // RentalProcessing closes back onto a still-mounted SEARCH tab. SearchScreen
+    // is rendered inside TopMenuScreen2, which stays alive via movableContentOf
+    // — focusArea / channel positions / lazyListStates all survive — but Compose
+    // focus owner is gone (MovieDetail captured it). We re-grab it on rootFocusRequester.
+    // Skip-first-fire pattern: trigger is a session-wide counter so the initial value
+    // would otherwise refocus on every remount and steal focus from the menu tab.
+    var didSearchRefocusInitialFire by remember { mutableStateOf(false) }
+    LaunchedEffect(com.uxellence.tv.v3.VodDataCache.searchRefocusTrigger.value) {
+        if (!didSearchRefocusInitialFire) {
+            didSearchRefocusInitialFire = true
+            return@LaunchedEffect
+        }
+        if (com.uxellence.tv.v3.VodDataCache.searchRefocusTrigger.value > 0 &&
+            globalFocusState.value.sectionId == "SEARCH" &&
+            globalFocusState.value.currentRow > 0) {
+            kotlinx.coroutines.delay(50)
+            try { rootFocusRequester.requestFocus() } catch (_: Exception) {}
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()

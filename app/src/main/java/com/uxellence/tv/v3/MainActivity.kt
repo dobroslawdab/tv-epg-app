@@ -351,6 +351,7 @@ fun TvRoot(
     var kinoGridSourceSection by remember { mutableStateOf<String?>(null) }  // "KINO_PLAY"
     var kinoGridInitialCategory by remember { mutableStateOf<String?>(null) }  // Pre-selected category filter
     var kinoGridLastClickedMovieId by remember { mutableStateOf<String?>(null) }  // Restore focus after MovieDetail back
+    var kinoGridLastSearchQuery by remember { mutableStateOf("") }  // Persist search overlay across MovieDetail
 
     // RecordingsGridScreen navigation parameters
     var recordingsGridSourceSection by remember { mutableStateOf<String?>(null) }  // "MOJE"
@@ -1027,10 +1028,16 @@ fun TvRoot(
                     screenTitle = kinoGridTitle,
                     initialCategory = kinoGridInitialCategory,
                     initialFocusedMovieId = kinoGridLastClickedMovieId,
+                    initialSearchQuery = kinoGridLastSearchQuery,
                     onCategoryChanged = { newCategory ->
                         // Persist user's filter choice so coming back from MovieDetail
                         // re-mounts the grid with the same category preselected.
                         kinoGridInitialCategory = newCategory
+                    },
+                    onSearchQueryChanged = { newQuery ->
+                        // Persist active search query so the overlay restores after
+                        // MovieDetail close — same filtered grid, same focused poster.
+                        kinoGridLastSearchQuery = newQuery
                     },
                     onMovieClicked = { vodContent ->
                         // Remember which poster was clicked so we can refocus it on BACK
@@ -1134,6 +1141,8 @@ fun TvRoot(
                                     VodDataCache.kinoPlayRefocusTrigger.value + 1
                                 VodDataCache.mojeRefocusTrigger.value =
                                     VodDataCache.mojeRefocusTrigger.value + 1
+                                VodDataCache.searchRefocusTrigger.value =
+                                    VodDataCache.searchRefocusTrigger.value + 1
                                 // Overlay path: state survives via movableContentOf, so we
                                 // don't need savedKinoPlayFocus for restoration. Clear it
                                 // here so a later, unrelated remount of VodWithChannels
@@ -1202,6 +1211,8 @@ fun TvRoot(
                                     VodDataCache.kinoPlayRefocusTrigger.value + 1
                                 VodDataCache.mojeRefocusTrigger.value =
                                     VodDataCache.mojeRefocusTrigger.value + 1
+                                VodDataCache.searchRefocusTrigger.value =
+                                    VodDataCache.searchRefocusTrigger.value + 1
                                 // Clear stale savedKinoPlayFocus — see MovieDetail.onBackPressed
                                 // for the same reasoning (state already survives via overlay).
                                 VodDataCache.savedKinoPlayFocus = null

@@ -3,6 +3,11 @@ package com.uxellence.tv.v3.model
 import com.uxellence.tv.v3.VodSlideData
 import com.uxellence.tv.v3.version001.VodContent
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 
 /**
  * Model danych filmu z Supabase (tabela: movies)
@@ -40,7 +45,8 @@ data class SupabaseMovie(
     val audio_languages: String? = null,   // Dźwięk: "angielski | polski | hiszpański"
     val subtitle_languages: String? = null,// Napisy: "angielski | polski"
     val director: String? = null,          // Reżyser: "Álex Pina"
-    val cast: String? = null,              // Obsada: "Úrsula Corberó, Álvaro Morte..."
+    val cast: String? = null,              // (legacy) Obsada — zwykle null w bazie
+    val tmdb_cast: JsonElement? = null,    // Obsada z TMDB jako JSON array [{id, name, character, ...}]
     val selected_logo_url: String? = null  // Logo URL to display instead of title on slider (when unfocused)
 )
 
@@ -50,14 +56,33 @@ data class SupabaseMovie(
 fun SupabaseMovie.toVodContent(): VodContent = VodContent(
     id = "supabase_$id",
     title = title,
-    description = short_description ?: description ?: "",
+    // Niektóre filmy mają w short_description tylko cenę (np. "19 zł", "19 zł/48h") zamiast opisu —
+    // fallback na pełny description, jeśli short_description wygląda jak cena.
+    description = short_description?.takeUnless { looksLikePrice(it) } ?: description ?: "",
     category = genre ?: "",
     imageUrl = poster_url ?: "",
     channelLogoUrl = logo_url ?: "",
     link = "", // Filmy płatne - brak bezpośredniego linku
     price = price?.let { "${it} zł/48h" },
-    youtubeUrl = youtube_url
+    youtubeUrl = youtube_url,
+    cast = cast ?: tmdbCastAsString(),  // tmdb_cast (JSON array) → "Tom Cruise, Brad Pitt, ..." dla filtrowania
+    backdropUrl = backdrop_url  // wide image dla MovieDetailScreen (null gdy brak)
 )
+
+/** Czy text wygląda na samą cenę typu "19 zł" lub "19 zł/48h" (z opcjonalnymi spacjami). */
+private fun looksLikePrice(text: String): Boolean =
+    text.trim().matches(Regex("""^\d+\s*z[łl]\s*(/\s*\d+\s*[hH])?$"""))
+
+/**
+ * Konwertuje tmdb_cast (JSON array of {id, name, character}) na concatenated string imion
+ * dla łatwego filtrowania (np. `cast.contains("Statham")`).
+ */
+private fun SupabaseMovie.tmdbCastAsString(): String? {
+    val arr = tmdb_cast as? JsonArray ?: return null
+    return arr.mapNotNull { el ->
+        (el as? JsonObject)?.get("name")?.jsonPrimitive?.contentOrNull
+    }.joinToString(", ").takeIf { it.isNotBlank() }
+}
 
 /**
  * Konwersja do VodSlideData (dla Hero Slidera)

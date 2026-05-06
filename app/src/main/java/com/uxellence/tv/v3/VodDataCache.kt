@@ -89,6 +89,11 @@ object VodDataCache {
     // leaves Compose with no focus owner and the user has to press BACK twice.
     val mojeRefocusTrigger: MutableState<Int> = mutableStateOf(0)
 
+    // Same mechanism for the SEARCH tab — used when MovieDetail closes after the user
+    // rented a movie from search results. SearchScreen's rootFocusRequester watches this.
+    // Without it, navigation locks up (no Compose focus owner) and BACK exits the app.
+    val searchRefocusTrigger: MutableState<Int> = mutableStateOf(0)
+
     // True while a full-screen overlay (MovieDetail / Purchase / RentalProcessing) sits
     // on top of TopMenuScreen2. The Kino Play slider's auto-trailer loop reads this so
     // it doesn't keep spinning ExoPlayer in the background — that was suspected to be

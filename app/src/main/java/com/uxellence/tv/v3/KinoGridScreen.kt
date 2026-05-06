@@ -40,12 +40,24 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.EaseInOutCubic
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Icon
+import com.uxellence.tv.v3.components.AbcSearchKeyboard
+import com.uxellence.tv.v3.components.KEY_ABC_TOGGLE
+import com.uxellence.tv.v3.components.KEY_BACKSPACE
+import com.uxellence.tv.v3.components.KEY_SPACE
 import com.uxellence.tv.v3.components.VerticalVodCard
+import com.uxellence.tv.v3.components.keyboardRows
 import com.uxellence.tv.v3.version001.VodContent
 import kotlinx.coroutines.launch
 
 // Grid layout constants
 private const val GRID_COLUMNS = 7              // 7 columns for vertical posters (220x380px)
+private const val GRID_COLUMNS_WITH_KEYBOARD = 5 // Drops two columns when keyboard panel is open
 private const val GRADIENT_OVERLAY_HEIGHT = 600
 private const val TITLE_LEFT_PADDING = 0
 private const val GRID_LEFT_PADDING = 80
@@ -65,8 +77,15 @@ private enum class KinoSortOption(val label: String) {
 private enum class KinoFocusLevel {
     SORT_CHIP,
     CATEGORY_CHIP,
+    SEARCH_CHIP,    // Lupa chip in header (entry point to keyboard search)
+    KEYBOARD,       // ABC keyboard overlay (active search mode)
     GRID
 }
+
+// Width of the keyboard panel + horizontal padding to its right; matches the X-shift
+// applied to the grid when search is active. Tuned to match SearchScreen's keyboard
+// (440px keyboard + 40px breathing room).
+private const val KINO_SEARCH_KEYBOARD_SHIFT_DP = 480
 
 /**
  * Snapshot of all derived grid state computed BEFORE first composition. Lets us seed
@@ -90,7 +109,8 @@ private fun computeKinoGridInitialState(
     initialCategory: String?,
     initialFocusedMovieId: String?,
     dataCount: Int?,
-    pinPx: Int
+    pinPx: Int,
+    initialSearchQuery: String = ""
 ): KinoGridInitState {
     val raw = VodDataCache.getKinoPlayMovies()
     val allKino = if (dataCount != null) raw.shuffled().take(dataCount) else raw
@@ -136,7 +156,13 @@ private fun computeKinoGridInitialState(
         else -> "Wszystkie"
     }
 
+    val activeQuery = initialSearchQuery.trim()
     val filteredRaw = when {
+        // Restored search session: title-match takes precedence over category, mirroring
+        // the runtime LaunchedEffect filter pipeline below.
+        activeQuery.isNotEmpty() -> allKino.filter {
+            it.title.contains(activeQuery, ignoreCase = true)
+        }
         selectedCategory == "Wszystkie" -> allKino
         collectionMap.containsKey(selectedCategory) -> collectionMap[selectedCategory] ?: emptyList()
         else -> allKino.filter { movie ->
@@ -151,13 +177,16 @@ private fun computeKinoGridInitialState(
     val targetIdx = initialFocusedMovieId?.let { id ->
         filtered.indexOfFirst { it.id == id }.takeIf { it >= 0 }
     } ?: 0
-    val row = if (filtered.isEmpty()) 0 else targetIdx / GRID_COLUMNS
-    val col = if (filtered.isEmpty()) 0 else targetIdx % GRID_COLUMNS
+    // Column count drops to 5 when search keyboard is visible — mirror that here so the
+    // restored row/col line up with the actual layout on first frame.
+    val cols = if (activeQuery.isNotEmpty()) GRID_COLUMNS_WITH_KEYBOARD else GRID_COLUMNS
+    val row = if (filtered.isEmpty()) 0 else targetIdx / cols
+    val col = if (filtered.isEmpty()) 0 else targetIdx % cols
 
     val (scrollIdx, scrollOffset) = if (row == 0) {
         0 to 0
     } else {
-        (row * GRID_COLUMNS + 1) to -pinPx  // +1 for header item
+        (row * cols + 1) to -pinPx  // +1 for header item
     }
 
     return KinoGridInitState(
@@ -192,8 +221,10 @@ fun KinoGridScreen(
     dataCount: Int? = null,
     initialCategory: String? = null,
     initialFocusedMovieId: String? = null,
+    initialSearchQuery: String = "",
     onMovieClicked: (VodContent) -> Unit = {},
-    onCategoryChanged: (String) -> Unit = {}
+    onCategoryChanged: (String) -> Unit = {},
+    onSearchQueryChanged: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
@@ -213,12 +244,13 @@ fun KinoGridScreen(
     // Compute the entire initial state SYNCHRONOUSLY from cached data, so the very
     // first frame already shows the restored grid scroll + focused poster (no async
     // restoration step => no "mignięcie").
-    val initState = remember(initialCategory, initialFocusedMovieId, dataCount, focusedRowPinPx) {
+    val initState = remember(initialCategory, initialFocusedMovieId, dataCount, focusedRowPinPx, initialSearchQuery) {
         computeKinoGridInitialState(
             initialCategory = initialCategory,
             initialFocusedMovieId = initialFocusedMovieId,
             dataCount = dataCount,
-            pinPx = focusedRowPinPx
+            pinPx = focusedRowPinPx,
+            initialSearchQuery = initialSearchQuery
         )
     }
 
@@ -241,7 +273,42 @@ fun KinoGridScreen(
     val gridFocusRequesters = remember { mutableMapOf<Pair<Int, Int>, FocusRequester>() }
     val sortChipFocusRequester = remember { FocusRequester() }
     val categoryChipFocusRequester = remember { FocusRequester() }
+    val searchChipFocusRequester = remember { FocusRequester() }
     val coroutineScope = rememberCoroutineScope()
+
+    // Search overlay state — keyboard panel sits on the left, grid shrinks to 5 columns.
+    // When `searchQuery` is non-blank the filter pipeline (LaunchedEffect below) ignores
+    // the category and matches against `VodContent.title` instead. State is seeded from
+    // `initialSearchQuery` so coming back from MovieDetail keeps the user inside the
+    // same search session (same query, same filtered grid, refocused on clicked poster).
+    var searchActive by remember { mutableStateOf(initialSearchQuery.isNotBlank()) }
+    var searchQuery by remember { mutableStateOf(initialSearchQuery) }
+    var keyboardRow by remember { mutableIntStateOf(0) }
+    var keyboardCol by remember { mutableIntStateOf(0) }
+    var isNumberMode by remember { mutableStateOf(false) }
+
+    // Notify host whenever the query changes so it can persist across MovieDetail.
+    LaunchedEffect(searchQuery) { onSearchQueryChanged(searchQuery) }
+
+    // Keyboard stays visible the entire time the search overlay is active — even when the
+    // user moves focus to the grid. The grid just shrinks to 5 columns to share space.
+    val keyboardVisible = searchActive
+    // Keyboard reserves space on the LEFT — we don't shift the grid, we just shrink it
+    // by adding extra start padding (and using one fewer column) when the keyboard is up.
+    val gridLeftPaddingDp by animateDpAsState(
+        targetValue = if (keyboardVisible) sx(GRID_LEFT_PADDING + KINO_SEARCH_KEYBOARD_SHIFT_DP)
+                      else sx(GRID_LEFT_PADDING),
+        animationSpec = tween(300, easing = EaseInOutCubic),
+        label = "kino_search_grid_padding"
+    )
+    val keyboardOffsetX by animateDpAsState(
+        targetValue = if (keyboardVisible) 0.dp else -sx(KINO_SEARCH_KEYBOARD_SHIFT_DP),
+        animationSpec = tween(300, easing = EaseInOutCubic),
+        label = "kino_search_keyboard_offset"
+    )
+    // Grid columns shrink while the keyboard is occupying the left side so posters don't
+    // get squeezed too narrow. 7 normally, 6 when keyboard is visible.
+    val gridColumns = if (keyboardVisible) GRID_COLUMNS_WITH_KEYBOARD else GRID_COLUMNS
 
     // Grid state — already scrolled to the restored row before first render
     val lazyGridState = rememberLazyGridState(
@@ -273,16 +340,19 @@ fun KinoGridScreen(
         hasRequestedInitialFocus = true
     }
 
-    // Apply filters and sorting (re-runs on user-triggered category/sort change)
+    // Apply filters and sorting (re-runs on user-triggered category/sort/search change).
+    // When the user is actively searching (searchQuery non-blank), the title query REPLACES
+    // the category filter — same UX as the main top-menu search.
     var didInitialFilter by remember { mutableStateOf(false) }
-    LaunchedEffect(selectedCategory, selectedSort, allKinoContent, collectionMap) {
+    LaunchedEffect(selectedCategory, selectedSort, allKinoContent, collectionMap, searchQuery) {
         var result = allKinoContent
 
-        // Apply category filter
-        // - "Wszystkie" → all movies
-        // - Collection (franchise/studio/actor) → use pre-computed list from map
-        // - Genre → match against any comma-separated segment in VodContent.category
+        val activeQuery = searchQuery.trim()
         result = when {
+            // Search wins: filter all movies by title prefix/contains, ignore category.
+            activeQuery.isNotEmpty() -> result.filter {
+                it.title.contains(activeQuery, ignoreCase = true)
+            }
             selectedCategory == "Wszystkie" -> result
             collectionMap.containsKey(selectedCategory) -> collectionMap[selectedCategory] ?: emptyList()
             else -> result.filter { movie ->
@@ -330,19 +400,43 @@ fun KinoGridScreen(
                     } else {
                         when (event.key) {
                             Key.Back, Key.Escape -> {
-                                if (currentFocusLevel == KinoFocusLevel.GRID && (focusedRow > 0 || focusedCol > 0)) {
-                                    // First BACK: scroll to top + focus first item
-                                    focusedRow = 0
-                                    focusedCol = 0
-                                    coroutineScope.launch {
-                                        lazyGridState.animateScrollToItem(0)
-                                        kotlinx.coroutines.delay(50)
-                                        gridFocusRequesters[Pair(0, 0)]?.requestFocus()
+                                when {
+                                    currentFocusLevel == KinoFocusLevel.KEYBOARD -> {
+                                        // Close keyboard, drop search query, return to grid
+                                        searchQuery = ""
+                                        searchActive = false
+                                        currentFocusLevel = KinoFocusLevel.GRID
+                                        focusedRow = 0
+                                        focusedCol = 0
+                                        coroutineScope.launch {
+                                            lazyGridState.scrollToItem(0)
+                                            kotlinx.coroutines.delay(50)
+                                            gridFocusRequesters[Pair(0, 0)]?.requestFocus()
+                                        }
+                                        true
                                     }
-                                    true
-                                } else {
-                                    onBackPressed()
-                                    true
+                                    currentFocusLevel == KinoFocusLevel.GRID && (focusedRow > 0 || focusedCol > 0) -> {
+                                        // First BACK: scroll to top + focus first item
+                                        focusedRow = 0
+                                        focusedCol = 0
+                                        coroutineScope.launch {
+                                            lazyGridState.animateScrollToItem(0)
+                                            kotlinx.coroutines.delay(50)
+                                            gridFocusRequesters[Pair(0, 0)]?.requestFocus()
+                                        }
+                                        true
+                                    }
+                                    searchActive -> {
+                                        // Grid at (0,0) with search active — close search instead
+                                        // of exiting the screen so user can drop the keyboard easily.
+                                        searchQuery = ""
+                                        searchActive = false
+                                        true
+                                    }
+                                    else -> {
+                                        onBackPressed()
+                                        true
+                                    }
                                 }
                             }
 
@@ -364,6 +458,13 @@ fun KinoGridScreen(
                                             }
                                         }
                                     }
+                                    KinoFocusLevel.KEYBOARD -> {
+                                        if (keyboardRow > 0) {
+                                            keyboardRow--
+                                            val rowKeys = keyboardRows(isNumberMode)[keyboardRow]
+                                            if (keyboardCol > rowKeys.size - 1) keyboardCol = rowKeys.size - 1
+                                        }
+                                    }
                                     else -> {
                                         // Already at top, do nothing
                                     }
@@ -373,7 +474,7 @@ fun KinoGridScreen(
 
                             Key.DirectionDown -> {
                                 when (currentFocusLevel) {
-                                    KinoFocusLevel.SORT_CHIP, KinoFocusLevel.CATEGORY_CHIP -> {
+                                    KinoFocusLevel.SORT_CHIP, KinoFocusLevel.CATEGORY_CHIP, KinoFocusLevel.SEARCH_CHIP -> {
                                         if (filteredKinoContent.isNotEmpty()) {
                                             currentFocusLevel = KinoFocusLevel.GRID
                                             focusedRow = 0
@@ -385,14 +486,22 @@ fun KinoGridScreen(
                                             }
                                         }
                                     }
+                                    KinoFocusLevel.KEYBOARD -> {
+                                        val rows = keyboardRows(isNumberMode)
+                                        if (keyboardRow < rows.size - 1) {
+                                            keyboardRow++
+                                            val rowKeys = rows[keyboardRow]
+                                            if (keyboardCol > rowKeys.size - 1) keyboardCol = rowKeys.size - 1
+                                        }
+                                    }
                                     KinoFocusLevel.GRID -> {
-                                        val numRows = (filteredKinoContent.size + GRID_COLUMNS - 1) / GRID_COLUMNS
+                                        val numRows = (filteredKinoContent.size + gridColumns - 1) / gridColumns
                                         if (focusedRow < numRows - 1) {
                                             focusedRow++
                                             val maxCol = if (focusedRow == numRows - 1) {
-                                                (filteredKinoContent.size - 1) % GRID_COLUMNS
+                                                (filteredKinoContent.size - 1) % gridColumns
                                             } else {
-                                                GRID_COLUMNS - 1
+                                                gridColumns - 1
                                             }
                                             if (focusedCol > maxCol) focusedCol = maxCol
                                             coroutineScope.launch {
@@ -414,6 +523,13 @@ fun KinoGridScreen(
                                             sortChipFocusRequester.requestFocus()
                                         }
                                     }
+                                    KinoFocusLevel.SEARCH_CHIP -> {
+                                        currentFocusLevel = KinoFocusLevel.CATEGORY_CHIP
+                                        coroutineScope.launch {
+                                            kotlinx.coroutines.delay(50)
+                                            categoryChipFocusRequester.requestFocus()
+                                        }
+                                    }
                                     KinoFocusLevel.GRID -> {
                                         if (focusedCol > 0) {
                                             focusedCol--
@@ -421,7 +537,13 @@ fun KinoGridScreen(
                                                 kotlinx.coroutines.delay(50)
                                                 gridFocusRequesters[Pair(focusedRow, focusedCol)]?.requestFocus()
                                             }
+                                        } else if (searchActive) {
+                                            // Leftmost grid column + active search → slide keyboard back in
+                                            currentFocusLevel = KinoFocusLevel.KEYBOARD
                                         }
+                                    }
+                                    KinoFocusLevel.KEYBOARD -> {
+                                        if (keyboardCol > 0) keyboardCol--
                                     }
                                     else -> {
                                         // Already at leftmost, do nothing
@@ -439,12 +561,35 @@ fun KinoGridScreen(
                                             categoryChipFocusRequester.requestFocus()
                                         }
                                     }
+                                    KinoFocusLevel.CATEGORY_CHIP -> {
+                                        currentFocusLevel = KinoFocusLevel.SEARCH_CHIP
+                                        coroutineScope.launch {
+                                            kotlinx.coroutines.delay(50)
+                                            searchChipFocusRequester.requestFocus()
+                                        }
+                                    }
+                                    KinoFocusLevel.KEYBOARD -> {
+                                        val rowKeys = keyboardRows(isNumberMode)[keyboardRow]
+                                        if (keyboardCol < rowKeys.size - 1) {
+                                            keyboardCol++
+                                        } else if (filteredKinoContent.isNotEmpty()) {
+                                            // Rightmost keyboard column → grid (slides keyboard out, grid back left)
+                                            currentFocusLevel = KinoFocusLevel.GRID
+                                            focusedRow = 0
+                                            focusedCol = 0
+                                            coroutineScope.launch {
+                                                lazyGridState.scrollToItem(0)
+                                                kotlinx.coroutines.delay(50)
+                                                gridFocusRequesters[Pair(0, 0)]?.requestFocus()
+                                            }
+                                        }
+                                    }
                                     KinoFocusLevel.GRID -> {
-                                        val numRows = (filteredKinoContent.size + GRID_COLUMNS - 1) / GRID_COLUMNS
+                                        val numRows = (filteredKinoContent.size + gridColumns - 1) / gridColumns
                                         val maxCol = if (focusedRow == numRows - 1) {
-                                            (filteredKinoContent.size - 1) % GRID_COLUMNS
+                                            (filteredKinoContent.size - 1) % gridColumns
                                         } else {
-                                            GRID_COLUMNS - 1
+                                            gridColumns - 1
                                         }
 
                                         if (focusedCol < maxCol) {
@@ -469,6 +614,36 @@ fun KinoGridScreen(
                                 }
                                 true
                             }
+
+                            Key.Enter, Key.NumPadEnter, Key.DirectionCenter -> {
+                                when (currentFocusLevel) {
+                                    KinoFocusLevel.SEARCH_CHIP -> {
+                                        // Open search overlay; keyboard becomes focused, grid shifts right
+                                        searchActive = true
+                                        currentFocusLevel = KinoFocusLevel.KEYBOARD
+                                        keyboardRow = 0
+                                        keyboardCol = 0
+                                        true
+                                    }
+                                    KinoFocusLevel.KEYBOARD -> {
+                                        val key = keyboardRows(isNumberMode)[keyboardRow][keyboardCol]
+                                        when (key) {
+                                            KEY_BACKSPACE -> if (searchQuery.isNotEmpty()) {
+                                                searchQuery = searchQuery.dropLast(1)
+                                            }
+                                            KEY_SPACE -> searchQuery += " "
+                                            KEY_ABC_TOGGLE -> {
+                                                isNumberMode = !isNumberMode
+                                                keyboardRow = 0
+                                                keyboardCol = 0
+                                            }
+                                            else -> searchQuery += key
+                                        }
+                                        true
+                                    }
+                                    else -> false
+                                }
+                            }
                             else -> false
                         }
                     }
@@ -477,15 +652,17 @@ fun KinoGridScreen(
                 }
             }
     ) {
-        // LAYER 1: Scrollable grid content
+        // LAYER 1: Scrollable grid content. When the keyboard is visible the grid keeps its
+        // position; we just shrink it via extra start padding + one fewer column. The grid
+        // re-lays out so posters keep their natural size and we fit ~6 across instead of 7.
         @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
         CompositionLocalProvider(LocalBringIntoViewSpec provides noAutoBringIntoViewSpec) {
         LazyVerticalGrid(
             state = lazyGridState,
-            columns = GridCells.Fixed(GRID_COLUMNS),
+            columns = GridCells.Fixed(gridColumns),
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(
-                start = sx(GRID_LEFT_PADDING),
+                start = gridLeftPaddingDp,
                 end = sx(GRID_RIGHT_PADDING),
                 top = sy(98),
                 bottom = sy(40)
@@ -493,19 +670,22 @@ fun KinoGridScreen(
             horizontalArrangement = Arrangement.spacedBy(sx(GRID_HORIZONTAL_GAP)),
             verticalArrangement = Arrangement.spacedBy(sy(GRID_VERTICAL_GAP))
         ) {
-            // HEADER: Title (spans all columns)
-            item(span = { GridItemSpan(GRID_COLUMNS) }) {
+            // HEADER: Title (spans all columns) — hidden during active search to leave
+            // the area dominated by the live query echo on the keyboard panel.
+            item(span = { GridItemSpan(gridColumns) }) {
                 Column {
                     Spacer(modifier = Modifier.height(sy(50)))
 
-                    Text(
-                        text = if (selectedCategory == "Wszystkie") "Wszystkie filmy" else selectedCategory,
-                        fontSize = (40 * sy(1).value / 1).sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFFDBDBDB),
-                        lineHeight = (38.28 * sy(1).value / 1).sp,
-                        modifier = Modifier.padding(start = sx(TITLE_LEFT_PADDING))
-                    )
+                    if (!searchActive) {
+                        Text(
+                            text = if (selectedCategory == "Wszystkie") "Wszystkie filmy" else selectedCategory,
+                            fontSize = (40 * sy(1).value / 1).sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFDBDBDB),
+                            lineHeight = (38.28 * sy(1).value / 1).sp,
+                            modifier = Modifier.padding(start = sx(TITLE_LEFT_PADDING))
+                        )
+                    }
 
                     Spacer(modifier = Modifier.height(sy(50)))
                 }
@@ -513,8 +693,8 @@ fun KinoGridScreen(
 
             // GRID ITEMS: Kino content cards (vertical with scale animation)
             itemsIndexed(filteredKinoContent, key = { _, vod -> vod.id }) { index, vodContent ->
-                val row = index / GRID_COLUMNS
-                val col = index % GRID_COLUMNS
+                val row = index / gridColumns
+                val col = index % gridColumns
                 val isItemFocused = currentFocusLevel == KinoFocusLevel.GRID &&
                                    row == focusedRow && col == focusedCol
 
@@ -555,7 +735,8 @@ fun KinoGridScreen(
                 )
         )
 
-        // LAYER 3: Filter chips (Sortuj + Kategoria)
+        // LAYER 3: Filter chips (Sortuj + Kategoria + Lupa). Stays in place — keyboard
+        // overlay reserves room on the left without sliding the chips.
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -590,6 +771,71 @@ fun KinoGridScreen(
                 sx = ::sx,
                 sy = ::sy
             )
+
+            Spacer(modifier = Modifier.width(sx(20)))
+
+            // Lupa (search) chip — opens keyboard overlay; same Figma styling as the
+            // other dropdown chips, just an icon-only pill.
+            val searchChipFocused = currentFocusLevel == KinoFocusLevel.SEARCH_CHIP
+            Box(
+                modifier = Modifier
+                    .focusRequester(searchChipFocusRequester)
+                    .focusable()
+                    .onFocusChanged { fs ->
+                        if (fs.isFocused) currentFocusLevel = KinoFocusLevel.SEARCH_CHIP
+                    }
+                    .height(sy(64))
+                    .background(
+                        color = if (searchChipFocused) Color(0xFF5FEDD4) else Color(0x33000000),
+                        shape = RoundedCornerShape(sx(64))
+                    )
+                    .border(
+                        width = if (searchChipFocused) sx(2) else 0.dp,
+                        color = if (searchChipFocused) Color(0xFF5FEDD4) else Color.Transparent,
+                        shape = RoundedCornerShape(sx(64))
+                    )
+                    .padding(horizontal = sx(24)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = "Szukaj",
+                    tint = if (searchChipFocused) Color(0xFF281443) else Color(0xFFEEEEEE),
+                    modifier = Modifier.size(sx(28))
+                )
+            }
+        }
+
+        // LAYER 3.5: ABC keyboard panel — slides in from the left when search is active.
+        // Lives above the gradient and chips so it doesn't get clipped by them.
+        if (searchActive) {
+            Column(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .offset(x = keyboardOffsetX + sx(40), y = sy(140))
+                    .zIndex(15f),
+                verticalArrangement = Arrangement.spacedBy(sy(16))
+            ) {
+                // Live query echo so the user sees what's being typed without an input bar.
+                Text(
+                    text = if (searchQuery.isEmpty()) "Wpisz tytuł filmu…" else searchQuery,
+                    color = if (searchQuery.isEmpty()) Color(0x99EEEEEE) else Color(0xFFEEEEEE),
+                    fontSize = (28 * sy(1).value).sp,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0x33000000), RoundedCornerShape(sx(12)))
+                        .padding(horizontal = sx(16), vertical = sy(12))
+                )
+
+                AbcSearchKeyboard(
+                    focusedRow = keyboardRow,
+                    focusedCol = keyboardCol,
+                    isNumberMode = isNumberMode,
+                    sx = ::sx,
+                    sy = ::sy
+                )
+            }
         }
 
         // LAYER 4: Sort FullScreen Picker
@@ -657,7 +903,7 @@ fun KinoGridScreen(
     LaunchedEffect(focusedRow, currentFocusLevel) {
         if (!hasRequestedInitialFocus) return@LaunchedEffect
         if (currentFocusLevel == KinoFocusLevel.GRID && filteredKinoContent.isNotEmpty()) {
-            val rowFirstIndex = focusedRow * GRID_COLUMNS + 1  // +1 for header item
+            val rowFirstIndex = focusedRow * gridColumns + 1  // +1 for header item
             if (rowFirstIndex >= filteredKinoContent.size + 1) return@LaunchedEffect
 
             if (focusedRow == 0) {

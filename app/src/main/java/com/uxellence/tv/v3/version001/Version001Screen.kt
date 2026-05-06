@@ -84,7 +84,9 @@ data class VodContent(
     val channelLogoUrl: String,
     val link: String,
     val price: String? = null,  // Cena filmu (np. "19 zł/48h")
-    val youtubeUrl: String? = null  // Trailer/VOD URL for playback
+    val youtubeUrl: String? = null,  // Trailer/VOD URL for playback
+    val cast: String? = null,  // Obsada (np. "Jason Statham, ...") — do filtrowania channels po aktorze
+    val backdropUrl: String? = null  // Wide image dla MovieDetailScreen (różny od poster)
 )
 
 // Cache dla siatki treści - zapisuje losowe przypisania
