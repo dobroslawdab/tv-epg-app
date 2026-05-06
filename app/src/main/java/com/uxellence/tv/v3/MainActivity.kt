@@ -52,6 +52,8 @@ class MainActivity : ComponentActivity() {
         setAppLocale(this, "pl")
         // Initialize VOD data cache once at startup (avoids repeated I/O)
         VodDataCache.initialize(this)
+        // Load persisted rentals (so isRented + countdown are correct from first frame)
+        com.uxellence.tv.v3.rental.RentalManager.init(this)
         // Initialize ChannelManager with TV channels database
         ChannelManager.initialize(this)
         // Initialize ConfigManager - load cached config from Supabase
@@ -79,7 +81,7 @@ class MainActivity : ComponentActivity() {
 }
 
 enum class NavigationScreen {
-    HOME, LIVE, COMPONENT_SHOWCASE, TOP_MENU2, SHORTCUT, CHANNELE, VIDEOSLIDER, SLIDER, SLIDER_MIX, EPG, EPG_DAY, FOCUS_MINI_CARD, VOICE_TEST, SPLASH, WHATS_NEW, STARTUP_MODE_SELECTION, LAUNCHER_SETUP, ZAPPING_BAR, CHANNEL_GRID, WIDEO_GRID, KINO_GRID, VOD_GRID, RECORDINGS_GRID, APPS_GRID, SERIES_EPISODES, MOVIE_DETAIL, PURCHASE, OLYMPICS, VOD_PLAYER
+    HOME, LIVE, COMPONENT_SHOWCASE, TOP_MENU2, SHORTCUT, CHANNELE, VIDEOSLIDER, SLIDER, SLIDER_MIX, EPG, EPG_DAY, FOCUS_MINI_CARD, VOICE_TEST, SPLASH, WHATS_NEW, STARTUP_MODE_SELECTION, LAUNCHER_SETUP, ZAPPING_BAR, CHANNEL_GRID, WIDEO_GRID, KINO_GRID, VOD_GRID, RECORDINGS_GRID, APPS_GRID, SERIES_EPISODES, MOVIE_DETAIL, PURCHASE, RENTAL_PROCESSING, OLYMPICS, VOD_PLAYER
 }
 
 // Helper functions for launcher setup
@@ -524,8 +526,15 @@ fun TvRoot(
         // focusedColIndex, lazyListStates, channelFocusRequesters, focus binding — so
         // BACK from MovieDetail can refocus the exact same poster the user was on.
         // See VodWithChannels' LaunchedEffect on `kinoPlayRefocusTrigger`.
-        val showTopMenuAsBase = currentScreen == NavigationScreen.MOVIE_DETAIL &&
-            previousScreen == NavigationScreen.TOP_MENU2
+        // Overlay active for the WHOLE navigation chain that originated from TOP_MENU2
+        // (KINO_PLAY tab): MOVIE_DETAIL, PURCHASE, MOVIE_DETAIL ↔ PURCHASE round-trips.
+        // `previousScreen == TOP_MENU2` stays set throughout (it's only changed by
+        // TopMenuScreen2's own callbacks, not by inner MovieDetail/Purchase transitions).
+        // `cameFromQuickPurchase` covers the slider-direct-to-PURCHASE path.
+        val showTopMenuAsBase = (currentScreen == NavigationScreen.MOVIE_DETAIL ||
+            currentScreen == NavigationScreen.PURCHASE ||
+            currentScreen == NavigationScreen.RENTAL_PROCESSING) &&
+            (previousScreen == NavigationScreen.TOP_MENU2 || cameFromQuickPurchase)
 
         // movableContentOf lets us render the SAME TopMenuScreen2 instance from two
         // different positions in the `when` (TOP_MENU2 case OR MOVIE_DETAIL case as base
@@ -676,6 +685,8 @@ fun TvRoot(
                     onDispose {
                         if (currentScreen != NavigationScreen.TOP_MENU2 &&
                             currentScreen != NavigationScreen.MOVIE_DETAIL &&
+                            currentScreen != NavigationScreen.PURCHASE &&
+                            currentScreen != NavigationScreen.RENTAL_PROCESSING &&
                             pipPlayer != null) {
                             android.util.Log.d("PIP", "Leaving TOP_MENU2 - cleaning up PIP player")
                             pipPlayer?.stop()
@@ -1140,6 +1151,11 @@ fun TvRoot(
                 }
             }
             NavigationScreen.PURCHASE -> {
+                // Quick-purchase from KINO_PLAY slider — render TopMenuScreen2 underneath
+                // (same overlay pattern as MovieDetail) so BACK refocuses the slider.
+                if (showTopMenuAsBase) {
+                    topMenuMovable()
+                }
                 selectedMovieData?.let { movieData ->
                     PurchaseScreen(
                         item = movieData,
@@ -1148,7 +1164,11 @@ fun TvRoot(
                         onBackPressed = {
                             // Return based on how we got here
                             if (cameFromQuickPurchase) {
-                                // Quick purchase mode: go back to slider (KINO_PLAY)
+                                // Quick purchase mode (Wypożycz on slider): TopMenuScreen2 is
+                                // still mounted under us via overlay. Trigger refocus so the
+                                // slider regains keyboard focus on the same slide.
+                                VodDataCache.kinoPlayRefocusTrigger.value =
+                                    VodDataCache.kinoPlayRefocusTrigger.value + 1
                                 currentScreen = NavigationScreen.TOP_MENU2
                                 savedTelewizjaSection = "KINO_PLAY"
                             } else {
@@ -1157,8 +1177,14 @@ fun TvRoot(
                             }
                         },
                         onConfirmPurchase = {
-                            // TODO: Implement purchase confirmation
                             android.util.Log.d("PURCHASE", "Purchase confirmed: ${movieData.title}")
+                            // VodSlideData has no stable id; key rentals by title (same
+                            // convention used in MovieDetailScreen and MojeContentCache).
+                            com.uxellence.tv.v3.rental.RentalManager.rent(
+                                movieId = movieData.title,
+                                context = context
+                            )
+                            currentScreen = NavigationScreen.RENTAL_PROCESSING
                         },
                         onChangeEmail = {
                             // TODO: Implement email change
@@ -1178,6 +1204,29 @@ fun TvRoot(
                         } else {
                             currentScreen = NavigationScreen.MOVIE_DETAIL
                         }
+                    }
+                }
+            }
+            NavigationScreen.RENTAL_PROCESSING -> {
+                // Animated 2-stage screen ("Przetwarzanie płatności" → "Film wypożyczony!")
+                // shown after onConfirmPurchase. TopMenuScreen2 stays mounted as base via
+                // movableContentOf overlay so BACK from MovieDetail (after auto-return)
+                // can still refocus the original poster.
+                if (showTopMenuAsBase) {
+                    topMenuMovable()
+                }
+                selectedMovieData?.let { movieData ->
+                    com.uxellence.tv.v3.moviedetail.RentalProcessingScreen(
+                        movieTitle = movieData.title,
+                        onComplete = {
+                            // Auto-return to MovieDetail (which now reflects "Oglądaj" state)
+                            currentScreen = NavigationScreen.MOVIE_DETAIL
+                        }
+                    )
+                } ?: run {
+                    LaunchedEffect(Unit) {
+                        currentScreen = NavigationScreen.TOP_MENU2
+                        savedTelewizjaSection = "KINO_PLAY"
                     }
                 }
             }

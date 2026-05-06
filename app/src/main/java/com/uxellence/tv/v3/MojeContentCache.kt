@@ -1,5 +1,6 @@
 package com.uxellence.tv.v3
 
+import com.uxellence.tv.v3.rental.RentalManager
 import com.uxellence.tv.v3.version001.VodContent
 
 /**
@@ -26,6 +27,16 @@ object MojeContentCache {
      * @return Cached or newly shuffled content for this channel
      */
     fun getContentForChannel(channelName: String): List<VodContent> {
+        // "Wypożyczone" is intentionally never cached: the rental list changes whenever
+        // the user rents a new movie, so we always query RentalManager on demand.
+        if (channelName == "Wypożyczone") {
+            val kinoPlayMovies = VodDataCache.getKinoPlayMovies()
+            if (kinoPlayMovies.isEmpty()) return emptyList()
+            val rentedTitles = RentalManager.rentedMovieIds().toSet()
+            if (rentedTitles.isEmpty()) return emptyList()
+            return kinoPlayMovies.filter { it.title in rentedTitles }
+        }
+
         // If already cached for this channel, return immediately
         channelContentCache[channelName]?.let { return it }
 
@@ -39,7 +50,6 @@ object MojeContentCache {
                 "Skróty" -> emptyList()  // Uses custom MojeSingleShortcutRow component
                 "[HEADER-RIGHT] Miejsce na nagrania" -> emptyList()  // Header - no content needed
                 "Skróty v2 Moje" -> emptyList()  // Shortcuts - no grid content needed
-                "Wypożyczone" -> kinoPlayMovies.shuffled().take(10)
                 "Pojedyncze nagrania", "SERIE", "ZAPLANOWANE" -> vodContentList.shuffled().take(10)
                 "Nagrania" -> vodContentList.shuffled().take(10)  // New channel (renamed from "Nagrania v2")
                 else -> vodContentList.shuffled().take(10) // Oglądaj dalej, Moje nagrania, Do obejrzenia

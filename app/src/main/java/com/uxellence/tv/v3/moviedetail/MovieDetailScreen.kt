@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.uxellence.tv.v3.R
 import com.uxellence.tv.v3.VodSlideData
+import com.uxellence.tv.v3.rental.RentalManager
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.*
@@ -60,10 +61,20 @@ fun MovieDetailScreen(
     item: VodSlideData,
     onBackPressed: () -> Unit,
     onRentClicked: () -> Unit = {},
+    onWatchClicked: () -> Unit = {},
     onTrailerClicked: () -> Unit = {},
     onPreviewClicked: () -> Unit = {},
     onMoreInfoClicked: () -> Unit = {} // Zachowujemy dla kompatybilności, ale nie używamy
 ) {
+    // Reactive rental state — recomposes when RentalManager.rentals changes (e.g. after
+    // rental confirmation or debug clear). VodSlideData has no stable id field, so we
+    // key rentals by movie title — same convention used in MainActivity.onConfirmPurchase.
+    val rentalsMap = RentalManager.rentals.value
+    val rentalKey = item.title
+    val isRented = remember(rentalsMap, rentalKey) {
+        (rentalsMap[rentalKey] ?: 0L) > System.currentTimeMillis()
+    }
+    val rentalExpiresAt = rentalsMap[rentalKey]
     val configuration = LocalConfiguration.current
     val scaleX = configuration.screenWidthDp / 1920f
     val scaleY = configuration.screenHeightDp / 1080f
@@ -98,11 +109,11 @@ fun MovieDetailScreen(
         buttonFocusRequesters.getOrNull(0)?.requestFocus()
     }
 
-    // Button labels (3 buttons as per Figma)
+    // Button labels (2 buttons — "Zobacz fragment" usunięty).
+    // After rental, the first button becomes "Oglądaj" (no price suffix).
     val buttons = listOf(
-        "Wypożycz: ${item.price}",
-        "Zwiastun",
-        "Zobacz fragment"
+        if (isRented) "Oglądaj" else "Wypożycz: ${item.price}",
+        "Zwiastun"
     )
 
     // Mock data fallbacks for missing fields
@@ -140,7 +151,7 @@ fun MovieDetailScreen(
                     }
                     Key.Enter, Key.DirectionCenter -> {
                         when (focusedButtonIndex) {
-                            0 -> onRentClicked()
+                            0 -> if (isRented) onWatchClicked() else onRentClicked()
                             1 -> onTrailerClicked()
                             2 -> onPreviewClicked()
                         }
@@ -150,15 +161,17 @@ fun MovieDetailScreen(
                 }
             }
     ) {
-        // Layer 1: Backdrop (right-aligned, full height)
-        AsyncImage(
-            model = item.backgroundUrl,
-            contentDescription = "Backdrop",
-            modifier = Modifier
-                .fillMaxHeight()
-                .align(Alignment.CenterEnd),
-            contentScale = ContentScale.FillHeight
-        )
+        // Layer 1: Backdrop (right-aligned, full height) — tylko gdy URL niepusty
+        if (item.backgroundUrl.isNotBlank()) {
+            AsyncImage(
+                model = item.backgroundUrl,
+                contentDescription = "Backdrop",
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .align(Alignment.CenterEnd),
+                contentScale = ContentScale.FillHeight
+            )
+        }
 
         // Layer 2: Glow overlay (slide_glow_left.png) - same as slider
         Image(
@@ -198,10 +211,21 @@ fun MovieDetailScreen(
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(start = sx(388), top = sy(168), end = sx(100), bottom = sy(40)),
+                .padding(start = sx(80), top = sy(168), end = sx(100), bottom = sy(40)),
             horizontalArrangement = Arrangement.spacedBy(sx(64))
         ) {
-            // Left column - Text content
+            // LEFT column — Poster (przeniesiony z prawej strony)
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                MoviePoster(
+                    posterUrl = item.posterUrl,
+                    sx = ::sx,
+                    sy = ::sy
+                )
+            }
+
+            // CENTER column - Text content
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -266,6 +290,17 @@ fun MovieDetailScreen(
 
                 Spacer(modifier = Modifier.weight(1f))
 
+                // Rental countdown info — shown above buttons when movie is rented
+                if (isRented && rentalExpiresAt != null) {
+                    RentalCountdownInfo(
+                        expiresAt = rentalExpiresAt,
+                        totalDurationMs = RentalManager.DEFAULT_RENTAL_DURATION_MS,
+                        sx = ::sx,
+                        sy = ::sy,
+                        modifier = Modifier.padding(bottom = sy(20))
+                    )
+                }
+
                 // Action buttons at bottom (raised 40px)
                 Row(
                     modifier = Modifier.padding(bottom = sy(40)),
@@ -283,9 +318,8 @@ fun MovieDetailScreen(
                             },
                             onClick = {
                                 when (index) {
-                                    0 -> onRentClicked()
+                                    0 -> if (isRented) onWatchClicked() else onRentClicked()
                                     1 -> onTrailerClicked()
-                                    2 -> onPreviewClicked()
                                 }
                             }
                         )
@@ -293,25 +327,16 @@ fun MovieDetailScreen(
                 }
             }
 
-            // Right column - Scroll indicator + Poster
+            // RIGHT column — Scroll indicator (poster przeniesiony na lewą)
             Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(sy(48))
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Scroll indicator (vertical dots)
                 ScrollIndicator(
                     currentPosition = scrollPosition,
                     totalPositions = 3,
                     sx = ::sx,
                     sy = ::sy,
                     modifier = Modifier.padding(top = sy(86))
-                )
-
-                // Poster - 225x320px with mask
-                MoviePoster(
-                    posterUrl = item.posterUrl,
-                    sx = ::sx,
-                    sy = ::sy
                 )
             }
         }
@@ -674,5 +699,65 @@ private fun ActionButton(
             fontWeight = FontWeight.Bold,
             letterSpacing = (-0.48).sp
         )
+    }
+}
+
+/**
+ * Rental countdown — text "Możesz oglądać przez Xh Ym" plus a horizontal bar that
+ * shrinks from the LEFT edge over time (right edge is anchored). At full rental
+ * (just purchased) the bar is 100% wide; at expiry it has shrunk to 0.
+ *
+ * Re-renders once per minute via a tick state read by `derivedStateOf`.
+ */
+@Composable
+private fun RentalCountdownInfo(
+    expiresAt: Long,
+    totalDurationMs: Long,
+    sx: (Int) -> Dp,
+    sy: (Int) -> Dp,
+    modifier: Modifier = Modifier
+) {
+    var tick by remember { mutableIntStateOf(0) }
+    LaunchedEffect(expiresAt) {
+        while (true) {
+            tick++
+            delay(60_000L)
+        }
+    }
+
+    val remainingMs by remember(expiresAt, tick) {
+        derivedStateOf { (expiresAt - System.currentTimeMillis()).coerceAtLeast(0L) }
+    }
+    val progress = (remainingMs.toFloat() / totalDurationMs.toFloat()).coerceIn(0f, 1f)
+
+    val totalHours = remainingMs / (60L * 60 * 1000)
+    val totalMinutes = (remainingMs / (60L * 1000)) % 60
+    val timeLabel = when {
+        totalHours >= 1 -> "${totalHours}h ${totalMinutes}m"
+        else -> "${totalMinutes}m"
+    }
+
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(sy(8))) {
+        Text(
+            text = "Możesz oglądać przez $timeLabel",
+            color = Color(0xFFEEEEEE),
+            fontSize = sy(20).value.sp,
+            fontWeight = FontWeight.Medium
+        )
+        Box(
+            modifier = Modifier
+                .width(sx(360))
+                .height(sy(6))
+                .clip(RoundedCornerShape(sy(3)))
+                .background(Color(0x33EEEEEE))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(progress)
+                    .align(Alignment.CenterEnd)
+                    .background(Color(0xFF5FEDD4))
+            )
+        }
     }
 }

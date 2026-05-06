@@ -982,6 +982,28 @@ SafeNavigationScope(
 - **Documentation**: `docs/patterns/KINO_GRID_AND_OVERLAY_FOCUS_PATTERN.md` (full pattern guide with failed approaches and quick-reference for adding overlay restoration to a new section)
 - **Lesson**: When state preservation across navigation is critical, **`movableContentOf` is the right Compose primitive** — better than lifting state up or trying to re-create it via async restoration. For "I need keys to work but the focused item may be off-screen", **focus the parent container that owns the key handler**, not the specific item.
 
+#### **Issue #11: Rental Flow — Payment Processing + "Oglądaj" + countdown bar** (2026-05-06)
+- **Feature**: Po kliknięciu "Wypożyczam i płacę" w PurchaseScreen aplikacja teraz pokazuje animowany 2-stage screen ("Przetwarzanie płatności" → "Film wypożyczony!") i wraca do MovieDetailScreen z przyciskiem zmienionym na "Oglądaj" plus paskiem countdown który zanika z lewej do prawej (48h rental window)
+- **Persistencja**: SharedPreferences (`rental_prefs`) — wypożyczenia przeżywają restart aplikacji. Klucz to `movieData.title` (VodSlideData nie ma stable id field)
+- **Implementacja**:
+  - `RentalManager` singleton (`app/src/main/java/com/uxellence/tv/v3/rental/RentalManager.kt`) — Compose-observable `MutableState<Map<String, Long>>` z auto-prune wygasłych
+  - `RentalProcessingScreen` (`app/src/main/java/com/uxellence/tv/v3/moviedetail/RentalProcessingScreen.kt`) — pure Compose: spinning Canvas arc dla stage 1, animowany checkmark (PathMeasure → drawn segment) dla stage 2, Crossfade między stages, 1.5s+1.5s = 3s total
+  - `NavigationScreen.RENTAL_PROCESSING` — nowy enum entry; `showTopMenuAsBase` rozszerzony żeby `movableContentOf { TopMenuScreen2 }` zostało mounted także podczas processing (overlay path z Issue #10 dla full chain TOP_MENU2 → MOVIE_DETAIL → PURCHASE → RENTAL_PROCESSING → MOVIE_DETAIL → BACK)
+  - `MovieDetailScreen` — branch `if (isRented) "Oglądaj" else "Wypożycz: ${price}"`, nowy callback `onWatchClicked`, composable `RentalCountdownInfo` z paskiem `Modifier.fillMaxWidth(progress).align(Alignment.CenterEnd)` (lewa krawędź się cofa zachowując prawą — "z lewej ubywa")
+  - `MojeContentCache.kt` — channel "Wypożyczone" nie cache'owany, query `RentalManager.rentedMovieIds()` filter po `VodContent.title in rentedTitles`. Cache invalidation w `MojeChannelsScreen` przez dodanie `RentalManager.rentals.value` do remember key
+  - `DevTogglesModal` (TopMenuScreen2 ~line 2346) — nowy item "Wypożyczone: Wyczyść (N)" pod klawiszem "0", debug action wywołuje `RentalManager.clearAll(context)`
+- **Refocus chain**: po `RentalProcessingScreen.onComplete` flip → MOVIE_DETAIL → BACK → trigger `kinoPlayRefocusTrigger` → poster regains focus on Kino Play tab. Wszystko via existing overlay infrastructure z Issue #10
+- **Result**:
+  - ✅ Animowany 3s screen po kliknięciu "Wypożyczam i płacę"
+  - ✅ Po powrocie MovieDetail: "Oglądaj" + tekst "Możesz oglądać przez 47h 59m" + pasek aqua zanikający z lewej
+  - ✅ Persistencja przez restart appa
+  - ✅ MOJE→Wypożyczone pokazuje realne wypożyczenia (nie mock)
+  - ✅ Debug clear pod "0" → DevTogglesModal item "Wypożyczone"
+  - ✅ Kino Play overlay refocus działa po całym łańcuchu
+- **Files**: NEW `rental/RentalManager.kt`, NEW `moviedetail/RentalProcessingScreen.kt`, MOD `moviedetail/MovieDetailScreen.kt` (+isRented branch, +RentalCountdownInfo, +onWatchClicked param), MOD `MainActivity.kt` (+RENTAL_PROCESSING enum, +RentalManager.init, +when case, +showTopMenuAsBase rozszerzenie, +DisposableEffect rozszerzenie, +onConfirmPurchase rent+navigate), MOD `MojeContentCache.kt` (+rented filter), MOD `TopMenuScreen2.kt` (+rentalsSnapshot remember key w MojeChannelsScreen, +DevTogglesModal item)
+- **Documentation**: `docs/patterns/RENTAL_FLOW_PATTERN.md`
+- **Lesson**: Compose-observable singletons (`MutableState` w `object` deklarowane **bez `private`**) są praktyczne dla state cross-screen który ma re-render UI w wielu miejscach naraz (MovieDetail, MOJE→Wypożyczone, DevTogglesModal counter). Każdy reader `state.value` w Composable scope automatycznie subskrybuje recompose. SharedPreferences jako persistence backend, bez Room overhead.
+
 #### **Key Learnings**
 1. **Delegation Pattern**: Sections with complex multi-row navigation (MOJE, START, APLIKACJE, VOD) should delegate ALL keys to child components
 2. **Callback Pattern**: Child components use `onReturnToMenu` callback for menu transitions instead of parent intercepting keys

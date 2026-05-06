@@ -2343,9 +2343,17 @@ private fun DevTogglesModal(
 ) {
     val aplikacjeVariantLabels = arrayOf("Hero+kanały", "Aplikacje na top + slider")
     val profileVariantLabels = arrayOf("Wersja 1 (Profil)", "Wersja 2 (Wyjdź z profilu)")
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    // Read rentals.value so the count label re-renders after clearAll
+    val rentalCount = com.uxellence.tv.v3.rental.RentalManager.rentals.value.size
     val items: List<Triple<String, String, () -> Unit>> = listOf(
         Triple("Aplikacje variant", aplikacjeVariantLabels.getOrElse(aplikacjeVariant) { aplikacjeVariant.toString() }, onAplikacjeVariantCycle),
-        Triple("Profil variant", profileVariantLabels.getOrElse(profileVariant) { profileVariant.toString() }, onProfileVariantCycle)
+        Triple("Profil variant", profileVariantLabels.getOrElse(profileVariant) { profileVariant.toString() }, onProfileVariantCycle),
+        Triple(
+            "Wypożyczone",
+            "Wyczyść ($rentalCount)",
+            { com.uxellence.tv.v3.rental.RentalManager.clearAll(ctx) }
+        )
     )
     var selectedIndex by remember { mutableStateOf(0) }
     val focusRequesters = remember(items.size) { List(items.size) { FocusRequester() } }
@@ -5616,8 +5624,11 @@ private fun MojeChannelsScreen(
     }
 
     // Faza 3: Grid content mapping - uses MojeContentCache for persistent content
-    // Content is shuffled once per channel on first access and cached for app lifetime
-    val gridContent = remember(isNagraniaExpanded, showNagraniaV2) {
+    // Content is shuffled once per channel on first access and cached for app lifetime.
+    // RentalManager.rentals.value is read so MOJE→Wypożyczone refreshes when user rents
+    // or when debug-clears wypożyczenia.
+    val rentalsSnapshot = com.uxellence.tv.v3.rental.RentalManager.rentals.value
+    val gridContent = remember(isNagraniaExpanded, showNagraniaV2, rentalsSnapshot) {
         MojeContentCache.getContent(channels)
     }
 
