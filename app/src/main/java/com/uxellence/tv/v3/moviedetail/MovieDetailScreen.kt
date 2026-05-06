@@ -760,8 +760,8 @@ private fun RentalCountdownInfo(
                 val isElapsed = idx < elapsedSlots
                 Box(
                     modifier = Modifier
-                        .size(sx(8), sy(8))
-                        .clip(RoundedCornerShape(sx(1)))
+                        .size(sx(4), sy(10))
+                        .clip(RoundedCornerShape(sx(2)))
                         .background(
                             if (isElapsed) Color(0x1AFFFFFF)  // white 10%
                             else Color(0xFFFFFFFF)            // white 100%
