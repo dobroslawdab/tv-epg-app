@@ -13346,11 +13346,17 @@ private fun VodWithChannels(
     // V4 slider button index (0 = Wypożycz, 1 = Dowiedz się więcej)
     var v4ButtonIndex by remember { mutableStateOf(0) }
 
-    // Reset focus state when returning to menu (like MOJE)
+    // Reset focus state when returning to menu (like MOJE).
+    // V1 lands on Wypożyczone CategoryIcon; V2 keeps the legacy slider entry point.
     LaunchedEffect(resetTrigger) {
         if (resetTrigger > 0) {
-            focusedRowIndex = 1 // Back to slider
-            focusedColIndex = -2
+            if (sliderRowIndex == 2) {
+                focusedRowIndex = 1
+                focusedColIndex = -1
+            } else {
+                focusedRowIndex = 1
+                focusedColIndex = -2
+            }
         }
     }
 
@@ -13467,8 +13473,16 @@ private fun VodWithChannels(
         // Don't reset focus if we just restored from MovieDetail — we want to stay on
         // the channel/poster the user was on, not jump back to the slider.
         if (shouldAutoFocus && initialFocusRestore == null && !hasRestoredKinoPlayFocus) {
-            focusedRowIndex = 1 // Start at slider
-            focusedColIndex = 0 // Focus on rent button
+            if (sliderRowIndex == 2) {
+                // V1: DOWN from menu lands on Wypożyczone Kino's CategoryIcon (above slider)
+                focusedRowIndex = 1
+                focusedColIndex = -1
+                channelFocusRequesters[Pair(1, -1)]?.requestFocus()
+            } else {
+                // V2: DOWN from menu lands on slider's rent button
+                focusedRowIndex = 1
+                focusedColIndex = 0
+            }
         }
     }
 
