@@ -737,6 +737,14 @@ private fun RentalCountdownInfo(
         else -> "${totalMinutes}m"
     }
 
+    // 48 squares — one per hour. Each hour that has already passed becomes 10% white;
+    // remaining hours are full white. ceil() so a partially-elapsed hour still counts
+    // as "not yet expired" until it actually runs out.
+    val totalHourSlots = (totalDurationMs / (60L * 60 * 1000)).toInt().coerceAtLeast(1)
+    val remainingHourSlots = ((remainingMs + 60L * 60 * 1000 - 1) / (60L * 60 * 1000))
+        .toInt()
+        .coerceIn(0, totalHourSlots)
+
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(sy(8))) {
         Text(
             text = "Możesz oglądać przez $timeLabel",
@@ -744,20 +752,22 @@ private fun RentalCountdownInfo(
             fontSize = sy(20).value.sp,
             fontWeight = FontWeight.Medium
         )
-        Box(
-            modifier = Modifier
-                .width(sx(360))
-                .height(sy(6))
-                .clip(RoundedCornerShape(sy(3)))
-                .background(Color(0x33EEEEEE))
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .fillMaxWidth(progress)
-                    .align(Alignment.CenterEnd)
-                    .background(Color(0xFF5FEDD4))
-            )
+        Row(horizontalArrangement = Arrangement.spacedBy(sx(2))) {
+            // Squares depleted FROM THE LEFT: leftmost N slots are "elapsed" (10% white),
+            // rightmost remainingHourSlots are "active" (full white).
+            val elapsedSlots = totalHourSlots - remainingHourSlots
+            repeat(totalHourSlots) { idx ->
+                val isElapsed = idx < elapsedSlots
+                Box(
+                    modifier = Modifier
+                        .size(sx(8), sy(8))
+                        .clip(RoundedCornerShape(sx(1)))
+                        .background(
+                            if (isElapsed) Color(0x1AFFFFFF)  // white 10%
+                            else Color(0xFFFFFFFF)            // white 100%
+                        )
+                )
+            }
         }
     }
 }

@@ -5751,19 +5751,16 @@ private fun MojeChannelsScreen(
         isInitialized = true
     }
 
-    // MovieDetail BACK refocus path: when the user returns from MovieDetail (overlay),
-    // re-grab Compose actual keyboard focus on the SAME item the user was on (not the
-    // outer Box). VodWithChannels can get away with focusing the outer Box because
-    // handleVodNavigation handles ENTER directly via onMovieClicked. MOJE delegates
-    // ENTER to the focused child item — so if focus sits on the Box, ENTER goes nowhere.
-    // Focus the actual item (Pair(row, 0) is the only one with a stable FR; that's fine
-    // because VodContentCard.onClick resolves the firstVisibleItem at click time).
+    // MovieDetail BACK refocus path: requestFocus on the OUTER Box so its
+    // onPreviewKeyEvent regains key events even if specific LazyRow items are
+    // off-screen / unmounted after scroll. Direct ENTER handling for "Wypożyczone"
+    // is wired into handleMojeChannelsNavigation (resolves firstVisibleItem on click)
+    // so ENTER works regardless of which item Compose currently considers focused.
+    val mojeRootBoxFocusRequester = remember { FocusRequester() }
     LaunchedEffect(VodDataCache.mojeRefocusTrigger.value) {
         if (VodDataCache.mojeRefocusTrigger.value > 0) {
             kotlinx.coroutines.delay(50)
-            val targetCol = if (focusedColIndex == -1) -1 else 0
-            val target = Pair(focusedRowIndex, targetCol)
-            try { channelFocusRequesters[target]?.requestFocus() } catch (_: Exception) {}
+            try { mojeRootBoxFocusRequester.requestFocus() } catch (_: Exception) {}
         }
     }
 
@@ -5771,6 +5768,7 @@ private fun MojeChannelsScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF281443))
+            .focusRequester(mojeRootBoxFocusRequester)
             .onPreviewKeyEvent { event ->
                 handleMojeChannelsNavigation(
                     event = event,
@@ -5788,7 +5786,8 @@ private fun MojeChannelsScreen(
                     onReturnToMenu = onReturnToMenu,
                     onToggleExpansion = toggleNagraniaExpansion,
                     isNagraniaExpanded = isNagraniaExpanded,  // Faza 5
-                    onToggleVersion = toggleNagraniaVersion   // Key "8" handler
+                    onToggleVersion = toggleNagraniaVersion,   // Key "8" handler
+                    onNavigateToMovieDetail = onNavigateToMovieDetail  // ENTER on Wypożyczone poster
                 )
             }
             .focusable()
@@ -9015,22 +9014,39 @@ fun handleMojeChannelsNavigation(
     onReturnToMenu: () -> Unit,
     onToggleExpansion: (() -> Unit)? = null,
     isNagraniaExpanded: Boolean = false,  // Faza 5: For auto-collapse detection
-    onToggleVersion: (() -> Unit)? = null  // Key "8": Toggle v1/v2
+    onToggleVersion: (() -> Unit)? = null,  // Key "8": Toggle v1/v2
+    onNavigateToMovieDetail: (VodSlideData) -> Unit = {}  // ENTER on rented poster (Wypożyczone)
 ): Boolean {
     if (event.nativeKeyEvent.action != android.view.KeyEvent.ACTION_DOWN) return false
 
     when (event.key) {
         // Key "8" removed - now handled globally
 
-        // OK on "Moje nagrania" CategoryIcon → toggle expansion
+        // OK on "Moje nagrania" CategoryIcon → toggle expansion;
+        // OK on a Wypożyczone poster → MovieDetail (handled directly here so that focus
+        // can stay on the outer Box — required because after BACK from MovieDetail the
+        // child item may be off-screen / unmounted and there's nothing to delegate to).
         Key.Enter, Key.DirectionCenter -> {
+            val channelName = channels.getOrNull(focusedRowIndex)
             if (focusedColIndex == -1) {
-                val channelName = channels.getOrNull(focusedRowIndex)
                 if (channelName == "Moje nagrania") {
                     onToggleExpansion?.invoke()
                     Log.d("MOJE_DEBUG", "OK on MOJE NAGRANIA → toggle expansion")
                     return true
                 }
+                return false
+            }
+            // Content cell ENTER — Wypożyczone resolves the visible movie via the
+            // channel's LazyRow firstVisibleItemIndex (only Pair(row, 0) has a stable FR
+            // so visual focus tracks firstVisible, not focusedColIndex).
+            if (channelName == "Wypożyczone") {
+                val lazyListState = lazyListStates[focusedRowIndex]
+                val visibleIdx = lazyListState?.firstVisibleItemIndex ?: 0
+                val rowContent = gridContent[channelName] ?: emptyList()
+                rowContent.getOrNull(visibleIdx)?.let { vod ->
+                    onNavigateToMovieDetail(vod.toVodSlideData())
+                }
+                return true
             }
             return false
         }
