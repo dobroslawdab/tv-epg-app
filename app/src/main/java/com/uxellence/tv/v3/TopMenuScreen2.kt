@@ -13219,6 +13219,12 @@ private fun VodWithChannels(
         if (hasRentals) listOf("Wypożyczone Kino") + base else base
     }
 
+    // V1 layout (Wypożyczone above slider) is only meaningful when there ARE rentals;
+    // otherwise the channel doesn't exist and the layout collapses to V2.
+    val isV1 = vodWypozyczoneVariant == 0 && hasRentals
+    // In V1 the slider is pushed down by one row so Wypożyczone Kino can sit above it.
+    val sliderRowIndex = if (isV1) 2 else 1
+
     // State to track Supabase initialization for recomposition
     var supabaseInitialized by remember { mutableStateOf(VodDataCache.isSupabaseInitialized()) }
 
@@ -13349,18 +13355,18 @@ private fun VodWithChannels(
     }
 
     // Notify parent when focused row changes (for top gradient visibility)
-    // KINO PLAY: gradient shows from channels below slider (row 2+), NOT on menu or slider
     LaunchedEffect(focusedRowIndex) {
-        val showGradient = focusedRowIndex >= 2
+        val showGradient = focusedRowIndex > sliderRowIndex
         onFocusedChannelChange(if (showGradient) "SHOW_GRADIENT" else "")
     }
 
-    val channelFocusRequesters = remember(channels.size) {
+    val channelFocusRequesters = remember(channels.size, sliderRowIndex) {
         mutableMapOf<Pair<Int, Int>, FocusRequester>().apply {
-            // Row 1 = slider (no focus requesters needed)
-            // Rows 2-9 = channels (8 channels now)
             repeat(channels.size) { rowIndex ->
-                val adjustedRowIndex = rowIndex + 2 // Channels start at row 2
+                // Match VodChannelRows row mapping (slider sits at sliderRowIndex):
+                //   V2 (sliderRowIndex=1): channelIndex N → actualRowIndex N+2
+                //   V1 (sliderRowIndex=2): channelIndex 0 → row 1, channelIndex 1+ → row N+2
+                val adjustedRowIndex = if (sliderRowIndex == 2 && rowIndex == 0) 1 else rowIndex + 2
                 val channelName = channels[rowIndex]
 
                 when (channelName) {
@@ -13503,8 +13509,9 @@ private fun VodWithChannels(
                     coroutineScope = coroutineScope,
                     gridContent = gridContent,
                     onReturnToMenu = onReturnToMenu,
+                    sliderRowIndex = sliderRowIndex,
                     // KINO_PLAY: Always V4 slider with 2 buttons navigation
-                    sliderVersion = 4,  // Hardcoded - KINO_PLAY always uses V4
+                    sliderVersion = 4,
                     v4ButtonIndex = v4ButtonIndex,
                     onV4ButtonIndexChange = { v4ButtonIndex = it },
                     // VOD Player navigation
@@ -13522,7 +13529,8 @@ private fun VodWithChannels(
                         // Save focus AND the channel's LazyRow scroll position so BACK
                         // from MovieDetail returns to exactly the same poster (regular
                         // channels show visual focus on whichever item is firstVisible).
-                        val channelIdx = focusedRowIndex - 2
+                        // V1 maps Wypożyczone (row 1) → channelIdx 0, others row N → N-2.
+                        val channelIdx = if (sliderRowIndex == 2 && focusedRowIndex == 1) 0 else focusedRowIndex - 2
                         val firstVisible = lazyListStates[channelIdx]?.firstVisibleItemIndex ?: 0
                         VodDataCache.savedKinoPlayFocus = VodDataCache.SavedKinoFocus(
                             row = focusedRowIndex,
@@ -13571,7 +13579,8 @@ private fun VodWithChannels(
             sx = sx,
             sy = sy,
             sliderVersion = sliderVersion,
-            v4ButtonIndex = v4ButtonIndex
+            v4ButtonIndex = v4ButtonIndex,
+            sliderRowIndex = sliderRowIndex
         )
     }
 }
@@ -13594,7 +13603,8 @@ private fun VodLayoutWithSlider(
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     sliderVersion: Int = 1,
-    v4ButtonIndex: Int = 0  // V4 slider button index (0 = Wypożycz, 1 = Dowiedz się więcej)
+    v4ButtonIndex: Int = 0,  // V4 slider button index (0 = Wypożycz, 1 = Dowiedz się więcej)
+    sliderRowIndex: Int = 1  // V1 (Wypożyczone above slider) shifts slider to row 2
 ) {
     // Load KINO_PLAY slider items from Supabase
     val supabaseReady = VodDataCache.isSupabaseInitialized()
@@ -13603,15 +13613,17 @@ private fun VodLayoutWithSlider(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // Slider (Row 1) - fullscreen with animation, z-index 1
-        // Partial slide on first channel (Skróty v3), full off-screen on lower channels
-        val isFirstChannelFocused = focusedRowIndex == 2  // Skróty v3
-        val isLowerChannelsFocused = focusedRowIndex >= 3  // Polecane, Top 10, etc.
+        // Slider — slides up off-screen as the user navigates down past it.
+        // sliderRowIndex is 1 in V2 (default) and 2 in V1 (Wypożyczone Kino above slider).
+        // When focus is on rows above the slider (e.g. Wypożyczone in V1), the slider
+        // sits in its NORMAL position so the user can see it shifting under the focused row.
+        val isFirstChannelBelowSliderFocused = focusedRowIndex == sliderRowIndex + 1
+        val isLowerChannelsFocused = focusedRowIndex >= sliderRowIndex + 2
         val sliderYOffset by animateDpAsState(
             targetValue = when {
-                isLowerChannelsFocused -> sy(-1200)  // Completely off-screen on lower channels
-                isFirstChannelFocused -> sy(-640)    // Partial slide (~100px lower than ODKRYWAJ)
-                else -> sy(0)                         // Normal position on menu/slider
+                isLowerChannelsFocused -> sy(-1200)
+                isFirstChannelBelowSliderFocused -> sy(-640)
+                else -> sy(0)
             },
             animationSpec = tween(durationMillis = 500),
             label = "vod_slider_y_offset"
@@ -13626,24 +13638,24 @@ private fun VodLayoutWithSlider(
             // KINO_PLAY: Always use V4 slider with 2 focusable buttons (Wypożycz + Więcej info)
             // Key.Nine cycling does NOT affect KINO_PLAY - always V4
             VodHeroSliderV4(
-                isFocused = focusedRowIndex == 1 && globalFocusState.value.currentRow > 0,
+                isFocused = focusedRowIndex == sliderRowIndex && globalFocusState.value.currentRow > 0,
                 items = kinoPlaySliderItems,
                 sectionType = "KINO_PLAY",
                 sx = sx,
                 sy = sy,
-                externalButtonIndex = v4ButtonIndex,  // Controlled by parent
+                externalButtonIndex = v4ButtonIndex,
                 onRentClicked = { item -> onNavigateToPurchase(item) },
                 onMoreInfoClicked = { item -> onNavigateToMovieDetail(item) },
                 onReturnToMenu = { /* callback do menu */ },
-                showBullets = focusedRowIndex < 2,  // Hide bullets when focused on channels below slider
-                isOnChannelsBelow = focusedRowIndex >= 2,  // Stop trailer gdy fokus zszedł na channels
-                refocusTriggerKey = VodDataCache.kinoPlayRefocusTrigger.value  // overlay refocus after MovieDetail close
+                showBullets = focusedRowIndex <= sliderRowIndex,
+                isOnChannelsBelow = focusedRowIndex > sliderRowIndex,
+                refocusTriggerKey = VodDataCache.kinoPlayRefocusTrigger.value
             )
         }
 
-        // Gradient pod menu - widoczny gdy fokus na channelach (row >= 2)
+        // Gradient pod menu — widoczny gdy fokus jest na channelu poniżej slidera.
         val gradientAlpha by animateFloatAsState(
-            targetValue = if (focusedRowIndex >= 2) 1f else 0f,
+            targetValue = if (focusedRowIndex > sliderRowIndex) 1f else 0f,
             animationSpec = tween(durationMillis = 350),
             label = "vod_gradient_alpha"
         )
@@ -13685,7 +13697,8 @@ private fun VodLayoutWithSlider(
                 onNavigateToKinoGrid = onNavigateToKinoGrid,
                 lazyListStates = lazyListStates,
                 sx = sx,
-                sy = sy
+                sy = sy,
+                sliderRowIndex = sliderRowIndex
             )
         }
     }
@@ -16184,11 +16197,19 @@ private fun VodChannelRows(
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     lazyListStates: Map<Int, LazyListState>,
     sx: (Int) -> androidx.compose.ui.unit.Dp,
-    sy: (Int) -> androidx.compose.ui.unit.Dp
+    sy: (Int) -> androidx.compose.ui.unit.Dp,
+    sliderRowIndex: Int = 1  // V1 = 2 (slider sits BELOW Wypożyczone Kino on row 1)
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         channels.forEachIndexed { channelIndex, channelName ->
-            val actualRowIndex = channelIndex + 2 // Channels start at row 2
+            // V2: channels start at row 2 (slider on row 1).
+            // V1: channelIndex 0 (Wypożyczone) → row 1 (above slider on row 2);
+            //     channelIndex 1+ → row 3+ (below slider).
+            val actualRowIndex = if (sliderRowIndex == 2 && channelIndex == 0) {
+                1
+            } else {
+                channelIndex + 2
+            }
             val rowContent = gridContent[channelName] ?: emptyList()
             val lazyListState = lazyListStates[channelIndex] ?: LazyListState()
 
@@ -18491,54 +18512,67 @@ fun handleVodNavigation(
     // Wywoływany gdy ENTER na CategoryIcon (kanał) — np. "Akcja" → otwórz grid filmów akcji
     onCategoryEnter: (channelName: String) -> Unit = {},
     // Wywoływany gdy ENTER na plakacie filmu — otwórz MovieDetailScreen
-    onMovieClicked: (VodContent) -> Unit = {}
+    onMovieClicked: (VodContent) -> Unit = {},
+    // Slider's row index in focus indexing — 1 in V2 (default), 2 in V1 (Wypożyczone above)
+    sliderRowIndex: Int = 1
 ): Boolean {
+    // Helpers — channel index ↔ row mapping that respects sliderRowIndex.
+    // V1 puts Wypożyczone (channelIndex 0) on row 1 and slider on row 2; channelIndex 1+
+    // map to rows 3+. V2 keeps the simple `+ 2` shift.
+    fun rowToChannelIndex(row: Int): Int =
+        if (sliderRowIndex == 2 && row == 1) 0 else row - 2
+    fun channelIndexToRow(idx: Int): Int =
+        if (sliderRowIndex == 2 && idx == 0) 1 else idx + 2
     if (event.nativeKeyEvent.action != android.view.KeyEvent.ACTION_DOWN) return false
 
     when (event.key) {
         Key.DirectionUp -> {
-            android.util.Log.d("VOD_NAV", "UP pressed: focusedRowIndex=$focusedRowIndex, focusedColIndex=$focusedColIndex, sliderVersion=$sliderVersion, v4ButtonIndex=$v4ButtonIndex")
+            android.util.Log.d("VOD_NAV", "UP pressed: focusedRowIndex=$focusedRowIndex, focusedColIndex=$focusedColIndex, sliderRowIndex=$sliderRowIndex, sliderVersion=$sliderVersion, v4ButtonIndex=$v4ButtonIndex")
             when {
-                focusedRowIndex == 1 -> {
-                    // V4 slider: UP switches between buttons before returning to menu
+                focusedRowIndex == sliderRowIndex -> {
+                    // Slider focused — V4: toggle button before exiting upward
                     if (sliderVersion == 4 && v4ButtonIndex > 0) {
-                        // Move from button 1 (Dowiedz się więcej) to button 0 (Wypożycz)
-                        android.util.Log.d("VOD_NAV", "V4: Moving from button 1 to button 0")
                         onV4ButtonIndexChange(0)
                         return true
                     }
-                    // From slider (button 0) to menu
-                    android.util.Log.d("VOD_NAV", "Going from slider (row 1) to menu (row 0)")
-                    onReturnToMenu()
-                }
-                focusedRowIndex == 2 -> {
-                    // From first channel
-                    if (focusedColIndex == -1) {
-                        // From CategoryIcon of first channel - go to slider
-                        android.util.Log.d("VOD_NAV", "Going from first channel CategoryIcon (row 2) to slider (row 1)")
-                        onFocusChange(1, 0)
-                        // Slider handles its own focus via LaunchedEffect(isFocused)
+                    // From slider go up — V2: to menu, V1: to row above slider (Wypożyczone)
+                    if (sliderRowIndex == 1) {
+                        onReturnToMenu()
                     } else {
-                        // From content of first channel - go to CategoryIcon of first channel
-                        android.util.Log.d("VOD_NAV", "Going from first channel content (row 2, col $focusedColIndex) to CategoryIcon (row 2, col -1)")
-                        onFocusChange(2, -1)
-                        channelFocusRequesters[Pair(2, -1)]?.requestFocus()
+                        onFocusChange(1, -1)
+                        channelFocusRequesters[Pair(1, -1)]?.requestFocus()
                     }
                 }
-                focusedRowIndex > 2 -> {
-                    // Between channels - smart targeting for Skróty v3
+                focusedRowIndex == 1 && sliderRowIndex == 2 -> {
+                    // V1: Wypożyczone (above slider) UP → menu
+                    if (focusedColIndex == -1) {
+                        onReturnToMenu()
+                    } else {
+                        onFocusChange(1, -1)
+                        channelFocusRequesters[Pair(1, -1)]?.requestFocus()
+                    }
+                }
+                focusedRowIndex == sliderRowIndex + 1 -> {
+                    // First channel below slider
+                    if (focusedColIndex == -1) {
+                        onFocusChange(sliderRowIndex, 0)
+                    } else {
+                        onFocusChange(focusedRowIndex, -1)
+                        channelFocusRequesters[Pair(focusedRowIndex, -1)]?.requestFocus()
+                    }
+                }
+                focusedRowIndex > sliderRowIndex + 1 -> {
                     val newRowIndex = focusedRowIndex - 1
                     val currentIsShortcutsV3 = isShortcutsV3Channel(focusedRowIndex, channels)
                     val targetIsShortcutsV3 = isShortcutsV3Channel(newRowIndex, channels)
 
                     val targetColIndex = when {
-                        targetIsShortcutsV3 -> 0 // Go to first shortcut (no CategoryIcon)
-                        currentIsShortcutsV3 -> -1 // Coming from shortcuts, go to CategoryIcon
-                        focusedColIndex == -1 -> -1 // Preserve CategoryIcon
-                        else -> 0 // Preserve content
+                        targetIsShortcutsV3 -> 0
+                        currentIsShortcutsV3 -> -1
+                        focusedColIndex == -1 -> -1
+                        else -> 0
                     }
 
-                    android.util.Log.d("VOD_NAV", "Going from channel row $focusedRowIndex to row $newRowIndex, targetCol=$targetColIndex")
                     onFocusChange(newRowIndex, targetColIndex)
                     channelFocusRequesters[Pair(newRowIndex, targetColIndex)]?.requestFocus()
                 }
@@ -18547,24 +18581,24 @@ fun handleVodNavigation(
         }
 
         Key.DirectionDown -> {
-            android.util.Log.d("VOD_NAV", "DOWN pressed: focusedRowIndex=$focusedRowIndex, sliderVersion=$sliderVersion, v4ButtonIndex=$v4ButtonIndex")
+            android.util.Log.d("VOD_NAV", "DOWN pressed: focusedRowIndex=$focusedRowIndex, sliderRowIndex=$sliderRowIndex, sliderVersion=$sliderVersion, v4ButtonIndex=$v4ButtonIndex")
             when {
-                focusedRowIndex == 1 -> {
+                focusedRowIndex == sliderRowIndex -> {
                     // V4 slider: DOWN switches between buttons before going to channels
                     if (sliderVersion == 4 && v4ButtonIndex < 1) {
-                        // Move from button 0 (Wypożycz) to button 1 (Dowiedz się więcej)
-                        android.util.Log.d("VOD_NAV", "V4: Moving from button 0 to button 1")
                         onV4ButtonIndexChange(1)
                         return true
                     }
-                    // From slider (button 1 for V4, or any button for V1-V3) to first channel
-                    android.util.Log.d("VOD_NAV", "Going from slider to first channel")
-                    // Reset V4 button index when leaving slider
                     if (sliderVersion == 4) {
                         onV4ButtonIndexChange(0)
                     }
-                    onFocusChange(2, -1) // Start at CategoryIcon
-                    channelFocusRequesters[Pair(2, -1)]?.requestFocus()
+                    val nextRow = sliderRowIndex + 1
+                    onFocusChange(nextRow, -1)
+                    channelFocusRequesters[Pair(nextRow, -1)]?.requestFocus()
+                }
+                focusedRowIndex == 1 && sliderRowIndex == 2 -> {
+                    // V1: Wypożyczone (above slider) DOWN → slider
+                    onFocusChange(sliderRowIndex, 0)
                 }
                 focusedRowIndex < channels.size + 1 -> {
                     // Between channels - smart targeting for Skróty v3
@@ -18587,7 +18621,7 @@ fun handleVodNavigation(
         }
 
         Key.DirectionLeft -> {
-            if (focusedRowIndex == 1) {
+            if (focusedRowIndex == sliderRowIndex) {
                 // Slider navigation handled by VodHeroSlider
                 return false
             }
@@ -18615,18 +18649,16 @@ fun handleVodNavigation(
                     return true
                 } else if (focusedColIndex == 0) {
                     // Check if can scroll left
-                    val channelIndex = focusedRowIndex - 2
+                    val channelIndex = rowToChannelIndex(focusedRowIndex)
                     val lazyListState = lazyListStates[channelIndex]
                     if (lazyListState != null && lazyListState.firstVisibleItemIndex > 0) {
                         coroutineScope.launch {
                             val newIndex = lazyListState.firstVisibleItemIndex - 1
                             lazyListState.animateScrollToItem(newIndex)
-                            // Wait for animation and set focus
                             delay(50)
                             channelFocusRequesters[Pair(focusedRowIndex, newIndex)]?.requestFocus()
                         }
                     } else {
-                        // Go to CategoryIcon
                         onFocusChange(focusedRowIndex, -1)
                         channelFocusRequesters[Pair(focusedRowIndex, -1)]?.requestFocus()
                     }
@@ -18636,16 +18668,14 @@ fun handleVodNavigation(
         }
 
         Key.DirectionRight -> {
-            if (focusedRowIndex == 1) {
+            if (focusedRowIndex == sliderRowIndex) {
                 // Slider navigation handled by VodHeroSlider
                 return false
             }
 
-            // Special handling for Skróty v3
             val isShortcutsV3 = isShortcutsV3Channel(focusedRowIndex, channels)
 
             if (isShortcutsV3) {
-                // Shortcuts v3: dynamiczna liczba itemów w channelFocusRequesters dla tego rzędu
                 val maxColIndex = (channelFocusRequesters.keys
                     .filter { it.first == focusedRowIndex }
                     .maxOfOrNull { it.second } ?: 0)
@@ -18653,16 +18683,12 @@ fun handleVodNavigation(
                     onFocusChange(focusedRowIndex, focusedColIndex + 1)
                     channelFocusRequesters[Pair(focusedRowIndex, focusedColIndex + 1)]?.requestFocus()
                 }
-                // At last shortcut - can't go right (return true below)
             } else {
-                // Regular channel logic
                 if (focusedColIndex == -1) {
-                    // From CategoryIcon to content
                     onFocusChange(focusedRowIndex, 0)
                     channelFocusRequesters[Pair(focusedRowIndex, 0)]?.requestFocus()
                 } else if (focusedColIndex == 0) {
-                    // Scroll right if possible
-                    val channelIndex = focusedRowIndex - 2
+                    val channelIndex = rowToChannelIndex(focusedRowIndex)
                     val lazyListState = lazyListStates[channelIndex]
                     val channelName = channels.getOrNull(channelIndex)
                     val channelContent = gridContent[channelName] ?: emptyList()
@@ -18671,7 +18697,6 @@ fun handleVodNavigation(
                         coroutineScope.launch {
                             val newIndex = lazyListState.firstVisibleItemIndex + 1
                             lazyListState.animateScrollToItem(newIndex)
-                            // Wait for animation and set focus
                             delay(50)
                             channelFocusRequesters[Pair(focusedRowIndex, newIndex)]?.requestFocus()
                         }
@@ -18682,21 +18707,20 @@ fun handleVodNavigation(
         }
 
         Key.Enter, Key.DirectionCenter -> {
-            // Row 1 = slider - delegate to VodHeroSlider
-            if (focusedRowIndex == 1) {
+            if (focusedRowIndex == sliderRowIndex) {
+                // Slider — delegate to VodHeroSlider
                 return false
             }
 
-            // Row 2+ = channel content - find focused item and open VOD player
+            // Channel row — find focused item and open MovieDetail / category grid
             if (focusedColIndex < 0) {
-                // CategoryIcon — wywołaj nawigację do gridu kategorii
-                val channelIndex = focusedRowIndex - 2
+                val channelIndex = rowToChannelIndex(focusedRowIndex)
                 val channelName = channels.getOrNull(channelIndex) ?: return true
                 onCategoryEnter(channelName)
                 return true
             }
 
-            val channelIndex = focusedRowIndex - 2
+            val channelIndex = rowToChannelIndex(focusedRowIndex)
             val channelName = channels.getOrNull(channelIndex) ?: return true
             val rowContent = gridContent[channelName]
             // Channels bez content (np. "Skróty v3") — deleguj ENTER do child composable (np. ShortcutCard.onClick)
