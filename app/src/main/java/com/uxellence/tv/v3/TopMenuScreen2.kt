@@ -698,10 +698,15 @@ fun VodContent.toVodSlideData(): VodSlideData = VodSlideData(
     ageRating = "12 lat",
     description = description,
     price = price ?: "Bezpłatne",
-    backgroundUrl = imageUrl,
+    // Prefer backdrop for MovieDetail's full-bleed background (matches Kino Play tab path
+    // which builds VodSlideData with backdropUrl explicitly). Fall back to poster only
+    // when no backdrop is available — better than always showing the small portrait poster.
+    backgroundUrl = backdropUrl ?: imageUrl,
     posterUrl = imageUrl,
-    youtubeUrl = null,
-    channelLogoUrl = channelLogoUrl // Logo kanału z VodContent
+    youtubeUrl = youtubeUrl,
+    cast = cast,
+    isKinoPlay = true,
+    channelLogoUrl = channelLogoUrl
 )
 
 data class PackageItem(
@@ -5746,10 +5751,23 @@ private fun MojeChannelsScreen(
         isInitialized = true
     }
 
+    // Outer-Box FocusRequester used by MovieDetail BACK refocus path: when the user
+    // returns from MovieDetail (overlay) we requestFocus() on this Box so handleMoje-
+    // ChannelsNavigation regains key events without needing focus on a specific
+    // (possibly off-screen) LazyRow item — same trick as VodWithChannels.
+    val mojeRootBoxFocusRequester = remember { FocusRequester() }
+    LaunchedEffect(VodDataCache.mojeRefocusTrigger.value) {
+        if (VodDataCache.mojeRefocusTrigger.value > 0) {
+            kotlinx.coroutines.delay(50)
+            try { mojeRootBoxFocusRequester.requestFocus() } catch (_: Exception) {}
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF281443))
+            .focusRequester(mojeRootBoxFocusRequester)
             .onPreviewKeyEvent { event ->
                 handleMojeChannelsNavigation(
                     event = event,
@@ -8564,10 +8582,16 @@ fun MojeUnifiedChannelRow(
                                 sy = sy,
                                 expiryText = if (channel == "Wypożyczone") "rented" else null,
                                 onClick = {
-                                    // ENTER on a poster in MOJE Wypożyczone → open MovieDetail
-                                    // (where the rented branch shows "Oglądaj" + countdown).
+                                    // ENTER on a poster in MOJE Wypożyczone → open MovieDetail.
+                                    // Only Pair(rowIndex, 0) has a real FocusRequester in the
+                                    // map, so Compose actual focus stays on the col=0 item even
+                                    // after LazyRow scrolls. Visual focus follows
+                                    // firstVisibleItemIndex — so we resolve to that content at
+                                    // click time (not the captured `vodContent` of col=0).
                                     if (channel == "Wypożyczone") {
-                                        onNavigateToMovieDetail(vodContent.toVodSlideData())
+                                        val visibleIdx = lazyListState.firstVisibleItemIndex
+                                        val target = rowContent.getOrNull(visibleIdx) ?: vodContent
+                                        onNavigateToMovieDetail(target.toVodSlideData())
                                     }
                                 }
                             )

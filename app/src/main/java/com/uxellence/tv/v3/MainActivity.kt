@@ -1116,13 +1116,20 @@ fun TvRoot(
                             if (previousScreen == NavigationScreen.KINO_GRID) {
                                 currentScreen = NavigationScreen.KINO_GRID
                             } else {
-                                // From KINO_PLAY tab — TopMenuScreen2 is still mounted under
-                                // us. Increment refocus trigger so VodWithChannels re-grabs
-                                // focus on the previously focused poster, then flip back.
+                                // From TopMenu2 tab (KINO_PLAY slider/channels OR
+                                // MOJE→Wypożyczone) — TopMenuScreen2 is still mounted via
+                                // movableContentOf overlay so the active tab is preserved
+                                // in its internal globalFocusState.sectionId. We just need
+                                // to re-grab keyboard focus on the right outer Box. Bump
+                                // BOTH triggers — each section's listener acts only when
+                                // its own sectionId is active.
                                 VodDataCache.kinoPlayRefocusTrigger.value =
                                     VodDataCache.kinoPlayRefocusTrigger.value + 1
+                                VodDataCache.mojeRefocusTrigger.value =
+                                    VodDataCache.mojeRefocusTrigger.value + 1
                                 currentScreen = NavigationScreen.TOP_MENU2
-                                savedTelewizjaSection = "KINO_PLAY"
+                                // Don't overwrite savedTelewizjaSection — internal section
+                                // state inside TopMenuScreen2 is the source of truth here.
                             }
                         },
                         onRentClicked = {
@@ -1169,13 +1176,16 @@ fun TvRoot(
                         onBackPressed = {
                             // Return based on how we got here
                             if (cameFromQuickPurchase) {
-                                // Quick purchase mode (Wypożycz on slider): TopMenuScreen2 is
-                                // still mounted under us via overlay. Trigger refocus so the
-                                // slider regains keyboard focus on the same slide.
+                                // Quick purchase mode (Wypożycz on slider): TopMenuScreen2
+                                // stayed mounted via overlay. Bump both refocus triggers —
+                                // each section's listener acts only when its sectionId is
+                                // active. Don't override savedTelewizjaSection (internal
+                                // section state is the source of truth in overlay scenarios).
                                 VodDataCache.kinoPlayRefocusTrigger.value =
                                     VodDataCache.kinoPlayRefocusTrigger.value + 1
+                                VodDataCache.mojeRefocusTrigger.value =
+                                    VodDataCache.mojeRefocusTrigger.value + 1
                                 currentScreen = NavigationScreen.TOP_MENU2
-                                savedTelewizjaSection = "KINO_PLAY"
                             } else {
                                 // Normal flow: go back to MovieDetailScreen
                                 currentScreen = NavigationScreen.MOVIE_DETAIL

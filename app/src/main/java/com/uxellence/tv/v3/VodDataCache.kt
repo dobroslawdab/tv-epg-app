@@ -83,6 +83,12 @@ object VodDataCache {
     // captured Compose focus while it was visible.
     val kinoPlayRefocusTrigger: MutableState<Int> = mutableStateOf(0)
 
+    // Same mechanism for the MOJE tab — used when MovieDetail closes and user originally
+    // navigated to MovieDetail from MOJE→Wypożyczone (poster click). MojeChannelsScreen's
+    // outer Box watches this and re-grabs keyboard focus; without it, BACK from MovieDetail
+    // leaves Compose with no focus owner and the user has to press BACK twice.
+    val mojeRefocusTrigger: MutableState<Int> = mutableStateOf(0)
+
     private val json = Json { ignoreUnknownKeys = true }
 
     /**
