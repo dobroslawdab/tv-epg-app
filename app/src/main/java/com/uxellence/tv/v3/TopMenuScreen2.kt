@@ -5751,15 +5751,19 @@ private fun MojeChannelsScreen(
         isInitialized = true
     }
 
-    // Outer-Box FocusRequester used by MovieDetail BACK refocus path: when the user
-    // returns from MovieDetail (overlay) we requestFocus() on this Box so handleMoje-
-    // ChannelsNavigation regains key events without needing focus on a specific
-    // (possibly off-screen) LazyRow item — same trick as VodWithChannels.
-    val mojeRootBoxFocusRequester = remember { FocusRequester() }
+    // MovieDetail BACK refocus path: when the user returns from MovieDetail (overlay),
+    // re-grab Compose actual keyboard focus on the SAME item the user was on (not the
+    // outer Box). VodWithChannels can get away with focusing the outer Box because
+    // handleVodNavigation handles ENTER directly via onMovieClicked. MOJE delegates
+    // ENTER to the focused child item — so if focus sits on the Box, ENTER goes nowhere.
+    // Focus the actual item (Pair(row, 0) is the only one with a stable FR; that's fine
+    // because VodContentCard.onClick resolves the firstVisibleItem at click time).
     LaunchedEffect(VodDataCache.mojeRefocusTrigger.value) {
         if (VodDataCache.mojeRefocusTrigger.value > 0) {
             kotlinx.coroutines.delay(50)
-            try { mojeRootBoxFocusRequester.requestFocus() } catch (_: Exception) {}
+            val targetCol = if (focusedColIndex == -1) -1 else 0
+            val target = Pair(focusedRowIndex, targetCol)
+            try { channelFocusRequesters[target]?.requestFocus() } catch (_: Exception) {}
         }
     }
 
@@ -5767,7 +5771,6 @@ private fun MojeChannelsScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF281443))
-            .focusRequester(mojeRootBoxFocusRequester)
             .onPreviewKeyEvent { event ->
                 handleMojeChannelsNavigation(
                     event = event,
