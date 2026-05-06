@@ -1134,6 +1134,12 @@ fun TvRoot(
                                     VodDataCache.kinoPlayRefocusTrigger.value + 1
                                 VodDataCache.mojeRefocusTrigger.value =
                                     VodDataCache.mojeRefocusTrigger.value + 1
+                                // Overlay path: state survives via movableContentOf, so we
+                                // don't need savedKinoPlayFocus for restoration. Clear it
+                                // here so a later, unrelated remount of VodWithChannels
+                                // (user navigates KINO_PLAY → TELEWIZJA → KINO_PLAY) doesn't
+                                // see a stale entry and steal focus from the top menu.
+                                VodDataCache.savedKinoPlayFocus = null
                                 currentScreen = NavigationScreen.TOP_MENU2
                                 // Don't overwrite savedTelewizjaSection — internal section
                                 // state inside TopMenuScreen2 is the source of truth here.
@@ -1196,6 +1202,9 @@ fun TvRoot(
                                     VodDataCache.kinoPlayRefocusTrigger.value + 1
                                 VodDataCache.mojeRefocusTrigger.value =
                                     VodDataCache.mojeRefocusTrigger.value + 1
+                                // Clear stale savedKinoPlayFocus — see MovieDetail.onBackPressed
+                                // for the same reasoning (state already survives via overlay).
+                                VodDataCache.savedKinoPlayFocus = null
                                 currentScreen = NavigationScreen.TOP_MENU2
                             } else {
                                 // Normal flow: go back to MovieDetailScreen

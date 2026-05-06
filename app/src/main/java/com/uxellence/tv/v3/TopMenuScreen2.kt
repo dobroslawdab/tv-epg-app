@@ -13403,8 +13403,13 @@ private fun VodWithChannels(
     // focusedRowIndex/focusedColIndex are seeded from frame 1 above. Here we just push
     // currentRow > 0 into the parent globalFocusState (so the menu's currentRow==0 effect
     // doesn't hijack focus to the menu tab) and request focus once the item is laid out.
+    //
+    // Defensive guard: skip when the user is on the top menu (currentRow == 0). Without
+    // this, a stale `savedKinoPlayFocus` (e.g., user previously rented from Kino Play,
+    // navigated away, came back via top menu) would wake restoration and steal focus
+    // from the highlighted tab.
     LaunchedEffect(Unit) {
-        if (initialFocusRestore != null) {
+        if (initialFocusRestore != null && globalFocusState.value.currentRow > 0) {
             globalFocusState.value = globalFocusState.value.copy(currentRow = focusedRowIndex)
             kotlinx.coroutines.delay(150) // let LazyRow attach modifiers
             val target = Pair(focusedRowIndex, focusedColIndex)
