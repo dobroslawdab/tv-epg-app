@@ -1368,6 +1368,12 @@ fun TopMenuScreen2(
     // APLIKACJE variant - 0=hero slider + channels, 1=channels-only (Aplikacje na top, bez slidera)
     var aplikacjeVariant by remember { mutableIntStateOf(sliderPrefs.getInt("aplikacje_variant", 0)) }
 
+    // KINO_PLAY "Wypożyczone" channel position:
+    //   0 = above slider (Aplikacje-style top row) — TODO, currently same as v1
+    //   1 = below slider, above "Polecane" (DEFAULT)
+    // Empty when no rentals exist; toggles via DevTogglesModal under key "0".
+    var vodWypozyczoneVariant by remember { mutableIntStateOf(sliderPrefs.getInt("vod_wypozyczone_variant", 1)) }
+
     // Dev modal — Key.Zero otwiera ekran przełączników trybów
     var showDevModal by remember { mutableStateOf(false) }
 
@@ -2049,6 +2055,7 @@ fun TopMenuScreen2(
                 onNavigateToRecordingsGrid = onNavigateToRecordingsGrid,
                 onNavigateToAppsGrid = onNavigateToAppsGrid,
                 aplikacjeVariant = aplikacjeVariant,
+                vodWypozyczoneVariant = vodWypozyczoneVariant,
                 onProfileSelected = { profile ->
                     // Zapisz wybrany profil i wróć na ekran główny — UI top menu zaktualizuje się przez LaunchedEffect na zmianę sectionId
                     sliderPrefs.edit().putString("selected_profile", profile.id).apply()
@@ -2329,6 +2336,11 @@ fun TopMenuScreen2(
                     profileVariant = (profileVariant + 1) % 2
                     sliderPrefs.edit().putInt("profile_variant", profileVariant).apply()
                 },
+                vodWypozyczoneVariant = vodWypozyczoneVariant,
+                onVodWypozyczoneVariantCycle = {
+                    vodWypozyczoneVariant = (vodWypozyczoneVariant + 1) % 2
+                    sliderPrefs.edit().putInt("vod_wypozyczone_variant", vodWypozyczoneVariant).apply()
+                },
                 onDismiss = { showDevModal = false }
             )
         }
@@ -2344,16 +2356,20 @@ private fun DevTogglesModal(
     onAplikacjeVariantCycle: () -> Unit,
     profileVariant: Int,
     onProfileVariantCycle: () -> Unit,
+    vodWypozyczoneVariant: Int,
+    onVodWypozyczoneVariantCycle: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val aplikacjeVariantLabels = arrayOf("Hero+kanały", "Aplikacje na top + slider")
     val profileVariantLabels = arrayOf("Wersja 1 (Profil)", "Wersja 2 (Wyjdź z profilu)")
+    val vodWypLabels = arrayOf("v1: nad sliderem", "v2: pod sliderem (default)")
     val ctx = androidx.compose.ui.platform.LocalContext.current
     // Read rentals.value so the count label re-renders after clearAll
     val rentalCount = com.uxellence.tv.v3.rental.RentalManager.rentals.value.size
     val items: List<Triple<String, String, () -> Unit>> = listOf(
         Triple("Aplikacje variant", aplikacjeVariantLabels.getOrElse(aplikacjeVariant) { aplikacjeVariant.toString() }, onAplikacjeVariantCycle),
         Triple("Profil variant", profileVariantLabels.getOrElse(profileVariant) { profileVariant.toString() }, onProfileVariantCycle),
+        Triple("Wypożyczone Kino Play", vodWypLabels.getOrElse(vodWypozyczoneVariant) { vodWypozyczoneVariant.toString() }, onVodWypozyczoneVariantCycle),
         Triple(
             "Wypożyczone",
             "Wyczyść ($rentalCount)",
@@ -3921,6 +3937,7 @@ private fun FullPageContent(
     onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> },
     onNavigateToAppsGrid: () -> Unit = {},  // Navigate to grid wszystkich aplikacji (z CategoryIcon "Aplikacje")
     aplikacjeVariant: Int = 0,  // 0 = hero+channels, 1 = channels-only (Aplikacje na top)
+    vodWypozyczoneVariant: Int = 1,  // 0 = above slider (TODO), 1 = below slider/above Polecane (DEFAULT)
     onProfileSelected: (UserProfile) -> Unit = {},  // Wywoływane po kliknięciu profilu w ProfileScreenContent
     isEpgSectionExpanded: Boolean = false,
     onEpgSectionExpandedChange: (Boolean) -> Unit = {},
@@ -4023,6 +4040,7 @@ private fun FullPageContent(
                 sx = sx,
                 sy = sy,
                 sliderVersion = sliderVersion,
+                vodWypozyczoneVariant = vodWypozyczoneVariant,
                 onFocusedChannelChange = onFocusedChannelChange
             )
         }
@@ -12823,7 +12841,8 @@ private fun VodScreenContent(
     quickPurchaseMode: Boolean = false,  // When true, skip MovieDetail and go directly to Purchase
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
-    sliderVersion: Int = 1
+    sliderVersion: Int = 1,
+    vodWypozyczoneVariant: Int = 1  // 0 = above slider (TODO), 1 = below slider/above Polecane
 ) {
     var resetTrigger by remember { mutableStateOf(0) }
 
@@ -12862,6 +12881,7 @@ private fun VodScreenContent(
         resetTrigger = resetTrigger,
         globalFocusState = globalFocusState,
         sliderVersion = sliderVersion,
+        vodWypozyczoneVariant = vodWypozyczoneVariant,
         onFocusedChannelChange = onFocusedChannelChange
     )
 }
@@ -13152,38 +13172,46 @@ private fun VodWithChannels(
     resetTrigger: Int = 0,
     globalFocusState: MutableState<GlobalFocusState>,
     sliderVersion: Int = 1,
+    vodWypozyczoneVariant: Int = 1,  // 0 = above slider (TODO), 1 = below slider/above Polecane (DEFAULT)
     onFocusedChannelChange: (String) -> Unit = {}  // Callback for top gradient
 ) {
     val context = LocalContext.current
-    // Figma "Sekcje redakcyjne" — 26 channels w nowej kolejności
-    val channels = listOf(
-        "Polecane",
-        "Top 10",
-        "Wszystkie",                          // CategoryIcon (no icon) + chipy 0..10
-        "Ostatnio dodane",
-        "Jason Statham",
-        "Obcy kontra Predator",
-        "Polskie filmy",
-        "Polskie komedie",
-        "Universal",
-        "Disney",
-        "Warner Bros",
-        "Sony Pictures",
-        "MAGICZNY ŚWIAT HARRY'EGO POTTERA",
-        "GWIEZDNE WOJNY",
-        "SCI-FI",
-        "ROMANS",
-        "KOMEDIA ROMANTYCZNA",
-        "NA POPRAWĘ HUMORU",
-        "FAMILIJNE",
-        "ANIMOWANE",
-        "PORUSZAJĄCE HISTORIE",
-        "FILMY GROZY",
-        "DRESZCZOWCE",
-        "HISTORIE NA FAKTACH",
-        "DOKUMENT",
-        "Więcej"                              // ENTER → grid wszystkich filmów
-    )
+    // Figma "Sekcje redakcyjne" — 26 channels w nowej kolejności.
+    // "Wypożyczone Kino" jest dynamicznie wstawiany jako pierwszy channel gdy użytkownik
+    // ma wypożyczone filmy AND vodWypozyczoneVariant != skip (read RentalManager state).
+    val rentalsSnapshot = com.uxellence.tv.v3.rental.RentalManager.rentals.value
+    val hasRentals = rentalsSnapshot.values.any { it > System.currentTimeMillis() }
+    val channels = remember(hasRentals, vodWypozyczoneVariant) {
+        val base = listOf(
+            "Polecane",
+            "Top 10",
+            "Wszystkie",                          // CategoryIcon (no icon) + chipy 0..10
+            "Ostatnio dodane",
+            "Jason Statham",
+            "Obcy kontra Predator",
+            "Polskie filmy",
+            "Polskie komedie",
+            "Universal",
+            "Disney",
+            "Warner Bros",
+            "Sony Pictures",
+            "MAGICZNY ŚWIAT HARRY'EGO POTTERA",
+            "GWIEZDNE WOJNY",
+            "SCI-FI",
+            "ROMANS",
+            "KOMEDIA ROMANTYCZNA",
+            "NA POPRAWĘ HUMORU",
+            "FAMILIJNE",
+            "ANIMOWANE",
+            "PORUSZAJĄCE HISTORIE",
+            "FILMY GROZY",
+            "DRESZCZOWCE",
+            "HISTORIE NA FAKTACH",
+            "DOKUMENT",
+            "Więcej"                              // ENTER → grid wszystkich filmów
+        )
+        if (hasRentals) listOf("Wypożyczone Kino") + base else base
+    }
 
     // State to track Supabase initialization for recomposition
     var supabaseInitialized by remember { mutableStateOf(VodDataCache.isSupabaseInitialized()) }
@@ -13210,6 +13238,13 @@ private fun VodWithChannels(
             byChannel["Polecane"]?.addAll(VodDataCache.getNewest())
             byChannel["Top 10"]?.addAll(VodDataCache.getTop10())
             byChannel["Ostatnio dodane"]?.addAll(VodDataCache.getNewest())
+
+            // "Wypożyczone Kino" — populated from RentalManager (only present in `channels`
+            // when the user has active rentals; otherwise the key doesn't exist in byChannel).
+            val rentedTitles = com.uxellence.tv.v3.rental.RentalManager.rentedMovieIds().toSet()
+            if (rentedTitles.isNotEmpty()) {
+                byChannel["Wypożyczone Kino"]?.addAll(allMovies.filter { it.title in rentedTitles })
+            }
 
             // Single-pass classification — każdy film przeglądany RAZ, klasyfikowany do wielu channels
             allMovies.forEach { movie ->
