@@ -94,6 +94,11 @@ object VodDataCache {
     // Without it, navigation locks up (no Compose focus owner) and BACK exits the app.
     val searchRefocusTrigger: MutableState<Int> = mutableStateOf(0)
 
+    // Same mechanism for the WIDEO tab — used when MovieDetail closes after the user
+    // clicked a horizontal channel miniature. WideoChannelsScreen rootBoxFocusRequester
+    // watches this. Bumped by MainActivity.MovieDetail.onBackPressed.
+    val wideoRefocusTrigger: MutableState<Int> = mutableStateOf(0)
+
     // True while a full-screen overlay (MovieDetail / Purchase / RentalProcessing) sits
     // on top of TopMenuScreen2. The Kino Play slider's auto-trailer loop reads this so
     // it doesn't keep spinning ExoPlayer in the background — that was suspected to be
@@ -292,25 +297,12 @@ object VodDataCache {
 
     // Private loaders - same implementation as original functions
 
+    // Delegate to the top-level loader in version001/Version001Screen.kt — single source
+    // of truth for WIDEO content (merges vod_data.json + viaplay_filmy.json + future packs).
+    // Previously this was a duplicate that loaded only vod_data.json, silently shadowing the
+    // top-level loader and causing newly-added Viaplay items to never reach the cache.
     private fun loadVodContentFromAssets(context: Context): List<VodContent> {
-        return try {
-            val inputStream = context.assets.open("vod_data.json")
-            val jsonString = inputStream.bufferedReader().use { it.readText() }
-            val vodItems = json.decodeFromString<List<VodItem>>(jsonString)
-            vodItems.map { item ->
-                VodContent(
-                    id = "vod_${item.tytul.hashCode()}_${item.link.hashCode()}",  // Unique ID for focus restoration
-                    title = item.tytul,
-                    description = item.opis,
-                    category = item.kategoria,
-                    imageUrl = item.miniaturka_programu,
-                    channelLogoUrl = item.logo_kanalu,
-                    link = item.link
-                )
-            }
-        } catch (e: Exception) {
-            emptyList()
-        }
+        return com.uxellence.tv.v3.version001.loadVodContentFromAssets(context)
     }
 
     private fun loadKinoPlayMoviesFromAssets(context: Context): List<VodContent> {

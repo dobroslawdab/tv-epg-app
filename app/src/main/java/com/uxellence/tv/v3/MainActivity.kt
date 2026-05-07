@@ -54,6 +54,7 @@ class MainActivity : ComponentActivity() {
         VodDataCache.initialize(this)
         // Load persisted rentals (so isRented + countdown are correct from first frame)
         com.uxellence.tv.v3.rental.RentalManager.init(this)
+        com.uxellence.tv.v3.watchlist.WatchlistManager.init(this)
         // Initialize ChannelManager with TV channels database
         ChannelManager.initialize(this)
         // Initialize ConfigManager - load cached config from Supabase
@@ -352,6 +353,14 @@ fun TvRoot(
     var kinoGridInitialCategory by remember { mutableStateOf<String?>(null) }  // Pre-selected category filter
     var kinoGridLastClickedMovieId by remember { mutableStateOf<String?>(null) }  // Restore focus after MovieDetail back
     var kinoGridLastSearchQuery by remember { mutableStateOf("") }  // Persist search overlay across MovieDetail
+    var vodGridInitialCategory by remember { mutableStateOf<String?>(null) }
+    var vodGridLastClickedMovieId by remember { mutableStateOf<String?>(null) }
+    var vodGridLastSearchQuery by remember { mutableStateOf("") }
+
+    // MovieDetail sibling navigation (WIDEO mode only). Populated when user enters detail
+    // from VodGridScreen — left/right at the buttons row swaps the film to siblings[idx±1].
+    var movieDetailSiblings by remember { mutableStateOf<List<VodContent>>(emptyList()) }
+    var movieDetailCurrentIndex by remember { mutableStateOf(0) }
 
     // RecordingsGridScreen navigation parameters
     var recordingsGridSourceSection by remember { mutableStateOf<String?>(null) }  // "MOJE"
@@ -610,6 +619,15 @@ fun TvRoot(
                         vodGridTitle = title
                         vodGridPrefiltered = prefiltered
                         vodGridSourceSection = sourceSection
+                        // For WIDEO chip → grid path: title IS the chip label (e.g. "Viaplay Filmy"),
+                        // and we want the picker to start on that category. For other paths (legacy
+                        // shortcut/etc.) the title may not match a known chip — VodGridScreen will
+                        // fall back to "Wszystkie" if the label is unknown.
+                        vodGridInitialCategory = title
+                        // Reset stale focus/search state on a fresh chip-driven entry so the user
+                        // doesn't land on a poster from a previous (unrelated) category visit.
+                        vodGridLastClickedMovieId = null
+                        vodGridLastSearchQuery = ""
                         previousScreen = NavigationScreen.TOP_MENU2
                         currentScreen = NavigationScreen.VOD_GRID
                     },
@@ -1010,12 +1028,29 @@ fun TvRoot(
             NavigationScreen.VOD_GRID -> {
                 VodGridScreen(
                     onBackPressed = {
-                        // Return to source section in TOP_MENU2
+                        // Return to source section in TOP_MENU2 (WIDEO when chip→grid path)
                         currentScreen = NavigationScreen.TOP_MENU2
                         savedTelewizjaSection = vodGridSourceSection ?: "TELEWIZJA"
                     },
                     screenTitle = vodGridTitle,
-                    preloadedData = vodGridPrefiltered
+                    preloadedData = vodGridPrefiltered,
+                    initialCategory = vodGridInitialCategory,
+                    initialFocusedMovieId = vodGridLastClickedMovieId,
+                    initialSearchQuery = vodGridLastSearchQuery,
+                    onCategoryChanged = { newCategory ->
+                        vodGridInitialCategory = newCategory
+                    },
+                    onSearchQueryChanged = { newQuery ->
+                        vodGridLastSearchQuery = newQuery
+                    },
+                    onMovieClicked = { vodContent, siblings, index ->
+                        vodGridLastClickedMovieId = vodContent.id
+                        movieDetailSiblings = siblings
+                        movieDetailCurrentIndex = index
+                        selectedMovieData = vodContentToWideoSlideData(vodContent)
+                        previousScreen = NavigationScreen.VOD_GRID
+                        currentScreen = NavigationScreen.MOVIE_DETAIL
+                    }
                 )
             }
             NavigationScreen.KINO_GRID -> {
@@ -1129,6 +1164,10 @@ fun TvRoot(
                             // Return to whichever screen launched MovieDetail
                             if (previousScreen == NavigationScreen.KINO_GRID) {
                                 currentScreen = NavigationScreen.KINO_GRID
+                            } else if (previousScreen == NavigationScreen.VOD_GRID) {
+                                // VodGridScreen seeds initialFocusedMovieId from saved state
+                                // and re-syncs scroll on its own first frame.
+                                currentScreen = NavigationScreen.VOD_GRID
                             } else {
                                 // From TopMenu2 tab (KINO_PLAY slider/channels OR
                                 // MOJE→Wypożyczone) — TopMenuScreen2 is still mounted via
@@ -1143,6 +1182,8 @@ fun TvRoot(
                                     VodDataCache.mojeRefocusTrigger.value + 1
                                 VodDataCache.searchRefocusTrigger.value =
                                     VodDataCache.searchRefocusTrigger.value + 1
+                                VodDataCache.wideoRefocusTrigger.value =
+                                    VodDataCache.wideoRefocusTrigger.value + 1
                                 // Overlay path: state survives via movableContentOf, so we
                                 // don't need savedKinoPlayFocus for restoration. Clear it
                                 // here so a later, unrelated remount of VodWithChannels
@@ -1175,7 +1216,34 @@ fun TvRoot(
                         onMoreInfoClicked = {
                             // TODO: Show more info
                             android.util.Log.d("MOVIE_DETAIL", "More info clicked: ${movieData.title}")
-                        }
+                        },
+                        // Sibling prev/next — only when siblings list is populated AND
+                        // we're on a WIDEO entry (isKinoPlay=false). Each invocation swaps
+                        // selectedMovieData so the screen recomposes with the new film.
+                        onNavigatePrev = if (
+                            !movieData.isKinoPlay &&
+                            movieDetailSiblings.isNotEmpty() &&
+                            movieDetailCurrentIndex > 0
+                        ) {
+                            {
+                                movieDetailCurrentIndex -= 1
+                                val prev = movieDetailSiblings[movieDetailCurrentIndex]
+                                vodGridLastClickedMovieId = prev.id
+                                selectedMovieData = vodContentToWideoSlideData(prev)
+                            }
+                        } else null,
+                        onNavigateNext = if (
+                            !movieData.isKinoPlay &&
+                            movieDetailSiblings.isNotEmpty() &&
+                            movieDetailCurrentIndex < movieDetailSiblings.size - 1
+                        ) {
+                            {
+                                movieDetailCurrentIndex += 1
+                                val next = movieDetailSiblings[movieDetailCurrentIndex]
+                                vodGridLastClickedMovieId = next.id
+                                selectedMovieData = vodContentToWideoSlideData(next)
+                            }
+                        } else null
                     )
                 } ?: run {
                     // Fallback if no movie data - return to TOP_MENU2
@@ -1213,6 +1281,8 @@ fun TvRoot(
                                     VodDataCache.mojeRefocusTrigger.value + 1
                                 VodDataCache.searchRefocusTrigger.value =
                                     VodDataCache.searchRefocusTrigger.value + 1
+                                VodDataCache.wideoRefocusTrigger.value =
+                                    VodDataCache.wideoRefocusTrigger.value + 1
                                 // Clear stale savedKinoPlayFocus — see MovieDetail.onBackPressed
                                 // for the same reasoning (state already survives via overlay).
                                 VodDataCache.savedKinoPlayFocus = null
@@ -1352,3 +1422,26 @@ fun TvRoot(
         }
     }
 }
+
+/**
+ * Maps a VodContent (WIDEO catalog item) to a VodSlideData with isKinoPlay=false so
+ * MovieDetailScreen renders WIDEO mode (Oglądaj + Do obejrzenia, no Wypożycz). Used for
+ * both initial entry and sibling prev/next swaps so the rebuild is consistent.
+ */
+private fun vodContentToWideoSlideData(vodContent: com.uxellence.tv.v3.version001.VodContent): VodSlideData =
+    VodSlideData(
+        title = vodContent.title,
+        genre = vodContent.category,
+        duration = "",
+        year = "",
+        country = "Polska",
+        ageRating = "13 lat",
+        description = vodContent.description,
+        price = vodContent.price ?: "19 zł/48h",
+        backgroundUrl = vodContent.backdropUrl ?: vodContent.imageUrl,
+        posterUrl = vodContent.imageUrl,
+        youtubeUrl = vodContent.youtubeUrl,
+        isKinoPlay = false,
+        cast = vodContent.cast,
+        channelLogoUrl = vodContent.channelLogoUrl
+    )

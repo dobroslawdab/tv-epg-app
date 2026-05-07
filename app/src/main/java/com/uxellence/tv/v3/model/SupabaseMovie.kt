@@ -105,5 +105,10 @@ fun SupabaseMovie.toVodSlideData(): VodSlideData = VodSlideData(
     audioLanguages = audio_languages,
     subtitleLanguages = subtitle_languages,
     director = director,
-    cast = cast
+    cast = cast,
+    // Items from the KINO_PLAY Supabase table are paid rentals — keep the legacy 2-button
+    // detail (Wypożycz / Zwiastun) and full Reżyser/Obsada metadata. Without this flag
+    // MovieDetailScreen falls back to WIDEO mode (single "Oglądaj" button, no metadata),
+    // which broke the Kino Play slider's "Dowiedz się więcej" path.
+    isKinoPlay = true
 )

@@ -37,6 +37,18 @@ object MojeContentCache {
             return kinoPlayMovies.filter { it.title in rentedTitles }
         }
 
+        // "Do obejrzenia" is dynamic too — driven by WatchlistManager. Each tap on the
+        // "Do obejrzenia" button on a WIDEO MovieDetail toggles a movie's title here.
+        if (channelName == "Do obejrzenia") {
+            val watchlist = com.uxellence.tv.v3.watchlist.WatchlistManager.items.value.toSet()
+            if (watchlist.isEmpty()) return emptyList()
+            val vodList = VodDataCache.getVodContentList()
+            // Preserve user's add order: iterate watchlist (ordered list) and resolve to
+            // VodContent by title. Items missing from current catalog are silently skipped.
+            return com.uxellence.tv.v3.watchlist.WatchlistManager.items.value
+                .mapNotNull { title -> vodList.firstOrNull { it.title == title } }
+        }
+
         // If already cached for this channel, return immediately
         channelContentCache[channelName]?.let { return it }
 

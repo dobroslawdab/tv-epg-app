@@ -4048,6 +4048,7 @@ private fun FullPageContent(
             WideoScreenContent(
                 globalFocusState = globalFocusState,
                 onNavigateToVodGrid = onNavigateToVodGrid,
+                onNavigateToMovieDetail = onNavigateToMovieDetail,
                 sx = sx,
                 sy = sy,
                 sliderVersion = sliderVersion,
@@ -5652,10 +5653,11 @@ private fun MojeChannelsScreen(
 
     // Faza 3: Grid content mapping - uses MojeContentCache for persistent content
     // Content is shuffled once per channel on first access and cached for app lifetime.
-    // RentalManager.rentals.value is read so MOJE→Wypożyczone refreshes when user rents
-    // or when debug-clears wypożyczenia.
+    // RentalManager.rentals.value + WatchlistManager.items.value are read so MOJE channels
+    // "Wypożyczone" and "Do obejrzenia" refresh when user adds/removes items.
     val rentalsSnapshot = com.uxellence.tv.v3.rental.RentalManager.rentals.value
-    val gridContent = remember(isNagraniaExpanded, showNagraniaV2, rentalsSnapshot) {
+    val watchlistSnapshot = com.uxellence.tv.v3.watchlist.WatchlistManager.items.value
+    val gridContent = remember(isNagraniaExpanded, showNagraniaV2, rentalsSnapshot, watchlistSnapshot) {
         MojeContentCache.getContent(channels)
     }
 
@@ -6262,34 +6264,42 @@ fun StartUnifiedChannelRow(
             label = "start_miniatures_y_offset_$rowIndex"
         )
         
+        val effectiveFocusIndex = rememberHorizontalEffectiveFocusIndex(lazyListState, sx)
         LazyRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .offset(y = miniaturesYOffset),
-            state = lazyListState, 
+            state = lazyListState,
             contentPadding = PaddingValues(start = sx(380), end = sx(20)),
             horizontalArrangement = Arrangement.spacedBy(sx(20))
         ) {
             items(rowContent.size) { colIndex ->
                 val vodContent = rowContent[colIndex]
-                val isItemFocused = rowIndex == focusedRowIndex && 
-                                   colIndex == lazyListState.firstVisibleItemIndex && 
+                val isItemFocused = rowIndex == focusedRowIndex &&
+                                   colIndex == effectiveFocusIndex &&
                                    focusedColIndex == 0
-                
+
                 val focusRequester = channelFocusRequesters[Pair(rowIndex, colIndex)] ?: FocusRequester()
-                
-                ContentCard(
-                    vodContent = vodContent,
-                    channelNumber = String.format("%03d", (rowIndex * 10 + colIndex + 1)),
-                    isFocused = isItemFocused,
-                    focusRequester = focusRequester,
-                    onFocusChange = { onChannelContentFocusChange(rowIndex, colIndex) },
-                    sx = sx,
-                    sy = sy,
-                    lazyListState = lazyListState
+                val postFocusPad = rememberPostFocusedCardPadding(
+                    isPrevCardFocused = rowIndex == focusedRowIndex && focusedColIndex == 0 &&
+                            colIndex == effectiveFocusIndex + 1,
+                    sx = sx
                 )
+
+                Box(modifier = Modifier.padding(start = postFocusPad)) {
+                    ContentCard(
+                        vodContent = vodContent,
+                        channelNumber = String.format("%03d", (rowIndex * 10 + colIndex + 1)),
+                        isFocused = isItemFocused,
+                        focusRequester = focusRequester,
+                        onFocusChange = { onChannelContentFocusChange(rowIndex, colIndex) },
+                        sx = sx,
+                        sy = sy,
+                        lazyListState = lazyListState
+                    )
+                }
             }
-            
+
             // Spacer items
             items(8) { 
                 Spacer(
@@ -7774,6 +7784,7 @@ private fun StartUnifiedChannelRow(
         )
         
         // LazyRow content - always rendered but animated
+        val effectiveFocusIndex = rememberHorizontalEffectiveFocusIndex(lazyListState, sx)
         LazyRow(
             modifier = Modifier
                 .fillMaxWidth(),
@@ -7788,21 +7799,28 @@ private fun StartUnifiedChannelRow(
             items(rowContent.size) { colIndex ->
                 val vodContent = rowContent[colIndex]
                 val isItemFocused = rowIndex == focusedRowIndex &&
-                                   colIndex == lazyListState.firstVisibleItemIndex &&
+                                   colIndex == effectiveFocusIndex &&
                                    focusedColIndex == 0
 
                 val focusRequester = channelFocusRequesters[Pair(rowIndex, colIndex)] ?: FocusRequester()
-
-                ContentCard(
-                    vodContent = vodContent,
-                    channelNumber = String.format("%03d", (rowIndex * 10 + colIndex + 1)),
-                    isFocused = isItemFocused,
-                    focusRequester = focusRequester,
-                    onFocusChange = { onChannelContentFocusChange(rowIndex, colIndex) },
-                    sx = sx,
-                    sy = sy,
-                    lazyListState = lazyListState
+                val postFocusPad = rememberPostFocusedCardPadding(
+                    isPrevCardFocused = rowIndex == focusedRowIndex && focusedColIndex == 0 &&
+                            colIndex == effectiveFocusIndex + 1,
+                    sx = sx
                 )
+
+                Box(modifier = Modifier.padding(start = postFocusPad)) {
+                    ContentCard(
+                        vodContent = vodContent,
+                        channelNumber = String.format("%03d", (rowIndex * 10 + colIndex + 1)),
+                        isFocused = isItemFocused,
+                        focusRequester = focusRequester,
+                        onFocusChange = { onChannelContentFocusChange(rowIndex, colIndex) },
+                        sx = sx,
+                        sy = sy,
+                        lazyListState = lazyListState
+                    )
+                }
             }
 
             // Spacer items for smooth scrolling (like MOJE)
@@ -8585,17 +8603,23 @@ fun MojeUnifiedChannelRow(
             } else {
                 items(rowContent.size) { colIndex ->
                     val vodContent = rowContent[colIndex]
+                    val effectiveFocusIndex = rememberHorizontalEffectiveFocusIndex(lazyListState, sx)
                     val isItemFocused = rowIndex == focusedRowIndex &&
-                                       colIndex == lazyListState.firstVisibleItemIndex &&
+                                       colIndex == effectiveFocusIndex &&
                                        focusedColIndex == 0
 
                     // Same pattern as PackageCard above - see Component #3 documentation
                     // FIX: Only assign FocusRequester to currently visible item (like WIDEO)
-                    val focusRequester = if (colIndex == lazyListState.firstVisibleItemIndex) {
+                    val focusRequester = if (colIndex == effectiveFocusIndex) {
                         channelFocusRequesters[Pair(rowIndex, 0)] ?: FocusRequester()
                     } else {
                         FocusRequester()
                     }
+                    val postFocusPad = rememberPostFocusedCardPadding(
+                        isPrevCardFocused = !isVertical && rowIndex == focusedRowIndex &&
+                                focusedColIndex == 0 && colIndex == effectiveFocusIndex + 1,
+                        sx = sx
+                    )
 
                     when {
                         isVertical -> {
@@ -8623,17 +8647,19 @@ fun MojeUnifiedChannelRow(
                             )
                         }
                         else -> {
-                            ContentCard(
-                                vodContent = vodContent,
-                                channelNumber = String.format("%03d", (rowIndex * 10 + colIndex + 1)),
-                                isFocused = isItemFocused,
-                                focusRequester = focusRequester,
-                                onFocusChange = { onChannelContentFocusChange(rowIndex, colIndex) },
-                                sx = sx,
-                                sy = sy,
-                                lazyListState = lazyListState
-                                // No onClick for MOJE section
-                            )
+                            Box(modifier = Modifier.padding(start = postFocusPad)) {
+                                ContentCard(
+                                    vodContent = vodContent,
+                                    channelNumber = String.format("%03d", (rowIndex * 10 + colIndex + 1)),
+                                    isFocused = isItemFocused,
+                                    focusRequester = focusRequester,
+                                    onFocusChange = { onChannelContentFocusChange(rowIndex, colIndex) },
+                                    sx = sx,
+                                    sy = sy,
+                                    lazyListState = lazyListState
+                                    // No onClick for MOJE section
+                                )
+                            }
                         }
                     }
                 }
@@ -10720,21 +10746,29 @@ fun AplikacjeUnifiedChannelRow(
                 // Normal horizontal content (only for non-shortcuts-v2 channels)
                 items(rowContent.size) { colIndex ->
                     val vodContent = rowContent[colIndex]
+                    val effectiveFocusIndex = rememberHorizontalEffectiveFocusIndex(lazyListState, sx)
                     val isItemFocused = rowIndex == focusedRowIndex &&
-                            colIndex == lazyListState.firstVisibleItemIndex &&
+                            colIndex == effectiveFocusIndex &&
                             focusedColIndex == 0
                     val focusRequester = channelFocusRequesters[Pair(rowIndex, colIndex)] ?: FocusRequester()
-
-                    ContentCard(
-                        vodContent = vodContent,
-                        channelNumber = String.format("%03d", (rowIndex * 10 + colIndex + 1)),
-                        isFocused = isItemFocused,
-                        focusRequester = focusRequester,
-                        onFocusChange = { onChannelContentFocusChange(rowIndex, colIndex) },
-                        sx = sx,
-                        sy = sy,
-                        lazyListState = lazyListState
+                    val postFocusPad = rememberPostFocusedCardPadding(
+                        isPrevCardFocused = rowIndex == focusedRowIndex && focusedColIndex == 0 &&
+                                colIndex == effectiveFocusIndex + 1,
+                        sx = sx
                     )
+
+                    Box(modifier = Modifier.padding(start = postFocusPad)) {
+                        ContentCard(
+                            vodContent = vodContent,
+                            channelNumber = String.format("%03d", (rowIndex * 10 + colIndex + 1)),
+                            isFocused = isItemFocused,
+                            focusRequester = focusRequester,
+                            onFocusChange = { onChannelContentFocusChange(rowIndex, colIndex) },
+                            sx = sx,
+                            sy = sy,
+                            lazyListState = lazyListState
+                        )
+                    }
                 }
             }
 
@@ -11657,6 +11691,7 @@ fun OdkrywajUnifiedChannelRow(
                         )
                     }
                 } else {
+                    val effectiveFocusIndex = rememberHorizontalEffectiveFocusIndex(lazyListState, sx)
                     LazyRow(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -11668,21 +11703,28 @@ fun OdkrywajUnifiedChannelRow(
                         items(rowContent.size) { colIndex ->
                             val vodContent = rowContent[colIndex]
                             val isItemFocused = rowIndex == focusedRowIndex &&
-                                    colIndex == lazyListState.firstVisibleItemIndex &&
+                                    colIndex == effectiveFocusIndex &&
                                     focusedColIndex == 0
                             val focusRequester = channelFocusRequesters[Pair(rowIndex, colIndex)] ?: FocusRequester()
-
-                            ContentCard(
-                                vodContent = vodContent,
-                                channelNumber = String.format("%03d", (rowIndex * 10 + colIndex + 1)),
-                                isFocused = isItemFocused,
-                                focusRequester = focusRequester,
-                                onFocusChange = { onChannelContentFocusChange(rowIndex, colIndex) },
-                                sx = sx,
-                                sy = sy,
-                                lazyListState = lazyListState,
-                                showChannelNumber = false  // Hide number badge in ODKRYWAJ
+                            val postFocusPad = rememberPostFocusedCardPadding(
+                                isPrevCardFocused = rowIndex == focusedRowIndex && focusedColIndex == 0 &&
+                                        colIndex == effectiveFocusIndex + 1,
+                                sx = sx
                             )
+
+                            Box(modifier = Modifier.padding(start = postFocusPad)) {
+                                ContentCard(
+                                    vodContent = vodContent,
+                                    channelNumber = String.format("%03d", (rowIndex * 10 + colIndex + 1)),
+                                    isFocused = isItemFocused,
+                                    focusRequester = focusRequester,
+                                    onFocusChange = { onChannelContentFocusChange(rowIndex, colIndex) },
+                                    sx = sx,
+                                    sy = sy,
+                                    lazyListState = lazyListState,
+                                    showChannelNumber = false  // Hide number badge in ODKRYWAJ
+                                )
+                            }
                         }
 
                         // Spacer items
@@ -12576,6 +12618,7 @@ fun TelewizjaUnifiedChannelRow(
                         )
                     }
                 } else {
+                    val effectiveFocusIndex = rememberHorizontalEffectiveFocusIndex(lazyListState, sx)
                     LazyRow(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -12587,24 +12630,31 @@ fun TelewizjaUnifiedChannelRow(
                         items(rowContent.size) { colIndex ->
                             val vodContent = rowContent[colIndex]
                             val isItemFocused = rowIndex == focusedRowIndex &&
-                                    colIndex == lazyListState.firstVisibleItemIndex &&
+                                    colIndex == effectiveFocusIndex &&
                                     focusedColIndex == 0
                             val focusRequester = channelFocusRequesters[Pair(rowIndex, colIndex)] ?: FocusRequester()
-
-                            ContentCard(
-                                vodContent = vodContent,
-                                channelNumber = String.format("%03d", (rowIndex * 10 + colIndex + 1)),
-                                isFocused = isItemFocused,
-                                focusRequester = focusRequester,
-                                onFocusChange = { onChannelContentFocusChange(rowIndex, colIndex) },
-                                sx = sx,
-                                sy = sy,
-                                lazyListState = lazyListState,
-                                onClick = {
-                                    android.util.Log.d("TELEWIZJA_CLICK", "Opening EPG Day Test from $channel: itemId=${vodContent.id}, scroll=${lazyListState.firstVisibleItemIndex}, section=$sectionId")
-                                    onNavigateToEpgDay(channel, vodContent.id, lazyListState.firstVisibleItemIndex, sectionId)  // ID-based: channelId, itemId, scrollPosition
-                                }
+                            val postFocusPad = rememberPostFocusedCardPadding(
+                                isPrevCardFocused = rowIndex == focusedRowIndex && focusedColIndex == 0 &&
+                                        colIndex == effectiveFocusIndex + 1,
+                                sx = sx
                             )
+
+                            Box(modifier = Modifier.padding(start = postFocusPad)) {
+                                ContentCard(
+                                    vodContent = vodContent,
+                                    channelNumber = String.format("%03d", (rowIndex * 10 + colIndex + 1)),
+                                    isFocused = isItemFocused,
+                                    focusRequester = focusRequester,
+                                    onFocusChange = { onChannelContentFocusChange(rowIndex, colIndex) },
+                                    sx = sx,
+                                    sy = sy,
+                                    lazyListState = lazyListState,
+                                    onClick = {
+                                        android.util.Log.d("TELEWIZJA_CLICK", "Opening EPG Day Test from $channel: itemId=${vodContent.id}, scroll=${lazyListState.firstVisibleItemIndex}, section=$sectionId")
+                                        onNavigateToEpgDay(channel, vodContent.id, lazyListState.firstVisibleItemIndex, sectionId)  // ID-based: channelId, itemId, scrollPosition
+                                    }
+                                )
+                            }
                         }
 
                         // Spacer items
@@ -12896,6 +12946,7 @@ private fun VodScreenContent(
 private fun WideoScreenContent(
     globalFocusState: MutableState<GlobalFocusState>,
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToMovieDetail: (VodSlideData) -> Unit = {},
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     sliderVersion: Int = 1,
@@ -12916,6 +12967,7 @@ private fun WideoScreenContent(
         },
         shouldAutoFocus = globalFocusState.value.sectionId == "WIDEO" && globalFocusState.value.currentRow > 0,
         onNavigateToVodGrid = onNavigateToVodGrid,
+        onNavigateToMovieDetail = onNavigateToMovieDetail,
         sx = sx,
         sy = sy,
         resetTrigger = resetTrigger,
@@ -13160,6 +13212,90 @@ private fun filterMoviesByCategory(movies: List<VodContent>, categoryFilter: Str
             movie.category.lowercase().contains(category)
         }
     } // Returns all matching movies (full catalog for KinoGridScreen)
+}
+
+/**
+ * Single source of truth for WIDEO chip categories. Used by:
+ *  - WideoChannelsScreen Skróty v3 chip row (UI source)
+ *  - VodGridScreen Kategoria picker (same options regardless of how user got there)
+ *  - VodGridScreen filter pipeline (looks up filter pattern by selectedCategory label)
+ *
+ * Pair = (display label, filter pattern for filterMoviesByCategory).
+ *  - filter `null` = "Wszystkie" (no filter, full bag)
+ *  - filter pattern uses `|` to OR multiple substring checks against VodContent.category
+ *
+ * Service-specific entries (Viaplay/SkyShowtime/etc.) won't all match the legacy mock
+ * data — they're populated as Viaplay items become available (see viaplay_filmy.json).
+ */
+val WIDEO_CHIP_CATEGORIES: List<Pair<String, String?>> = listOf(
+    "Wszystkie" to null,
+    // Viaplay split: films vs series vs combined. Filter pattern is unused for these three
+    // — applyWideoCategoryFilter handles them by `VodContent.id` prefix instead (see
+    // function body) so cleanup of `kategoria` field can drop the noisy "Serial" marker.
+    "Viaplay Filmy" to "__viaplay_films__",
+    "Viaplay Seriale" to "__viaplay_series__",
+    "Viaplay Filmy i Seriale" to "__viaplay_all__",
+    "SkyShowtime" to "SkyShowtime",
+    "BBC Player" to "BBC",
+    "Cinemax" to "Cinemax",
+    "AXN" to "AXN",
+    "National Geographic Play" to "National Geographic",
+    "Akcja" to "Akcja|Action",
+    "Disney" to "Disney",
+    "Dla dzieci" to "Dziecięcy|Familijny|Family|Kids",
+    "Dokument" to "Dokumentalny|Documentary",
+    "Dramat" to "Dramat|Drama",
+    "Fantastyka" to "Fantasy|Fantastyka",
+    "Historia" to "Historia|Historical|Biograficzny",
+    "Horror" to "Horror",
+    "Komedia" to "Komedia|Comedy",
+    "Muzyka" to "Muzyka|Music|Musical",
+    "Popularnonaukowe" to "Popularnonaukowy|Edukacyjny",
+    "Programy" to "Program",
+    "Rozrywka" to "Rozrywka|Show",
+    "Sci-Fi" to "Sci-Fi|Science Fiction",
+    "Seriale" to "Serial|Series",
+    "Sport" to "Sport",
+    "Styl życia" to "Lifestyle|Styl",
+    "Thriller" to "Thriller|Suspense",
+    "Wideoteka Play Dla dzieci" to "Familijny|Dziecięcy",
+    "Wideoteka Play Filmy" to null,
+    "Wideoteka Play Seriale" to "Serial",
+    "Wideoteka Play Wszystko" to null,
+    "Wojenne" to "Wojenny|War"
+)
+
+/** Public version of filterMoviesByCategory for use from VodGridScreen. Special-cases the
+ *  Viaplay film/series split — those are filtered by id prefix (films id starts with
+ *  `viaplay_` and not `viaplay_serial_`; series id starts with `viaplay_serial_`) so the
+ *  display category strings stay clean and human-readable. Other chips fall back to
+ *  pattern-based substring matching against `VodContent.category`.
+ */
+fun applyWideoCategoryFilter(movies: List<VodContent>, label: String): List<VodContent> {
+    if (label == "Wszystkie") return movies
+    return when (label) {
+        // Viaplay split — by id prefix
+        "Viaplay Filmy" ->
+            movies.filter { it.id.startsWith("viaplay_") && !it.id.startsWith("viaplay_serial_") }
+        "Viaplay Seriale" ->
+            movies.filter { it.id.startsWith("viaplay_serial_") }
+        "Viaplay Filmy i Seriale" ->
+            movies.filter { it.id.startsWith("viaplay_") }
+        // Wideoteka Play split — by id prefix (wpf=filmy, wps=seriale, wpk=kids)
+        "Wideoteka Play Filmy" ->
+            movies.filter { it.id.startsWith("wpf_") }
+        "Wideoteka Play Seriale" ->
+            movies.filter { it.id.startsWith("wps_") }
+        "Wideoteka Play Dla dzieci" ->
+            movies.filter { it.id.startsWith("wpk_") }
+        "Wideoteka Play Wszystko" ->
+            movies.filter { it.id.startsWith("wpf_") || it.id.startsWith("wps_") || it.id.startsWith("wpk_") }
+        else -> {
+            val filter = WIDEO_CHIP_CATEGORIES.firstOrNull { it.first.equals(label, ignoreCase = true) }?.second
+                ?: return movies  // unknown label → full bag (defensive)
+            filterMoviesByCategory(movies, filter)
+        }
+    }
 }
 
 @OptIn(ExperimentalComposeUiApi::class)
@@ -14341,7 +14477,9 @@ private fun VodHeroSliderV2(
     // === Navigation callback when DOWN goes past slider (to next row) ===
     onNavigateDown: (() -> Unit)? = null,  // Called when DOWN should go to next row (not KINO PLAY or already on button 1)
     // === Navigation callback when UP goes past slider (to menu) ===
-    onReturnToMenu: (() -> Unit)? = null  // Called when UP should go to menu (not KINO PLAY or already on button 0)
+    onReturnToMenu: (() -> Unit)? = null,  // Called when UP should go to menu (not KINO PLAY or already on button 0)
+    // === External-trigger refocus (e.g. WIDEO overlay refocus after MovieDetail closes) ===
+    refocusTriggerKey: Int = 0
 ) {
     val sliderItems = items
 
@@ -14385,6 +14523,24 @@ private fun VodHeroSliderV2(
                 // User went UP to top menu - RESET pause, resume auto-rotation
                 pauseUntilTime = 0L
             }
+        }
+    }
+
+    // External-trigger refocus: parent flips refocusTriggerKey after an overlay (MovieDetail
+    // / Purchase / RentalProcessing) closes. The LaunchedEffect(isFocused) above only fires
+    // on isFocused TRANSITIONS — when isFocused stays true across overlay open/close, the
+    // Compose focus owner was lost (the overlay had it) but the parameter never changed,
+    // so without this effect Left/Right scrolling stays dead. Skip first fire so a
+    // session-wide non-zero trigger doesn't auto-grab focus on every slider mount.
+    var didSliderRefocusInitialFire by remember { mutableStateOf(false) }
+    LaunchedEffect(refocusTriggerKey) {
+        if (!didSliderRefocusInitialFire) {
+            didSliderRefocusInitialFire = true
+            return@LaunchedEffect
+        }
+        if (refocusTriggerKey > 0 && isFocused) {
+            kotlinx.coroutines.delay(50)
+            try { focusRequester.requestFocus() } catch (_: Exception) {}
         }
     }
 
@@ -16440,6 +16596,7 @@ private fun VodUnifiedChannelRow(
             label = "vod_miniatures_y_offset_$actualRowIndex"
         )
 
+        val effectiveFocusIndex = rememberHorizontalEffectiveFocusIndex(lazyListState, sx, cardWidthPx = 220)
         LazyRow(
             modifier = Modifier
                 .fillMaxWidth()
@@ -16455,7 +16612,7 @@ private fun VodUnifiedChannelRow(
             items(rowContent.size) { colIndex ->
                 val vodContent = rowContent[colIndex]
                 val isItemFocused = actualRowIndex == focusedRowIndex &&
-                        colIndex == lazyListState.firstVisibleItemIndex &&
+                        colIndex == effectiveFocusIndex &&
                         focusedColIndex == 0
 
                 val focusRequester = channelFocusRequesters[Pair(actualRowIndex, colIndex)] ?: FocusRequester()
@@ -16634,6 +16791,48 @@ private fun VodUnifiedChannelRow(
     }
 }
 
+/**
+ * "Effective" focused index for fixed-focus horizontal LazyRows: flips at HALF-card scroll
+ * progress instead of at the end (when firstVisibleItemIndex naturally updates). This makes
+ * RIGHT-key card growth animate IN-SYNC with the scroll, matching the smoothness of LEFT.
+ *
+ * Use everywhere that follows the "fixed focus position" pattern (visual focus tracks
+ * `lazyListState.firstVisibleItemIndex`, only Pair(row, 0) has stable FocusRequester).
+ */
+@Composable
+internal fun rememberHorizontalEffectiveFocusIndex(
+    lazyListState: LazyListState,
+    sx: (Int) -> androidx.compose.ui.unit.Dp,
+    cardWidthPx: Int = 368,
+    gapPx: Int = 20
+): Int {
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val itemPlusGapPx = remember(density, cardWidthPx, gapPx) {
+        with(density) { (sx(cardWidthPx) + sx(gapPx)).toPx() }
+    }
+    return lazyListState.firstVisibleItemIndex +
+        if (lazyListState.firstVisibleItemScrollOffset > itemPlusGapPx / 2) 1 else 0
+}
+
+/**
+ * Animated start padding to add to the card RIGHT AFTER a focused card. Compensates for
+ * ContentCard's left-pivot scale (1.22×) — without this padding the focused card would
+ * eat the 20px gap and overlap the next card.
+ */
+@Composable
+internal fun rememberPostFocusedCardPadding(
+    isPrevCardFocused: Boolean,
+    sx: (Int) -> androidx.compose.ui.unit.Dp,
+    extraPx: Int = 81  // baseWidth(368) * scale_delta(0.22)
+): androidx.compose.ui.unit.Dp {
+    val pad by androidx.compose.animation.core.animateDpAsState(
+        targetValue = if (isPrevCardFocused) sx(extraPx) else 0.dp,
+        animationSpec = androidx.compose.animation.core.tween(durationMillis = 200),
+        label = "card_post_focus_pad"
+    )
+    return pad
+}
+
 @Composable
 private fun ContentCard(
     vodContent: VodContent,
@@ -16652,17 +16851,13 @@ private fun ContentCard(
     val baseWidth = sx(368)
     val baseHeight = sy(208)
 
-    // Globalny zoom-on-focus: animowane width/height (zamiast graphicsLayer scale).
-    // Dzięki temu LazyRow naturalnie przesuwa kolejne kafle w prawo, zachowując margines.
-    val itemWidth by androidx.compose.animation.core.animateDpAsState(
-        targetValue = if (isFocused) baseWidth * 1.22f else baseWidth,
+    // Zoom-on-focus via graphicsLayer scale instead of width/height animation. The card's
+    // measured size in LazyRow stays the same → no layout shift, no scroll re-adjust after
+    // animation completes. Pivot center keeps the card growing equally on all sides.
+    val scale by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (isFocused) 1.22f else 1f,
         animationSpec = androidx.compose.animation.core.tween(durationMillis = 200),
-        label = "card_width_on_focus"
-    )
-    val itemHeight by androidx.compose.animation.core.animateDpAsState(
-        targetValue = if (isFocused) baseHeight * 1.22f else baseHeight,
-        animationSpec = androidx.compose.animation.core.tween(durationMillis = 200),
-        label = "card_height_on_focus"
+        label = "card_scale_on_focus"
     )
 
     // Autoplay trailer po 2s fokusa
@@ -16676,16 +16871,19 @@ private fun ContentCard(
         }
     }
 
-    // Offset w górę o połowę przyrostu height — żeby kafelek rósł symetrycznie góra/dół
-    // (wycentrowany pionowo zamiast tylko w dół).
-    val verticalCenterOffset = -((itemHeight - baseHeight) / 2)
-
     Box(
         modifier = Modifier
-            .width(itemWidth)
-            .height(itemHeight)
-            .offset(y = verticalCenterOffset)
+            .width(baseWidth)
+            .height(baseHeight)
             .zIndex(if (isFocused) 1f else 0f)  // focused na wierzchu
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+                // Pivot at LEFT-CENTER: card grows to the right + vertically equal both
+                // ways, but the LEFT edge stays anchored. Otherwise center pivot would
+                // push the focused card ~30px past the title's left margin.
+                transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0.5f)
+            }
             .clip(RoundedCornerShape(sx(12)))
             .then(
                 if (isFocused) Modifier.border(
@@ -16774,18 +16972,31 @@ private fun ContentCard(
             }
         }
 
-        // Title
-        Text(
-            text = vodContent.title,
-            color = Color.White,
-            fontSize = (20 * (sy(1).value / 1.dp.value)).sp,
-            fontWeight = FontWeight.Bold,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
+        // Bottom-left: channel logo + title (mirror VodGridScreen miniature treatment)
+        Row(
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(start = sx(12), bottom = sy(12), end = sx(12))
-        )
+                .padding(start = sx(12), bottom = sy(12), end = sx(12)),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(sx(8))
+        ) {
+            if (vodContent.channelLogoUrl.isNotBlank()) {
+                AsyncImage(
+                    model = vodContent.channelLogoUrl,
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.size(sx(64))
+                )
+            }
+            Text(
+                text = vodContent.title,
+                color = Color.White,
+                fontSize = (20 * (sy(1).value / 1.dp.value)).sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }
 
@@ -18119,7 +18330,14 @@ private fun VodContentCard(
     val itemWidth = sx(220)
     val itemHeight = sy(380)
 
-    val scale by animateFloatAsState(if (isFocused) 1.1f else 1.0f)
+    // Tween (200ms) instead of default spring — matches the duration of LazyRow scroll
+    // animation so growth and scroll happen in lock-step on RIGHT key (otherwise spring
+    // settles AFTER scroll, looking like "scroll then grow" stutter).
+    val scale by animateFloatAsState(
+        targetValue = if (isFocused) 1.1f else 1.0f,
+        animationSpec = androidx.compose.animation.core.tween(durationMillis = 200),
+        label = "vod_card_scale"
+    )
 
     // Real rental expiry (preferred) — falls back to a stable mock day if the movie
     // isn't tracked by RentalManager (legacy "Wypożyczone" mock list / placeholder).
@@ -19219,6 +19437,7 @@ private fun WideoChannelsScreen(
     onReturnToMenu: () -> Unit = {},
     shouldAutoFocus: Boolean = false,
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToMovieDetail: (VodSlideData) -> Unit = {},
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     resetTrigger: Int = 0,
@@ -19241,17 +19460,14 @@ private fun WideoChannelsScreen(
         "KOLEKCJE"
     )
 
-    // Shortcuts for Row 4 (Skróty v3) - same categories as KINO_PLAY
-    val verticalShortcuts = remember {
-        listOf(
-            ShortcutItem("1", "AKCJA", ShortcutIcon.VectorIcon(R.drawable.ic_shortcut_akcja), categoryFilter = "Akcja|Action"),
-            ShortcutItem("2", "BIOGRAFICZNY", ShortcutIcon.VectorIcon(R.drawable.ic_shortcut_biograficzny), categoryFilter = "Biograficzny|Biography|Biographical"),
-            ShortcutItem("3", "DOKUMENTALNE", ShortcutIcon.VectorIcon(R.drawable.ic_shortcut_dokumentalne), categoryFilter = "Dokumentalny|Documentary"),
-            ShortcutItem("4", "PRZYGODOWE", ShortcutIcon.VectorIcon(R.drawable.ic_shortcut_przygodowe), categoryFilter = "Przygodowy|Adventure"),
-            ShortcutItem("5", "HORROR", ShortcutIcon.VectorIcon(R.drawable.ic_shortcut_horror), categoryFilter = "Horror"),
-            ShortcutItem("6", "FILMY POLSKIE", ShortcutIcon.VectorIcon(R.drawable.ic_shortcut_filmy_polskie), categoryFilter = "Polski|Polish")
-        )
-    }
+    // Single source of truth for WIDEO chip categories (TopMenuScreen2 chip row + VodGridScreen
+    // Kategoria picker + grid filter). Pulled from top-level constant `WIDEO_CHIP_CATEGORIES`
+    // — same instance used everywhere ensures the chip → picker → filter chain is consistent.
+    val wideoChipCategories = WIDEO_CHIP_CATEGORIES
+
+    // Legacy shortcuts list kept as empty placeholder so existing channelFocusRequesters
+    // signature compiles; we no longer use ShortcutItem for the chip row.
+    val verticalShortcuts: List<ShortcutItem> = remember { emptyList() }
 
     // Filmy fabularne — hardcoded lista z mock data (9 filmów PlayNow z DASH trailers)
     val filmyFabularne = remember {
@@ -19353,12 +19569,46 @@ private fun WideoChannelsScreen(
 
     val gridContent = remember(filmyFabularne) {
         val vodContentList = VodDataCache.getVodContentList()
+        val kinoPlayMovies = VodDataCache.getKinoPlayMovies()
+
+        // Helper: pull items matching a chip-filter pattern (e.g. "Cinemax",
+        // "Dokumentalny|Documentary"). Falls back to id-prefix matches for service splits.
+        fun byCategory(filterPattern: String): List<VodContent> =
+            filterMoviesByCategory(vodContentList, filterPattern)
+
+        // "Seriale" channel — Viaplay serials only (per user request).
+        val seriale = vodContentList.filter { it.id.startsWith("viaplay_serial_") }.take(40)
+
+        // Cinemax — id prefix is the cleanest signal (catalog file is `cinemax.json`)
+        val cinemaxItems = vodContentList.filter { it.id.startsWith("cinemax_") }.take(40)
+
+        // Dokumentalne — both the service-pack id prefix and the genre-pack id prefix
+        // produce documentary content; combine + dedupe by id.
+        val dokumentalne = vodContentList.filter {
+            it.id.startsWith("dokument_") || it.id.startsWith("bbc_") ||
+                it.category.contains("Dokumentalny", ignoreCase = true)
+        }.distinctBy { it.id }.take(40)
+
+        // "Świetna rozrywka" → Rozrywka content (id prefix or category match)
+        val rozrywka = vodContentList.filter {
+            it.id.startsWith("rozrywka_") || it.category.contains("Rozrywka", ignoreCase = true)
+        }.distinctBy { it.id }.take(40)
+
+        // "Najlepsze wg Filmwebu" → Kino Play (paid) catalog
+        val filmweb = kinoPlayMovies.shuffled().take(40)
+
         if (vodContentList.isNotEmpty()) {
             channels.associateWith { channelName ->
                 when (channelName) {
-                    "Slider Mix", "Skróty v3" -> emptyList() // No horizontal content
-                    "Filmy fabularne" -> filmyFabularne   // Hardcoded mock z DASH trailerami
-                    else -> vodContentList.shuffled().take(10)
+                    "Slider Mix", "Skróty v3" -> emptyList()
+                    "Filmy fabularne" -> filmyFabularne
+                    "Seriale" -> seriale
+                    "Cinemax" -> cinemaxItems
+                    "Filmy dokumentalne" -> dokumentalne
+                    "Świetna rozrywka" -> rozrywka
+                    "Najlepsze wg Filmwebu" -> filmweb
+                    "KOLEKCJE" -> vodContentList.shuffled().take(40)  // bez zmian — kolekcje
+                    else -> vodContentList.shuffled().take(40)
                 }
             }
         } else {
@@ -19387,7 +19637,7 @@ private fun WideoChannelsScreen(
         onFocusedChannelChange(if (showGradient) "SHOW_GRADIENT" else "")
     }
 
-    val channelFocusRequesters = remember(channels.size, verticalShortcuts.size) {
+    val channelFocusRequesters = remember(channels.size, wideoChipCategories.size) {
         mutableMapOf<Pair<Int, Int>, FocusRequester>().apply {
             // Row 1 = Slider Mix (colIndex 0 = rent button)
             put(Pair(1, 0), FocusRequester())
@@ -19398,8 +19648,8 @@ private fun WideoChannelsScreen(
                 put(Pair(rowIndex, 0), FocusRequester()) // Fixed focus position
             }
 
-            // Row 4 = Skróty v3 (colIndex 0-5 = 6 horizontal shortcuts, NO CategoryIcon)
-            repeat(verticalShortcuts.size) { colIndex ->
+            // Row 4 = Skróty v3 (chip row, NO CategoryIcon, colIndex 0..N-1)
+            repeat(wideoChipCategories.size) { colIndex ->
                 put(Pair(4, colIndex), FocusRequester())
             }
 
@@ -19413,10 +19663,11 @@ private fun WideoChannelsScreen(
 
     val lazyListStates = remember(channels.size) {
         mutableMapOf<Int, LazyListState>().apply {
-            // Row 2-3 and 5+ = horizontal channels with LazyRow (skip row 4 = Skróty)
+            // Row 2-3, 4 (chip scrolling) and 5+
             for (rowIndex in 2..3) {
                 put(rowIndex, LazyListState())
             }
+            put(4, LazyListState())  // chip row scrolls horizontally
             for (rowIndex in 5 until channels.size + 1) {
                 put(rowIndex, LazyListState())
             }
@@ -19426,12 +19677,11 @@ private fun WideoChannelsScreen(
     val coroutineScope = rememberCoroutineScope()
     var isInitialized by remember { mutableStateOf(false) }
 
-    // Auto-reset LazyListState for unfocused rows
+    // Auto-reset LazyListState for unfocused rows (also resets chip scroll on row 4)
     LaunchedEffect(focusedRowIndex, focusedColIndex, isInitialized) {
         if (isInitialized) {
             kotlinx.coroutines.delay(0)
-            // Reset rows 2-3 and 5+ (skip row 4 = Skróty which has no LazyRow)
-            val horizontalRows = (2..3).toList() + (5 until channels.size + 1).toList()
+            val horizontalRows = (2..3).toList() + listOf(4) + (5 until channels.size + 1).toList()
             for (rowIndex in horizontalRows) {
                 if (rowIndex != focusedRowIndex) {
                     val lazyListState = lazyListStates[rowIndex]
@@ -19440,6 +19690,24 @@ private fun WideoChannelsScreen(
                     }
                 }
             }
+        }
+    }
+
+    // Outer Box's FocusRequester — refocus target after MovieDetail closes back into the
+    // still-mounted WIDEO tab (overlay path). Same pattern as VodWithChannels.
+    val rootBoxFocusRequester = remember { FocusRequester() }
+    var didWideoRefocusInitialFire by remember { mutableStateOf(false) }
+    LaunchedEffect(VodDataCache.wideoRefocusTrigger.value) {
+        if (!didWideoRefocusInitialFire) {
+            didWideoRefocusInitialFire = true
+            return@LaunchedEffect
+        }
+        if (VodDataCache.wideoRefocusTrigger.value > 0 &&
+            globalFocusState.value.sectionId == "WIDEO" &&
+            globalFocusState.value.currentRow > 0
+        ) {
+            kotlinx.coroutines.delay(50)
+            try { rootBoxFocusRequester.requestFocus() } catch (_: Exception) {}
         }
     }
 
@@ -19457,6 +19725,7 @@ private fun WideoChannelsScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF281443))
+            .focusRequester(rootBoxFocusRequester)
             .onPreviewKeyEvent { event ->
                 handleWideoChannelsNavigation(
                     event = event,
@@ -19468,17 +19737,39 @@ private fun WideoChannelsScreen(
                     },
                     channelFocusRequesters = channelFocusRequesters,
                     channels = channels,
-                    verticalShortcuts = verticalShortcuts,
+                    chipCount = wideoChipCategories.size,
                     lazyListStates = lazyListStates,
                     coroutineScope = coroutineScope,
                     gridContent = gridContent,
-                    onReturnToMenu = onReturnToMenu
+                    onReturnToMenu = onReturnToMenu,
+                    onMovieClicked = { vodContent ->
+                        // Build VodSlideData; isKinoPlay=false → MovieDetailScreen renders
+                        // WIDEO mode (Oglądaj + Do obejrzenia, no rezyser/aktorzy/kraj).
+                        onNavigateToMovieDetail(
+                            VodSlideData(
+                                title = vodContent.title,
+                                genre = vodContent.category,
+                                duration = "",
+                                year = "",
+                                country = "Polska",
+                                ageRating = "13 lat",
+                                description = vodContent.description,
+                                price = vodContent.price ?: "",
+                                backgroundUrl = vodContent.imageUrl,
+                                posterUrl = vodContent.imageUrl,
+                                youtubeUrl = vodContent.youtubeUrl,
+                                isKinoPlay = false,
+                                channelLogoUrl = vodContent.channelLogoUrl
+                            )
+                        )
+                    }
                 )
             }
+            .focusable()
     ) {
         WideoChannelRowsLayout(
             channels = channels,
-            verticalShortcuts = verticalShortcuts,
+            chipCategories = wideoChipCategories,
             gridContent = gridContent,
             focusedRowIndex = focusedRowIndex,
             focusedColIndex = focusedColIndex,
@@ -19488,6 +19779,7 @@ private fun WideoChannelsScreen(
                 focusedColIndex = col
             },
             onNavigateToVodGrid = onNavigateToVodGrid,
+            onNavigateToMovieDetail = onNavigateToMovieDetail,
             lazyListStates = lazyListStates,
             sx = sx,
             sy = sy,
@@ -19505,17 +19797,37 @@ private fun handleWideoChannelsNavigation(
     onChannelContentFocusChange: (Int, Int) -> Unit,
     channelFocusRequesters: Map<Pair<Int, Int>, FocusRequester>,
     channels: List<String>,
-    verticalShortcuts: List<ShortcutItem>,
+    chipCount: Int,
     lazyListStates: Map<Int, LazyListState>,
     coroutineScope: CoroutineScope,
     gridContent: Map<String, List<VodContent>>,
-    onReturnToMenu: () -> Unit
+    onReturnToMenu: () -> Unit,
+    onMovieClicked: (VodContent) -> Unit = {}
 ): Boolean {
     if (event.type != KeyEventType.KeyDown) {
         return false
     }
 
     when (event.key) {
+        Key.Enter, Key.DirectionCenter, Key.NumPadEnter -> {
+            // Slider (row 1) and chip row (row 4) own their ENTER — slider has rent buttons,
+            // chips have their own onClick. Channel content rows (2-3, 5+) on a poster (col 0)
+            // → open MovieDetail with the currently visible item.
+            if (focusedRowIndex == 1 || focusedRowIndex == 4) return false
+            if (focusedColIndex < 0) return false
+            val channelName = channels.getOrNull(focusedRowIndex - 1) ?: return false
+            val rowContent = gridContent[channelName].orEmpty()
+            if (rowContent.isEmpty()) return false
+            val lazyListState = lazyListStates[focusedRowIndex] ?: return false
+            // Use the same "effective" index as the visual focus indicator — when the user
+            // hits ENTER mid-scroll we open whatever they SEE focused, not the lagged FVI.
+            val approxItemPx = 368 + 20  // matches LazyRow item+gap baseline
+            val effectiveIndex = lazyListState.firstVisibleItemIndex +
+                if (lazyListState.firstVisibleItemScrollOffset > approxItemPx / 2) 1 else 0
+            val visibleIndex = effectiveIndex.coerceIn(0, rowContent.size - 1)
+            onMovieClicked(rowContent[visibleIndex])
+            return true
+        }
         Key.DirectionUp -> {
             when {
                 focusedRowIndex == 1 -> {
@@ -19580,7 +19892,7 @@ private fun handleWideoChannelsNavigation(
             when (focusedRowIndex) {
                 // Row 1 (Slider Mix): Delegate to SliderMixScreen to handle carousel (like START)
                 1 -> return false
-                // Row 4 (Skróty v3): Direct focus navigation (NO scrolling, like APLIKACJE)
+                // Row 4 (Skróty v3 chip row): symmetric — focus prev chip, no manual scroll.
                 4 -> {
                     if (focusedColIndex > 0) {
                         val newColIndex = focusedColIndex - 1
@@ -19614,9 +19926,12 @@ private fun handleWideoChannelsNavigation(
             when (focusedRowIndex) {
                 // Row 1 (Slider Mix): Delegate to SliderMixScreen to handle carousel (like START)
                 1 -> return false
-                // Row 4 (Skróty v3): Direct focus navigation (NO scrolling, like APLIKACJE)
+                // Row 4 (Skróty v3 chip row): focus → next chip; LazyRow's built-in
+                // bringIntoView handles horizontal scrolling automatically (same as KINO_PLAY
+                // "Wszystkie" — no manual animateScrollToItem, which was causing the
+                // scroll-then-jump-back artifact on RIGHT key).
                 4 -> {
-                    if (focusedColIndex < verticalShortcuts.size - 1) {
+                    if (focusedColIndex < chipCount - 1) {
                         val newColIndex = focusedColIndex + 1
                         onChannelContentFocusChange(focusedRowIndex, newColIndex)
                         channelFocusRequesters[Pair(focusedRowIndex, newColIndex)]?.requestFocus()
@@ -19653,24 +19968,28 @@ private fun handleWideoChannelsNavigation(
 @Composable
 fun WideoChannelRowsLayout(
     channels: List<String>,
-    verticalShortcuts: List<ShortcutItem>,
+    chipCategories: List<Pair<String, String?>>,
     gridContent: Map<String, List<VodContent>>,
     focusedRowIndex: Int,
     focusedColIndex: Int,
     channelFocusRequesters: Map<Pair<Int, Int>, FocusRequester>,
     onChannelContentFocusChange: (Int, Int) -> Unit,
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToMovieDetail: (VodSlideData) -> Unit = {},
     lazyListStates: Map<Int, LazyListState>,
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     sliderVersion: Int = 1,
     globalFocusState: MutableState<GlobalFocusState>
 ) {
-    // Load WIDEO slider items from local VOD content (same source as SliderMixScreen V1)
+    // Load WIDEO slider items from local VOD content. Override `isKinoPlay = false` so
+    // OK on a slide opens MovieDetail in WIDEO mode (Oglądaj + Do obejrzenia, no Wypożycz).
+    // VodContent.toVodSlideData defaults to isKinoPlay=true because most callers use it for
+    // KINO_PLAY content; here we explicitly downgrade since WIDEO is free streaming.
     val context = LocalContext.current
     val wideoSliderItems = remember {
         val vodContent = com.uxellence.tv.v3.version001.loadVodContentFromAssets(context)
-        vodContent.shuffled().take(10).map { it.toVodSlideData() }
+        vodContent.shuffled().take(10).map { it.toVodSlideData().copy(isKinoPlay = false) }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -19695,7 +20014,9 @@ fun WideoChannelRowsLayout(
                 sectionType = "WIDEO",
                 sx = sx,
                 sy = sy,
-                showBullets = focusedRowIndex < 2  // Hide bullets when focused on Skróty or below
+                showBullets = focusedRowIndex < 2,  // Hide bullets when focused on Skróty or below
+                onSlideClicked = onNavigateToMovieDetail,
+                refocusTriggerKey = VodDataCache.wideoRefocusTrigger.value
             )
         }
 
@@ -19718,7 +20039,7 @@ fun WideoChannelRowsLayout(
                     channel = channelName,
                     rowIndex = rowIndex,
                     rowContent = rowContent,
-                    shortcuts = verticalShortcuts,
+                    chipCategories = chipCategories,
                     focusedRowIndex = focusedRowIndex,
                     focusedColIndex = focusedColIndex,
                     channelFocusRequesters = channelFocusRequesters,
@@ -19847,7 +20168,7 @@ fun WideoUnifiedChannelRow(
     channel: String,
     rowIndex: Int,
     rowContent: List<VodContent>,
-    shortcuts: List<ShortcutItem>,
+    chipCategories: List<Pair<String, String?>>,
     focusedRowIndex: Int,
     focusedColIndex: Int,
     channelFocusRequesters: Map<Pair<Int, Int>, FocusRequester>,
@@ -19879,8 +20200,12 @@ fun WideoUnifiedChannelRow(
             label = "wideo_miniatures_y_offset_$rowIndex"
         )
 
-        // Normal channel content (LazyRow with scrolling)
+        // Normal channel content (LazyRow with scrolling). See helpers above:
+        //  - rememberHorizontalEffectiveFocusIndex flips visual focus at half-card scroll
+        //  - rememberPostFocusedCardPadding compensates for ContentCard's left-pivot scale
         if (!isShortcutsV3) {
+            val effectiveFocusIndex = rememberHorizontalEffectiveFocusIndex(lazyListState, sx)
+
             LazyRow(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -19892,33 +20217,42 @@ fun WideoUnifiedChannelRow(
                 items(rowContent.size) { colIndex ->
                     val vodContent = rowContent[colIndex]
                     val isItemFocused = rowIndex == focusedRowIndex &&
-                            colIndex == lazyListState.firstVisibleItemIndex &&
+                            colIndex == effectiveFocusIndex &&
                             focusedColIndex == 0
-                    // Only the focused item (firstVisibleItemIndex) gets the mapped FocusRequester
-                    val focusRequester = if (colIndex == lazyListState.firstVisibleItemIndex) {
+                    // FocusRequester binds to effective focused card (so the Compose focus
+                    // owner moves in sync with the visual zoom).
+                    val focusRequester = if (colIndex == effectiveFocusIndex) {
                         channelFocusRequesters[Pair(rowIndex, 0)] ?: FocusRequester()
                     } else {
                         FocusRequester()
                     }
+
+                    val postFocusPad = rememberPostFocusedCardPadding(
+                        isPrevCardFocused = rowIndex == focusedRowIndex && focusedColIndex == 0 &&
+                                colIndex == effectiveFocusIndex + 1,
+                        sx = sx
+                    )
 
                     // "Filmy fabularne": każdy film ma swój trailer URL w vodContent.youtubeUrl
                     // (DASH manifesty z PlayNow). Start od 2s.
                     val mockTrailer = if (channel == "Filmy fabularne") vodContent.youtubeUrl else null
                     val mockTrailerStart = if (channel == "Filmy fabularne") 2_000L else 0L
 
-                    ContentCard(
-                        vodContent = vodContent,
-                        channelNumber = String.format("%03d", (rowIndex * 10 + colIndex + 1)),
-                        isFocused = isItemFocused,
-                        focusRequester = focusRequester,
-                        onFocusChange = { onChannelContentFocusChange(rowIndex, colIndex) },
-                        sx = sx,
-                        sy = sy,
-                        lazyListState = lazyListState,
-                        showChannelNumber = false,
-                        trailerUrl = mockTrailer,
-                        trailerStartPositionMs = mockTrailerStart
-                    )
+                    Box(modifier = Modifier.padding(start = postFocusPad)) {
+                        ContentCard(
+                            vodContent = vodContent,
+                            channelNumber = String.format("%03d", (rowIndex * 10 + colIndex + 1)),
+                            isFocused = isItemFocused,
+                            focusRequester = focusRequester,
+                            onFocusChange = { onChannelContentFocusChange(rowIndex, colIndex) },
+                            sx = sx,
+                            sy = sy,
+                            lazyListState = lazyListState,
+                            showChannelNumber = false,
+                            trailerUrl = mockTrailer,
+                            trailerStartPositionMs = mockTrailerStart
+                        )
+                    }
                 }
 
                 items(8) {
@@ -19927,50 +20261,49 @@ fun WideoUnifiedChannelRow(
             }
         }
 
-        // Skróty v3 row - IDENTICAL to KINO_PLAY (LazyRow with ShortcutCard 235x208px)
+        // Skróty v3 row — chip layout matching KINO_PLAY "Wszystkie" (CategoryChip 202x80px)
         if (isShortcutsV3) {
             LazyRow(
+                state = lazyListState,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(sy(208)) // Figma: 208px card height - fixed, no animation
+                    .height(sy(80))                                       // chip height per Figma
                     .offset(y = miniaturesYOffset),
-                contentPadding = PaddingValues(
-                    start = sx(80), // Align with CategoryIcon position (same as KINO_PLAY)
-                    end = sx(20)
-                ),
-                horizontalArrangement = Arrangement.spacedBy(sx(24)) // Figma: 24px spacing (same as KINO_PLAY)
+                contentPadding = PaddingValues(start = sx(80), end = sx(20)),
+                horizontalArrangement = Arrangement.spacedBy(sx(24)),     // 24px gap (same as KINO_PLAY)
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                itemsIndexed(shortcuts) { colIndex, shortcut ->
-                    val isItemFocused = rowIndex == focusedRowIndex && colIndex == focusedColIndex
+                itemsIndexed(chipCategories) { colIndex, (label, filter) ->
+                    val isChipFocused = rowIndex == focusedRowIndex && colIndex == focusedColIndex
                     val focusRequester = channelFocusRequesters[Pair(rowIndex, colIndex)] ?: FocusRequester()
 
-                    ShortcutCard(
-                        shortcut = shortcut,
-                        isFocused = isItemFocused,
+                    CategoryChip(
+                        label = label,
+                        isFocused = isChipFocused,
                         focusRequester = focusRequester,
                         sx = sx,
                         sy = sy,
-                        onFocusChange = { isFocused ->
-                            if (isFocused) onChannelContentFocusChange(rowIndex, colIndex)
+                        onFocusChange = { focused ->
+                            if (focused) onChannelContentFocusChange(rowIndex, colIndex)
                         },
                         onClick = {
-                            // Navigate to VodGridScreen with shortcut-specific filtered content (like KINO_PLAY)
-                            val vodList = VodDataCache.getVodContentList()
-                            val filtered = if (shortcut.categoryFilter != null) {
-                                filterMoviesByCategory(vodList, shortcut.categoryFilter)
-                            } else {
-                                vodList.shuffled().take(10)
-                            }
-                            onNavigateToVodGrid(shortcut.title, filtered, "WIDEO")
+                            // ENTER → VodGridScreen with the FULL bag + chip label as the
+                            // initial Kategoria selection. The grid renders the same chip-list
+                            // categories in its picker, so the user can switch categories from
+                            // anywhere without navigating back. (No prefiltered prop here —
+                            // VodGridScreen owns the filter pipeline.)
+                            onNavigateToVodGrid(label, null, "WIDEO")
                         }
                     )
                 }
             }
         }
 
-        // Details overlay (only for normal channels, not Skróty v3)
+        // Details overlay (only for normal channels, not Skróty v3) — uses the same
+        // "effective" focused item as the cards so title/desc switch in sync with zoom.
         if (!isShortcutsV3 && isCurrentRow && focusedColIndex == 0 && showDetailsWithDelay) {
-            val firstVisibleContent = rowContent.getOrNull(lazyListState.firstVisibleItemIndex)
+            val effectiveFocusIndex = rememberHorizontalEffectiveFocusIndex(lazyListState, sx)
+            val firstVisibleContent = rowContent.getOrNull(effectiveFocusIndex)
             if (firstVisibleContent != null) {
                 Box(
                     modifier = Modifier
@@ -20065,14 +20398,15 @@ private fun calculateWideoRowYPosition(
 ): androidx.compose.ui.unit.Dp {
     val FIXED_FOCUS_Y = 340
     val SLIDER_MIX_HEIGHT = 586 // Height for 184px spacing (742+184=926; 926-340=586)
-    val SHORTCUTS_V2_HEIGHT = 246 // Height for horizontal shortcuts row (like APLIKACJE)
+    // Chip row (Skróty v3): chip=80 + 56 bottom spacing = 136 (matches KINO_PLAY chip layout)
+    val CHIP_ROW_HEIGHT = 136
     val HORIZONTAL_NORMAL_HEIGHT = 256 // CategoryIcon (216px) + spacing (40px)
     val HORIZONTAL_EXPANDED_HEIGHT = 546 // CategoryIcon (216px) + miniatures (290px) + spacing (40px)
 
-    // Row heights: 1=Slider, 2-3=Seriale/Filmy, 4=Skróty, 5+=other channels
+    // Row heights: 1=Slider, 2-3=Seriale/Filmy, 4=Skróty (chips), 5+=other channels
     fun getRowHeight(row: Int): Int = when (row) {
         1 -> SLIDER_MIX_HEIGHT
-        4 -> SHORTCUTS_V2_HEIGHT  // Skróty v3 is at row 4
+        4 -> CHIP_ROW_HEIGHT
         else -> HORIZONTAL_NORMAL_HEIGHT
     }
 
@@ -20094,7 +20428,7 @@ private fun calculateWideoRowYPosition(
             // Rows below focused row
             val focusedRowExpansion = when (focusedRowIndex) {
                 1 -> SLIDER_MIX_HEIGHT
-                4 -> SHORTCUTS_V2_HEIGHT  // Skróty v3 is at row 4
+                4 -> CHIP_ROW_HEIGHT  // chips don't expand on focus
                 else -> {
                     if (focusedColIndex >= 0) HORIZONTAL_EXPANDED_HEIGHT else HORIZONTAL_NORMAL_HEIGHT
                 }

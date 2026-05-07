@@ -118,16 +118,18 @@ object GridCache {
     }
 }
 
-// Parser JSON - odczytuje dane z assets
+// Parser JSON — odczytuje dane z assets. Łączy bazę vod_data.json (legacy WIDEO) z dodatkowymi
+// kolekcjami serwisów (Viaplay Filmy itp.) wczytanymi z osobnych plików, żeby obecny katalog
+// pozostał nietknięty a nowe paczki dodawały się prostym dropowaniem JSON-a do assets.
 fun loadVodContentFromAssets(context: Context): List<VodContent> {
-    return try {
-        val inputStream = context.assets.open("vod_data.json")
-        val jsonString = inputStream.bufferedReader().use { it.readText() }
-        val json = Json { ignoreUnknownKeys = true }
-        val vodItems = json.decodeFromString<List<VodItem>>(jsonString)
-        vodItems.map { item ->
+    val json = Json { ignoreUnknownKeys = true }
+
+    fun loadFile(asset: String, idPrefix: String): List<VodContent> = try {
+        val raw = context.assets.open(asset).bufferedReader().use { it.readText() }
+        val items = json.decodeFromString<List<VodItem>>(raw)
+        items.map { item ->
             VodContent(
-                id = "legacy_${item.tytul.hashCode()}_${item.link.hashCode()}",
+                id = "${idPrefix}_${item.tytul.hashCode()}_${item.link.hashCode()}",
                 title = item.tytul,
                 description = item.opis,
                 category = item.kategoria,
@@ -136,10 +138,48 @@ fun loadVodContentFromAssets(context: Context): List<VodContent> {
                 link = item.link
             )
         }
-    } catch (e: Exception) {
-        // Fallback - jeśli JSON nie załaduje się, zwróć puste dane
+    } catch (_: Exception) {
         emptyList()
     }
+
+    // Order matters for de-dup priority. Legacy vod_data is canonical first; then service
+    // packs (so "Viaplay"/"Cinemax"/etc. id prefixes win over genre packs); then genre
+    // packs add any leftovers not seen in services. Chip filters in WIDEO_CHIP_CATEGORIES
+    // route by category substring (or by id prefix for service-specific splits — Viaplay
+    // films/series and Wideoteka Play — see applyWideoCategoryFilter).
+    val all = loadFile("vod_data.json", "legacy") +
+              // Services
+              loadFile("viaplay_filmy.json", "viaplay") +
+              loadFile("viaplay_seriale.json", "viaplay_serial") +
+              loadFile("bbc_player.json", "bbc") +
+              loadFile("skyshowtime.json", "sky") +
+              loadFile("cinemax.json", "cinemax") +
+              loadFile("axn.json", "axn") +
+              loadFile("disney.json", "disney") +
+              loadFile("natgeo.json", "natgeo") +
+              loadFile("wideoteka_play_filmy.json", "wpf") +
+              loadFile("wideoteka_play_seriale.json", "wps") +
+              loadFile("wideoteka_play_kids.json", "wpk") +
+              // Genres
+              loadFile("wideo_akcja.json", "akcja") +
+              loadFile("wideo_dramat.json", "dramat") +
+              loadFile("wideo_komedia.json", "komedia") +
+              loadFile("wideo_thriller.json", "thriller") +
+              loadFile("wideo_horror.json", "horror") +
+              loadFile("wideo_dokument.json", "dokument") +
+              loadFile("wideo_dla_dzieci.json", "kids") +
+              loadFile("wideo_fantasy.json", "fantasy") +
+              loadFile("wideo_historia.json", "historia") +
+              loadFile("wideo_muzyka.json", "muzyka") +
+              loadFile("wideo_popnauk.json", "popnauk") +
+              loadFile("wideo_program.json", "program") +
+              loadFile("wideo_rozrywka.json", "rozrywka") +
+              loadFile("wideo_scifi.json", "scifi") +
+              loadFile("wideo_serial.json", "serial") +
+              loadFile("wideo_sport.json", "sport") +
+              loadFile("wideo_lifestyle.json", "lifestyle") +
+              loadFile("wideo_wojenne.json", "wojenne")
+    return all.distinctBy { it.id }
 }
 
 @Composable

@@ -1,9 +1,18 @@
 package com.uxellence.tv.v3.moviedetail
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -15,9 +24,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.*
@@ -64,7 +75,9 @@ fun MovieDetailScreen(
     onWatchClicked: () -> Unit = {},
     onTrailerClicked: () -> Unit = {},
     onPreviewClicked: () -> Unit = {},
-    onMoreInfoClicked: () -> Unit = {} // Zachowujemy dla kompatybilności, ale nie używamy
+    onMoreInfoClicked: () -> Unit = {}, // Zachowujemy dla kompatybilności, ale nie używamy
+    onNavigatePrev: (() -> Unit)? = null,  // WIDEO: LEFT from leftmost button → previous sibling
+    onNavigateNext: (() -> Unit)? = null   // WIDEO: RIGHT from rightmost button → next sibling
 ) {
     // Reactive rental state — recomposes when RentalManager.rentals changes (e.g. after
     // rental confirmation or debug clear). VodSlideData has no stable id field, so we
@@ -75,6 +88,7 @@ fun MovieDetailScreen(
         (rentalsMap[rentalKey] ?: 0L) > System.currentTimeMillis()
     }
     val rentalExpiresAt = rentalsMap[rentalKey]
+    val context = LocalContext.current
     val configuration = LocalConfiguration.current
     val scaleX = configuration.screenWidthDp / 1920f
     val scaleY = configuration.screenHeightDp / 1080f
@@ -85,8 +99,51 @@ fun MovieDetailScreen(
     var focusedButtonIndex by remember { mutableIntStateOf(0) }
     val buttonFocusRequesters = remember { List(3) { FocusRequester() } }
 
-    // Scroll state for description
+    // WIDEO sibling-browse mode: when user presses LEFT/RIGHT from the edge button (and
+    // siblings are available), buttons hide, the bottom hint appears, and LEFT/RIGHT
+    // continue to swap films. OK exits — buttons come back, hint hides, focus restored.
+    // No `item` key: state must persist across sibling swaps (item changes, mode stays).
+    var browseMode by remember { mutableStateOf(false) }
+    val browseFocusRequester = remember { FocusRequester() }
+    // Last pressed direction within browseMode — drives the brief chevron highlight in
+    // the bottom hint. Cleared after a short delay (LaunchedEffect below) so the press
+    // animation feels like a tap.
+    var hintPressed by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(hintPressed) {
+        if (hintPressed != null) {
+            delay(180)
+            hintPressed = null
+        }
+    }
+
+    // Test toggle: parallax card-stacking transition between siblings (Key.O / Key.0 cycles).
+    // -1 = sliding to previous, +1 = sliding to next, 0 = no animation pending.
+    var useParallaxAnimation by remember { mutableStateOf(false) }
+    var slideDirection by remember { mutableStateOf(0) }
+
+    // Sibling-nav lock during parallax animation. Pressing the opposite direction
+    // mid-flight caused state thrash / crashes; lock both LEFT and RIGHT for the
+    // outgoing animation duration. Matches `tween(550)` in AnimatedContent + buffer.
+    val parallaxLockMs = 600L
+    var isAnimatingSwap by remember { mutableStateOf(false) }
+    LaunchedEffect(item) {
+        if (useParallaxAnimation) {
+            isAnimatingSwap = true
+            delay(parallaxLockMs)
+            isAnimatingSwap = false
+        }
+    }
+
+    // Description: KINO_PLAY uses fixed-height scrollable description; WIDEO uses
+    // expandable description (6 lines collapsed, click to expand to full text).
     val descriptionScrollState = rememberScrollState()
+    var isDescriptionExpanded by remember(item.title) { mutableStateOf(false) }
+    var descriptionHasOverflow by remember(item.title) { mutableStateOf(false) }
+    var isDescriptionFocused by remember { mutableStateOf(false) }
+    val descriptionFocusRequester = remember { FocusRequester() }
+    // Page-level scroll for WIDEO so an expanded long description + buttons don't get
+    // squeezed off-screen when content exceeds height.
+    val pageScrollState = rememberScrollState()
 
     // Calculate scroll position (0-2) for indicator
     val scrollPosition by remember {
@@ -109,12 +166,40 @@ fun MovieDetailScreen(
         buttonFocusRequesters.getOrNull(0)?.requestFocus()
     }
 
-    // Button labels (2 buttons — "Zobacz fragment" usunięty).
-    // After rental, the first button becomes "Oglądaj" (no price suffix).
-    val buttons = listOf(
-        if (isRented) "Oglądaj" else "Wypożycz: ${item.price}",
-        "Zwiastun"
-    )
+    // After exiting browse mode, refocus on "Oglądaj" (button index 0) — the canonical
+    // primary action of the WIDEO detail. Skip the initial false-state firing on first
+    // composition (we already handle initial focus above).
+    var didBrowseModeInitialFire by remember { mutableStateOf(false) }
+    LaunchedEffect(browseMode) {
+        if (!didBrowseModeInitialFire) {
+            didBrowseModeInitialFire = true
+            return@LaunchedEffect
+        }
+        if (!browseMode) {
+            delay(50)  // let the Row + FocusRequesters reattach after browseMode flip
+            focusedButtonIndex = 0
+            try {
+                buttonFocusRequesters.getOrNull(0)?.requestFocus()
+            } catch (_: Exception) {}
+        }
+    }
+
+    // WIDEO content (item.isKinoPlay == false) is free streaming — Oglądaj + Do obejrzenia
+    // buttons, no Wypożycz/Zwiastun and no director/cast/country metadata block. KINO_PLAY
+    // keeps the 2-button layout (Wypożycz/Oglądaj + Zwiastun) as before.
+    val isWideoMode = !item.isKinoPlay
+    val watchlistItems = com.uxellence.tv.v3.watchlist.WatchlistManager.items.value
+    val isOnWatchlist = remember(watchlistItems, item.title) { item.title in watchlistItems }
+    val buttons = when {
+        isWideoMode -> listOf(
+            "Oglądaj",
+            if (isOnWatchlist) "Usuń z listy" else "Do obejrzenia"
+        )
+        else -> listOf(
+            if (isRented) "Oglądaj" else "Wypożycz: ${item.price}",
+            "Zwiastun"
+        )
+    }
 
     // Mock data fallbacks for missing fields
     val displayFilmwebRating = item.filmwebRating ?: 6.7
@@ -123,115 +208,147 @@ fun MovieDetailScreen(
     val displayDirector = item.director ?: "Álex Pina"
     val displayCast = item.cast ?: "Úrsula Corberó, Álvaro Morte, Alba Flores, Miguel Herrán, Pedro Alonso"
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFF281443)) // Dark purple from slider
-            .onPreviewKeyEvent { event ->
-                if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-
-                when (event.key) {
-                    Key.Back, Key.Escape -> {
-                        onBackPressed()
-                        true
-                    }
-                    Key.DirectionLeft -> {
-                        if (focusedButtonIndex > 0) {
-                            focusedButtonIndex--
-                            buttonFocusRequesters.getOrNull(focusedButtonIndex)?.requestFocus()
-                        }
-                        true
-                    }
-                    Key.DirectionRight -> {
-                        if (focusedButtonIndex < buttons.size - 1) {
-                            focusedButtonIndex++
-                            buttonFocusRequesters.getOrNull(focusedButtonIndex)?.requestFocus()
-                        }
-                        true
-                    }
-                    Key.Enter, Key.DirectionCenter -> {
-                        when (focusedButtonIndex) {
-                            0 -> if (isRented) onWatchClicked() else onRentClicked()
-                            1 -> onTrailerClicked()
-                            2 -> onPreviewClicked()
-                        }
-                        true
-                    }
-                    else -> false
-                }
-            }
-    ) {
-        // Layer 1: Backdrop (right-aligned, full height) — tylko gdy URL niepusty
+    // Layer block (1-5) extracted as a lambda so it can be reused by both the direct-render
+    // path AND the parallax AnimatedContent wrapper. Closure captures all surrounding state
+    // (focus, scroll, callbacks) — only `displayedItem` (which item to render) varies between
+    // invocations. This lets two cards (old + new) render simultaneously during a parallax
+    // sibling-swap transition.
+    //
+    // NOTE: Inside the lambda body, we shadow `item` with `displayedItem` so the existing
+    // layer code (which references `item.title`, `item.backgroundUrl`, etc.) keeps working
+    // unchanged. Per-item-derived values like `displayFilmwebRating`, `displayDirector`,
+    // etc. are computed from the OUTER `item` — they're only visible in KINO_PLAY mode
+    // (not in WIDEO where parallax runs), so the staleness across renders is harmless.
+    val renderLayers: @Composable BoxScope.(VodSlideData) -> Unit = { displayedItem ->
+        val item = displayedItem
+        // Layer 1: Backdrop. KINO_PLAY → full-screen height anchored right; WIDEO → smaller
+        // 16:9 version anchored to TOP-RIGHT, with bottom + left gradients fading the edges
+        // into the page bg.
         if (item.backgroundUrl.isNotBlank()) {
-            AsyncImage(
-                model = item.backgroundUrl,
-                contentDescription = "Backdrop",
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .align(Alignment.CenterEnd),
-                contentScale = ContentScale.FillHeight
+            if (isWideoMode) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight(0.6667f)
+                        .aspectRatio(16f / 9f, matchHeightConstraintsFirst = true)
+                        .align(Alignment.TopEnd)
+                ) {
+                    AsyncImage(
+                        model = item.backgroundUrl,
+                        contentDescription = "Backdrop",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                brush = Brush.horizontalGradient(
+                                    0.0f to Color(0xFF281443),
+                                    0.30f to Color.Transparent
+                                )
+                            )
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                brush = Brush.verticalGradient(
+                                    0.0f to Color.Transparent,
+                                    0.55f to Color.Transparent,
+                                    1.0f to Color(0xFF281443)
+                                )
+                            )
+                    )
+                }
+            } else {
+                AsyncImage(
+                    model = item.backgroundUrl,
+                    contentDescription = "Backdrop",
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .align(Alignment.CenterEnd),
+                    contentScale = ContentScale.FillHeight
+                )
+            }
+        }
+
+        // Layer 2: Glow overlay (KINO_PLAY only)
+        if (!isWideoMode) {
+            Image(
+                painter = painterResource(id = R.drawable.slide_glow_left),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.FillBounds
             )
         }
 
-        // Layer 2: Glow overlay (slide_glow_left.png) - same as slider
-        Image(
-            painter = painterResource(id = R.drawable.slide_glow_left),
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.FillBounds
-        )
-
-        // Layer 3: Additional gradient for text readability
-        Box(
-            modifier = Modifier
-                .fillMaxHeight()
-                .width(sx(900))
-                .align(Alignment.CenterStart)
-                .offset(x = sx(400))
-                .background(
-                    brush = Brush.horizontalGradient(
-                        colors = listOf(
-                            Color(0xFF281443),
-                            Color.Transparent
+        // Layer 3: Left-side gradient (KINO_PLAY only)
+        if (!isWideoMode) {
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .width(sx(900))
+                    .align(Alignment.CenterStart)
+                    .offset(x = sx(400))
+                    .background(
+                        brush = Brush.horizontalGradient(
+                            colors = listOf(Color(0xFF281443), Color.Transparent)
                         )
                     )
-                )
-        )
+            )
+        }
 
-        // Layer 4: Clock in top-right corner
-        TimeLabel(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(top = sy(60), end = sx(100)),
-            sx = ::sx,
-            sy = ::sy
-        )
+        // (Layer 4 / Clock moved OUTSIDE this lambda — it's static across sibling-swap
+        // animations, like the hint.)
 
         // Layer 5: Main content area
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(start = sx(80), top = sy(168), end = sx(100), bottom = sy(40)),
+                .padding(
+                    start = if (isWideoMode) sx(40) else sx(80),
+                    top = if (isWideoMode) 0.dp else sy(168),
+                    end = sx(100),
+                    bottom = if (isWideoMode) 0.dp else sy(40)
+                ),
             horizontalArrangement = Arrangement.spacedBy(sx(64))
         ) {
-            // LEFT column — Poster (przeniesiony z prawej strony)
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                MoviePoster(
-                    posterUrl = item.posterUrl,
-                    sx = ::sx,
-                    sy = ::sy
-                )
+            // LEFT column
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                if (!isWideoMode) {
+                    MoviePoster(posterUrl = item.posterUrl, sx = ::sx, sy = ::sy)
+                } else {
+                    Spacer(modifier = Modifier.width(sx(225)))
+                }
             }
 
-            // CENTER column - Text content
+            // CENTER column
             Column(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
+                    .let { if (isWideoMode) it.verticalScroll(pageScrollState) else it }
             ) {
-                // Title - 64px, Medium
+                if (isWideoMode) Spacer(modifier = Modifier.height(sy(168)))
+
+                if (isWideoMode) {
+                    Box(
+                        modifier = Modifier
+                            .size(width = sy(252), height = sy(268))
+                            .padding(bottom = sy(16)),
+                        contentAlignment = Alignment.BottomStart
+                    ) {
+                        if (!item.channelLogoUrl.isNullOrBlank()) {
+                            AsyncImage(
+                                model = item.channelLogoUrl,
+                                contentDescription = "Channel logo",
+                                contentScale = ContentScale.Fit,
+                                modifier = Modifier.size(sy(252))
+                            )
+                        }
+                    }
+                }
+
                 Text(
                     text = item.title,
                     color = Color(0xFFEEEEEE),
@@ -241,56 +358,86 @@ fun MovieDetailScreen(
                     overflow = TextOverflow.Ellipsis,
                     lineHeight = sy(88).value.sp
                 )
-
                 Spacer(modifier = Modifier.height(sy(8)))
 
-                // Metadata row - genre | duration | year | country | age | Filmweb + rating
                 MetadataRow(
                     genre = item.genre,
                     duration = item.duration,
                     year = item.year,
-                    country = item.country,
+                    country = if (isWideoMode) null else item.country,
                     ageRating = item.ageRating,
-                    filmwebRating = displayFilmwebRating,
+                    filmwebRating = if (isWideoMode) null else displayFilmwebRating,
                     sx = ::sx,
                     sy = ::sy
                 )
-
                 Spacer(modifier = Modifier.height(sy(32)))
 
-                // Description - 28px, Medium, 320px max height, scrollable
-                Box(
-                    modifier = Modifier
-                        .widthIn(max = sx(981))
-                        .heightIn(max = sy(320))
-                ) {
-                    Text(
-                        text = item.description,
-                        color = Color(0xFFEEEEEE),
-                        fontSize = sy(28).value.sp,
-                        fontWeight = FontWeight.Medium,
-                        lineHeight = sy(40).value.sp,
-                        overflow = TextOverflow.Ellipsis,
+                if (isWideoMode) {
+                    Box(
                         modifier = Modifier
-                            .verticalScroll(descriptionScrollState)
-                    )
+                            .widthIn(max = sx(981))
+                            .border(
+                                width = if (isDescriptionFocused) sx(4) else 0.dp,
+                                color = if (isDescriptionFocused) Color(0xFF5FEDD4) else Color.Transparent,
+                                shape = RoundedCornerShape(sx(8))
+                            )
+                            .padding(sx(8))
+                            .focusRequester(descriptionFocusRequester)
+                            .onFocusChanged { fs -> isDescriptionFocused = fs.isFocused }
+                            .focusable()
+                    ) {
+                        Text(
+                            text = item.description,
+                            color = Color(0xFFEEEEEE),
+                            fontSize = sy(28).value.sp,
+                            fontWeight = FontWeight.Medium,
+                            lineHeight = sy(40).value.sp,
+                            overflow = TextOverflow.Ellipsis,
+                            maxLines = if (isDescriptionExpanded) Int.MAX_VALUE else 6,
+                            onTextLayout = { result ->
+                                if (!descriptionHasOverflow) {
+                                    descriptionHasOverflow = result.lineCount > 6 || result.hasVisualOverflow
+                                }
+                            }
+                        )
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .widthIn(max = sx(981))
+                            .heightIn(max = sy(320))
+                    ) {
+                        Text(
+                            text = item.description,
+                            color = Color(0xFFEEEEEE),
+                            fontSize = sy(28).value.sp,
+                            fontWeight = FontWeight.Medium,
+                            lineHeight = sy(40).value.sp,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.verticalScroll(descriptionScrollState)
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(sy(48)))
 
-                // Details section - Dźwięk, Napisy, Reżyser, Obsada (with mock fallbacks)
-                MovieDetailsSection(
-                    audioLanguages = displayAudioLanguages,
-                    subtitleLanguages = displaySubtitleLanguages,
-                    director = displayDirector,
-                    cast = displayCast,
-                    sx = ::sx,
-                    sy = ::sy
-                )
+                if (!isWideoMode) {
+                    MovieDetailsSection(
+                        audioLanguages = displayAudioLanguages,
+                        subtitleLanguages = displaySubtitleLanguages,
+                        director = displayDirector,
+                        cast = displayCast,
+                        sx = ::sx,
+                        sy = ::sy
+                    )
+                }
 
-                Spacer(modifier = Modifier.weight(1f))
+                if (isWideoMode) {
+                    Spacer(modifier = Modifier.height(sy(30)))
+                } else {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
 
-                // Rental countdown info — shown above buttons when movie is rented
                 if (isRented && rentalExpiresAt != null) {
                     RentalCountdownInfo(
                         expiresAt = rentalExpiresAt,
@@ -301,15 +448,26 @@ fun MovieDetailScreen(
                     )
                 }
 
-                // Action buttons at bottom (raised 40px)
-                Row(
-                    modifier = Modifier.padding(bottom = sy(40)),
+                if (browseMode) {
+                    Box(
+                        modifier = Modifier
+                            .size(sx(1), sy(1))
+                            .focusRequester(browseFocusRequester)
+                            .focusable()
+                    )
+                    LaunchedEffect(browseMode) {
+                        if (browseMode) {
+                            try { browseFocusRequester.requestFocus() } catch (_: Exception) {}
+                        }
+                    }
+                } else Row(
+                    modifier = if (isWideoMode) Modifier else Modifier.padding(bottom = sy(40)),
                     horizontalArrangement = Arrangement.spacedBy(sx(24))
                 ) {
                     buttons.forEachIndexed { index, label ->
                         ActionButton(
                             label = label,
-                            isFocused = focusedButtonIndex == index,
+                            isFocused = focusedButtonIndex == index && !isDescriptionFocused,
                             focusRequester = buttonFocusRequesters[index],
                             sx = ::sx,
                             sy = ::sy,
@@ -318,25 +476,342 @@ fun MovieDetailScreen(
                             },
                             onClick = {
                                 when (index) {
-                                    0 -> if (isRented) onWatchClicked() else onRentClicked()
-                                    1 -> onTrailerClicked()
+                                    0 -> if (isWideoMode || isRented) onWatchClicked() else onRentClicked()
+                                    1 -> if (isWideoMode) {
+                                        com.uxellence.tv.v3.watchlist.WatchlistManager.toggle(item.title, context)
+                                    } else onTrailerClicked()
                                 }
                             }
                         )
                     }
                 }
+
+                if (isWideoMode) Spacer(modifier = Modifier.height(sy(40)))
             }
 
-            // RIGHT column — Scroll indicator (poster przeniesiony na lewą)
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally
+            // RIGHT column - Scroll indicator (KINO_PLAY only)
+            if (!isWideoMode) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    ScrollIndicator(
+                        currentPosition = scrollPosition,
+                        totalPositions = 3,
+                        sx = ::sx,
+                        sy = ::sy,
+                        modifier = Modifier.padding(top = sy(86))
+                    )
+                }
+            }
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF220F38)) // Darker purple — visible behind card during parallax swap
+            .onPreviewKeyEvent { event ->
+                if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+
+                when (event.key) {
+                    Key.Back, Key.Escape -> {
+                        onBackPressed()
+                        true
+                    }
+                    Key.O, Key.Zero, Key.NumPad0 -> {
+                        // Test toggle: switch between instant sibling swap and parallax
+                        // card-stacking transition. Accepts O (PC keyboard testing) +
+                        // 0/Numpad-0 (TV remote — most have a numeric "0" key).
+                        useParallaxAnimation = !useParallaxAnimation
+                        true
+                    }
+                    Key.DirectionLeft -> {
+                        when {
+                            isDescriptionFocused -> true
+                            // Animation in flight — swallow the key (no callback, no
+                            // hint flash) so a fast opposite-direction press can't
+                            // re-enter AnimatedContent mid-transition.
+                            isAnimatingSwap -> true
+                            // In browseMode: LEFT keeps navigating siblings (no buttons to traverse).
+                            browseMode && onNavigatePrev != null -> {
+                                hintPressed = "left"
+                                slideDirection = -1
+                                onNavigatePrev.invoke()
+                                true
+                            }
+                            browseMode -> {
+                                hintPressed = "left"  // flash even when no prev — visual feedback
+                                true
+                            }
+                            focusedButtonIndex > 0 -> {
+                                focusedButtonIndex--
+                                buttonFocusRequesters.getOrNull(focusedButtonIndex)?.requestFocus()
+                                true
+                            }
+                            onNavigatePrev != null -> {
+                                // From leftmost button: enter browse mode + jump to previous film.
+                                browseMode = true
+                                hintPressed = "left"
+                                slideDirection = -1
+                                onNavigatePrev.invoke()
+                                true
+                            }
+                            else -> true
+                        }
+                    }
+                    Key.DirectionRight -> {
+                        when {
+                            isDescriptionFocused -> true
+                            isAnimatingSwap -> true
+                            browseMode && onNavigateNext != null -> {
+                                hintPressed = "right"
+                                slideDirection = 1
+                                onNavigateNext.invoke()
+                                true
+                            }
+                            browseMode -> {
+                                hintPressed = "right"
+                                true
+                            }
+                            focusedButtonIndex < buttons.size - 1 -> {
+                                focusedButtonIndex++
+                                buttonFocusRequesters.getOrNull(focusedButtonIndex)?.requestFocus()
+                                true
+                            }
+                            onNavigateNext != null -> {
+                                browseMode = true
+                                hintPressed = "right"
+                                slideDirection = 1
+                                onNavigateNext.invoke()
+                                true
+                            }
+                            else -> true
+                        }
+                    }
+                    Key.DirectionUp -> {
+                        // WIDEO: UP from any button focuses the description.
+                        if (isWideoMode && !isDescriptionFocused) {
+                            try { descriptionFocusRequester.requestFocus() } catch (_: Exception) {}
+                            true
+                        } else false
+                    }
+                    Key.DirectionDown -> {
+                        // From description (when focused) → first button
+                        if (isDescriptionFocused) {
+                            buttonFocusRequesters.getOrNull(0)?.requestFocus()
+                            focusedButtonIndex = 0
+                            true
+                        } else false
+                    }
+                    Key.Enter, Key.DirectionCenter -> {
+                        if (isDescriptionFocused) {
+                            isDescriptionExpanded = !isDescriptionExpanded
+                            return@onPreviewKeyEvent true
+                        }
+                        if (browseMode) {
+                            // OK in browse mode: just flip the flag. A LaunchedEffect on
+                            // browseMode further down handles the requestFocus after the
+                            // button Row remounts.
+                            browseMode = false
+                            return@onPreviewKeyEvent true
+                        }
+                        when (focusedButtonIndex) {
+                            0 -> if (isWideoMode || isRented) onWatchClicked() else onRentClicked()
+                            1 -> if (isWideoMode) {
+                                com.uxellence.tv.v3.watchlist.WatchlistManager.toggle(item.title, context)
+                            } else onTrailerClicked()
+                            2 -> onPreviewClicked()
+                        }
+                        true
+                    }
+                    else -> false
+                }
+            }
+    ) {
+        // Layer block — render directly OR wrap in AnimatedContent for full-screen
+        // card-stack-with-depth transition. Outgoing recedes in Z (scale 1→0.85 + fade
+        // to 0.4 alpha) and stays in place. Incoming slides in from the leading edge
+        // with a soft drop-shadow on its leading edge — visually "lands on top" of the
+        // receding card. Clock + hint sit outside (static).
+        if (useParallaxAnimation && isWideoMode) {
+            AnimatedContent(
+                targetState = item,
+                // 20dp margin around the card so it sits inset from screen edges,
+                // matching the KINO PLAY hero-slider card style.
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(sx(20)),
+                transitionSpec = {
+                    val dir = slideDirection.takeIf { it != 0 } ?: 1
+                    androidx.compose.animation.ContentTransform(
+                        // Production speed (was 900/1100, slowed for inspection
+                        // before that). No fade — incoming is fully opaque from
+                        // first frame; outgoing only scales down (depth illusion).
+                        targetContentEnter = slideInHorizontally(
+                            initialOffsetX = { it * dir },
+                            animationSpec = tween(450, easing = FastOutSlowInEasing)
+                        ),
+                        initialContentExit = scaleOut(
+                            targetScale = 0.85f,
+                            animationSpec = tween(550, easing = FastOutSlowInEasing)
+                        ),
+                        targetContentZIndex = 1f  // incoming above outgoing
+                    )
+                },
+                label = "fullscreen_swap"
+            ) { displayed ->
+                // Solid background under each card so the incoming slide is fully
+                // opaque — without it, the renderLayers content has transparent
+                // regions (e.g. the right side past the backdrop's left-edge gradient)
+                // and the outgoing card visibly shows through the incoming card.
+                // Style mirrors KINO PLAY hero-slider non-focused card:
+                //   - 4dp drop-shadow (CardDefaults.cardElevation defaultElevation)
+                //   - 20dp rounded corners
+                //   - 2dp white α=20% border (BorderStroke(2.dp, white α=0.2))
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .shadow(4.dp, RoundedCornerShape(20.dp))
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(Color(0xFF281443))
+                        .border(1.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(20.dp))
+                ) {
+                    renderLayers(displayed)
+                }
+            }
+        } else {
+            // V1 (parallax off): wrap renderLayers in a solid #281443 box so the
+            // card covers the darker outer background (#220F38). No margins/border/
+            // shadow/rounded corners — V1 is a full-bleed card.
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFF281443))
             ) {
-                ScrollIndicator(
-                    currentPosition = scrollPosition,
-                    totalPositions = 3,
-                    sx = ::sx,
-                    sy = ::sy,
-                    modifier = Modifier.padding(top = sy(86))
+                renderLayers(item)
+            }
+        }
+
+        // Static Layer 4: Clock (rendered OUTSIDE the AnimatedContent so it doesn't
+        // slide along with the card transition — matches the hint's static positioning).
+        TimeLabel(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = sy(60), end = sx(100)),
+            sx = ::sx,
+            sy = ::sy
+        )
+
+        // WIDEO sibling-navigation hint (bottom-center). Only visible while in browseMode
+        // — i.e. after the user pressed LEFT/RIGHT off the buttons row. Buttons are
+        // hidden in browseMode (replaced by an invisible focus holder), and OK exits
+        // browseMode so the buttons reappear and the hint disappears.
+        if (isWideoMode && browseMode) {
+            SiblingNavHint(
+                hasPrev = onNavigatePrev != null,
+                hasNext = onNavigateNext != null,
+                pressedSide = hintPressed,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = sy(40)),
+                sx = ::sx,
+                sy = ::sy
+            )
+        }
+    }
+}
+
+/**
+ * Bottom-center "OK + ←/→ chevrons" hint that surfaces when the WIDEO MovieDetail screen
+ * supports prev/next sibling navigation (LEFT/RIGHT from the buttons row swaps the film).
+ *
+ * Visual: dark-purple translucent disc, OK pill in middle, chevron arrows on the sides.
+ */
+@Composable
+private fun SiblingNavHint(
+    hasPrev: Boolean,
+    hasNext: Boolean,
+    pressedSide: String?,  // "left" | "right" | null — drives the brief tap highlight
+    modifier: Modifier = Modifier,
+    sx: (Int) -> Dp,
+    sy: (Int) -> Dp
+) {
+    val leftActive = pressedSide == "left"
+    val rightActive = pressedSide == "right"
+    val leftBg by androidx.compose.animation.animateColorAsState(
+        targetValue = if (leftActive) Color(0xFF5FEDD4) else Color.Transparent,
+        animationSpec = androidx.compose.animation.core.tween(120),
+        label = "hint_left_bg"
+    )
+    val rightBg by androidx.compose.animation.animateColorAsState(
+        targetValue = if (rightActive) Color(0xFF5FEDD4) else Color.Transparent,
+        animationSpec = androidx.compose.animation.core.tween(120),
+        label = "hint_right_bg"
+    )
+
+    // Square box → CircleShape gives a true circle (oval before because we used different
+    // sx vs sy dims).
+    Box(
+        modifier = modifier
+            .size(sx(220))
+            .clip(CircleShape)
+            .background(Color(0x1A000000)),  // black 10% alpha
+        contentAlignment = Alignment.Center
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(sx(12))
+        ) {
+            // LEFT chevron with tap highlight
+            Box(
+                modifier = Modifier
+                    .size(sx(56))
+                    .clip(CircleShape)
+                    .background(leftBg),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "‹",
+                    color = when {
+                        leftActive -> Color(0xFF281443)        // dark on aqua
+                        hasPrev -> Color(0xFFEEEEEE)
+                        else -> Color(0x44EEEEEE)              // disabled
+                    },
+                    fontSize = (40 * sx(1).value).sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            // OK pill — central button mark
+            Box(
+                modifier = Modifier
+                    .size(sx(64))
+                    .clip(CircleShape)
+                    .background(Color(0xFF1A0C2C)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "OK",
+                    color = Color(0xFFEEEEEE),
+                    fontSize = (16 * sx(1).value).sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.5.sp
+                )
+            }
+            // RIGHT chevron with tap highlight
+            Box(
+                modifier = Modifier
+                    .size(sx(56))
+                    .clip(CircleShape)
+                    .background(rightBg),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "›",
+                    color = when {
+                        rightActive -> Color(0xFF281443)
+                        hasNext -> Color(0xFFEEEEEE)
+                        else -> Color(0x44EEEEEE)
+                    },
+                    fontSize = (40 * sx(1).value).sp,
+                    fontWeight = FontWeight.Bold
                 )
             }
         }
@@ -385,50 +860,39 @@ private fun MetadataRow(
     year: String?,
     country: String?,
     ageRating: String?,
-    filmwebRating: Double, // Always displayed (mock fallback if null)
+    filmwebRating: Double?,  // null → Filmweb section hidden (WIDEO mode)
     sx: (Int) -> Dp,
     sy: (Int) -> Dp
 ) {
+    // Build the segments list first so we know whether to draw a trailing divider before
+    // FilmwebRating without leaving a stray separator at the end.
+    val segments = buildList {
+        if (!genre.isNullOrBlank()) add(genre)
+        if (!duration.isNullOrBlank()) add(duration)
+        if (!year.isNullOrBlank()) add(year)
+        if (!country.isNullOrBlank()) add(country)
+        if (!ageRating.isNullOrBlank()) add(ageRating)
+    }
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(sx(16))
     ) {
-        // Genre
-        if (!genre.isNullOrBlank()) {
-            MetadataText(text = genre, sy = sy)
-            MetadataDivider(sy = sy)
+        segments.forEachIndexed { idx, text ->
+            MetadataText(text = text, sy = sy)
+            // Divider after every segment except the last when Filmweb is hidden
+            if (idx < segments.size - 1 || filmwebRating != null) {
+                MetadataDivider(sy = sy)
+            }
         }
 
-        // Duration
-        if (!duration.isNullOrBlank()) {
-            MetadataText(text = duration, sy = sy)
-            MetadataDivider(sy = sy)
+        if (filmwebRating != null) {
+            FilmwebRating(
+                rating = filmwebRating,
+                sx = sx,
+                sy = sy
+            )
         }
-
-        // Year
-        if (!year.isNullOrBlank()) {
-            MetadataText(text = year, sy = sy)
-            MetadataDivider(sy = sy)
-        }
-
-        // Country
-        if (!country.isNullOrBlank()) {
-            MetadataText(text = country, sy = sy)
-            MetadataDivider(sy = sy)
-        }
-
-        // Age rating
-        if (!ageRating.isNullOrBlank()) {
-            MetadataText(text = ageRating, sy = sy)
-            MetadataDivider(sy = sy)
-        }
-
-        // Filmweb logo + rating (always displayed)
-        FilmwebRating(
-            rating = filmwebRating,
-            sx = sx,
-            sy = sy
-        )
     }
 }
 

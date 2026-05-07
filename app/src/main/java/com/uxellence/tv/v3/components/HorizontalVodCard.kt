@@ -133,17 +133,30 @@ fun HorizontalVodCard(
             }
         }
 
-        // Title text over gradient
-        Text(
-            text = vodContent.title,
-            color = Color.White,
-            fontSize = (20 * (sy(1).value / 1.dp.value)).sp,
-            fontWeight = FontWeight.Bold,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
+        // Bottom-left row: channel logo + title
+        Row(
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(start = sx(12), bottom = sy(12), end = sx(12))
-        )
+                .padding(start = sx(12), bottom = sy(12), end = sx(12)),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(sx(8))
+        ) {
+            if (vodContent.channelLogoUrl.isNotBlank()) {
+                AsyncImage(
+                    model = vodContent.channelLogoUrl,
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.size(sx(64))
+                )
+            }
+            Text(
+                text = vodContent.title,
+                color = Color.White,
+                fontSize = (20 * (sy(1).value / 1.dp.value)).sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }
