@@ -1952,8 +1952,15 @@ fun TopMenuScreen2(
                                 // PROFILE handles its own navigation entirely
                                 false // Let ProfileScreenContent handle all keys
                             }
+                            "PAKIETY" -> {
+                                // PAKIETY handles its own navigation entirely (mirrors WIDEO).
+                                // Without this delegation the parent's fallback UP handler would
+                                // jump straight back to the menu, breaking the row-by-row UP
+                                // navigation across the slider + 2 channel rows.
+                                false // Let PakietyWithHeroScreen handle all keys
+                            }
                             else -> {
-                                // Fallback for sections without own navigation (POINTS_HISTORY, PAKIETY, etc.)
+                                // Fallback for sections without own navigation (POINTS_HISTORY, etc.)
                                 when (event.key) {
                                     Key.DirectionUp -> {
                                         // Set button focus states FIRST to prevent "through Start" flash
@@ -4452,14 +4459,26 @@ private fun OdkrywajChannelsScreen(
         val kinoPlayMovies = VodDataCache.getKinoPlayMovies()
 
         if (vodContentList.isNotEmpty()) {
-            // Pakiety dla kanału "Pakiety" - using applicationId for proper resource loading
-            val pakiety = listOf(
-                VodContent("pakiet_kids", "KIDS", "Pakiet dla dzieci", "Pakiet", "android.resource://com.uxellence.tv.prod/${R.drawable.pakiet_kids}", "", ""),
-                VodContent("pakiet_disney", "Disney+", "Pakiet Disney+", "Pakiet", "android.resource://com.uxellence.tv.prod/${R.drawable.pakiet_disney}", "", ""),
-                VodContent("pakiet_extra", "EXTRA", "Pakiet Extra", "Pakiet", "android.resource://com.uxellence.tv.prod/${R.drawable.pakiet_extra}", "", ""),
-                VodContent("pakiet_news", "NEWS", "Pakiet wiadomości", "Pakiet", "android.resource://com.uxellence.tv.prod/${R.drawable.pakiet_news}", "", ""),
-                VodContent("pakiet_prime", "Prime Video", "Pakiet Prime Video", "Pakiet", "android.resource://com.uxellence.tv.prod/${R.drawable.pakiet_prime}", "", "")
-            )
+            // Pakiety — pulled from pakiety_dom.json (same source as PAKIETY section).
+            // Skip the "active" Optymalny package (it's surfaced separately in MOJE),
+            // skip entries without an illustration. Map to VodContent with category
+            // "Pakiet" so ContentCard renders the brand logo as the main tile image.
+            val pakiety = com.uxellence.tv.v3.pakiety.PaketRepository
+                .loadAll(context)
+                .filterNot { it.includedInSubscription }
+                .filter { it.logoHd.isNotBlank() || it.logo.isNotBlank() }
+                .map { p ->
+                    VodContent(
+                        id = "pakiet_${p.url.hashCode()}_${p.name.hashCode()}",
+                        title = p.name,
+                        description = p.description,
+                        category = "Pakiet",
+                        imageUrl = p.logoHd.ifBlank { p.logo },
+                        channelLogoUrl = "",
+                        link = p.url,
+                        price = p.pointsPerCycle
+                    )
+                }
 
             channels.associateWith { channelName ->
                 when (channelName) {
@@ -5528,33 +5547,21 @@ private fun MojeChannelsScreen(
 
     // Faza 3: Old static channel list deleted - now using dynamic list below based on isNagraniaExpanded
 
+    // "Aktywne pakiety" — pull active packages from pakiety_dom.json (the one
+    // bundled with the user's subscription, includedInSubscription = true).
+    // Today that's just "TELEWIZJA i VOD" / Pakiet Optymalny.
     val packages = remember {
-        listOf(
-            PackageItem(
-                title = "Pakiet 1",
-                imageUrl = "https://r.dcs.redcdn.pl/scale/play/playtv/upload/packet/3116237/images/1010596641?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=260&dsth=77&type=0",
-                price = "29,99 zł",
-                description = "Pakiet podstawowy"
-            ),
-            PackageItem(
-                title = "Pakiet 2",
-                imageUrl = "https://r.dcs.redcdn.pl/scale/play/playtv/upload/packet/27452759/images/1037037910?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=260&dsth=77&type=0",
-                price = "49,99 zł",
-                description = "Pakiet rozszerzony"
-            ),
-            PackageItem(
-                title = "Pakiet 3",
-                imageUrl = "https://r.dcs.redcdn.pl/scale/play/playtv/upload/packet/30492532/images/1004802744?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=260&dsth=77&type=0",
-                price = "79,99 zł",
-                description = "Pakiet premium"
-            ),
-            PackageItem(
-                title = "Pakiet 4",
-                imageUrl = "https://r.dcs.redcdn.pl/scale/play/playtv/upload/packet/29020667/images/979943766?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=260&dsth=77&type=0",
-                price = "99,99 zł",
-                description = "Pakiet VIP"
-            )
-        )
+        com.uxellence.tv.v3.pakiety.PaketRepository
+            .loadAll(context)
+            .filter { it.includedInSubscription }
+            .map { p ->
+                PackageItem(
+                    title = p.name,
+                    imageUrl = p.logoHd.ifBlank { p.logo },
+                    price = p.pointsPerCycle,
+                    description = p.description
+                )
+            }
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -5658,7 +5665,7 @@ private fun MojeChannelsScreen(
     val rentalsSnapshot = com.uxellence.tv.v3.rental.RentalManager.rentals.value
     val watchlistSnapshot = com.uxellence.tv.v3.watchlist.WatchlistManager.items.value
     val gridContent = remember(isNagraniaExpanded, showNagraniaV2, rentalsSnapshot, watchlistSnapshot) {
-        MojeContentCache.getContent(channels)
+        MojeContentCache.getContent(channels, context)
     }
 
     var focusedRowIndex by remember { mutableStateOf(0) }
@@ -10766,7 +10773,8 @@ fun AplikacjeUnifiedChannelRow(
                             onFocusChange = { onChannelContentFocusChange(rowIndex, colIndex) },
                             sx = sx,
                             sy = sy,
-                            lazyListState = lazyListState
+                            lazyListState = lazyListState,
+                            showChannelLogo = false  // APLIKACJE: ukryj logo kanału na miniaturce
                         )
                     }
                 }
@@ -16281,6 +16289,21 @@ private fun SliderV2CardStateBased(
                                         )
                                     }
                                 }
+                                "PAKIETY" -> {
+                                    // Brand logo of the package in the top-left corner,
+                                    // above the title. Uses selectedLogoUrl (= logoHd
+                                    // from PaketDom) for crisp rendering.
+                                    if (!item.selectedLogoUrl.isNullOrEmpty()) {
+                                        AsyncImage(
+                                            model = item.selectedLogoUrl,
+                                            contentDescription = item.title,
+                                            modifier = Modifier
+                                                .heightIn(max = sy(80))
+                                                .widthIn(max = sx(280)),
+                                            contentScale = ContentScale.Fit
+                                        )
+                                    }
+                                }
                                 else -> {
                                     Text(
                                         text = sectionType,
@@ -16361,11 +16384,13 @@ private fun SliderV2CardStateBased(
                             "WIDEO" -> "Oglądaj"
                             "ODKRYWAJ" -> item.price
                             "APLIKACJE" -> item.price  // np. "Otwórz aplikację" / "Zainstaluj aplikację"
+                            "PAKIETY" -> "Aktywuj"
                             else -> "Wypożycz: ${item.price}"
                         }
                         val isStandardButton = item.price.startsWith("Oglądaj") || item.price.startsWith("Wypożycz") || item.price.startsWith("Otwórz") || item.price.startsWith("Zainstaluj")
-                        // APLIKACJE: button bez ikonki, sam tekst
-                        val showIcon = sectionType != "APLIKACJE" && (sectionType != "ODKRYWAJ" || isStandardButton)
+                        // APLIKACJE/PAKIETY: button bez ikonki, sam tekst
+                        val showIcon = sectionType != "APLIKACJE" && sectionType != "PAKIETY" &&
+                            (sectionType != "ODKRYWAJ" || isStandardButton)
                         val usePlayIcon = sectionType == "WIDEO" ||
                             (sectionType == "ODKRYWAJ" && item.price.startsWith("Oglądaj"))
 
@@ -16845,6 +16870,7 @@ private fun ContentCard(
     lazyListState: LazyListState,
     onClick: () -> Unit = {},
     showChannelNumber: Boolean = true,
+    showChannelLogo: Boolean = true,       // false → ukryj logo kanału w lewym dolnym rogu (np. APLIKACJE)
     trailerUrl: String? = null,            // gdy podany i karta focused — po 2s odpala trailer overlay
     trailerStartPositionMs: Long = 0L      // od jakiej sekundy odpalić trailer
 ) {
@@ -16905,11 +16931,20 @@ private fun ContentCard(
             }
             .focusable()
     ) {
+        // PAKIETY tiles want the package brand logo to be the MAIN illustration
+        // (not the wide promo backdrop). Detect by category == "Pakiet" and switch
+        // ContentScale to Fit, then paint a dark backdrop behind so the logo sits
+        // centered on a solid surface instead of stretching to the card bounds.
+        val isPakietTile = vodContent.category == "Pakiet"
+        if (isPakietTile) {
+            Box(modifier = Modifier.fillMaxSize().background(Color(0xFF1F0F33)))
+        }
         AsyncImage(
             model = vodContent.imageUrl,
             contentDescription = vodContent.title,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop
+            modifier = Modifier.fillMaxSize().padding(if (isPakietTile) sx(60) else sx(0)),
+            contentScale = if (isPakietTile) ContentScale.Fit else ContentScale.Crop,
+            alignment = Alignment.Center
         )
 
         // Trailer overlay — pokrywa ilustrację gdy showTrailer (po 2s fokusa)
@@ -16932,26 +16967,28 @@ private fun ContentCard(
             }
         }
 
-        // Gradient
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .height(sy(88))
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            Color.Transparent,
-                            Color.Black.copy(alpha = 0.8f),
-                            Color.Black
+        // Gradient — skip on PAKIETY tiles (no title overlay there).
+        if (!isPakietTile) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .height(sy(88))
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                Color.Black.copy(alpha = 0.8f),
+                                Color.Black
+                            )
+                        ),
+                        shape = RoundedCornerShape(
+                            bottomStart = sx(12),
+                            bottomEnd = sx(12)
                         )
-                    ),
-                    shape = RoundedCornerShape(
-                        bottomStart = sx(12),
-                        bottomEnd = sx(12)
                     )
-                )
-        )
+            )
+        }
 
         // Channel number (only show if showChannelNumber is true)
         if (showChannelNumber) {
@@ -16972,30 +17009,44 @@ private fun ContentCard(
             }
         }
 
-        // Bottom-left: channel logo + title (mirror VodGridScreen miniature treatment)
-        Row(
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .padding(start = sx(12), bottom = sy(12), end = sx(12)),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(sx(8))
-        ) {
-            if (vodContent.channelLogoUrl.isNotBlank()) {
-                AsyncImage(
-                    model = vodContent.channelLogoUrl,
-                    contentDescription = null,
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier.size(sx(64))
+        // Bottom-left: channel logo as a SEPARATE element with zIndex(3f) so it
+        // stays visible ABOVE the trailer overlay (zIndex 2f). Title sits in its own
+        // row at the default zIndex (0) — gradient + title disappear behind the
+        // trailer when it starts; only the channel logo persists.
+        val hasLogo = showChannelLogo && vodContent.channelLogoUrl.isNotBlank()
+        if (hasLogo) {
+            AsyncImage(
+                model = vodContent.channelLogoUrl,
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(start = sx(12))
+                    .offset(y = sy(8))
+                    .size(sx(64))
+                    .zIndex(3f)
+            )
+        }
+        // Title at bottom-left — skipped on PAKIETY tiles (logo IS the identifier).
+        if (!isPakietTile) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(
+                        start = sx(if (hasLogo) 12 + 64 + 8 else 12),
+                        bottom = sy(12),
+                        end = sx(12)
+                    )
+            ) {
+                Text(
+                    text = vodContent.title,
+                    color = Color.White,
+                    fontSize = (20 * (sy(1).value / 1.dp.value)).sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
-            Text(
-                text = vodContent.title,
-                color = Color.White,
-                fontSize = (20 * (sy(1).value / 1.dp.value)).sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
         }
     }
 }
@@ -19480,7 +19531,7 @@ private fun WideoChannelsScreen(
                 description = "Były agent CIA, James Dial, zostaje wezwany do ostatniej akcji. Ma udać się do Londynu i zabić terrorystę, który ma stanąć przed sądem.",
                 category = "Akcja",
                 imageUrl = "https://r.playcdn.tv/scale/play/playtv/upload/tvod/10871425/images/808755390?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&quality=80&type=1",
-                channelLogoUrl = "",
+                channelLogoUrl = "android.resource://com.uxellence.tv.prod/drawable/axn_cl_big",
                 link = "https://playnow.pl/tvod/10871425",
                 youtubeUrl = "https://n-1401-13.dcs.redcdn.pl/dash/play/playtv/trailer/1fbea93f-3985-4b92-a9f3-63ef55be97ba/TRAILER/AVC1/dash.smil"
             ),
@@ -19490,7 +19541,7 @@ private fun WideoChannelsScreen(
                 description = "Inspirująca i poruszająca opowieść o borykającym się z kryzysem małżeńskim dziennikarzu, który dostaje polecenie, aby opowiedzieć współczesne historie ludzi.",
                 category = "Dramat",
                 imageUrl = "https://r.playcdn.tv/scale/play/playtv/upload/tvod/21821171/images/938471621?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&quality=80&type=1",
-                channelLogoUrl = "",
+                channelLogoUrl = "android.resource://com.uxellence.tv.prod/drawable/axn_cl_big",
                 link = "https://playnow.pl/tvod/21821171",
                 youtubeUrl = trailer("9ee5ed35-b7eb-4418-b275-0972b243d7a0")
             ),
@@ -19500,7 +19551,7 @@ private fun WideoChannelsScreen(
                 description = "Młody mężczyzna gubi się w niekończącym się korytarzu metra. Aby się z niego wydostać, musi przestrzegać kilku pozornie prostych zasad.",
                 category = "Thriller",
                 imageUrl = "https://r.playcdn.tv/scale/play/playtv/images/vod/14553dc0-8bf5-41fa-84b0-96e5e06b23b6/ps_exit8.jpg?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&quality=80&type=1",
-                channelLogoUrl = "",
+                channelLogoUrl = "android.resource://com.uxellence.tv.prod/drawable/axn_cl_big",
                 link = "https://playnow.pl/tvod/40340037",
                 youtubeUrl = null  // brak trailera
             ),
@@ -19510,7 +19561,7 @@ private fun WideoChannelsScreen(
                 description = "Na australijskiej pustyni rozbija się nieznany obiekt z kosmosu, z którego wydostaje się niebezpieczny pasożyt. Przenoszony przez niego wirus atakuje ludzkie mózgi i powoduje, że zarażeni stają się zdezorientowani, nadludzko silni i szalenie agresywni.",
                 category = "Thriller",
                 imageUrl = "https://r.playcdn.tv/scale/play/playtv/upload/tvod/11728580/images/816508975?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&quality=80&type=1",
-                channelLogoUrl = "",
+                channelLogoUrl = "android.resource://com.uxellence.tv.prod/drawable/axn_cl_big",
                 link = "https://playnow.pl/tvod/11728580",
                 youtubeUrl = null  // brak trailera
             ),
@@ -19520,7 +19571,7 @@ private fun WideoChannelsScreen(
                 description = "Historia ukraińskiego małżeństwa, Irki i Tolika mieszkającego w czasie wojny na pograniczu Rosji i Ukrainy.",
                 category = "Dramat",
                 imageUrl = "https://r.playcdn.tv/scale/play/playtv/upload/tvod/19449504/images/888721338?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&quality=80&type=1",
-                channelLogoUrl = "",
+                channelLogoUrl = "android.resource://com.uxellence.tv.prod/drawable/axn_cl_big",
                 link = "https://playnow.pl/tvod/19449504",
                 youtubeUrl = trailer("76f01bac-e86d-42ac-b3a2-bb2e91f4ebb5")
             ),
@@ -19530,7 +19581,7 @@ private fun WideoChannelsScreen(
                 description = "Szczęśliwa rodzina jedzie na wakacje do nowo poznanych znajomych. Wspólny weekend stopniowo przyjmuje koszmarny obrót.",
                 category = "Thriller",
                 imageUrl = "https://r.playcdn.tv/scale/play/playtv/images/vod/15ed14ce-96ce-46fa-901d-ee7c35ec94fe/billboard_73.jpg?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&quality=80&type=1",
-                channelLogoUrl = "",
+                channelLogoUrl = "android.resource://com.uxellence.tv.prod/drawable/axn_cl_big",
                 link = "https://playnow.pl/tvod/18411991",
                 youtubeUrl = trailer("15ed14ce-96ce-46fa-901d-ee7c35ec94fe")
             ),
@@ -19540,7 +19591,7 @@ private fun WideoChannelsScreen(
                 description = "Nadeszło ulubione święto Scooby-Doo i Kudłatego! Pobliska działka z dyniami zostaje skażona toksycznym szlamem.",
                 category = "Familijny",
                 imageUrl = "https://r.playcdn.tv/scale/play/playtv/images/vod/405abd78-a1fa-4de2-8ab4-c3db6dde094e/billboard_mobile.jpg?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&quality=80&type=1",
-                channelLogoUrl = "",
+                channelLogoUrl = "android.resource://com.uxellence.tv.prod/drawable/axn_cl_big",
                 link = "https://playnow.pl/tvod/24279750",
                 youtubeUrl = null
             ),
@@ -19550,7 +19601,7 @@ private fun WideoChannelsScreen(
                 description = "Wielowątkowa, wzruszająca komedia o grupie przyjaciół, których relacje – w obliczu życiowych przeciwności – zostają wystawione na niejedną próbę.",
                 category = "Komedia",
                 imageUrl = "https://r.playcdn.tv/scale/play/playtv/upload/tvod/11262643/images/812447103?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&quality=80&type=1",
-                channelLogoUrl = "",
+                channelLogoUrl = "android.resource://com.uxellence.tv.prod/drawable/axn_cl_big",
                 link = "https://playnow.pl/tvod/11262643",
                 youtubeUrl = trailer("92ec6a23-da2b-4b41-b00f-60b47497a370")
             ),
@@ -19560,7 +19611,7 @@ private fun WideoChannelsScreen(
                 description = "Po czternastu latach odsiadki Anker wychodzi z więzienia z jednym celem: odzyskać zrabowaną fortunę. Problem w tym, że łup ukrył jego brat.",
                 category = "Komedia",
                 imageUrl = "https://r.playcdn.tv/scale/play/playtv/upload/tvod/40131969/images/1093005789?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&quality=80&type=1",
-                channelLogoUrl = "",
+                channelLogoUrl = "android.resource://com.uxellence.tv.prod/drawable/axn_cl_big",
                 link = "https://playnow.pl/tvod/40131969",
                 youtubeUrl = trailer("1fd35d5b-1929-4a82-b9a5-df7a6bb0ccfc")
             )
@@ -19980,16 +20031,22 @@ fun WideoChannelRowsLayout(
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     sliderVersion: Int = 1,
-    globalFocusState: MutableState<GlobalFocusState>
+    globalFocusState: MutableState<GlobalFocusState>,
+    // Optional slider override — when provided, used instead of the random VOD pull
+    // (e.g. PAKIETY passes its catalog items so the hero shows package data).
+    sliderItemsOverride: List<VodSlideData>? = null,
+    sliderSectionType: String = "WIDEO"
 ) {
     // Load WIDEO slider items from local VOD content. Override `isKinoPlay = false` so
     // OK on a slide opens MovieDetail in WIDEO mode (Oglądaj + Do obejrzenia, no Wypożycz).
     // VodContent.toVodSlideData defaults to isKinoPlay=true because most callers use it for
     // KINO_PLAY content; here we explicitly downgrade since WIDEO is free streaming.
     val context = LocalContext.current
-    val wideoSliderItems = remember {
-        val vodContent = com.uxellence.tv.v3.version001.loadVodContentFromAssets(context)
-        vodContent.shuffled().take(10).map { it.toVodSlideData().copy(isKinoPlay = false) }
+    val wideoSliderItems = remember(sliderItemsOverride) {
+        sliderItemsOverride
+            ?: com.uxellence.tv.v3.version001.loadVodContentFromAssets(context)
+                .shuffled().take(10)
+                .map { it.toVodSlideData().copy(isKinoPlay = false) }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -20011,7 +20068,7 @@ fun WideoChannelRowsLayout(
             VodHeroSliderV2(
                 isFocused = focusedRowIndex == 1 && isNotOnMenu,
                 items = wideoSliderItems,
-                sectionType = "WIDEO",
+                sectionType = sliderSectionType,
                 sx = sx,
                 sy = sy,
                 showBullets = focusedRowIndex < 2,  // Hide bullets when focused on Skróty or below
@@ -20571,77 +20628,23 @@ private fun PointsHistoryScreenContent(
 }
 
 /**
- * Pakiety section placeholder
- * Shows channel packages available for subscription
- * TODO: Implement actual content with channel package cards
+ * Pakiety section dispatcher — delegates to [PakietyWithHeroScreen] which
+ * builds the screen out of the SAME primitives as APLIKACJE (VodHeroSliderV2
+ * with bullets + ContentCard rows, like the ODKRYWAJ "Pakiety" channel).
  */
 @Composable
 private fun PakietyScreenContent(
     globalFocusState: MutableState<GlobalFocusState>,
-    onPrepareReturnFocus: () -> Unit = {},  // Set button focus state BEFORE returning
+    onPrepareReturnFocus: () -> Unit = {},
     sx: (Int) -> Dp,
     sy: (Int) -> Dp
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFF281443))
-            .onPreviewKeyEvent { event ->
-                if (event.type == KeyEventType.KeyDown && event.key == Key.Back) {
-                    // Set button focus state FIRST to prevent "through Start" flash
-                    onPrepareReturnFocus()
-                    globalFocusState.value = GlobalFocusManager.returnToMenu(globalFocusState.value)
-                    return@onPreviewKeyEvent true
-                }
-                false
-            },
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(sy(40))
-        ) {
-            // Icon from drawable
-            Image(
-                painter = painterResource(id = R.drawable.ic_packages),
-                contentDescription = "Pakiety",
-                modifier = Modifier.size(sx(120), sy(120)),
-                colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(TopMenuDesign.COLOR_FOCUS_BORDER)
-            )
-
-            // Title
-            Text(
-                text = "Pakiety kanałów",
-                color = Color.White,
-                fontSize = (48 * sy(1).value / 1).sp,  // Layout Engineer pattern
-                fontWeight = FontWeight.Bold
-            )
-
-            // Placeholder info
-            Text(
-                text = "Ekran w przygotowaniu",
-                color = Color(0xCCEEEEEE),
-                fontSize = (32 * sy(1).value / 1).sp
-            )
-
-            // Description
-            Text(
-                text = "Tutaj znajdziesz dostępne pakiety kanałów\ndo wyboru i aktywacji",
-                color = Color(0x99EEEEEE),
-                fontSize = (24 * sy(1).value / 1).sp,
-                textAlign = TextAlign.Center,
-                lineHeight = (36 * sy(1).value / 1).sp
-            )
-
-            // Navigation hint
-            Text(
-                text = "Naciśnij BACK aby wrócić do menu",
-                color = Color(0x80EEEEEE),
-                fontSize = (24 * sy(1).value / 1).sp,
-                modifier = Modifier.padding(top = sy(60))
-            )
-        }
-    }
+    PakietyWithHeroScreen(
+        globalFocusState = globalFocusState,
+        onPrepareReturnFocus = onPrepareReturnFocus,
+        sx = sx,
+        sy = sy
+    )
 }
 
 // ============================================================================
@@ -20829,6 +20832,230 @@ private fun AplikacjeWithHeroScreen(
                 )
             }
         }
+    }
+}
+
+/**
+ * Pakiety section — IDENTICAL to WIDEO infrastructure (same slider position,
+ * same ContentCard channel rows with focus-expand behavior, same key handler),
+ * just fed with package data. Reuses [WideoChannelRowsLayout] +
+ * [handleWideoChannelsNavigation] verbatim.
+ *
+ * channels = ["Slider Mix" (row 1), "Pakiety telewizyjne" (row 2),
+ *             "Pakiety streamingowe" (row 3)] — no chip row, no special rows.
+ * Data: pakiety_dom.json, split into TV vs streaming by [PaketRepository.split].
+ */
+@Composable
+private fun PakietyWithHeroScreen(
+    globalFocusState: MutableState<GlobalFocusState>,
+    onPrepareReturnFocus: () -> Unit,
+    sx: (Int) -> Dp,
+    sy: (Int) -> Dp
+) {
+    val onReturnToMenu: () -> Unit = {
+        onPrepareReturnFocus()
+        globalFocusState.value = GlobalFocusManager.returnToMenu(globalFocusState.value)
+    }
+    val context = LocalContext.current
+    val all = remember { com.uxellence.tv.v3.pakiety.PaketRepository.loadAll(context) }
+
+    // "Pakiet Optymalny" / TELEWIZJA i VOD is bundled with the user's subscription
+    // (includedInSubscription = true) — split it out so it lives in its own
+    // "Aktywne pakiety" row and doesn't pollute the slider / streaming list.
+    val activePackages = remember(all) { all.filter { it.includedInSubscription } }
+    val nonActive = remember(all) { all.filterNot { it.includedInSubscription } }
+    val (tvPackages, streamingPackages) = remember(nonActive) {
+        com.uxellence.tv.v3.pakiety.PaketRepository.split(nonActive)
+    }
+
+    // Hero slider items — only NON-active packages (the user's "Optymalny" already
+    // bought package shouldn't be advertised in the slider). Skip packages without
+    // an illustration (otherwise the slide is just a black box). Promote
+    // "Pakiet Filmy i Seriale" first and "Pakiet Filmbox" second per spec.
+    val sliderItems = remember(nonActive) {
+        val withIllustration = nonActive.filter {
+            it.imageHd.isNotBlank() || it.image.isNotBlank()
+        }
+        val priorityOrder = listOf("Pakiet Filmy i Seriale", "Pakiet Filmbox")
+        val priority = priorityOrder.mapNotNull { name ->
+            withIllustration.firstOrNull { it.name == name }
+        }
+        val rest = withIllustration.filterNot { it.name in priorityOrder }
+        (priority + rest).map { p ->
+            VodSlideData(
+                title = p.name,
+                genre = if (p.channelsCount > 0) "${p.channelsCount} kanałów" else "Pakiet",
+                duration = "",
+                year = "",
+                country = "",
+                ageRating = "",
+                description = p.description,
+                price = p.pointsPerCycle,
+                backgroundUrl = p.imageHd.ifBlank { p.image },
+                posterUrl = p.imageHd.ifBlank { p.image },
+                youtubeUrl = null,
+                showKrrit = false,
+                isKinoPlay = false,
+                selectedLogoUrl = p.logoHd.ifBlank { p.logo }
+            )
+        }
+    }
+
+    // Channels mapped to VodContent so the existing ContentCard renderer (and
+    // focus-expand row behaviour) work without any change.
+    fun List<com.uxellence.tv.v3.pakiety.PaketDom>.toVodContents(): List<VodContent> = map { p ->
+        // For PAKIETY tiles the brand logo IS the main illustration — there's no
+        // backdrop image and no separate logo overlay. ContentCard detects this via
+        // category == "Pakiet" and renders with ContentScale.Fit on a dark surface.
+        VodContent(
+            id = "pakiet_${p.url.hashCode()}_${p.name.hashCode()}",
+            title = p.name,
+            description = p.description,
+            category = "Pakiet",
+            imageUrl = p.logoHd.ifBlank { p.logo },  // logo as main illustration
+            channelLogoUrl = "",                       // no bottom-left overlay
+            link = p.url,
+            price = p.pointsPerCycle
+        )
+    }
+    val tvContent = remember(tvPackages) { tvPackages.toVodContents() }
+    val streamingContent = remember(streamingPackages) { streamingPackages.toVodContents() }
+    val activeContent = remember(activePackages) { activePackages.toVodContents() }
+
+    // === EXACT WideoChannelsScreen STRUCTURE ===
+    // Channels: row 1 = Slider Mix, rows 2-4 = three pakiety lists. No chip row.
+    val channels = remember {
+        listOf(
+            "Slider Mix",
+            "Pakiety telewizyjne",
+            "Pakiety streamingowe",
+            "Aktywne pakiety"
+        )
+    }
+    val gridContent = remember(tvContent, streamingContent, activeContent) {
+        mapOf(
+            "Slider Mix" to emptyList(),
+            "Pakiety telewizyjne" to tvContent,
+            "Pakiety streamingowe" to streamingContent,
+            "Aktywne pakiety" to activeContent
+        )
+    }
+    val chipCategories: List<Pair<String, String?>> = remember { emptyList() }
+
+    // FocusRequesters / lazyListStates — same shape as WIDEO for rows 1 (slider)
+    // and 2..N (horizontal channels). No row 4 chip block here.
+    val channelFocusRequesters = remember(channels.size) {
+        mutableMapOf<Pair<Int, Int>, FocusRequester>().apply {
+            put(Pair(1, 0), FocusRequester()) // slider rent button (compat)
+            for (rowIndex in 2..channels.size) {
+                put(Pair(rowIndex, -1), FocusRequester())
+                put(Pair(rowIndex, 0), FocusRequester())
+            }
+        }
+    }
+    val lazyListStates = remember(channels.size) {
+        mutableMapOf<Int, LazyListState>().apply {
+            for (rowIndex in 2..channels.size) put(rowIndex, LazyListState())
+        }
+    }
+
+    var focusedRowIndex by remember { mutableStateOf(1) }   // start on slider
+    var focusedColIndex by remember { mutableStateOf(-2) }  // -2 = no focus indicator
+    val coroutineScope = rememberCoroutineScope()
+    var isInitialized by remember { mutableStateOf(false) }
+
+    // Outer Box FR — used to request keyboard focus on entry so onPreviewKeyEvent
+    // (handleWideoChannelsNavigation) actually receives keys. Same pattern as WIDEO.
+    val rootBoxFocusRequester = remember { FocusRequester() }
+
+    // Reset the channel focus indicator when the menu pulls focus back to itself
+    // (currentRow → 0). Mirrors the resetTrigger pattern used by WideoChannelsScreen.
+    LaunchedEffect(globalFocusState.value.currentRow) {
+        if (globalFocusState.value.currentRow == 0 &&
+            globalFocusState.value.sectionId == "PAKIETY"
+        ) {
+            focusedRowIndex = 1
+            focusedColIndex = -2
+        }
+    }
+
+    // Auto-reset LazyListState for unfocused rows (verbatim from WideoChannelsScreen).
+    LaunchedEffect(focusedRowIndex, focusedColIndex, isInitialized) {
+        if (isInitialized) {
+            kotlinx.coroutines.delay(0)
+            for (rowIndex in 2..channels.size) {
+                if (rowIndex != focusedRowIndex) {
+                    val state = lazyListStates[rowIndex]
+                    if (state != null && state.firstVisibleItemIndex > 0) {
+                        state.animateScrollToItem(index = 0, scrollOffset = 0)
+                    }
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        focusedRowIndex = 1
+        focusedColIndex = 0
+        // Take Compose focus to the root box so the navigation handler receives
+        // keys (otherwise menu keeps focus and steals UP/DOWN).
+        kotlinx.coroutines.delay(50)
+        try { rootBoxFocusRequester.requestFocus() } catch (_: Exception) {}
+        isInitialized = true
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF281443))
+            .focusRequester(rootBoxFocusRequester)
+            .onPreviewKeyEvent { event ->
+                handleWideoChannelsNavigation(
+                    event = event,
+                    focusedRowIndex = focusedRowIndex,
+                    focusedColIndex = focusedColIndex,
+                    onChannelContentFocusChange = { row, col ->
+                        focusedRowIndex = row
+                        focusedColIndex = col
+                    },
+                    channelFocusRequesters = channelFocusRequesters,
+                    channels = channels,
+                    chipCount = 0,
+                    lazyListStates = lazyListStates,
+                    coroutineScope = coroutineScope,
+                    gridContent = gridContent,
+                    onReturnToMenu = {
+                        // Drop channel indicator BEFORE the menu paints its own focus
+                        // ring so the dual-focus moment is impossible.
+                        focusedColIndex = -2
+                        onReturnToMenu()
+                    },
+                    onMovieClicked = { /* Pakiety: ENTER on a tile is a no-op for now. */ }
+                )
+            }
+            .focusable()
+    ) {
+        WideoChannelRowsLayout(
+            channels = channels,
+            chipCategories = chipCategories,
+            gridContent = gridContent,
+            focusedRowIndex = focusedRowIndex,
+            focusedColIndex = focusedColIndex,
+            channelFocusRequesters = channelFocusRequesters,
+            onChannelContentFocusChange = { row, col ->
+                focusedRowIndex = row
+                focusedColIndex = col
+            },
+            onNavigateToVodGrid = { _, _, _ -> /* not used in PAKIETY */ },
+            onNavigateToMovieDetail = { /* not used in PAKIETY */ },
+            lazyListStates = lazyListStates,
+            sx = sx,
+            sy = sy,
+            sliderVersion = 2,
+            globalFocusState = globalFocusState,
+            sliderItemsOverride = sliderItems,
+            sliderSectionType = "PAKIETY"
+        )
     }
 }
 

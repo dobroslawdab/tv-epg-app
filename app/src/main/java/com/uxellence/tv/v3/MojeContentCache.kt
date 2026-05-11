@@ -1,5 +1,6 @@
 package com.uxellence.tv.v3
 
+import android.content.Context
 import com.uxellence.tv.v3.rental.RentalManager
 import com.uxellence.tv.v3.version001.VodContent
 
@@ -26,7 +27,30 @@ object MojeContentCache {
      * @param channelName Name of the channel
      * @return Cached or newly shuffled content for this channel
      */
-    fun getContentForChannel(channelName: String): List<VodContent> {
+    fun getContentForChannel(channelName: String, context: Context? = null): List<VodContent> {
+        // "Aktywne pakiety" is dynamic too — driven by PaketRepository's
+        // includedInSubscription flag (only "Pakiet Optymalny" / TELEWIZJA i VOD).
+        // Mapped to VodContent with category="Pakiet" so ContentCard renders the
+        // logo as the main illustration (same treatment as in the PAKIETY section).
+        if (channelName == "Aktywne pakiety") {
+            if (context == null) return emptyList()
+            val active = com.uxellence.tv.v3.pakiety.PaketRepository
+                .loadAll(context)
+                .filter { it.includedInSubscription }
+            return active.map { p ->
+                VodContent(
+                    id = "pakiet_active_${p.url.hashCode()}",
+                    title = p.name,
+                    description = p.description,
+                    category = "Pakiet",
+                    imageUrl = p.logoHd.ifBlank { p.logo },
+                    channelLogoUrl = "",
+                    link = p.url,
+                    price = p.pointsPerCycle
+                )
+            }
+        }
+
         // "Wypożyczone" is intentionally never cached: the rental list changes whenever
         // the user rents a new movie, so we always query RentalManager on demand.
         if (channelName == "Wypożyczone") {
@@ -58,7 +82,7 @@ object MojeContentCache {
 
         val content = if (vodContentList.isNotEmpty() && kinoPlayMovies.isNotEmpty()) {
             when (channelName) {
-                "Aktywne pakiety" -> emptyList()
+                // "Aktywne pakiety" handled at the top of this function (needs Context).
                 "Skróty" -> emptyList()  // Uses custom MojeSingleShortcutRow component
                 "[HEADER-RIGHT] Miejsce na nagrania" -> emptyList()  // Header - no content needed
                 "Skróty v2 Moje" -> emptyList()  // Shortcuts - no grid content needed
@@ -81,9 +105,9 @@ object MojeContentCache {
      * @param channels List of channel names
      * @return Map of channel names to their content lists
      */
-    fun getContent(channels: List<String>): Map<String, List<VodContent>> {
+    fun getContent(channels: List<String>, context: Context? = null): Map<String, List<VodContent>> {
         return channels.associateWith { channelName ->
-            getContentForChannel(channelName)
+            getContentForChannel(channelName, context)
         }
     }
 

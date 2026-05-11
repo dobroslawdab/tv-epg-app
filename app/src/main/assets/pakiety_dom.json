@@ -1,0 +1,1304 @@
+{
+  "source": "https://playnow.pl/pakiety",
+  "title": "PLAY NOW",
+  "count": 31,
+  "items": [
+    {
+      "name": "TELEWIZJA i VOD",
+      "url": "https://playnow.pl/pakiet/19603612",
+      "categoryType": null,
+      "logo": "https://r.playcdn.tv/scale/play/playtv/upload/packet/19603612/images/1010596704?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=260&dsth=77&type=0",
+      "logoHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/19603612/images/1010596704?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=1200&dsth=360&type=0&quality=90",
+      "image": "https://r.playcdn.tv/scale/play/playtv/upload/packet/19603612/images/1011638111?srcmode=3&srcw=16&srch=9&dstw=1280&dsth=720&type=1&quality=85",
+      "imageHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/19603612/images/1011638111?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&type=1&quality=90",
+      "description": "Pakiet Optymalny to starannie wyselekcjonowany zestaw kanałów, w którym znajdziesz atrakcyjne programy filmowo-serialowe, dokumentalne, rozrywkowe, informacyjne, dla dzieci, fanów sportu oraz kanały muzyczne.",
+      "pointsPerCycle": "Pakiet w abonamencie",
+      "active": false,
+      "includedInSubscription": true,
+      "channelsCount": 7,
+      "channels": [
+        {
+          "name": "AMC",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/2/images/812596796?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/2",
+          "productId": "2"
+        },
+        {
+          "name": "HISTORY",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/9/images/1025055487?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/9",
+          "productId": "9"
+        },
+        {
+          "name": "Music Box Polska",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/20027192/images/1025055484?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/20027192",
+          "productId": "20027192"
+        },
+        {
+          "name": "TVP3 Bydgoszcz",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/25988999/images/951848677?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/25988999",
+          "productId": "25988999"
+        },
+        {
+          "name": "TV Trwam",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/23940448/images/930307516?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/23940448",
+          "productId": "23940448"
+        },
+        {
+          "name": "Nickelodeon",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/18/images/993676936?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/18",
+          "productId": "18"
+        },
+        {
+          "name": "Comedy Central",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/22/images/908106480?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/22",
+          "productId": "22"
+        }
+      ],
+      "collectionsCount": 1,
+      "collections": [
+        {
+          "name": "SkyShowtime",
+          "url": null
+        }
+      ]
+    },
+    {
+      "name": "MAX Premium",
+      "url": "https://playnow.pl/pakiet/27452767",
+      "categoryType": null,
+      "logo": "https://r.playcdn.tv/scale/play/playtv/upload/packet/27452759/images/1037037910?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=260&dsth=77&type=0",
+      "logoHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/27452759/images/1037037910?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=1200&dsth=360&type=0&quality=90",
+      "image": "https://r.playcdn.tv/scale/play/playtv/upload/packet/27452759/images/1037037677?srcmode=3&srcw=16&srch=9&dstw=1280&dsth=720&type=1&quality=85",
+      "imageHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/27452759/images/1037037677?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&type=1&quality=90",
+      "description": "Dostęp do kanałów HBO, HBO 2 i HBO 3 oraz serwisu MAX, gdzie znajdziesz największe hity kinowe, wspaniałe historie, niezapomniane klasyki oraz wiele programów i seriali wyprodukowanych w Polsce. W ramach planu Max Premium otrzymasz dostęp do serwisu bez reklam, możliwość jednoczesnego oglądania na aż 4 urządzeniach i wybrane treści w jakości 4K. Co miesiąc pomniejszy Twoją pulę punktów o 40. Pakiet będzie dostępny, dopóki z niego nie zrezygnujesz. Możesz to zrobić w dowolnym momencie ze skutkiem na koniec okresu rozliczeniowego.",
+      "pointsPerCycle": "40 pkt / cykl",
+      "active": true,
+      "includedInSubscription": false,
+      "channelsCount": 3,
+      "channels": [
+        {
+          "name": "HBO",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/logo/HBO_bw.png?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/270550",
+          "productId": "270550"
+        },
+        {
+          "name": "HBO2",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/logo/HBO2_cl.png?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/270551",
+          "productId": "270551"
+        },
+        {
+          "name": "HBO3",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/logo/HBO3_cl.png?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/270552",
+          "productId": "270552"
+        }
+      ],
+      "collectionsCount": 0,
+      "collections": []
+    },
+    {
+      "name": "Extra nagrania za punkty (10 pkt)",
+      "url": "https://playnow.pl/pakiet/21354393",
+      "categoryType": null,
+      "logo": "https://r.playcdn.tv/scale/play/playtv/upload/packet/21354393/images/1111183611?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=260&dsth=77&type=0",
+      "logoHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/21354393/images/1111183611?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=1200&dsth=360&type=0&quality=90",
+      "image": "https://r.playcdn.tv/scale/play/playtv/packet/box/1000godzin.jpg?srcmode=3&srcw=16&srch=9&dstw=1280&dsth=720&type=1&quality=85",
+      "imageHd": "https://r.playcdn.tv/scale/play/playtv/packet/box/1000godzin.jpg?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&type=1&quality=90",
+      "description": "Nagrywaj swoje ulubione filmy i programy, i oglądaj je, kiedy masz ochotę, w telewizji Play na TV BOX, w aplikacjach PLAY NOW i na playnow.pl. Dajemy Ci aż 300 dodatkowych godzin na Twoje nagrania, które będziemy przechowywać przez 90 dni. Co miesiąc pomniejszy Twoją pulę punktów o 10 punktów. Z usługi możesz zrezygnować w dowolnym momencie, ale wiąże się to z usunięciem nagrań zgodnie z regulaminem.",
+      "pointsPerCycle": "10 pkt / cykl",
+      "active": true,
+      "includedInSubscription": false,
+      "channelsCount": 0,
+      "channels": [],
+      "collectionsCount": 0,
+      "collections": []
+    },
+    {
+      "name": "MAX Standardowy",
+      "url": "https://playnow.pl/pakiet/27452766",
+      "categoryType": null,
+      "logo": "https://r.playcdn.tv/scale/play/playtv/upload/packet/27452760/images/1037037902?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=260&dsth=77&type=0",
+      "logoHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/27452760/images/1037037902?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=1200&dsth=360&type=0&quality=90",
+      "image": "https://r.playcdn.tv/scale/play/playtv/upload/packet/27452759/images/1037037677?srcmode=3&srcw=16&srch=9&dstw=1280&dsth=720&type=1&quality=85",
+      "imageHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/27452759/images/1037037677?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&type=1&quality=90",
+      "description": "Dostęp do kanałów HBO, HBO 2 i HBO 3 oraz serwisu MAX, gdzie znajdziesz największe hity kinowe, wspaniałe historie, niezapomniane klasyki oraz wiele programów i seriali wyprodukowanych w Polsce. W ramach Planu Standardowego otrzymasz dostęp do serwisu bez reklam i możliwość jednoczesnego oglądania na 2 urządzeniach. Co miesiąc pomniejszy Twoją pulę punktów o 20. Pakiet będzie dostępny, dopóki z niego nie zrezygnujesz. Możesz to zrobić w dowolnym momencie ze skutkiem na koniec okresu rozliczeniowego.",
+      "pointsPerCycle": "20 pkt / cykl",
+      "active": true,
+      "includedInSubscription": false,
+      "channelsCount": 3,
+      "channels": [
+        {
+          "name": "HBO",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/logo/HBO_bw.png?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/270550",
+          "productId": "270550"
+        },
+        {
+          "name": "HBO2",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/logo/HBO2_cl.png?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/270551",
+          "productId": "270551"
+        },
+        {
+          "name": "HBO3",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/logo/HBO3_cl.png?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/270552",
+          "productId": "270552"
+        }
+      ],
+      "collectionsCount": 0,
+      "collections": []
+    },
+    {
+      "name": "Pakiet Canal+",
+      "url": "https://playnow.pl/pakiet/23262222",
+      "categoryType": null,
+      "logo": "https://r.playcdn.tv/scale/play/playtv/upload/packet/25424507/images/1006817659?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=260&dsth=77&type=0",
+      "logoHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/25424507/images/1006817659?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=1200&dsth=360&type=0&quality=90",
+      "image": "https://r.playcdn.tv/scale/play/playtv/upload/packet/23262225/images/947470459?srcmode=3&srcw=16&srch=9&dstw=1280&dsth=720&type=1&quality=85",
+      "imageHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/23262225/images/947470459?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&type=1&quality=90",
+      "description": "Dostęp do Pakietu CANAL+, w którym znajdziesz kanały premium sportowe i filmowe oraz możliwość korzystania z serwisu CANAL+ online. Pakiet możesz włączyc za punkty w Twoim abonamencie. Aby korzystać z CANAL+ online, po aktywacji pakietu kliknij link, który otrzymasz na swój numer do zarządzania usługą TV. Link znajdziesz też w postaci kodu QR w widoku pakietu na swoim dekoderze. Z usługi możesz zrezygnować w dowolnym momencie.",
+      "pointsPerCycle": "50 pkt / cykl",
+      "active": true,
+      "includedInSubscription": false,
+      "channelsCount": 7,
+      "channels": [
+        {
+          "name": "CANAL+ Sport 2 HD",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/14171256/images/838982881?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/14171256",
+          "productId": "14171256"
+        },
+        {
+          "name": "CANAL+ Sport HD",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/14171257/images/838982879?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/14171257",
+          "productId": "14171257"
+        },
+        {
+          "name": "CANAL+ Dokument HD",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/14171258/images/838982877?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/14171258",
+          "productId": "14171258"
+        },
+        {
+          "name": "CANAL+ 1 HD",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/14171259/images/838982875?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/14171259",
+          "productId": "14171259"
+        },
+        {
+          "name": "CANAL+ Film HD",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/14171260/images/838982873?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/14171260",
+          "productId": "14171260"
+        },
+        {
+          "name": "CANAL+ Seriale HD",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/14171261/images/838982871?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/14171261",
+          "productId": "14171261"
+        },
+        {
+          "name": "CANAL+ 360",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/14171262/images/981832384?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/14171262",
+          "productId": "14171262"
+        }
+      ],
+      "collectionsCount": 0,
+      "collections": []
+    },
+    {
+      "name": "Pakiet Canal+ Seriale i Filmy",
+      "url": "https://playnow.pl/pakiet/23262220",
+      "categoryType": null,
+      "logo": "https://r.playcdn.tv/scale/play/playtv/upload/packet/23262220/images/1006817618?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=260&dsth=77&type=0",
+      "logoHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/23262220/images/1006817618?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=1200&dsth=360&type=0&quality=90",
+      "image": "https://r.playcdn.tv/scale/play/playtv/upload/packet/23262223/images/947251889?srcmode=3&srcw=16&srch=9&dstw=1280&dsth=720&type=1&quality=85",
+      "imageHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/23262223/images/947251889?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&type=1&quality=90",
+      "description": "Dostęp do Pakietu CANAL+ seriale i filmy zawierający kanały premium, na których znajdziesz seriale i filmy oraz produkcje oryginalne CANAL+, a do tego możliwość korzystania z serwisu CANAL+ online. Pakiet możesz włączyc za punkty w Twoim abonamencie. Aby korzystać z CANAL+ online, po aktywacji pakietu kliknij w link, który otrzymasz na swój numer do zarządzania usługą TV. Link znajdziesz też w postaci kodu QR w widoku pakietu na swoim dekoderze. Z usługi możesz zrezygnować w dowolnym momencie.",
+      "pointsPerCycle": "25 pkt / cykl",
+      "active": true,
+      "includedInSubscription": false,
+      "channelsCount": 6,
+      "channels": [
+        {
+          "name": "CANAL+ Dokument HD",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/14171258/images/838982877?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/14171258",
+          "productId": "14171258"
+        },
+        {
+          "name": "CANAL+ 1 HD",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/14171259/images/838982875?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/14171259",
+          "productId": "14171259"
+        },
+        {
+          "name": "CANAL+ Film HD",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/14171260/images/838982873?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/14171260",
+          "productId": "14171260"
+        },
+        {
+          "name": "CANAL+ Seriale HD",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/14171261/images/838982871?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/14171261",
+          "productId": "14171261"
+        },
+        {
+          "name": "CANAL+ 360",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/14171262/images/981832384?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/14171262",
+          "productId": "14171262"
+        },
+        {
+          "name": "CANAL+ Premium",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/14171253/images/838982887?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/14171253",
+          "productId": "14171253"
+        }
+      ],
+      "collectionsCount": 0,
+      "collections": []
+    },
+    {
+      "name": "Pakiet Cinemax",
+      "url": "https://playnow.pl/pakiet/19603625",
+      "categoryType": null,
+      "logo": "https://r.playcdn.tv/scale/play/playtv/upload/packet/19603625/images/1008438078?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=260&dsth=77&type=0",
+      "logoHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/19603625/images/1008438078?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=1200&dsth=360&type=0&quality=90",
+      "image": "https://r.playcdn.tv/scale/play/playtv/upload/packet/19603625/images/908249083?srcmode=3&srcw=16&srch=9&dstw=1280&dsth=720&type=1&quality=85",
+      "imageHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/19603625/images/908249083?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&type=1&quality=90",
+      "description": "Dostęp do pakietu, który obejmuje kanały Cinemax i Cinemax2 oraz kolekcję filmów i seriali na żądanie. Możesz go włączyć za punkty w ramach Elastycznej Rozrywki. Co miesiąc pomniejszy Twoją pulę punktów o 5. Z usługi możesz zrezygnować w dowolnym momencie.",
+      "pointsPerCycle": "5 pkt / cykl",
+      "active": true,
+      "includedInSubscription": false,
+      "channelsCount": 2,
+      "channels": [
+        {
+          "name": "Cinemax HD",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/19195238/images/1050844145?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/19195238",
+          "productId": "19195238"
+        },
+        {
+          "name": "Cinemax2 HD",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/19195239/images/1050844143?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/19195239",
+          "productId": "19195239"
+        }
+      ],
+      "collectionsCount": 0,
+      "collections": []
+    },
+    {
+      "name": "Pakiet Dokumenty",
+      "url": "https://playnow.pl/pakiet/19603616",
+      "categoryType": null,
+      "logo": "https://r.playcdn.tv/scale/play/playtv/upload/packet/19603616/images/893119575?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=260&dsth=77&type=0",
+      "logoHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/19603616/images/893119575?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=1200&dsth=360&type=0&quality=90",
+      "image": "https://r.playcdn.tv/scale/play/playtv/upload/packet/19603616/images/908249069?srcmode=3&srcw=16&srch=9&dstw=1280&dsth=720&type=1&quality=85",
+      "imageHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/19603616/images/908249069?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&type=1&quality=90",
+      "description": "Dostęp do Pakietu Dokumenty, w którym znajdziesz kanały z interesującymi dokumentami i programami popularnonaukowymi. Pakiet możesz włączyc za punkty w ramach Elastycznej Rozrywki. Co miesiąc pomniejszy Twoją pulę punktów o 5. Z usługi możesz zrezygnować w dowolnym momencie.",
+      "pointsPerCycle": "5 pkt / cykl",
+      "active": true,
+      "includedInSubscription": false,
+      "channelsCount": 7,
+      "channels": [
+        {
+          "name": "BBC Earth",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/38018/images/1029135642?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/38018",
+          "productId": "38018"
+        },
+        {
+          "name": "H2",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/8/images/1028899355?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/8",
+          "productId": "8"
+        },
+        {
+          "name": "Discovery Historia",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/20183290/images/1025055493?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/20183290",
+          "productId": "20183290"
+        },
+        {
+          "name": "Animal Planet HD",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/20183288/images/1025055469?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/20183288",
+          "productId": "20183288"
+        },
+        {
+          "name": "Planete+",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/13537091/images/833526686?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/13537091",
+          "productId": "13537091"
+        },
+        {
+          "name": "Discovery Science HD",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/20183292/images/896415022?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/20183292",
+          "productId": "20183292"
+        },
+        {
+          "name": "DocuBox",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/23941564/images/1025055472?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/23941564",
+          "productId": "23941564"
+        }
+      ],
+      "collectionsCount": 0,
+      "collections": []
+    },
+    {
+      "name": "Pakiet Eleven Sports",
+      "url": "https://playnow.pl/pakiet/19603621",
+      "categoryType": null,
+      "logo": "https://r.playcdn.tv/scale/play/playtv/upload/packet/19603621/images/893584368?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=260&dsth=77&type=0",
+      "logoHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/19603621/images/893584368?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=1200&dsth=360&type=0&quality=90",
+      "image": "https://r.playcdn.tv/scale/play/playtv/upload/packet/19603621/images/894884589?srcmode=3&srcw=16&srch=9&dstw=1280&dsth=720&type=1&quality=85",
+      "imageHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/19603621/images/894884589?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&type=1&quality=90",
+      "description": "Dostęp do pakietu kanałów sportowych Eleven Sports. Oglądaj mecze najlepszych lig europejskich i inne emocjonujące wydarzenia sportowe na dekodrze Play oraz w aplikacjach PLAY NOW i na playnow.pl. Co miesiąc pomniejszy Twoją pulę punktów o 15. Z usługi możesz zrezygnować w dowolnym momencie.",
+      "pointsPerCycle": "15 pkt / cykl",
+      "active": true,
+      "includedInSubscription": false,
+      "channelsCount": 4,
+      "channels": [
+        {
+          "name": "Eleven Sports 1",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/1312486/images/284054649?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/1312486",
+          "productId": "1312486"
+        },
+        {
+          "name": "Eleven Sports 4",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/2409430/images/284054571?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/2409430",
+          "productId": "2409430"
+        },
+        {
+          "name": "Eleven Sports 3",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/1312487/images/284054653?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/1312487",
+          "productId": "1312487"
+        },
+        {
+          "name": "Eleven Sports 2",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/1312488/images/284054651?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/1312488",
+          "productId": "1312488"
+        }
+      ],
+      "collectionsCount": 0,
+      "collections": []
+    },
+    {
+      "name": "Pakiet Eurosport",
+      "url": "https://playnow.pl/pakiet/41612295",
+      "categoryType": null,
+      "logo": "https://r.playcdn.tv/scale/play/playtv/upload/packet/41612296/images/1113011436?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=260&dsth=77&type=0",
+      "logoHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/41612296/images/1113011436?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=1200&dsth=360&type=0&quality=90",
+      "image": null,
+      "imageHd": null,
+      "description": "Eurosport 3 i Eurosport 4 oferują widzom najwyższej jakości transmisje sportowe. To przede wszystkim ekskluzywne relacje z zawodów żużlowych Speedway Grand Prix, rozgrywki najlepszej na świecie ligi koszykarskiej – NBA, transmisje meczów tenisowych podczas turniejów Wielkiego Szlema. Uzupełnieniem oferty są transmisje z zawodów w sportach zimowych oraz wspinaczce sportowej, kolarstwie i golfie. Co miesiąc pomniejszy Twoją pulę punktów o 10. Z usługi możesz zrezygnować w dowolnym momencie ze skutkiem na koniec okresu rozliczeniowego.",
+      "pointsPerCycle": "10 pkt / cykl",
+      "active": true,
+      "includedInSubscription": false,
+      "channelsCount": 3,
+      "channels": [
+        {
+          "name": "Eurosport 4",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/41612298/images/1107897779?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/41612298",
+          "productId": "41612298"
+        },
+        {
+          "name": "Eurosport 2 HD",
+          "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/20183296/images/1078576581?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/20183296",
+          "productId": "20183296"
+        },
+        {
+          "name": "Eurosport 3",
+          "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/39319968/images/1078576570?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/39319968",
+          "productId": "39319968"
+        }
+      ],
+      "collectionsCount": 0,
+      "collections": []
+    },
+    {
+      "name": "Pakiet Film i Sport",
+      "url": "https://playnow.pl/pakiet/38202760",
+      "categoryType": null,
+      "logo": "https://r.playcdn.tv/scale/play/playtv/upload/packet/38202760/images/1067456896?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=260&dsth=77&type=0",
+      "logoHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/38202760/images/1067456896?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=1200&dsth=360&type=0&quality=90",
+      "image": null,
+      "imageHd": null,
+      "description": "Film i Sport to pakiet, który łączy pasję do sportu z zamiłowaniem do kina. Na kanałach Eleven Sports obejrzysz na żywo mecze czołowych lig piłkarskich świata, a także inne prestiżowe rozgrywki sportowe, w tym wyścigi Formuły 1. Dzięki 2 kanałom SkyShowtime oraz dostępowi do serwisu SkyShowtime w planie Standard z reklamami będziesz mógł cieszyć się kinowymi hitami i uwielbianymi serialami. Po aktywacji pakietu dostaniesz link, który umożliwi Ci założenie konta na platformie SkyShowtime. Nie czekaj – zamów już dziś i wejdź w świat nieograniczonej rozrywki!",
+      "pointsPerCycle": "35 pkt / cykl",
+      "active": true,
+      "includedInSubscription": false,
+      "channelsCount": 6,
+      "channels": [
+        {
+          "name": "SkyShowtime 2",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/28842056/images/975745454?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/28842056",
+          "productId": "28842056"
+        },
+        {
+          "name": "Eleven Sports 1",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/1312486/images/284054649?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/1312486",
+          "productId": "1312486"
+        },
+        {
+          "name": "Eleven Sports 4",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/2409430/images/284054571?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/2409430",
+          "productId": "2409430"
+        },
+        {
+          "name": "Eleven Sports 3",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/1312487/images/284054653?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/1312487",
+          "productId": "1312487"
+        },
+        {
+          "name": "SkyShowtime 1",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/28841472/images/975741951?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/28841472",
+          "productId": "28841472"
+        },
+        {
+          "name": "Eleven Sports 2",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/1312488/images/284054651?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/1312488",
+          "productId": "1312488"
+        }
+      ],
+      "collectionsCount": 0,
+      "collections": []
+    },
+    {
+      "name": "Pakiet Filmbox",
+      "url": "https://playnow.pl/pakiet/30492532",
+      "categoryType": null,
+      "logo": "https://r.playcdn.tv/scale/play/playtv/upload/packet/30492532/images/1004802744?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=260&dsth=77&type=0",
+      "logoHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/30492532/images/1004802744?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=1200&dsth=360&type=0&quality=90",
+      "image": "https://r.playcdn.tv/scale/play/playtv/upload/packet/30492532/images/990069433?srcmode=3&srcw=16&srch=9&dstw=1280&dsth=720&type=1&quality=85",
+      "imageHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/30492532/images/990069433?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&type=1&quality=90",
+      "description": "Pakiet kanałów Filmbox oraz dostęp do serwisu Filmbox+. W pakiecie znajdziesz m.in. Filmbox Premium z hitami filmowymi oraz Filmbox Arthouse dla fanów kina artystycznego. Zarejestruj się w aplikacji Filmbox+, aby uzyskać dostęp do polskich seriali i filmów oraz bogatej oferty tytułów zagranicznych na żądanie. Kanały Filmbox oglądaj w telewizji Play na TV BOX oraz w aplikacjach PLAY NOW i na playnow.pl. Pakiet możesz włączyć za punkty w ramach elastycznej rozrywki. Co miesiąc pomniejszy Twoją pulę punktów o 10. Z usługi możesz zrezygnować w dowolnym momencie.",
+      "pointsPerCycle": "10 pkt / cykl",
+      "active": true,
+      "includedInSubscription": false,
+      "channelsCount": 5,
+      "channels": [
+        {
+          "name": "FilmBox Family",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/23917248/images/1023144129?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/23917248",
+          "productId": "23917248"
+        },
+        {
+          "name": "FilmBox Extra HD",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/23917217/images/1023144069?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/23917217",
+          "productId": "23917217"
+        },
+        {
+          "name": "FilmBox Arthouse HD",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/23917315/images/1023144159?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/23917315",
+          "productId": "23917315"
+        },
+        {
+          "name": "FilmBox Action",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/23917234/images/1023144090?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/23917234",
+          "productId": "23917234"
+        },
+        {
+          "name": "FilmBox Premium HD",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/23917203/images/1023144057?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/23917203",
+          "productId": "23917203"
+        }
+      ],
+      "collectionsCount": 0,
+      "collections": []
+    },
+    {
+      "name": "Pakiet Filmy i Seriale",
+      "url": "https://playnow.pl/pakiet/19603613",
+      "categoryType": null,
+      "logo": "https://r.playcdn.tv/scale/play/playtv/upload/packet/19603613/images/893119573?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=260&dsth=77&type=0",
+      "logoHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/19603613/images/893119573?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=1200&dsth=360&type=0&quality=90",
+      "image": "https://r.playcdn.tv/scale/play/playtv/upload/packet/19603613/images/908249061?srcmode=3&srcw=16&srch=9&dstw=1280&dsth=720&type=1&quality=85",
+      "imageHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/19603613/images/908249061?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&type=1&quality=90",
+      "description": "Dostęp do Pakietu Filmy i Seriale, w którym znajdziesz kanały z hitami filmowymi i wciągającymi serialami. Pakiet możesz włączyc za punkty w ramach Elastycznej Rozrywki. Co miesiąc pomniejszy Twoją pulę punktów o 10. Z usługi możesz zrezygnować w dowolnym momencie.",
+      "pointsPerCycle": "10 pkt / cykl",
+      "active": true,
+      "includedInSubscription": false,
+      "channelsCount": 7,
+      "channels": [
+        {
+          "name": "AMC",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/2/images/812596796?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/2",
+          "productId": "2"
+        },
+        {
+          "name": "BBC First",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/38019/images/908106502?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/38019",
+          "productId": "38019"
+        },
+        {
+          "name": "Filmax",
+          "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/39345885/images/1082763301?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/39345885",
+          "productId": "39345885"
+        },
+        {
+          "name": "NOVELAS+",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/13544131/images/1023143823?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/13544131",
+          "productId": "13544131"
+        },
+        {
+          "name": "Romance.TV",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/24/images/874819431?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/24",
+          "productId": "24"
+        },
+        {
+          "name": "13 Ulica",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/4387166/images/908106484?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/4387166",
+          "productId": "4387166"
+        },
+        {
+          "name": "Kino Polska",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/28/images/962917569?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/28",
+          "productId": "28"
+        }
+      ],
+      "collectionsCount": 0,
+      "collections": []
+    },
+    {
+      "name": "Pakiet Info",
+      "url": "https://playnow.pl/pakiet/19603615",
+      "categoryType": null,
+      "logo": "https://r.playcdn.tv/scale/play/playtv/upload/packet/19603615/images/893119574?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=260&dsth=77&type=0",
+      "logoHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/19603615/images/893119574?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=1200&dsth=360&type=0&quality=90",
+      "image": "https://r.playcdn.tv/scale/play/playtv/upload/packet/19603615/images/908249072?srcmode=3&srcw=16&srch=9&dstw=1280&dsth=720&type=1&quality=85",
+      "imageHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/19603615/images/908249072?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&type=1&quality=90",
+      "description": "Dostęp do Pakietu Info, w którym znajdziesz polskie i międzynarodowe kanały informacyjne i publicystyczne. Pakiet możesz włączyc za punkty w ramach Elastycznej Rozrywki. Będzie co miesiąc pomniejszał Twoją pulę punktów o 5. Z usługi możesz zrezygnować w dowolnym momencie.",
+      "pointsPerCycle": "5 pkt / cykl",
+      "active": true,
+      "includedInSubscription": false,
+      "channelsCount": 7,
+      "channels": [
+        {
+          "name": "Euronews",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/958990/images/1034335121?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/958990",
+          "productId": "958990"
+        },
+        {
+          "name": "TV Republika HD",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/21878540/images/910772982?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/21878540",
+          "productId": "21878540"
+        },
+        {
+          "name": "TV Bolesławiec",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/34138570/images/1023144230?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/34138570",
+          "productId": "34138570"
+        },
+        {
+          "name": "DlaCiebie. TV",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/33423471/images/1018108214?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/33423471",
+          "productId": "33423471"
+        },
+        {
+          "name": "TVT",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/30394070/images/989580607?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/30394070",
+          "productId": "30394070"
+        },
+        {
+          "name": "Lubuska TV Horyzont",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/34380461/images/1024584123?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/34380461",
+          "productId": "34380461"
+        },
+        {
+          "name": "Euronews PL",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/35600060/images/1035545579?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/35600060",
+          "productId": "35600060"
+        }
+      ],
+      "collectionsCount": 0,
+      "collections": []
+    },
+    {
+      "name": "Pakiet Kids",
+      "url": "https://playnow.pl/pakiet/19603614",
+      "categoryType": null,
+      "logo": "https://r.playcdn.tv/scale/play/playtv/upload/packet/118439/images/818156067?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=260&dsth=77&type=0",
+      "logoHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/118439/images/818156067?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=1200&dsth=360&type=0&quality=90",
+      "image": "https://r.playcdn.tv/scale/play/playtv/upload/packet/19603614/images/908249073?srcmode=3&srcw=16&srch=9&dstw=1280&dsth=720&type=1&quality=85",
+      "imageHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/19603614/images/908249073?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&type=1&quality=90",
+      "description": "Dostęp do Pakietu Kids, w którym znajdziesz kanały z ulubionymi bajkami i programami Twojego dziecka. Pakiet możesz włączyc za punkty w ramach Elastycznej Rozrywki. Co miesiąc pomniejszy Twoją pulę punktów o 5. Z usługi możesz zrezygnować w dowolnym momencie.",
+      "pointsPerCycle": "5 pkt / cykl",
+      "active": true,
+      "includedInSubscription": false,
+      "channelsCount": 7,
+      "channels": [
+        {
+          "name": "CBeebies",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/38017/images/1109139687?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/38017",
+          "productId": "38017"
+        },
+        {
+          "name": "POLSAT JimJam",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/logo/jim_jam.png?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/4",
+          "productId": "4"
+        },
+        {
+          "name": "Baby TV",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/logo/BB_bw.png?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/3294206",
+          "productId": "3294206"
+        },
+        {
+          "name": "Nick Jr.",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/17/images/993674991?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/17",
+          "productId": "17"
+        },
+        {
+          "name": "NickToons",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/19/images/961447356?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/19",
+          "productId": "19"
+        },
+        {
+          "name": "Duck TV",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/logo/DUCV_cl.png?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/25",
+          "productId": "25"
+        },
+        {
+          "name": "TOP KIDS",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/30253779/images/1077243376?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/30253779",
+          "productId": "30253779"
+        }
+      ],
+      "collectionsCount": 0,
+      "collections": []
+    },
+    {
+      "name": "Pakiet Lifestyle",
+      "url": "https://playnow.pl/pakiet/19603617",
+      "categoryType": null,
+      "logo": "https://r.playcdn.tv/scale/play/playtv/upload/packet/19603617/images/893119576?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=260&dsth=77&type=0",
+      "logoHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/19603617/images/893119576?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=1200&dsth=360&type=0&quality=90",
+      "image": "https://r.playcdn.tv/scale/play/playtv/upload/packet/19603617/images/908249071?srcmode=3&srcw=16&srch=9&dstw=1280&dsth=720&type=1&quality=85",
+      "imageHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/19603617/images/908249071?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&type=1&quality=90",
+      "description": "Dostęp do Pakietu Lifestyle, w którym znajdziesz kanały poświęcone m.in kuchni, zdrowiu i modzie. Pakiet możesz włączyc za punkty w ramach Elastycznej Rozrywki. Co miesiąc pomniejszy Twoją pulę punktów o 5. Z usługi możesz zrezygnować w dowolnym momencie.",
+      "pointsPerCycle": "5 pkt / cykl",
+      "active": true,
+      "includedInSubscription": false,
+      "channelsCount": 7,
+      "channels": [
+        {
+          "name": "BBC Brit",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/38016/images/809710250?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/38016",
+          "productId": "38016"
+        },
+        {
+          "name": "Adventure",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/30231493/images/1028896605?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/30231493",
+          "productId": "30231493"
+        },
+        {
+          "name": "MTV Polska HD",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/11/images/1025055400?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/11",
+          "productId": "11"
+        },
+        {
+          "name": "Club MTV",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/12/images/284054689?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/12",
+          "productId": "12"
+        },
+        {
+          "name": "MTV Hits",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/13/images/284054667?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/13",
+          "productId": "13"
+        },
+        {
+          "name": "MTV Live HD",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/14/images/284054599?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/14",
+          "productId": "14"
+        },
+        {
+          "name": "MTV 90s",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/16/images/864544523?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/16",
+          "productId": "16"
+        }
+      ],
+      "collectionsCount": 0,
+      "collections": []
+    },
+    {
+      "name": "Pakiet Polsat",
+      "url": "https://playnow.pl/pakiet/19603618",
+      "categoryType": null,
+      "logo": "https://r.playcdn.tv/scale/play/playtv/upload/packet/19603618/images/897338205?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=260&dsth=77&type=0",
+      "logoHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/19603618/images/897338205?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=1200&dsth=360&type=0&quality=90",
+      "image": "https://r.playcdn.tv/scale/play/playtv/upload/packet/19603618/images/908249060?srcmode=3&srcw=16&srch=9&dstw=1280&dsth=720&type=1&quality=85",
+      "imageHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/19603618/images/908249060?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&type=1&quality=90",
+      "description": "Dostęp do Pakietu Polsat z popularnymi kanałami tematycznymi. Pakiet możesz włączyc za punkty w ramach Elastycznej Rozrywki. Co miesiąc pomniejszy Twoją pulę punktów o 10. Z usługi możesz zrezygnować w dowolnym momencie.",
+      "pointsPerCycle": "10 pkt / cykl",
+      "active": true,
+      "includedInSubscription": false,
+      "channelsCount": 7,
+      "channels": [
+        {
+          "name": "Polsat News Polityka",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/24725756/images/937177205?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/24725756",
+          "productId": "24725756"
+        },
+        {
+          "name": "Polo TV",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/20287933/images/895775613?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/20287933",
+          "productId": "20287933"
+        },
+        {
+          "name": "Polsat Reality",
+          "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/39364549/images/1079195279?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/39364549",
+          "productId": "39364549"
+        },
+        {
+          "name": "POLSAT Rodzina",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/20183315/images/896415056?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/20183315",
+          "productId": "20183315"
+        },
+        {
+          "name": "POLSAT Play",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/20183314/images/896415054?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/20183314",
+          "productId": "20183314"
+        },
+        {
+          "name": "POLSAT News 2",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/20183313/images/896415052?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/20183313",
+          "productId": "20183313"
+        },
+        {
+          "name": "POLSAT News",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/20183312/images/896415050?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/20183312",
+          "productId": "20183312"
+        }
+      ],
+      "collectionsCount": 0,
+      "collections": []
+    },
+    {
+      "name": "Pakiet Polsat OTT",
+      "url": "https://playnow.pl/pakiet/40025037",
+      "categoryType": null,
+      "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/packet/40025037/images/1086981450?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=260&dsth=77&type=0",
+      "logoHd": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/packet/40025037/images/1086981450?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=1200&dsth=360&type=0&quality=90",
+      "image": "https://r.playcdn.tv/scale/play/playtv/upload/packet/19603618/images/908249060?srcmode=3&srcw=16&srch=9&dstw=1280&dsth=720&type=1&quality=85",
+      "imageHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/19603618/images/908249060?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&type=1&quality=90",
+      "description": "Pakiet umożliwia dostęp do kanałów tematycznych Polsatu, w tym Polsat Sport, Polsat News, Polsat Cafe, Polsat Film i ponad 20 innych za pośrednictwem łącza internetowego od dowolnego dostawcy. Kanały możesz oglądać na dekoderze Play, ale także na smart TV, laptopie lub smartfonie. Usługa będzie co miesiąc pomniejszać Twoją pulę punktów o 20. Możesz z niej zrezygnować w dowolnym momencie.",
+      "pointsPerCycle": "20 pkt / cykl",
+      "active": true,
+      "includedInSubscription": false,
+      "channelsCount": 7,
+      "channels": [
+        {
+          "name": "Polsat News Polityka",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/24725756/images/937177205?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/24725756",
+          "productId": "24725756"
+        },
+        {
+          "name": "Polo TV",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/20287933/images/895775613?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/20287933",
+          "productId": "20287933"
+        },
+        {
+          "name": "Polsat Reality",
+          "logo": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/39364549/images/1079195279?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/39364549",
+          "productId": "39364549"
+        },
+        {
+          "name": "POLSAT Rodzina",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/20183315/images/896415056?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/20183315",
+          "productId": "20183315"
+        },
+        {
+          "name": "POLSAT Play",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/20183314/images/896415054?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/20183314",
+          "productId": "20183314"
+        },
+        {
+          "name": "POLSAT News 2",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/20183313/images/896415052?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/20183313",
+          "productId": "20183313"
+        },
+        {
+          "name": "POLSAT News",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/20183312/images/896415050?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/20183312",
+          "productId": "20183312"
+        }
+      ],
+      "collectionsCount": 0,
+      "collections": []
+    },
+    {
+      "name": "Pakiet Polsat Sport Premium",
+      "url": "https://playnow.pl/pakiet/19603620",
+      "categoryType": null,
+      "logo": "https://r.playcdn.tv/scale/play/playtv/upload/packet/19603620/images/1008437875?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=260&dsth=77&type=0",
+      "logoHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/19603620/images/1008437875?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=1200&dsth=360&type=0&quality=90",
+      "image": "https://r.playcdn.tv/scale/play/playtv/upload/packet/16643351/images/963761502?srcmode=3&srcw=16&srch=9&dstw=1280&dsth=720&type=1&quality=85",
+      "imageHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/16643351/images/963761502?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&type=1&quality=90",
+      "description": "Moc sportowych emocji na dwóch kanałach Polsat Sport Premium oraz czterech serwisach telewizyjnych premium. Oglądaj, gdzie chcesz: na telewizorze, na smartfonie lub laptopie! Co miesiąc pomniejszy Twoją pulę punktów o 15. Z usługi możesz zrezygnować w dowolnym momencie.",
+      "pointsPerCycle": "15 pkt / cykl",
+      "active": true,
+      "includedInSubscription": false,
+      "channelsCount": 6,
+      "channels": [
+        {
+          "name": "Polsat Sport Extra 3",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/16643349/images/1050525831?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/16643349",
+          "productId": "16643349"
+        },
+        {
+          "name": "Polsat Sport Extra 2",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/16643348/images/1050525830?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/16643348",
+          "productId": "16643348"
+        },
+        {
+          "name": "Polsat Sport Extra 4",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/16643350/images/1050525832?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/16643350",
+          "productId": "16643350"
+        },
+        {
+          "name": "Polsat Sport Premium 1",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/16643345/images/862701355?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/16643345",
+          "productId": "16643345"
+        },
+        {
+          "name": "Polsat Sport Extra 1",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/16643347/images/1050525828?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/16643347",
+          "productId": "16643347"
+        },
+        {
+          "name": "Polsat Sport Premium 2",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/16643346/images/862701353?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/16643346",
+          "productId": "16643346"
+        }
+      ],
+      "collectionsCount": 0,
+      "collections": []
+    },
+    {
+      "name": "Pakiet RelaX",
+      "url": "https://playnow.pl/pakiet/28027408",
+      "categoryType": null,
+      "logo": "https://r.playcdn.tv/scale/play/playtv/upload/packet/28027408/images/1006689660?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=260&dsth=77&type=0",
+      "logoHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/28027408/images/1006689660?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=1200&dsth=360&type=0&quality=90",
+      "image": "https://r.playcdn.tv/scale/play/playtv/upload/packet/28027408/images/985003652?srcmode=3&srcw=16&srch=9&dstw=1280&dsth=720&type=1&quality=85",
+      "imageHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/28027408/images/985003652?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&type=1&quality=90",
+      "description": "Dostęp do Pakietu RelaX, w którym znajdziesz kanały dla dorosłych, w tym Dorcel TV, Eroxxx, Brazzers TV Europe, Babes tv, True Amateurs i inne. Dostęp do kanałów zabezpieczony jest kodem PIN. Kod PIN możesz ustawić lub zmienić w sekcji \"Konto\". Pakiet możesz aktywować za punkty w ramach Elastycznej Rozrywki. Pakiet będzie dostępny, dopóki z niego nie zrezygnujesz. Możesz to zrobić w dowolnym momencie. Punkty do niego przypisane wrócą do Twojej puli na koniec okresu rozliczeniowego.",
+      "pointsPerCycle": "20 pkt / cykl",
+      "active": true,
+      "includedInSubscription": false,
+      "channelsCount": 0,
+      "channels": [],
+      "collectionsCount": 0,
+      "collections": []
+    },
+    {
+      "name": "Pakiet TVP",
+      "url": "https://playnow.pl/pakiet/25290484",
+      "categoryType": null,
+      "logo": "https://r.playcdn.tv/scale/play/playtv/upload/packet/25290484/images/946728707?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=260&dsth=77&type=0",
+      "logoHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/25290484/images/946728707?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=1200&dsth=360&type=0&quality=90",
+      "image": "https://r.playcdn.tv/scale/play/playtv/upload/packet/25290484/images/947111234?srcmode=3&srcw=16&srch=9&dstw=1280&dsth=720&type=1&quality=85",
+      "imageHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/25290484/images/947111234?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&type=1&quality=90",
+      "description": "Dostęp do Pakietu TVP, w którym znajdziesz różnorodne kanały Telewizji Polskiej, w tym TVP Rozrywka, TVP Kultura, TVP Historia, TVP ABC i inne. Pakiet możesz włączyć za punkty w ramach Elastycznej Rozrywki. Będzie co miesiąc pomniejszał Twoją pulę punktów o 5. Kanały z tego Pakietu możesz oglądać wyłącznie na Dekoderze lub Smart TV. Z usługi możesz zrezygnować w dowolnym momencie.",
+      "pointsPerCycle": "5 pkt / cykl",
+      "active": true,
+      "includedInSubscription": false,
+      "channelsCount": 1,
+      "channels": [
+        {
+          "name": "TVP Seriale",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/25517405/images/946932382?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/25517405",
+          "productId": "25517405"
+        }
+      ],
+      "collectionsCount": 0,
+      "collections": []
+    },
+    {
+      "name": "Pakiet Ukraina",
+      "url": "https://playnow.pl/pakiet/41066326",
+      "categoryType": null,
+      "logo": "https://r.playcdn.tv/scale/play/playtv/upload/packet/41066326/images/1100821618?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=260&dsth=77&type=0",
+      "logoHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/41066326/images/1100821618?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=1200&dsth=360&type=0&quality=90",
+      "image": null,
+      "imageHd": null,
+      "description": "Dostęp do Pakietu Ukraina, w którym znajdziesz różnorodne kanały ukraińskie, w tym 1+1 International, Kvartal TV, Film Ua Drama i inne. Możesz z niej zrezygnować w dowolnym momencie. Доступ до пакету “Україна”, у якому знайдеш різноманітні українські телеканали, зокремаЖ 1+1 International, Kvartal TV, FilmUA Drama та інші. Від пакету можливо відмовитися в будь-який момент.",
+      "pointsPerCycle": "15 pkt / cykl",
+      "active": true,
+      "includedInSubscription": false,
+      "channelsCount": 7,
+      "channels": [
+        {
+          "name": "Film UA Drama",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/41262690/images/1103606432?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/41262690",
+          "productId": "41262690"
+        },
+        {
+          "name": "Kvartal TV",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/41262445/images/1103606430?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/41262445",
+          "productId": "41262445"
+        },
+        {
+          "name": "Kus Kus",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/41263596/images/1103606425?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/41263596",
+          "productId": "41263596"
+        },
+        {
+          "name": "Star Family",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/41267311/images/1103606433?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/41267311",
+          "productId": "41267311"
+        },
+        {
+          "name": "36,6 TV",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/41267157/images/1103606426?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/41267157",
+          "productId": "41267157"
+        },
+        {
+          "name": "Star Cinema",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/41267160/images/1103606427?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/41267160",
+          "productId": "41267160"
+        },
+        {
+          "name": "1+1 International",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/41262232/images/1103606423?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/41262232",
+          "productId": "41262232"
+        }
+      ],
+      "collectionsCount": 0,
+      "collections": []
+    },
+    {
+      "name": "SkyShowtime Standard",
+      "url": "https://playnow.pl/pakiet/28841470",
+      "categoryType": null,
+      "logo": "https://r.playcdn.tv/scale/play/playtv/upload/packet/28841471/images/1006689657?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=260&dsth=77&type=0",
+      "logoHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/28841471/images/1006689657?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=1200&dsth=360&type=0&quality=90",
+      "image": "https://r.playcdn.tv/scale/play/playtv/upload/packet/28841471/images/1008053086?srcmode=3&srcw=16&srch=9&dstw=1280&dsth=720&type=1&quality=85",
+      "imageHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/28841471/images/1008053086?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&type=1&quality=90",
+      "description": "Nowość w ofercie Play! Dwa kanały telewizyjne premium SkyShowtime i dostęp do serwisu SkyShowtime w planie Standard, a w nim najnowsze hity prosto z kina, premierowe seriale, filmowe klasyki i ulubione animacje dla dzieci. Po włączeniu usługi dostaniesz SMS z linkiem do rejestracji w serwisie.",
+      "pointsPerCycle": "30 pkt / cykl",
+      "active": true,
+      "includedInSubscription": false,
+      "channelsCount": 2,
+      "channels": [
+        {
+          "name": "SkyShowtime 2",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/28842056/images/975745454?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/28842056",
+          "productId": "28842056"
+        },
+        {
+          "name": "SkyShowtime 1",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/28841472/images/975741951?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/28841472",
+          "productId": "28841472"
+        }
+      ],
+      "collectionsCount": 0,
+      "collections": []
+    },
+    {
+      "name": "SkyShowtime Standard z reklamami",
+      "url": "https://playnow.pl/pakiet/32314128",
+      "categoryType": null,
+      "logo": "https://r.playcdn.tv/scale/play/playtv/upload/packet/32314128/images/1008298573?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=260&dsth=77&type=0",
+      "logoHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/32314128/images/1008298573?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=1200&dsth=360&type=0&quality=90",
+      "image": "https://r.playcdn.tv/scale/play/playtv/upload/packet/32314126/images/1008298583?srcmode=3&srcw=16&srch=9&dstw=1280&dsth=720&type=1&quality=85",
+      "imageHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/32314126/images/1008298583?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&type=1&quality=90",
+      "description": "Dwa kanały telewizyjne premium SkyShowtime i dostęp do serwisu SkyShowtime w planie Standard z reklamami, a w nim najnowsze hity prosto z kina, premierowe seriale, filmowe klasyki i ulubione animacje dla dzieci. Po włączeniu usługi dostaniesz SMS z linkiem do rejestracji w serwisie.",
+      "pointsPerCycle": "25 pkt / cykl",
+      "active": true,
+      "includedInSubscription": false,
+      "channelsCount": 2,
+      "channels": [
+        {
+          "name": "SkyShowtime 2",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/28842056/images/975745454?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/28842056",
+          "productId": "28842056"
+        },
+        {
+          "name": "SkyShowtime 1",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/28841472/images/975741951?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/28841472",
+          "productId": "28841472"
+        }
+      ],
+      "collectionsCount": 0,
+      "collections": []
+    },
+    {
+      "name": "Sport Max",
+      "url": "https://playnow.pl/pakiet/30976490",
+      "categoryType": null,
+      "logo": "https://r.playcdn.tv/scale/play/playtv/upload/packet/16643352/images/863166624?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=260&dsth=77&type=0",
+      "logoHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/16643352/images/863166624?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=1200&dsth=360&type=0&quality=90",
+      "image": "https://r.playcdn.tv/scale/play/playtv/upload/packet/16643352/images/908249059?srcmode=3&srcw=16&srch=9&dstw=1280&dsth=720&type=1&quality=85",
+      "imageHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/16643352/images/908249059?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&type=1&quality=90",
+      "description": "Kanały Eleven Sports z topowymi europejskimi rozgrywkami piłkarskimi, a do tego moc sportowych emocji na dwóch kanałach Polsat Sport Premium oraz czterech serwisach telewizyjnych premium. Oglądaj w telewizji Play na TV BOX, w aplikacjach PLAY NOW oraz na playnow.pl. Usługa płatna 25 pkt m/c. Możesz z niej zrezygnować w dowolnym momencie.",
+      "pointsPerCycle": "25 pkt / cykl",
+      "active": true,
+      "includedInSubscription": false,
+      "channelsCount": 7,
+      "channels": [
+        {
+          "name": "Polsat Sport Extra 3",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/16643349/images/1050525831?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/16643349",
+          "productId": "16643349"
+        },
+        {
+          "name": "Polsat Sport Extra 2",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/16643348/images/1050525830?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/16643348",
+          "productId": "16643348"
+        },
+        {
+          "name": "Polsat Sport Extra 4",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/16643350/images/1050525832?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/16643350",
+          "productId": "16643350"
+        },
+        {
+          "name": "Polsat Sport Premium 1",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/16643345/images/862701355?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/16643345",
+          "productId": "16643345"
+        },
+        {
+          "name": "Polsat Sport Extra 1",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/16643347/images/1050525828?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/16643347",
+          "productId": "16643347"
+        },
+        {
+          "name": "Polsat Sport Premium 2",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/16643346/images/862701353?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/16643346",
+          "productId": "16643346"
+        },
+        {
+          "name": "Eleven Sports 1",
+          "logo": "https://r.playcdn.tv/scale/play/playtv/upload/live/1312486/images/284054649?srcmode=3&srcw=1%2F1&srch=1%2F1&dstw=240&dsth=240&quality=90",
+          "channelUrl": "https://playnow.pl/kanalytv/1312486",
+          "productId": "1312486"
+        }
+      ],
+      "collectionsCount": 0,
+      "collections": []
+    },
+    {
+      "name": "Viaplay Filmy i Seriale",
+      "url": "https://playnow.pl/pakiet/35668108",
+      "categoryType": null,
+      "logo": "https://r.playcdn.tv/scale/play/playtv/upload/packet/35668108/images/1037037508?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=260&dsth=77&type=0",
+      "logoHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/35668108/images/1037037508?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=1200&dsth=360&type=0&quality=90",
+      "image": "https://r.playcdn.tv/scale/play/playtv/upload/packet/35668111/images/1039158668?srcmode=3&srcw=16&srch=9&dstw=1280&dsth=720&type=1&quality=85",
+      "imageHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/35668111/images/1039158668?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&type=1&quality=90",
+      "description": "Z pakietem Viaplay Filmy i Seriale zyskasz dostęp do setek filmów i seriali, w tym cenionych skandynawskich kryminałów. Oglądaj je, gdzie chcesz: na telewizorze, smartfonie lub laptopie. Pakiet co miesiąc pomniejszy Twoją pulę punktów o 15. Możesz z niego zrezygnować w dowolnym momencie.",
+      "pointsPerCycle": "15 pkt / cykl",
+      "active": true,
+      "includedInSubscription": false,
+      "channelsCount": 0,
+      "channels": [],
+      "collectionsCount": 1,
+      "collections": [
+        {
+          "name": "Viaplay Filmy i Seriale",
+          "url": null
+        }
+      ]
+    },
+    {
+      "name": "Wideoteka Play",
+      "url": "https://playnow.pl/pakiet/33700923",
+      "categoryType": null,
+      "logo": "https://r.playcdn.tv/scale/play/playtv/upload/packet/29581409/images/984609682?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=260&dsth=77&type=0",
+      "logoHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/29581409/images/984609682?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=1200&dsth=360&type=0&quality=90",
+      "image": "https://r.playcdn.tv/scale/play/playtv/upload/packet/33700273/images/1020958353?srcmode=3&srcw=16&srch=9&dstw=1280&dsth=720&type=1&quality=85",
+      "imageHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/33700273/images/1020958353?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&type=1&quality=90",
+      "description": "W Wideotece Play znajdziesz kilkaset filmów i seriali o różnej tematyce, w tym tytuły dla dzieci. Pakiet oferuje wysoką jakość obrazu i dźwięku w każdym filmowym gatunku. Obejmuje filmy i seriale w polskiej wersji językowej, bez reklam oraz bez limitu obejrzeń. Pakiet możesz włączyć za punkty w ramach elastycznej rozrywki. Co miesiąc pomniejszy Twoją pulę punktów o 5. Z usługi możesz zrezygnować w dowolnym momencie.",
+      "pointsPerCycle": "5 pkt / cykl",
+      "active": true,
+      "includedInSubscription": false,
+      "channelsCount": 0,
+      "channels": [],
+      "collectionsCount": 4,
+      "collections": [
+        {
+          "name": "Wideoteka - Kolekcja AETN",
+          "url": null
+        },
+        {
+          "name": "Wideoteka - Kolekcja Galapagos",
+          "url": null
+        },
+        {
+          "name": "Wideoteka - Kolekcja Viaplay Select",
+          "url": null
+        },
+        {
+          "name": "Wideoteka - Kolekcja Romance TV",
+          "url": null
+        }
+      ]
+    },
+    {
+      "name": "Amazon Prime",
+      "url": "https://playnow.pl/pakiet/30279650",
+      "categoryType": null,
+      "logo": "https://r.playcdn.tv/scale/play/playtv/upload/packet/29020667/images/979943766?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=260&dsth=77&type=0",
+      "logoHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/29020667/images/979943766?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=1200&dsth=360&type=0&quality=90",
+      "image": "https://r.playcdn.tv/scale/play/playtv/upload/packet/7200011/images/838982889?srcmode=3&srcw=16&srch=9&dstw=1280&dsth=720&type=1&quality=85",
+      "imageHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/7200011/images/838982889?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&type=1&quality=90",
+      "description": "Darmowa i szybka dostawa bez minimalnej kwoty zamówienia, nagradzane filmy i seriale i wiele więcej! Usługa dostępu do Amazon Prime. Możesz ją włączyć za punkty w ramach Elastycznej Rozrywki. Co miesiąc będzie pomniejszać Twoją pulę punktów . Aby skorzystać z usługi, należy zawrzeć umowę z Amazon.com, W tym celu kliknij w link, który otrzymasz na swój numer telefonu komórkowego do zarządzania usługą TV. Z usługi możesz zrezygnować w dowolnym momencie.",
+      "pointsPerCycle": "15 pkt / cykl",
+      "active": true,
+      "includedInSubscription": false,
+      "channelsCount": 0,
+      "channels": [],
+      "collectionsCount": 0,
+      "collections": []
+    },
+    {
+      "name": "MAX Podstawowy",
+      "url": "https://playnow.pl/pakiet/27452765",
+      "categoryType": null,
+      "logo": "https://r.playcdn.tv/scale/play/playtv/upload/packet/27452761/images/1037037894?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=260&dsth=77&type=0",
+      "logoHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/27452761/images/1037037894?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=1200&dsth=360&type=0&quality=90",
+      "image": "https://r.playcdn.tv/scale/play/playtv/upload/packet/27452759/images/1037037677?srcmode=3&srcw=16&srch=9&dstw=1280&dsth=720&type=1&quality=85",
+      "imageHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/27452759/images/1037037677?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&type=1&quality=90",
+      "description": "Dostęp do serwisu MAX, gdzie znajdziesz największe hity kinowe, wspaniałe historie, niezapomniane klasyki oraz wiele programów i seriali wyprodukowanych w Polsce. Serwis zawiera reklamy. Co miesiąc pomniejszy Twoją pulę punktów o 10. Pakiet będzie dostępny, dopóki z niego nie zrezygnujesz. Możesz to zrobić w dowolnym momencie ze skutkiem na koniec okresu rozliczeniowego.",
+      "pointsPerCycle": "10 pkt / cykl",
+      "active": true,
+      "includedInSubscription": false,
+      "channelsCount": 0,
+      "channels": [],
+      "collectionsCount": 0,
+      "collections": []
+    },
+    {
+      "name": "Dopłata za zmianę z Netflix - Standardowy do Netflix - Premium",
+      "url": "https://playnow.pl/pakiet/29767628",
+      "categoryType": null,
+      "logo": "https://r.playcdn.tv/scale/play/playtv/upload/packet/29767610/images/1093360915?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=260&dsth=77&type=0",
+      "logoHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/29767610/images/1093360915?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=1200&dsth=360&type=0&quality=90",
+      "image": "https://r.playcdn.tv/scale/play/playtv/upload/packet/20045725/images/968646199?srcmode=3&srcw=16&srch=9&dstw=1280&dsth=720&type=1&quality=85",
+      "imageHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/20045725/images/968646199?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&type=1&quality=90",
+      "description": "Dopłata za zmianę planu taryfowego z Planu Standardowego na Plan Premium dla usługi dostępu do Netflix w Twojej Ofercie promocyjnej. Za korzystanie z wyższego planu co miesiąc pobieramy opłatę w wysokości 17 zł. W dowolnym momencie możesz wyłączyć dopłatę i wrócić do plany taryfowego wynikającego z Twojej Oferty promocyjnej",
+      "pointsPerCycle": "15 pkt / cykl",
+      "active": true,
+      "includedInSubscription": false,
+      "channelsCount": 0,
+      "channels": [],
+      "collectionsCount": 0,
+      "collections": []
+    },
+    {
+      "name": "Netflix - Standardowy",
+      "url": "https://playnow.pl/pakiet/20045723",
+      "categoryType": null,
+      "logo": "https://r.playcdn.tv/scale/play/playtv/upload/packet/20045723/images/1004802695?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=260&dsth=77&type=0",
+      "logoHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/20045723/images/1004802695?srcmode=3&srcx=260&srcy=77&srcw=260&srch=77&dstw=1200&dsth=360&type=0&quality=90",
+      "image": "https://r.playcdn.tv/scale/play/playtv/upload/packet/27469730/images/969460427?srcmode=3&srcw=16&srch=9&dstw=1280&dsth=720&type=1&quality=85",
+      "imageHd": "https://r.playcdn.tv/scale/play/playtv/upload/packet/27469730/images/969460427?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&type=1&quality=90",
+      "description": "Usługa dostępu do Netflix w Planie Standardowym. Możesz ją włączyć za punkty w ramach posiadanego pakietu. Co miesiąc pomniejszy Twoją pulę punktów o 40. Pakiet będzie dostępny, dopóki z niego nie zrezygnujesz. Możesz to zrobić w dowolnym momencie ze skutkiem na koniec okresu rozliczeniowego. Aby skorzystać z usługi, należy zawrzeć umowę z Netflix International na stronie netflix.pl. W tym celu kliknij w link, który otrzymasz na swój numer telefonu komórkowego do zarządzania usługą komórkową.",
+      "pointsPerCycle": "40 pkt / cykl",
+      "active": false,
+      "includedInSubscription": false,
+      "channelsCount": 0,
+      "channels": [],
+      "collectionsCount": 0,
+      "collections": []
+    }
+  ]
+}
