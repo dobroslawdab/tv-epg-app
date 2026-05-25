@@ -65,10 +65,16 @@ private const val FOCUSED_ROW_PIN_Y_DP = 240          // Pin focused row at this
 // Width reserved on the left when the search keyboard is visible (matches KinoGridScreen).
 private const val VOD_SEARCH_KEYBOARD_SHIFT_DP = 480
 
+// Sort options — mirror KinoSortOption so the spec parity is identical across
+// both grids. "Data dodania", "Data produkcji" i "Ocena Filmweb" są POKAZANE
+// w pickerze ale obecnie no-op (brak odpowiednich pól w VodContent).
 private enum class VodSortOption(val label: String) {
     ALPHABETICAL("Alfabetycznie A-Z"),
     ALPHABETICAL_DESC("Alfabetycznie Z-A"),
-    BY_CATEGORY("Po kategorii")
+    BY_CATEGORY("Po kategorii"),
+    DATE_ADDED("Data dodania"),
+    RELEASE_YEAR("Data produkcji"),
+    FILMWEB_RATING("Ocena Filmweb")
 }
 
 // Focus management — mirrors KinoFocusLevel.
@@ -281,6 +287,9 @@ fun VodGridScreen(
             VodSortOption.ALPHABETICAL -> result.sortedBy { it.title.lowercase() }
             VodSortOption.ALPHABETICAL_DESC -> result.sortedByDescending { it.title.lowercase() }
             VodSortOption.BY_CATEGORY -> result.sortedBy { it.category }
+            VodSortOption.DATE_ADDED,
+            VodSortOption.RELEASE_YEAR,
+            VodSortOption.FILMWEB_RATING -> result
         }
         filteredVodContent = result
 

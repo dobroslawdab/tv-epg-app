@@ -86,8 +86,8 @@ fun VerticalVodCard(
         // Poster image
         Box(
             modifier = Modifier
-                .width(sx(225))
-                .height(sy(315))
+                .width(sx(280))
+                .height(sy(392))
                 .clip(RoundedCornerShape(sx(12)))
                 .border(
                     width = if (isFocused) (6 * sx(1).value / 1.dp.value).dp else 0.dp,

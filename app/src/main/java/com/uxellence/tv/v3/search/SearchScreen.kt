@@ -106,6 +106,18 @@ private const val FOCUS_TAB = "TAB"
 private const val FOCUS_KEYBOARD = "KEYBOARD"
 private const val FOCUS_CHANNELS = "CHANNELS"
 private const val FOCUS_SUGGESTIONS = "SUGGESTIONS"
+private const val FOCUS_CATEGORIES = "CATEGORIES"
+
+// V1 search — list of category labels shown vertically below the on-screen
+// keyboard. Focusable: arrows up/down move between items, OK seeds the search
+// query with the category name.
+private val SEARCH_CATEGORIES = listOf(
+    "Filmy", "Seriale", "Sport", "Kino Play",
+    "Dokumenty", "Dla dzieci", "Rozrywka", "Muzyka",
+    "Akcja", "Komedia", "Dramat", "Thriller",
+    "Horror", "Sci-fi", "Fantasy", "Wojenne",
+    "Historia", "Lifestyle"
+)
 
 // Unified item for search results (works for both Supabase movies and EPG programs)
 private data class SearchItem(
@@ -292,6 +304,9 @@ fun SearchScreen(
     // TMDB autocomplete suggestions (debounced)
     var suggestions by remember { mutableStateOf<List<String>>(emptyList()) }
     var suggestionIndex by remember { mutableIntStateOf(0) }
+
+    // V1 search categories — focus column below the keyboard.
+    var categoryIndex by remember { mutableIntStateOf(0) }
     LaunchedEffect(searchQuery) {
         if (searchQuery.length < 2) {
             suggestions = emptyList()
@@ -536,6 +551,16 @@ fun SearchScreen(
                                     resetChannels()
                                 }
                             }
+                            FOCUS_CATEGORIES -> {
+                                if (categoryIndex > 0) {
+                                    categoryIndex -= 1
+                                } else {
+                                    // Top of category list → last keyboard row.
+                                    focusArea = FOCUS_KEYBOARD
+                                    keyboardRow = kbRows.size - 1
+                                    keyboardCol = keyboardCol.coerceIn(0, kbRows.last().size - 1)
+                                }
+                            }
                         }
                         true
                     }
@@ -566,10 +591,18 @@ fun SearchScreen(
                                     }
                                     return@onPreviewKeyEvent true
                                 }
-                                // Mode 0 only: navigate keyboard rows
+                                // Mode 0 only: navigate keyboard rows; from last row → categories.
                                 if (kbRow < kbRows.size - 1) {
                                     keyboardRow = kbRow + 1
                                     keyboardCol = kbCol.coerceIn(0, kbRows[keyboardRow].size - 1)
+                                } else {
+                                    focusArea = FOCUS_CATEGORIES
+                                    categoryIndex = 0
+                                }
+                            }
+                            FOCUS_CATEGORIES -> {
+                                if (categoryIndex < SEARCH_CATEGORIES.size - 1) {
+                                    categoryIndex += 1
                                 }
                             }
                             FOCUS_SUGGESTIONS -> {
@@ -632,6 +665,9 @@ fun SearchScreen(
                                     resetChannels()
                                 }
                             }
+                            FOCUS_CATEGORIES -> {
+                                // Already at the left edge — swallow LEFT.
+                            }
                         }
                         true
                     }
@@ -676,6 +712,14 @@ fun SearchScreen(
                             FOCUS_CHANNELS -> {
                                 val maxCol = if (channels.isNotEmpty()) channels[chRow].items.size - 1 else 0
                                 if (chCol < maxCol) channelCol = chCol + 1
+                            }
+                            FOCUS_CATEGORIES -> {
+                                // Bridge over to channels list when one is available.
+                                if (channels.isNotEmpty()) {
+                                    focusArea = FOCUS_CHANNELS
+                                    channelRow = 0
+                                    channelCol = 0
+                                }
                             }
                         }
                         true
@@ -732,6 +776,17 @@ fun SearchScreen(
                                     if (item?.supabaseMovie != null) {
                                         onNavigateToMovieDetail(item.supabaseMovie.toVodSlideData())
                                     }
+                                }
+                            }
+                            FOCUS_CATEGORIES -> {
+                                // Drop the chosen category into the search query and
+                                // jump focus back to the keyboard so the user can refine.
+                                val label = SEARCH_CATEGORIES.getOrNull(categoryIndex)
+                                if (label != null) {
+                                    searchQuery = label
+                                    focusArea = FOCUS_KEYBOARD
+                                    keyboardRow = 0
+                                    keyboardCol = 0
                                 }
                             }
                         }
@@ -949,6 +1004,34 @@ fun SearchScreen(
                                         )
                                     }
                                 }
+                            }
+                        }
+                    }
+
+                    // === CATEGORIES (vertical list, V1 only, focusable) ===
+                    // Layout: one item per line, full-width inside the keyboard
+                    // panel. Idle items render as text only on the page background;
+                    // the focused item gets the same aqua background as a focused
+                    // keyboard key.
+                    Spacer(modifier = Modifier.height(sy(28)))
+                    Column(verticalArrangement = Arrangement.spacedBy(sy(2))) {
+                        SEARCH_CATEGORIES.forEachIndexed { idx, label ->
+                            val isCatFocused = focusArea == FOCUS_CATEGORIES && idx == categoryIndex
+                            val bg = if (isCatFocused) COLOR_FOCUS_BORDER else androidx.compose.ui.graphics.Color.Transparent
+                            val fg = if (isCatFocused) COLOR_BG else COLOR_TEXT_PRIMARY
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(bg, RoundedCornerShape(sx(8)))
+                                    .padding(horizontal = sx(12), vertical = sy(8))
+                            ) {
+                                Text(
+                                    text = label,
+                                    color = fg,
+                                    fontSize = (18 * sx(1).value).sp,
+                                    fontFamily = ManropeFamily,
+                                    fontWeight = if (isCatFocused) FontWeight.Bold else FontWeight.Medium
+                                )
                             }
                         }
                     }

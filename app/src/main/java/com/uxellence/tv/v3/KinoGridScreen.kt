@@ -56,21 +56,29 @@ import com.uxellence.tv.v3.version001.VodContent
 import kotlinx.coroutines.launch
 
 // Grid layout constants
-private const val GRID_COLUMNS = 7              // 7 columns for vertical posters (220x380px)
-private const val GRID_COLUMNS_WITH_KEYBOARD = 5 // Drops two columns when keyboard panel is open
+private const val GRID_COLUMNS = 6              // 6 columns for vertical posters (220x380px)
+private const val GRID_COLUMNS_WITH_KEYBOARD = 4 // Drops two columns when keyboard panel is open
 private const val GRADIENT_OVERLAY_HEIGHT = 600
 private const val TITLE_LEFT_PADDING = 0
 private const val GRID_LEFT_PADDING = 80
 private const val GRID_RIGHT_PADDING = 80
-private const val GRID_HORIZONTAL_GAP = 5       // Halved (10 → 5) to give posters more space
-private const val GRID_VERTICAL_GAP = 2         // Halved (5 → 2) to give posters more space
+private const val GRID_HORIZONTAL_GAP = 50      // px between posters horizontally
+private const val GRID_VERTICAL_GAP = 120       // px between rows (below title before next row)
 private const val FOCUSED_ROW_PIN_Y_DP = 240    // Pin focused row at this Y from viewport top
 
-// Sort options (zaadaptowane z RecordingsGridScreen)
+// Sort options (zaadaptowane z RecordingsGridScreen).
+// "Data dodania", "Data produkcji" i "Ocena Filmweb" są POKAZANE w pickerze
+// żeby user widział pełen zestaw zgodny ze specyfikacją, ale wynikowa
+// kolejność dla tych trzech jest no-op (zachowuje aktualny porządek) — brak
+// odpowiednich pól w danych źródłowych (created_at, release_year, vote_average
+// nie są jeszcze ekstrahowane z Supabase do `VodContent`).
 private enum class KinoSortOption(val label: String) {
     ALPHABETICAL("Alfabetycznie A-Z"),
     ALPHABETICAL_DESC("Alfabetycznie Z-A"),
-    BY_CATEGORY("Według kategorii")
+    BY_CATEGORY("Według kategorii"),
+    DATE_ADDED("Data dodania"),
+    RELEASE_YEAR("Data produkcji"),
+    FILMWEB_RATING("Ocena Filmweb")
 }
 
 // Focus management (Focus Architect pattern)
@@ -362,11 +370,16 @@ fun KinoGridScreen(
             }
         }
 
-        // Apply sorting
+        // Apply sorting. The last three options are visible in the picker for
+        // spec parity but currently no-op (data not yet plumbed through to
+        // VodContent — see KinoSortOption comment).
         result = when (selectedSort) {
             KinoSortOption.ALPHABETICAL -> result.sortedBy { it.title.lowercase() }
             KinoSortOption.ALPHABETICAL_DESC -> result.sortedByDescending { it.title.lowercase() }
             KinoSortOption.BY_CATEGORY -> result.sortedBy { it.category }
+            KinoSortOption.DATE_ADDED,
+            KinoSortOption.RELEASE_YEAR,
+            KinoSortOption.FILMWEB_RATING -> result
         }
 
         filteredKinoContent = result

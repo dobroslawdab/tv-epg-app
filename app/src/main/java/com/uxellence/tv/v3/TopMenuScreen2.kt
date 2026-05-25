@@ -33,6 +33,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.LazyColumn
@@ -53,6 +54,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.zIndex
 import android.os.Build
 import android.graphics.BlurMaskFilter
@@ -1308,6 +1310,10 @@ fun TopMenuScreen2(
     onFocusRestored: () -> Unit = {},
     restoredTelewizjaFocus: FocusState? = null,
     restoredSection: String? = null,
+    // Counter bumped by MainActivity every time the HOME button is pressed. When
+    // it increments we force-focus the ODKRYWAJ (START) menu tab regardless of
+    // where the user currently is — even if they're already on ODKRYWAJ content.
+    homeFocusTrigger: Int = 0,
     pipPlayer: com.google.android.exoplayer2.ExoPlayer? = null,  // PIP player instance
     onClosePip: () -> Unit = {},  // Callback to close PIP
     onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
@@ -1341,6 +1347,15 @@ fun TopMenuScreen2(
     // Global state for keyboard shortcuts (defined early for use in global handlers)
     var isEpgSectionExpanded by remember { mutableStateOf(com.uxellence.tv.v3.utils.VersionTracker.getEpgSectionExpanded(context)) }
     var showNagraniaV2 by remember { mutableStateOf(com.uxellence.tv.v3.utils.VersionTracker.getNagraniaVersion(context) == "v2") }
+
+    // "Moja lista kanałów" — flag shared with TELEWIZJA "Utwórz/Edytuj listę"
+    // skrót. When false, MOJE v2 swaps the row for `[BANNER-MOJE-FAV]` empty state.
+    // Lifted here so DevTogglesModal can flip it without rebuilding the whole
+    // MojeChannelsScreen.
+    val tvPrefs = remember { context.getSharedPreferences("tv_prefs", android.content.Context.MODE_PRIVATE) }
+    var rootIsMyListCreated by remember {
+        mutableStateOf(tvPrefs.getBoolean("my_list_created", false))
+    }
 
     // Global state for slider version:
     // 1 = V1 (original carousel slider)
@@ -1404,6 +1419,24 @@ fun TopMenuScreen2(
         initialPosition = MenuPositions.getPositionForSection(restoredSection ?: "ODKRYWAJ"),  // Match position to section
         initialSection = restoredSection ?: "ODKRYWAJ"  // Restore saved section or default to ODKRYWAJ
     )
+
+    // HOME button: always pull focus to the ODKRYWAJ (START) menu tab. Skip-first-
+    // fire so the very first composition doesn't fight the initial menu setup.
+    var didHomeFocusInitialFire by remember { mutableStateOf(false) }
+    LaunchedEffect(homeFocusTrigger) {
+        if (!didHomeFocusInitialFire) {
+            didHomeFocusInitialFire = true
+            return@LaunchedEffect
+        }
+        if (homeFocusTrigger > 0) {
+            globalFocusState.value = globalFocusState.value.copy(
+                currentRow = 0,
+                currentPosition = MenuPositions.ODKRYWAJ,
+                sectionId = "ODKRYWAJ",
+                isActive = true
+            )
+        }
+    }
 
     // Aktualizuj selectedProfileId po opuszczeniu sekcji PROFILE (gdy profil został wybrany)
     LaunchedEffect(globalFocusState.value.sectionId) {
@@ -2079,6 +2112,7 @@ fun TopMenuScreen2(
                 onShowNagraniaV2Change = { v2 ->
                     showNagraniaV2 = v2
                 },
+                isMyListCreated = rootIsMyListCreated,
                 sliderVersion = sliderVersion,
                 v3SliderAutoSlideEnabled = v3SliderAutoSlideEnabled,  // Key.Eight toggle for V3 slider
                 onFocusedChannelChange = { signal ->
@@ -2348,6 +2382,13 @@ fun TopMenuScreen2(
                     vodWypozyczoneVariant = (vodWypozyczoneVariant + 1) % 2
                     sliderPrefs.edit().putInt("vod_wypozyczone_variant", vodWypozyczoneVariant).apply()
                 },
+                showNagraniaV2 = showNagraniaV2,
+                onShowNagraniaV2Toggle = {
+                    showNagraniaV2 = !showNagraniaV2
+                    com.uxellence.tv.v3.utils.VersionTracker.setNagraniaVersion(
+                        context, if (showNagraniaV2) "v2" else "v1"
+                    )
+                },
                 onDismiss = { showDevModal = false }
             )
         }
@@ -2365,6 +2406,8 @@ private fun DevTogglesModal(
     onProfileVariantCycle: () -> Unit,
     vodWypozyczoneVariant: Int,
     onVodWypozyczoneVariantCycle: () -> Unit,
+    showNagraniaV2: Boolean = false,
+    onShowNagraniaV2Toggle: () -> Unit = {},
     onDismiss: () -> Unit
 ) {
     val aplikacjeVariantLabels = arrayOf("Hero+kanały", "Aplikacje na top + slider")
@@ -2377,6 +2420,11 @@ private fun DevTogglesModal(
         Triple("Aplikacje variant", aplikacjeVariantLabels.getOrElse(aplikacjeVariant) { aplikacjeVariant.toString() }, onAplikacjeVariantCycle),
         Triple("Profil variant", profileVariantLabels.getOrElse(profileVariant) { profileVariant.toString() }, onProfileVariantCycle),
         Triple("Wypożyczone Kino Play", vodWypLabels.getOrElse(vodWypozyczoneVariant) { vodWypozyczoneVariant.toString() }, onVodWypozyczoneVariantCycle),
+        Triple(
+            "MOJE wersja",
+            if (showNagraniaV2) "v2 (empty state banner)" else "v1 (kanały)",
+            onShowNagraniaV2Toggle
+        ),
         Triple(
             "Wypożyczone",
             "Wyczyść ($rentalCount)",
@@ -3950,6 +3998,7 @@ private fun FullPageContent(
     onEpgSectionExpandedChange: (Boolean) -> Unit = {},
     showNagraniaV2: Boolean = false,
     onShowNagraniaV2Change: (Boolean) -> Unit = {},
+    isMyListCreated: Boolean = false,  // MOJE v2 swaps "Moja lista kanałów" for `[BANNER-MOJE-FAV]` when false
     sliderVersion: Int = 1,  // 1 = V1 with carousel, 2 = V2 with border
     v3SliderAutoSlideEnabled: Boolean = false,  // Key.Eight toggle for V3 slider auto-slide and bullets
     onFocusedChannelChange: (String) -> Unit = {},  // Callback when focused channel changes (for top gradient on Skróty+)
@@ -3972,168 +4021,171 @@ private fun FullPageContent(
         wasFreshEntry
     }
 
-    when (selectedSection) {
-        "SEARCH" -> {
-            com.uxellence.tv.v3.search.SearchScreen(
-                globalFocusState = globalFocusState,
-                sx = sx,
-                sy = sy,
-                onNavigateToMovieDetail = onNavigateToMovieDetail,
-                onReturnToMenu = {
-                    globalFocusState.value = GlobalFocusManager.returnToMenu(globalFocusState.value)
-                },
-                searchKeyboardMode = searchKeyboardMode
-            )
-        }
-        "MOJE" -> {
-            MojeScreenContent(
-                globalFocusState = globalFocusState,
-                onNavigateToVodGrid = onNavigateToVodGrid,
-                onNavigateToKinoGrid = onNavigateToKinoGrid,
-                onNavigateToRecordingsGrid = onNavigateToRecordingsGrid,
-                onNavigateToMovieDetail = onNavigateToMovieDetail,
-                sx = sx,
-                sy = sy,
-                showNagraniaV2 = showNagraniaV2,
-                onShowNagraniaV2Change = onShowNagraniaV2Change,
-                onFocusedChannelChange = onFocusedChannelChange
-            )
-        }
-        "ODKRYWAJ" -> {
-            OdkrywajScreenContent(
-                globalFocusState = globalFocusState,
-                onUserNavigated = onUserNavigated,  // Clear fresh PIP mode on navigation
-                onNavigateToChannelGrid = onNavigateToChannelGrid,
-                onNavigateToVodGrid = onNavigateToVodGrid,
-                onNavigateToEpgDay = onNavigateToEpgDay,
-                onNavigateToOlympics = onNavigateToOlympics,
-                appIconsData = emptyMap(),  // TODO: Pass real appIconsData
-                sx = sx,
-                sy = sy,
-                sliderVersion = sliderVersion,  // V3 shortcuts when sliderVersion == 2
-                v3SliderAutoSlideEnabled = v3SliderAutoSlideEnabled,  // Key.Eight toggle for V3 slider
-                onFocusedChannelChange = onFocusedChannelChange,
-                onNavigateToVodPlayer = onNavigateToVodPlayer
-            )
-        }
-        "TELEWIZJA" -> {
-            TelewizjaScreenContent(
-                globalFocusState = globalFocusState,
-                sx = sx,
-                sy = sy,
-                onNavigateToEpg = onNavigateToEpg,
-                onNavigateToEpgDay = onNavigateToEpgDay,
-                onNavigateToOlympics = onNavigateToOlympics,
-                onFocusRestored = onFocusRestored,
-                restoredTelewizjaFocus = restoredTelewizjaFocus,
-                onNavigateToChannelGrid = onNavigateToChannelGrid,
-                onNavigateToVodGrid = onNavigateToVodGrid,
-                onNavigateToKinoGrid = onNavigateToKinoGrid,
-                onNavigateToRecordingsGrid = onNavigateToRecordingsGrid,
-                isEpgSectionExpanded = isEpgSectionExpanded,
-                onEpgSectionExpandedChange = onEpgSectionExpandedChange,
-                onFocusedChannelChange = onFocusedChannelChange
-            )
-        }
-        "KINO_PLAY" -> {
-            VodScreenContent(
-                globalFocusState = globalFocusState,
-                onNavigateToVodGrid = onNavigateToVodGrid,
-                onNavigateToKinoGrid = onNavigateToKinoGrid,
-                onNavigateToMovieDetail = onNavigateToMovieDetail,
-                onNavigateToPurchase = onNavigateToPurchase,
-                onNavigateToVodPlayer = onNavigateToVodPlayer,
-                quickPurchaseMode = quickPurchaseMode,
-                sx = sx,
-                sy = sy,
-                sliderVersion = sliderVersion,
-                vodWypozyczoneVariant = vodWypozyczoneVariant,
-                onFocusedChannelChange = onFocusedChannelChange
-            )
-        }
-        "WIDEO" -> {
-            WideoScreenContent(
-                globalFocusState = globalFocusState,
-                onNavigateToVodGrid = onNavigateToVodGrid,
-                onNavigateToMovieDetail = onNavigateToMovieDetail,
-                sx = sx,
-                sy = sy,
-                sliderVersion = sliderVersion,
-                onFocusedChannelChange = onFocusedChannelChange
-            )
-        }
-        "APLIKACJE" -> {
-            AplikacjeWithHeroScreen(
-                globalFocusState = globalFocusState,
-                sx = sx,
-                sy = sy,
-                onNavigateToAppsGrid = onNavigateToAppsGrid,
-                aplikacjeVariant = aplikacjeVariant
-            )
-        }
-        "ACCOUNT" -> {
-            AccountScreenContent(
-                globalFocusState = globalFocusState,
-                onNavigateToStartupMode = onNavigateToStartupMode,
-                onPrepareReturnFocus = { onPrepareReturnFocus("ACCOUNT") },
-                sx = sx,
-                sy = sy,
-                availableUpdate = availableUpdate,
-                updateState = updateState,
-                onUpdateDownload = onUpdateDownload,
-                onUpdateInstall = onUpdateInstall,
-                onDismissUpdateBadge = onDismissUpdateBadge
-            )
-        }
-        "POINTS_HISTORY" -> {
-            PointsHistoryScreenContent(
-                globalFocusState = globalFocusState,
-                onPrepareReturnFocus = { onPrepareReturnFocus("POINTS_HISTORY") },
-                sx = sx,
-                sy = sy
-            )
-        }
-        "START" -> {
-            StartScreenContent(
-                globalFocusState = globalFocusState,
-                onNavigateToChannelGrid = onNavigateToChannelGrid,
-                onNavigateToVodGrid = onNavigateToVodGrid,
-                onNavigateToKinoGrid = onNavigateToKinoGrid,
-                onNavigateToRecordingsGrid = onNavigateToRecordingsGrid,
-                sx = sx,
-                sy = sy,
-                sliderVersion = sliderVersion
-            )
-        }
-        "PAKIETY" -> {
-            // Pakiety section placeholder - will show channel packages
-            PakietyScreenContent(
-                globalFocusState = globalFocusState,
-                onPrepareReturnFocus = { onPrepareReturnFocus("PAKIETY") },
-                sx = sx,
-                sy = sy
-            )
-        }
-        "PROFILE" -> {
-            // Profile section - profile switching
-            ProfileScreenContent(
-                globalFocusState = globalFocusState,
-                onPrepareReturnFocus = { onPrepareReturnFocus("PROFILE") },
-                onProfileSelected = onProfileSelected,
-                sx = sx,
-                sy = sy
-            )
-        }
-        else -> {
-            Text(
-                text = "$selectedSection - Section",
-                color = Color.White,
-                fontSize = 24.sp,
-                modifier = Modifier.fillMaxSize().wrapContentSize()
-            )
+    // Plain `when (selectedSection)` — section mounts on entry, disposes on
+    // leave. Earlier `visitedSections` keep-alive optimization was reverted:
+    // invisible sections (notably SEARCH with its root FocusRequester) could
+    // still steal focus via direct `requestFocus()` calls inside their
+    // LaunchedEffects, leaving the user with arrow keys not responding until
+    // BACK was pressed. `focusProperties { canFocus = false }` only blocks
+    // traversal-based focus, not programmatic requests.
+    //
+    // The per-section caches (Supabase pre-warm, KinoPlayGridCache,
+    // SectionGridCache for WIDEO, OdkrywajSliderCache, AplikacjeBannerCache)
+    // remain — they're the bulk of the speedup and don't interfere with focus.
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Wrap in a forEach with `if (sectionId == selectedSection)` so the
+        // resulting bytecode mirrors a clean `when` — exactly one section's
+        // composition alive at any time.
+        FULL_PAGE_SECTION_IDS.forEach { sectionId ->
+            if (sectionId != selectedSection) return@forEach
+            Box(modifier = Modifier.matchParentSize()) {
+                when (sectionId) {
+                    "SEARCH" -> com.uxellence.tv.v3.search.SearchScreen(
+                        globalFocusState = globalFocusState,
+                        sx = sx,
+                        sy = sy,
+                        onNavigateToMovieDetail = onNavigateToMovieDetail,
+                        onReturnToMenu = {
+                            globalFocusState.value = GlobalFocusManager.returnToMenu(globalFocusState.value)
+                        },
+                        searchKeyboardMode = searchKeyboardMode
+                    )
+                    "MOJE" -> MojeScreenContent(
+                        globalFocusState = globalFocusState,
+                        onNavigateToVodGrid = onNavigateToVodGrid,
+                        onNavigateToKinoGrid = onNavigateToKinoGrid,
+                        onNavigateToRecordingsGrid = onNavigateToRecordingsGrid,
+                        onNavigateToMovieDetail = onNavigateToMovieDetail,
+                        sx = sx,
+                        sy = sy,
+                        showNagraniaV2 = showNagraniaV2,
+                        onShowNagraniaV2Change = onShowNagraniaV2Change,
+                        onFocusedChannelChange = onFocusedChannelChange,
+                        isMyListCreated = isMyListCreated
+                    )
+                    "ODKRYWAJ" -> OdkrywajScreenContent(
+                        globalFocusState = globalFocusState,
+                        onUserNavigated = onUserNavigated,
+                        onNavigateToChannelGrid = onNavigateToChannelGrid,
+                        onNavigateToVodGrid = onNavigateToVodGrid,
+                        onNavigateToEpgDay = onNavigateToEpgDay,
+                        onNavigateToOlympics = onNavigateToOlympics,
+                        appIconsData = emptyMap(),
+                        sx = sx,
+                        sy = sy,
+                        sliderVersion = sliderVersion,
+                        v3SliderAutoSlideEnabled = v3SliderAutoSlideEnabled,
+                        onFocusedChannelChange = onFocusedChannelChange,
+                        onNavigateToVodPlayer = onNavigateToVodPlayer,
+                        onNavigateToMovieDetail = onNavigateToMovieDetail,
+                        onNavigateToPurchase = onNavigateToPurchase
+                    )
+                    "TELEWIZJA" -> TelewizjaScreenContent(
+                        globalFocusState = globalFocusState,
+                        sx = sx,
+                        sy = sy,
+                        onNavigateToEpg = onNavigateToEpg,
+                        onNavigateToEpgDay = onNavigateToEpgDay,
+                        onNavigateToOlympics = onNavigateToOlympics,
+                        onFocusRestored = onFocusRestored,
+                        restoredTelewizjaFocus = restoredTelewizjaFocus,
+                        onNavigateToChannelGrid = onNavigateToChannelGrid,
+                        onNavigateToVodGrid = onNavigateToVodGrid,
+                        onNavigateToKinoGrid = onNavigateToKinoGrid,
+                        onNavigateToRecordingsGrid = onNavigateToRecordingsGrid,
+                        isEpgSectionExpanded = isEpgSectionExpanded,
+                        onEpgSectionExpandedChange = onEpgSectionExpandedChange,
+                        onFocusedChannelChange = onFocusedChannelChange
+                    )
+                    "KINO_PLAY" -> VodScreenContent(
+                        globalFocusState = globalFocusState,
+                        onNavigateToVodGrid = onNavigateToVodGrid,
+                        onNavigateToKinoGrid = onNavigateToKinoGrid,
+                        onNavigateToMovieDetail = onNavigateToMovieDetail,
+                        onNavigateToPurchase = onNavigateToPurchase,
+                        onNavigateToVodPlayer = onNavigateToVodPlayer,
+                        quickPurchaseMode = quickPurchaseMode,
+                        sx = sx,
+                        sy = sy,
+                        sliderVersion = sliderVersion,
+                        vodWypozyczoneVariant = vodWypozyczoneVariant,
+                        onFocusedChannelChange = onFocusedChannelChange
+                    )
+                    "WIDEO" -> WideoScreenContent(
+                        globalFocusState = globalFocusState,
+                        onNavigateToVodGrid = onNavigateToVodGrid,
+                        onNavigateToMovieDetail = onNavigateToMovieDetail,
+                        sx = sx,
+                        sy = sy,
+                        sliderVersion = sliderVersion,
+                        onFocusedChannelChange = onFocusedChannelChange
+                    )
+                    "APLIKACJE" -> AplikacjeWithHeroScreen(
+                        globalFocusState = globalFocusState,
+                        sx = sx,
+                        sy = sy,
+                        onNavigateToAppsGrid = onNavigateToAppsGrid,
+                        aplikacjeVariant = aplikacjeVariant
+                    )
+                    "ACCOUNT" -> AccountScreenContent(
+                        globalFocusState = globalFocusState,
+                        onNavigateToStartupMode = onNavigateToStartupMode,
+                        onPrepareReturnFocus = { onPrepareReturnFocus("ACCOUNT") },
+                        sx = sx,
+                        sy = sy,
+                        availableUpdate = availableUpdate,
+                        updateState = updateState,
+                        onUpdateDownload = onUpdateDownload,
+                        onUpdateInstall = onUpdateInstall,
+                        onDismissUpdateBadge = onDismissUpdateBadge
+                    )
+                    "POINTS_HISTORY" -> PointsHistoryScreenContent(
+                        globalFocusState = globalFocusState,
+                        onPrepareReturnFocus = { onPrepareReturnFocus("POINTS_HISTORY") },
+                        sx = sx,
+                        sy = sy
+                    )
+                    "START" -> StartScreenContent(
+                        globalFocusState = globalFocusState,
+                        onNavigateToChannelGrid = onNavigateToChannelGrid,
+                        onNavigateToVodGrid = onNavigateToVodGrid,
+                        onNavigateToKinoGrid = onNavigateToKinoGrid,
+                        onNavigateToRecordingsGrid = onNavigateToRecordingsGrid,
+                        sx = sx,
+                        sy = sy,
+                        sliderVersion = sliderVersion
+                    )
+                    "PAKIETY" -> PakietyScreenContent(
+                        globalFocusState = globalFocusState,
+                        onPrepareReturnFocus = { onPrepareReturnFocus("PAKIETY") },
+                        sx = sx,
+                        sy = sy
+                    )
+                    "PROFILE" -> ProfileScreenContent(
+                        globalFocusState = globalFocusState,
+                        onPrepareReturnFocus = { onPrepareReturnFocus("PROFILE") },
+                        onProfileSelected = onProfileSelected,
+                        sx = sx,
+                        sy = sy
+                    )
+                    else -> Text(
+                        text = "$sectionId - Section",
+                        color = Color.White,
+                        fontSize = 24.sp,
+                        modifier = Modifier.fillMaxSize().wrapContentSize()
+                    )
+                }
+            }
         }
     }
 }
+
+private val FULL_PAGE_SECTION_IDS = listOf(
+    "SEARCH", "ODKRYWAJ", "MOJE", "TELEWIZJA",
+    "KINO_PLAY", "WIDEO", "APLIKACJE",
+    "POINTS_HISTORY", "PAKIETY", "ACCOUNT", "PROFILE",
+    "START"
+)
 
 @Composable
 private fun MojeScreenContent(
@@ -4146,17 +4198,47 @@ private fun MojeScreenContent(
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     showNagraniaV2: Boolean = false,
     onShowNagraniaV2Change: (Boolean) -> Unit = {},
+    isMyListCreated: Boolean = false,
     onFocusedChannelChange: (String) -> Unit = {}  // Callback for top gradient (MOJE always shows gradient)
 ) {
     var resetTrigger by remember { mutableStateOf(0) }
-    
+
     // Detect when user returns to menu to trigger focus reset
     LaunchedEffect(globalFocusState.value.currentRow) {
         if (globalFocusState.value.currentRow == 0 && globalFocusState.value.sectionId == "MOJE") {
             resetTrigger++
         }
     }
-    
+
+    // v2 empty state — toggled directly via DevTogglesModal ("MOJE wersja").
+    // Renders a full-page hero card + 5 informational tiles per Figma 3028:32935.
+    // Both buttons ("Utwórz moją listę" and "Ukryj") flip the version back to v1
+    // so the user sees their normal MOJE channels layout. This makes the dev
+    // toggle a single source of truth — no extra "isMyListCreated" or session
+    // dismissal flags get in the way.
+    if (showNagraniaV2) {
+        MojeEmptyStateScreen(
+            shouldAutoFocus = globalFocusState.value.sectionId == "MOJE" && globalFocusState.value.currentRow > 0,
+            onReturnToMenu = {
+                globalFocusState.value = GlobalFocusManager.returnToMenu(globalFocusState.value)
+            },
+            onCreateList = { onShowNagraniaV2Change(false) },
+            onDismiss = { onShowNagraniaV2Change(false) },
+            // Update globalFocusState.currentRow when one of the hero buttons takes
+            // focus — otherwise the top menu keeps drawing its own focus ring (it
+            // gates on `currentRow == 0`) and you'd see two focus indicators at once.
+            onContentFocusChange = { hasFocus ->
+                globalFocusState.value = globalFocusState.value.copy(
+                    currentRow = if (hasFocus) 1 else 0
+                )
+            },
+            onNavigateToMovieDetail = onNavigateToMovieDetail,
+            sx = sx,
+            sy = sy
+        )
+        return
+    }
+
     MojeChannelsScreen(
         onReturnToMenu = {
             globalFocusState.value = GlobalFocusManager.returnToMenu(globalFocusState.value)
@@ -4171,8 +4253,645 @@ private fun MojeScreenContent(
         resetTrigger = resetTrigger,
         showNagraniaV2 = showNagraniaV2,
         onShowNagraniaV2Change = onShowNagraniaV2Change,
+        isMyListCreated = isMyListCreated,
         onFocusedChannelChange = onFocusedChannelChange
     )
+}
+
+/**
+ * MOJE v2 empty-state screen (Figma 3028:32935). Renders a full-page hero card
+ * encouraging the user to build their channel list, with a remote-illustration
+ * accent and two focusable buttons ("Utwórz moją listę", "Ukryj"). Below, an
+ * informational row of 5 non-focusable tiles previews the future content (Oglądaj
+ * dalej / Wypożyczone / Moje nagrania / Do obejrzenia / Aktywne pakiety).
+ *
+ * Navigation: LEFT/RIGHT cycles between the two buttons. UP returns focus to the
+ * top menu. DOWN is swallowed (info tiles are non-interactive). BACK also returns.
+ */
+@OptIn(ExperimentalComposeUiApi::class)
+@Composable
+private fun MojeEmptyStateScreen(
+    shouldAutoFocus: Boolean,
+    onReturnToMenu: () -> Unit,
+    onCreateList: () -> Unit,
+    onDismiss: () -> Unit,
+    onContentFocusChange: (Boolean) -> Unit = {},
+    onNavigateToMovieDetail: (VodSlideData) -> Unit = {},
+    sx: (Int) -> androidx.compose.ui.unit.Dp,
+    sy: (Int) -> androidx.compose.ui.unit.Dp
+) {
+    val context = LocalContext.current
+
+    // === Real channel rows above hero (populated categories only) ===
+    // Rentals + watchlist are reactive singletons; reads happen at composition
+    // so toggling them in DevTogglesModal / via MovieDetail refreshes the screen.
+    val rentalsSnapshot = com.uxellence.tv.v3.rental.RentalManager.rentals.value
+    val watchlistSnapshot = com.uxellence.tv.v3.watchlist.WatchlistManager.items.value
+
+    val rentedMovies = remember(rentalsSnapshot) {
+        com.uxellence.tv.v3.MojeContentCache.getContentForChannel("Wypożyczone")
+    }
+    val watchlistMovies = remember(watchlistSnapshot) {
+        com.uxellence.tv.v3.MojeContentCache.getContentForChannel("Do obejrzenia")
+    }
+    data class PopulatedRow(
+        val label: String,
+        val iconRes: Int,
+        val items: List<VodContent>,
+        val isVertical: Boolean = false
+    )
+    // "Oglądaj dalej" is intentionally NOT shown as a populated row in v2 empty
+    // state — it has default content that would always render and that's not the
+    // empty-state experience we want. It still appears in the info-tile grid
+    // below so users see where their continue-watching list will live.
+    val populatedRows = remember(rentedMovies, watchlistMovies) {
+        listOfNotNull(
+            watchlistMovies.takeIf { it.isNotEmpty() }
+                ?.let { PopulatedRow("Do obejrzenia", R.drawable.ic_add_to_watch, it) },
+            rentedMovies.takeIf { it.isNotEmpty() }
+                ?.let { PopulatedRow("Wypożyczone", R.drawable.ic_rented, it, isVertical = true) }
+        )
+    }
+
+    // Per-row FocusRequesters + LazyListStates, allocated for "Pair(rowIndex, -1)"
+    // (CategoryIcon) and "Pair(rowIndex, 0)" (first visible card in LazyRow).
+    // Matches v1's fixed-focus pattern from MojeUnifiedChannelRow so visuals look
+    // identical (CategoryIcon at x=80, LazyRow at x=380, aqua border on focused card).
+    val rowFocusRequesters = remember(populatedRows.size) {
+        mutableMapOf<Pair<Int, Int>, FocusRequester>().apply {
+            populatedRows.indices.forEach { idx ->
+                put(Pair(idx, -1), FocusRequester())  // CategoryIcon
+                put(Pair(idx, 0), FocusRequester())   // Content (visible card)
+            }
+        }
+    }
+    val rowLazyListStates = remember(populatedRows.size) {
+        mutableMapOf<Int, LazyListState>().apply {
+            populatedRows.indices.forEach { idx -> put(idx, LazyListState()) }
+        }
+    }
+
+    // Info tiles: only categories WITHOUT populated rows.
+    val emptyCategoriesTiles = remember(populatedRows) {
+        val populated = populatedRows.map { it.label }.toSet()
+        listOf(
+            "Oglądaj dalej" to R.drawable.ic_keep_watching,
+            "Wypożyczone" to R.drawable.ic_rented,
+            "Moje nagrania" to R.drawable.ic_records,
+            "Do obejrzenia" to R.drawable.ic_add_to_watch,
+            "Aktywne pakiety" to R.drawable.ic_packages
+        ).filter { it.first !in populated }
+    }
+
+    // === Focus model (v1-style) ===
+    // Row 0..N-1 = populated channels (col=-1 CategoryIcon, col=0 visible card).
+    // Row N = hero card row (col=0 primary button, col=1 secondary button).
+    val heroRowIndex = populatedRows.size
+    var focusedRow by remember(populatedRows.size) { mutableIntStateOf(heroRowIndex) }
+    var focusedColIndex by remember { mutableIntStateOf(0) }
+    val coroutineScope = rememberCoroutineScope()
+
+    val heroPrimaryFR = remember { FocusRequester() }
+    val heroSecondaryFR = remember { FocusRequester() }
+
+    var isInitialized by remember { mutableStateOf(false) }
+    LaunchedEffect(shouldAutoFocus) {
+        if (shouldAutoFocus) {
+            // Drop the menu's focus ring BEFORE we request Compose focus on a
+            // button — otherwise the menu's selected-tab ring and the button's
+            // aqua background paint together for one frame, breaking the
+            // single-focus rule.
+            onContentFocusChange(true)
+            kotlinx.coroutines.delay(50)
+            try {
+                if (populatedRows.isNotEmpty()) {
+                    focusedRow = 0
+                    focusedColIndex = 0
+                    rowFocusRequesters[Pair(0, 0)]?.requestFocus()
+                } else {
+                    focusedRow = heroRowIndex
+                    focusedColIndex = 0
+                    heroPrimaryFR.requestFocus()
+                }
+            } catch (_: Exception) {}
+        }
+        isInitialized = true
+    }
+
+    // Auto-reset LazyListState for unfocused channel rows — copied verbatim from
+    // MojeChannelsScreen so leaving a row scrolled half-way doesn't leave the
+    // "visible card" off-screen when the user returns. Without this, the visible
+    // card jumps to firstVisibleItemIndex after re-focus and looks "clipped".
+    LaunchedEffect(focusedRow, focusedColIndex, isInitialized) {
+        if (isInitialized) {
+            kotlinx.coroutines.delay(0)
+            populatedRows.indices.forEach { idx ->
+                if (idx != focusedRow) {
+                    val state = rowLazyListStates[idx]
+                    if (state != null && state.firstVisibleItemIndex > 0) {
+                        state.animateScrollToItem(index = 0, scrollOffset = 0)
+                    }
+                }
+            }
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(top = sy(280), bottom = sy(80))
+            .onPreviewKeyEvent { event ->
+                if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                val onChannelRow = focusedRow < heroRowIndex
+                val onHero = focusedRow == heroRowIndex
+                when (event.key) {
+                    Key.Back, Key.Escape -> {
+                        onContentFocusChange(false)
+                        onReturnToMenu()
+                        true
+                    }
+                    Key.DirectionUp -> when {
+                        focusedRow > 0 -> {
+                            focusedRow -= 1
+                            // Preserve column type (CategoryIcon ↔ CategoryIcon, content ↔ content).
+                            val newCol = if (focusedColIndex == -1) -1 else 0
+                            focusedColIndex = newCol
+                            if (focusedRow < heroRowIndex) {
+                                rowFocusRequesters[Pair(focusedRow, newCol)]?.requestFocus()
+                            } else {
+                                heroPrimaryFR.requestFocus()
+                            }
+                            true
+                        }
+                        else -> {
+                            onContentFocusChange(false)
+                            onReturnToMenu()
+                            true
+                        }
+                    }
+                    Key.DirectionDown -> when {
+                        focusedRow < heroRowIndex -> {
+                            focusedRow += 1
+                            if (focusedRow == heroRowIndex) {
+                                focusedColIndex = 0
+                                heroPrimaryFR.requestFocus()
+                            } else {
+                                val newCol = if (focusedColIndex == -1) -1 else 0
+                                focusedColIndex = newCol
+                                rowFocusRequesters[Pair(focusedRow, newCol)]?.requestFocus()
+                            }
+                            true
+                        }
+                        else -> true  // Hero is last focusable row
+                    }
+                    Key.DirectionLeft -> when {
+                        onChannelRow -> {
+                            when (focusedColIndex) {
+                                -1 -> true  // Already on CategoryIcon
+                                0 -> {
+                                    val state = rowLazyListStates[focusedRow]
+                                    if (state != null && state.firstVisibleItemIndex > 0) {
+                                        coroutineScope.launch {
+                                            state.animateScrollToItem(state.firstVisibleItemIndex - 1)
+                                        }
+                                    } else {
+                                        focusedColIndex = -1
+                                        rowFocusRequesters[Pair(focusedRow, -1)]?.requestFocus()
+                                    }
+                                    true
+                                }
+                                else -> true
+                            }
+                        }
+                        onHero && focusedColIndex == 1 -> {
+                            focusedColIndex = 0
+                            heroPrimaryFR.requestFocus()
+                            true
+                        }
+                        else -> true
+                    }
+                    Key.DirectionRight -> when {
+                        onChannelRow -> {
+                            when (focusedColIndex) {
+                                -1 -> {
+                                    focusedColIndex = 0
+                                    rowFocusRequesters[Pair(focusedRow, 0)]?.requestFocus()
+                                    true
+                                }
+                                0 -> {
+                                    val state = rowLazyListStates[focusedRow]
+                                    val items = populatedRows[focusedRow].items
+                                    if (state != null && state.firstVisibleItemIndex < items.size - 1) {
+                                        coroutineScope.launch {
+                                            state.animateScrollToItem(state.firstVisibleItemIndex + 1)
+                                        }
+                                    }
+                                    true
+                                }
+                                else -> true
+                            }
+                        }
+                        onHero && focusedColIndex == 0 -> {
+                            focusedColIndex = 1
+                            heroSecondaryFR.requestFocus()
+                            true
+                        }
+                        else -> true
+                    }
+                    Key.Enter, Key.DirectionCenter, Key.NumPadEnter -> {
+                        when {
+                            onHero && focusedColIndex == 0 -> onCreateList()
+                            onHero && focusedColIndex == 1 -> onDismiss()
+                            onChannelRow && focusedColIndex == 0 -> {
+                                // Match v1: resolve to the half-scrolled effective
+                                // index (same one the visual focus indicator uses),
+                                // not firstVisibleItemIndex — otherwise OK mid-scroll
+                                // opens the wrong movie.
+                                val state = rowLazyListStates[focusedRow]
+                                val items = populatedRows[focusedRow].items
+                                val approxItemPx = 368 + 20
+                                val effectiveIndex = (state?.firstVisibleItemIndex ?: 0) +
+                                    if ((state?.firstVisibleItemScrollOffset ?: 0) > approxItemPx / 2) 1 else 0
+                                val visible = items.getOrNull(effectiveIndex.coerceIn(0, items.size - 1))
+                                if (visible != null) onNavigateToMovieDetail(visible.toVodSlideData())
+                            }
+                        }
+                        true
+                    }
+                    else -> false
+                }
+            }
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(sy(40))) {
+            // === REAL CHANNEL ROWS (populated only) — v1-style with CategoryIcon ===
+            populatedRows.forEachIndexed { idx, row ->
+                MojeEmptyStateChannelRow(
+                    label = row.label,
+                    iconRes = row.iconRes,
+                    items = row.items,
+                    isVertical = row.isVertical,
+                    rowIndex = idx,
+                    focusedRow = focusedRow,
+                    focusedColIndex = focusedColIndex,
+                    rowFocusRequesters = rowFocusRequesters,
+                    lazyListState = rowLazyListStates[idx] ?: LazyListState(),
+                    onCategoryFocused = {
+                        focusedRow = idx
+                        focusedColIndex = -1
+                        onContentFocusChange(true)
+                    },
+                    onContentFocused = {
+                        focusedRow = idx
+                        focusedColIndex = 0
+                        onContentFocusChange(true)
+                    },
+                    onCardClick = { vod -> onNavigateToMovieDetail(vod.toVodSlideData()) },
+                    sx = sx, sy = sy
+                )
+            }
+
+            // === HERO CARD (smaller per Figma — 280dp height) ===
+            Box(
+                modifier = Modifier
+                    .padding(horizontal = sx(80))
+                    .fillMaxWidth()
+                    .height(sy(280))
+                    .clip(RoundedCornerShape(sx(20)))
+                    .background(Color(0xFF1F0F33))
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.moje_empty_remote_slot),
+                    contentDescription = null,
+                    contentScale = ContentScale.FillHeight,
+                    alignment = Alignment.CenterEnd,
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .fillMaxHeight()
+                )
+
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .padding(start = sx(40), end = sx(480))
+                        .widthIn(max = sx(900)),
+                    verticalArrangement = Arrangement.spacedBy(sy(14))
+                ) {
+                    Text(
+                        text = "Miej ulubione kanały pod ręką",
+                        color = Color(0xFFEEEEEE),
+                        fontSize = (36 * (sy(1).value / 1.dp.value)).sp,
+                        fontWeight = FontWeight.Bold,
+                        lineHeight = (42 * (sy(1).value / 1.dp.value)).sp
+                    )
+                    Text(
+                        text = "Dodaj je do Mojej listy i oglądaj bez szukania.",
+                        color = Color(0xFFEEEEEE).copy(alpha = 0.8f),
+                        fontSize = (20 * (sy(1).value / 1.dp.value)).sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(modifier = Modifier.height(sy(4)))
+                    Row(horizontalArrangement = Arrangement.spacedBy(sx(12))) {
+                        MojeEmptyStateButton(
+                            label = "Utwórz moją listę",
+                            focusRequester = heroPrimaryFR,
+                            onFocused = {
+                                focusedRow = heroRowIndex
+                                focusedColIndex = 0
+                                onContentFocusChange(true)
+                            },
+                            sx = sx, sy = sy
+                        )
+                        MojeEmptyStateButton(
+                            label = "Ukryj",
+                            focusRequester = heroSecondaryFR,
+                            onFocused = {
+                                focusedRow = heroRowIndex
+                                focusedColIndex = 1
+                                onContentFocusChange(true)
+                            },
+                            sx = sx, sy = sy
+                        )
+                    }
+                }
+            }
+
+            if (emptyCategoriesTiles.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(sy(16)))
+                Text(
+                    text = "Wykorzystaj wszystkie funkcje boxa, a znajdziesz tu również:",
+                    color = Color(0xFFEEEEEE),
+                    fontSize = (20 * (sy(1).value / 1.dp.value)).sp,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                )
+
+                // Tiles mirror CategoryIcon dimensions (240x216, 80dp icon, 24sp
+                // Medium text, sx(4) corner) so the empty-state preview matches the
+                // category column users see at the start of every populated row.
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .padding(top = sy(20)),
+                    horizontalArrangement = Arrangement.spacedBy(sx(20))
+                ) {
+                    emptyCategoriesTiles.forEach { (label, iconRes) ->
+                        Column(
+                            modifier = Modifier
+                                .size(sx(240), sy(216))
+                                .clip(RoundedCornerShape(sx(4)))
+                                .background(Color(0xFF1F0F33).copy(alpha = 0.5f)),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                painter = painterResource(id = iconRes),
+                                contentDescription = null,
+                                tint = Color(0xFFEEEEEE),
+                                modifier = Modifier.size(sx(80))
+                            )
+                            Spacer(modifier = Modifier.height(sy(16)))
+                            Text(
+                                text = label,
+                                color = Color(0xFFEEEEEE),
+                                fontSize = (24 * (sy(1).value / 1.dp.value)).sp,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 2,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * v1-style channel row inside MOJE v2 empty state. Matches `MojeUnifiedChannelRow`
+ * behaviour: CategoryIcon at x=80, LazyRow at x=380, miniatures slide DOWN 290dp
+ * when focused, details overlay (title + category + description) fades in 350ms
+ * after focus, row height animates between collapsed (256/380dp) and expanded
+ * (546/700dp). Fixed-focus pattern — only `Pair(rowIndex, 0)` keeps a real FR.
+ */
+@OptIn(ExperimentalComposeUiApi::class)
+@Composable
+private fun MojeEmptyStateChannelRow(
+    label: String,
+    iconRes: Int,
+    items: List<VodContent>,
+    isVertical: Boolean,
+    rowIndex: Int,
+    focusedRow: Int,
+    focusedColIndex: Int,
+    rowFocusRequesters: Map<Pair<Int, Int>, FocusRequester>,
+    lazyListState: LazyListState,
+    onCategoryFocused: () -> Unit,
+    onContentFocused: () -> Unit,
+    onCardClick: (VodContent) -> Unit,
+    sx: (Int) -> androidx.compose.ui.unit.Dp,
+    sy: (Int) -> androidx.compose.ui.unit.Dp
+) {
+    val isCurrentRow = rowIndex == focusedRow
+    val isContentFocused = isCurrentRow && focusedColIndex == 0
+
+    // Details overlay only after the 350ms slide animation finishes.
+    var showDetailsWithDelay by remember { mutableStateOf(false) }
+    LaunchedEffect(isCurrentRow, focusedColIndex) {
+        if (isContentFocused) {
+            kotlinx.coroutines.delay(350)
+            showDetailsWithDelay = true
+        } else {
+            showDetailsWithDelay = false
+        }
+    }
+
+    // Miniatures slide DOWN to make room for details overlay above.
+    val miniaturesYOffset by animateDpAsState(
+        targetValue = if (isContentFocused) sy(290) else sy(0),
+        animationSpec = tween(durationMillis = 350, easing = androidx.compose.animation.core.EaseInOutCubic),
+        label = "moje_empty_miniatures_y_$rowIndex"
+    )
+
+    // Row grows when expanded so neighbouring rows don't collide.
+    val rowHeight by animateDpAsState(
+        targetValue = when {
+            isContentFocused && isVertical -> sy(700)
+            isContentFocused -> sy(546)
+            isVertical -> sy(380)
+            else -> sy(256)
+        },
+        animationSpec = tween(350),
+        label = "moje_empty_row_height_$rowIndex"
+    )
+
+    Box(modifier = Modifier.fillMaxWidth().height(rowHeight)) {
+        // LazyRow with miniatures — slides down 290dp when content is focused.
+        // Uses `rememberHorizontalEffectiveFocusIndex` so visual focus tracks
+        // scroll offset past the half-card line (v1 parity) and
+        // `rememberPostFocusedCardPadding` to compensate for the focused card's
+        // 1.22x scale (without it, the next card visibly overlaps).
+        LazyRow(
+            modifier = Modifier.fillMaxWidth().offset(y = miniaturesYOffset),
+            state = lazyListState,
+            contentPadding = PaddingValues(start = sx(380), end = sx(20)),
+            horizontalArrangement = Arrangement.spacedBy(sx(20))
+        ) {
+            items(items.size) { colIndex ->
+                val vodContent = items[colIndex]
+                val effectiveFocusIndex = rememberHorizontalEffectiveFocusIndex(lazyListState, sx)
+                val isItemFocused = isCurrentRow &&
+                    colIndex == effectiveFocusIndex &&
+                    focusedColIndex == 0
+                val fr = if (colIndex == effectiveFocusIndex) {
+                    rowFocusRequesters[Pair(rowIndex, 0)] ?: FocusRequester()
+                } else {
+                    FocusRequester()
+                }
+                val postFocusPad = rememberPostFocusedCardPadding(
+                    isPrevCardFocused = !isVertical && isCurrentRow &&
+                        focusedColIndex == 0 && colIndex == effectiveFocusIndex + 1,
+                    sx = sx
+                )
+                if (isVertical) {
+                    VodContentCard(
+                        vodContent = vodContent,
+                        isFocused = isItemFocused,
+                        focusRequester = fr,
+                        onFocusChange = { onContentFocused() },
+                        sx = sx,
+                        sy = sy,
+                        expiryText = if (label == "Wypożyczone") "rented" else null,
+                        onClick = { onCardClick(vodContent) }
+                    )
+                } else {
+                    Box(modifier = Modifier.padding(start = postFocusPad)) {
+                        ContentCard(
+                            vodContent = vodContent,
+                            channelNumber = String.format("%03d", colIndex + 1),
+                            isFocused = isItemFocused,
+                            focusRequester = fr,
+                            onFocusChange = onContentFocused,
+                            sx = sx,
+                            sy = sy,
+                            lazyListState = lazyListState,
+                            showChannelNumber = false,
+                            onClick = { onCardClick(vodContent) }
+                        )
+                    }
+                }
+            }
+            items(8) {
+                Spacer(
+                    modifier = Modifier
+                        .width(if (isVertical) sx(220) else sx(368))
+                        .height(if (isVertical) sy(310) else sy(208))
+                )
+            }
+        }
+
+        // Details overlay (title + category + description) — same wording/styling
+        // as MojeUnifiedChannelRow line ~8702. Uses `effectiveFocusIndex` so the
+        // overlay tracks the visually-focused card (matches the LazyRow's scale
+        // pivot, not the LazyListState's firstVisibleItemIndex).
+        val detailsEffectiveIndex = rememberHorizontalEffectiveFocusIndex(lazyListState, sx)
+        if (isContentFocused && showDetailsWithDelay) {
+            val firstVisible = items.getOrNull(detailsEffectiveIndex)
+            if (firstVisible != null) {
+                Box(
+                    modifier = Modifier
+                        .offset(x = sx(380), y = sy(0))
+                        .width(sx(1500))
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(sy(14))) {
+                        Text(
+                            text = firstVisible.title,
+                            color = Color(0xFFEEEEEE),
+                            fontSize = (64 * (sy(1).value / 1.dp.value)).sp,
+                            fontWeight = FontWeight.Medium,
+                            lineHeight = (64 * 1.38f * (sy(1).value / 1.dp.value)).sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            softWrap = false,
+                            modifier = Modifier.width(sx(1500))
+                        )
+                        Text(
+                            text = firstVisible.category,
+                            color = Color(0xCCEEEEEE),
+                            fontSize = (20 * (sy(1).value / 1.dp.value)).sp,
+                            fontWeight = FontWeight.Bold,
+                            lineHeight = (20 * 1.4f * (sy(1).value / 1.dp.value)).sp,
+                            letterSpacing = (0.4 * (sy(1).value / 1.dp.value)).sp
+                        )
+                        Text(
+                            text = firstVisible.description,
+                            color = Color(0xFFEEEEEE),
+                            fontSize = (28 * (sy(1).value / 1.dp.value)).sp,
+                            fontWeight = FontWeight.Medium,
+                            lineHeight = (28 * 1.43f * (sy(1).value / 1.dp.value)).sp,
+                            maxLines = 3,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.width(sx(874))
+                        )
+                    }
+                }
+            }
+        }
+
+        // CategoryIcon at x=80 (always visible; renders above LazyRow via z-order).
+        Box(modifier = Modifier.offset(x = sx(80), y = sy(0))) {
+            val categoryIsFocused = isCurrentRow && focusedColIndex == -1
+            val categoryFR = rowFocusRequesters[Pair(rowIndex, -1)] ?: FocusRequester()
+            CategoryIcon(
+                text = label,
+                isFocused = categoryIsFocused,
+                onClick = {},
+                onFocused = { isFocused -> if (isFocused) onCategoryFocused() },
+                focusRequester = categoryFR,
+                sx = sx,
+                sy = sy,
+                logoDrawableId = iconRes
+            )
+        }
+    }
+}
+
+@Composable
+private fun MojeEmptyStateButton(
+    label: String,
+    focusRequester: FocusRequester,
+    onFocused: () -> Unit,
+    sx: (Int) -> androidx.compose.ui.unit.Dp,
+    sy: (Int) -> androidx.compose.ui.unit.Dp
+) {
+    // Visual focus state is driven by the button's OWN `onFocusChanged` rather
+    // than an external `isFocused` prop. That way the aqua background can never
+    // be painted on a button that doesn't actually have Compose keyboard focus
+    // — closing the gap that caused the dual-focus "menu + banner" bug.
+    var isFocused by remember { mutableStateOf(false) }
+    val bg = if (isFocused) Color(0xFF5AECD3) else Color(0xFF3A1B63)
+    val fg = if (isFocused) Color(0xFF281443) else Color(0xFFEEEEEE)
+    Box(
+        modifier = Modifier
+            .height(sy(64))
+            .clip(RoundedCornerShape(sx(8)))
+            .background(bg)
+            .focusRequester(focusRequester)
+            .onFocusChanged {
+                isFocused = it.isFocused
+                if (it.isFocused) onFocused()
+            }
+            .focusable()
+            .padding(horizontal = sx(28)),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            color = fg,
+            fontSize = (22 * (sy(1).value / 1.dp.value)).sp,
+            fontWeight = FontWeight.Bold
+        )
+    }
 }
 
 @Composable
@@ -4226,7 +4945,9 @@ private fun OdkrywajScreenContent(
     sliderVersion: Int = 2,  // 2 = V3 shortcuts (bigger cards), 1 = V2 shortcuts (smaller cards)
     v3SliderAutoSlideEnabled: Boolean = false,  // Key.Eight toggle for V3 slider auto-slide and bullets
     onFocusedChannelChange: (String) -> Unit = {},  // Callback when focused channel changes (for top gradient)
-    onNavigateToVodPlayer: (url: String, title: String) -> Unit = { _, _ -> }  // Navigate to VOD player
+    onNavigateToVodPlayer: (url: String, title: String) -> Unit = { _, _ -> },  // Navigate to VOD player
+    onNavigateToMovieDetail: (VodSlideData) -> Unit = {},  // ENTER on slider "Dowiedz się więcej" → MovieDetail
+    onNavigateToPurchase: (VodSlideData) -> Unit = {}  // ENTER on slider "Wypożycz" → PurchaseScreen directly (quick mode)
 ) {
     var resetTrigger by remember { mutableIntStateOf(0) }
 
@@ -4255,10 +4976,13 @@ private fun OdkrywajScreenContent(
         sx = sx,
         sy = sy,
         resetTrigger = resetTrigger,
-        sliderVersion = sliderVersion,  // V3 shortcuts when sliderVersion == 2
-        v3SliderAutoSlideEnabled = v3SliderAutoSlideEnabled,  // Key.Eight toggle for V3 slider
+        sliderVersion = sliderVersion,
+        v3SliderAutoSlideEnabled = v3SliderAutoSlideEnabled,
         onFocusedChannelChange = onFocusedChannelChange,
-        onNavigateToVodPlayer = onNavigateToVodPlayer
+        onNavigateToVodPlayer = onNavigateToVodPlayer,
+        onNavigateToMovieDetail = onNavigateToMovieDetail,
+        onNavigateToPurchase = onNavigateToPurchase,
+        globalFocusState = globalFocusState
     )
 }
 
@@ -4338,7 +5062,10 @@ private fun OdkrywajChannelsScreen(
     sliderVersion: Int = 2,  // 2 = V3 shortcuts (bigger cards), 1 = V2 shortcuts (smaller cards)
     v3SliderAutoSlideEnabled: Boolean = false,  // Key.Eight toggle for V3 slider auto-slide and bullets
     onFocusedChannelChange: (String) -> Unit = {},  // Callback when focused channel changes (for top gradient visibility)
-    onNavigateToVodPlayer: (url: String, title: String) -> Unit = { _, _ -> }  // Navigate to VOD player
+    onNavigateToVodPlayer: (url: String, title: String) -> Unit = { _, _ -> },  // Navigate to VOD player
+    onNavigateToMovieDetail: (VodSlideData) -> Unit = {},  // ENTER on slider "Dowiedz się więcej" → MovieDetail
+    onNavigateToPurchase: (VodSlideData) -> Unit = {},     // ENTER on slider "Wypożycz" → PurchaseScreen (quick mode)
+    globalFocusState: MutableState<GlobalFocusState>  // For refocus trigger guard (only act when ODKRYWAJ is active section)
 ) {
     val context = LocalContext.current
 
@@ -4380,10 +5107,18 @@ private fun OdkrywajChannelsScreen(
     }
 
     // === Slider data from Supabase ===
-    var odkrywajSliderItems by remember { mutableStateOf<List<VodSlideData>>(emptyList()) }
-    // V3: Shuffled once for both main and ghost slider synchronization
-    var shuffledOdkrywajSliderItems by remember { mutableStateOf<List<VodSlideData>>(emptyList()) }
-    var sliderLoading by remember { mutableStateOf(true) }
+    // Items pulled from OdkrywajSliderCache (pre-warmed at app startup) — no
+    // network wait on entry. Shuffle happens locally on every mount so the
+    // user keeps the per-entry randomness they explicitly asked for.
+    val initialCache = remember {
+        com.uxellence.tv.v3.repository.OdkrywajSliderCache.getCached().orEmpty()
+    }
+    val initialShuffled = remember(initialCache) {
+        initialCache.map { it.toVodSlideData() }.shuffled()
+    }
+    var odkrywajSliderItems by remember { mutableStateOf(initialShuffled) }
+    var shuffledOdkrywajSliderItems by remember { mutableStateOf(initialShuffled) }
+    var sliderLoading by remember { mutableStateOf(initialShuffled.isEmpty()) }
 
     // === Supabase initialization state for recomposition ===
     var supabaseInitialized by remember { mutableStateOf(VodDataCache.isSupabaseInitialized()) }
@@ -4396,15 +5131,16 @@ private fun OdkrywajChannelsScreen(
         }
     }
 
-    // Load slider data from Supabase (shuffle ONCE on first load, like KINO PLAY/WIDEO)
+    // Refresh slider cache if it's stale (or missing); shuffle the result locally.
     LaunchedEffect(Unit) {
         try {
-            val items = com.uxellence.tv.v3.repository.SupabaseOdkrywajRepository.fetchOdkrywajSlider()
-            // Shuffle once on first load (same pattern as KINO PLAY and WIDEO)
-            odkrywajSliderItems = items.map { it.toVodSlideData() }.shuffled()
-            // V3: Use same shuffled order for ghost slider sync
-            shuffledOdkrywajSliderItems = odkrywajSliderItems
-            Log.d("ODKRYWAJ_DEBUG", "Loaded ${odkrywajSliderItems.size} slider items from Supabase (shuffled once)")
+            val fresh = com.uxellence.tv.v3.repository.OdkrywajSliderCache.ensureLoaded()
+            if (fresh.isNotEmpty()) {
+                val shuffled = fresh.map { it.toVodSlideData() }.shuffled()
+                odkrywajSliderItems = shuffled
+                shuffledOdkrywajSliderItems = shuffled
+                Log.d("ODKRYWAJ_DEBUG", "Slider populated from cache (${shuffled.size} items, shuffled this entry)")
+            }
         } catch (e: Exception) {
             Log.e("ODKRYWAJ_DEBUG", "Failed to load slider items", e)
         } finally {
@@ -4666,10 +5402,32 @@ private fun OdkrywajChannelsScreen(
         isInitialized = true
     }
 
+    // Refocus trigger for MovieDetail overlay close — when slider or Top 10 opens
+    // MovieDetail, TopMenuScreen2 stays mounted via movableContentOf but Compose
+    // focus owner is taken by MovieDetail. After BACK, MainActivity bumps the
+    // trigger and the LaunchedEffect below re-grabs keyboard focus on the outer
+    // Box so arrow keys work again. Same pattern as KINO_PLAY / WIDEO / MOJE.
+    val rootBoxFocusRequester = remember { FocusRequester() }
+    var didOdkrywajRefocusInitialFire by remember { mutableStateOf(false) }
+    LaunchedEffect(com.uxellence.tv.v3.VodDataCache.odkrywajRefocusTrigger.value) {
+        if (!didOdkrywajRefocusInitialFire) {
+            didOdkrywajRefocusInitialFire = true
+            return@LaunchedEffect
+        }
+        if (com.uxellence.tv.v3.VodDataCache.odkrywajRefocusTrigger.value > 0 &&
+            globalFocusState.value.sectionId == "ODKRYWAJ" &&
+            globalFocusState.value.currentRow > 0
+        ) {
+            kotlinx.coroutines.delay(50)
+            try { rootBoxFocusRequester.requestFocus() } catch (_: Exception) {}
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF281443))
+            .focusRequester(rootBoxFocusRequester)
             .onPreviewKeyEvent { event ->
                 handleOdkrywajNavigation(
                     event = event,
@@ -4689,7 +5447,8 @@ private fun OdkrywajChannelsScreen(
                     sliderButtonIndex = sliderButtonIndex,
                     onSliderButtonIndexChange = { sliderButtonIndex = it },
                     // === VOD Player navigation ===
-                    onNavigateToVodPlayer = onNavigateToVodPlayer
+                    onNavigateToVodPlayer = onNavigateToVodPlayer,
+                    onNavigateToMovieDetail = onNavigateToMovieDetail
                 )
             }
             .focusable()
@@ -4734,7 +5493,14 @@ private fun OdkrywajChannelsScreen(
             onSliderReturnToMenu = onReturnToMenu,
             // === Slider button index for KINO PLAY content ===
             sliderButtonIndex = sliderButtonIndex,
-            onSliderButtonIndexChange = { sliderButtonIndex = it }
+            onSliderButtonIndexChange = { sliderButtonIndex = it },
+            // Slider buttons:
+            //   - "Wypożycz"          → PurchaseScreen directly (quick-purchase mode)
+            //   - "Dowiedz się więcej" → MovieDetail (full card)
+            // Top 10 poster ENTER also routes through onNavigateToMovieDetail
+            // inside handleOdkrywajNavigation.
+            onNavigateToMovieDetail = onNavigateToMovieDetail,
+            onNavigateToPurchase = onNavigateToPurchase
         )
     }
 }
@@ -5536,6 +6302,7 @@ private fun MojeChannelsScreen(
     resetTrigger: Int = 0,
     showNagraniaV2: Boolean = false,
     onShowNagraniaV2Change: (Boolean) -> Unit = {},
+    isMyListCreated: Boolean = false,
     onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> },  // For TV channel click
     onFocusedChannelChange: (String) -> Unit = {}  // Callback for top gradient
 ) {
@@ -5605,10 +6372,14 @@ private fun MojeChannelsScreen(
         if (showNagraniaV2) {
             // ═══════════════════════════════════════════════════════════════
             // VERSION 2: Header + Nagrania + Skróty v2 (8 channels)
+            // Empty-state (nothing added yet) is handled at MojeScreenContent
+            // level — it switches to MojeEmptyStateScreen instead of rendering
+            // these rows. When the user creates their list (or dismisses the
+            // empty state), this channel layout takes over.
             // ═══════════════════════════════════════════════════════════════
             listOf(
                 "Oglądaj dalej",
-                "Moja lista kanałów",                  // App-icons channel (like TELEWIZJA)
+                "Moja lista kanałów",
                 "[HEADER-RIGHT] Miejsce na nagrania",  // Storage counter header
                 "Nagrania",                            // Standard horizontal channel with icon
                 "Skróty v2 Moje",                      // 4 shortcuts row (reduced height)
@@ -5718,6 +6489,19 @@ private fun MojeChannelsScreen(
                     channelName == "Skróty v2 Moje" -> {
                         // 4 shortcuts row: direct focus on 4 buttons (NO CategoryIcon)
                         repeat(4) { colIndex ->
+                            put(Pair(rowIndex, colIndex), FocusRequester())
+                        }
+                    }
+                    channelName == "Moja lista kanałów" -> {
+                        // App-icons channel uses the DIRECT focus model (one FR per
+                        // ChannelListCard) — same as TELEWIZJA. The renderer at
+                        // ~line 8527 does `colIndex == focusedColIndex` checks and
+                        // reads `channelFocusRequesters[Pair(rowIndex, colIndex)]`
+                        // per tile, so we must allocate FRs for every tile here.
+                        // Allocate generously up to 20 (TELEWIZJA "moja-lista" today
+                        // has 9 channels, plus headroom).
+                        put(Pair(rowIndex, -1), FocusRequester())
+                        repeat(20) { colIndex ->
                             put(Pair(rowIndex, colIndex), FocusRequester())
                         }
                     }
@@ -7524,10 +8308,11 @@ private fun NewStartScreenContent(
         }
     }
 
-    // Load START slider items for V2 (same source as V1 SliderMixScreen with isInTelewizjaSection=true)
+    // Load START slider items for V2 (same source as V1 SliderMixScreen with isInTelewizjaSection=true).
+    // Use VodDataCache to skip re-parsing 29 JSON files on every section mount.
     val startSliderItems = remember {
-        val vodContent = com.uxellence.tv.v3.version001.loadVodContentFromAssets(context)
-        vodContent.shuffled().take(10).map { it.toVodSlideData() }
+        com.uxellence.tv.v3.VodDataCache.getVodContentList()
+            .shuffled().take(10).map { it.toVodSlideData() }
     }
 
     val lazyListStates = remember(channels.size) {
@@ -8553,6 +9338,43 @@ fun MojeUnifiedChannelRow(
                     )
                 }
             }
+        } else if (rowContent.isEmpty() && channel in listOf("Wypożyczone", "Do obejrzenia")) {
+            // Empty state banner — per Figma 2691:1981. CategoryIcon stays on the
+            // left (rendered below), and the right side shows an aqua-gradient
+            // banner with a single line of guidance. Same height as a regular
+            // unfocused row (208dp) so the spacing system between channels works
+            // unchanged.
+            val emptyStateText = if (channel == "Wypożyczone") {
+                "Oglądaj filmy wypożyczone w Kinie Play"
+            } else {
+                "Dodaj filmy do listy do obejrzenia"
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = sx(380), end = sx(80))
+                    .height(sy(208))
+                    .clip(RoundedCornerShape(sx(16)))
+                    .background(
+                        Brush.horizontalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                Color(0xFF5AECD3).copy(alpha = 0.20f)
+                            )
+                        )
+                    ),
+                contentAlignment = Alignment.CenterStart
+            ) {
+                Text(
+                    text = emptyStateText,
+                    color = Color(0xFFEEEEEE).copy(alpha = 0.8f),
+                    fontSize = (32 * (sy(1).value / 1.dp.value)).sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = (0.64 * (sy(1).value / 1.dp.value)).sp,
+                    lineHeight = (48 * (sy(1).value / 1.dp.value)).sp,
+                    modifier = Modifier.padding(start = sx(24))
+                )
+            }
         } else {
         // Standard LazyRow content for other channels
         val isMiniaturesOnScreen = isCurrentRow && focusedColIndex >= 0
@@ -9225,6 +10047,23 @@ fun handleMojeChannelsNavigation(
                 return true  // Consume event, do nothing (single shortcut, no CategoryIcon)
             }
 
+            // "Moja lista kanałów" — direct focus model (one FR per tile), so LEFT
+            // moves to the previous tile (or to CategoryIcon when at the first one).
+            if (currentChannel == "Moja lista kanałów") {
+                when {
+                    focusedColIndex > 0 -> {
+                        val newColIndex = focusedColIndex - 1
+                        onChannelContentFocusChange(focusedRowIndex, newColIndex)
+                        channelFocusRequesters[Pair(focusedRowIndex, newColIndex)]?.requestFocus()
+                    }
+                    focusedColIndex == 0 -> {
+                        onChannelContentFocusChange(focusedRowIndex, -1)
+                        channelFocusRequesters[Pair(focusedRowIndex, -1)]?.requestFocus()
+                    }
+                }
+                return true
+            }
+
             // Special handling for "Skróty v2 Moje" - 4 shortcuts, move between them
             if (currentChannel == "Skróty v2 Moje") {
                 when {
@@ -9271,6 +10110,25 @@ fun handleMojeChannelsNavigation(
             // Special handling for "Skróty" - only 1 item, nowhere to go
             if (currentChannel == "Skróty" && focusedColIndex == 0) {
                 return true  // Consume event, do nothing (single shortcut)
+            }
+
+            // "Moja lista kanałów" — direct focus model. From CategoryIcon (-1)
+            // go to tile 0; from a tile, advance to the next tile (cap at last
+            // available channel).
+            if (currentChannel == "Moja lista kanałów") {
+                val tileCount = gridContent[currentChannel]?.size ?: 0
+                when {
+                    focusedColIndex == -1 -> {
+                        onChannelContentFocusChange(focusedRowIndex, 0)
+                        channelFocusRequesters[Pair(focusedRowIndex, 0)]?.requestFocus()
+                    }
+                    focusedColIndex < tileCount - 1 -> {
+                        val newColIndex = focusedColIndex + 1
+                        onChannelContentFocusChange(focusedRowIndex, newColIndex)
+                        channelFocusRequesters[Pair(focusedRowIndex, newColIndex)]?.requestFocus()
+                    }
+                }
+                return true
             }
 
             // Special handling for "Skróty v2 Moje" - 4 shortcuts, move between them
@@ -9493,7 +10351,9 @@ fun handleOdkrywajNavigation(
     sliderButtonIndex: Int = 0,
     onSliderButtonIndexChange: (Int) -> Unit = {},
     // === VOD Player navigation ===
-    onNavigateToVodPlayer: (url: String, title: String) -> Unit = { _, _ -> }
+    onNavigateToVodPlayer: (url: String, title: String) -> Unit = { _, _ -> },
+    // ENTER on a Top 10 poster → MovieDetail (rental flow).
+    onNavigateToMovieDetail: (VodSlideData) -> Unit = {}
 ): Boolean {
     android.util.Log.d("ODKRYWAJ_NAV", "handleOdkrywajNavigation: key=${event.key}, focusedRow=$focusedRowIndex, focusedCol=$focusedColIndex")
     if (event.nativeKeyEvent.action != android.view.KeyEvent.ACTION_DOWN) return false
@@ -9703,10 +10563,21 @@ fun handleOdkrywajNavigation(
             }
 
             val item = rowContent.getOrNull(itemIndex)
-            if (item != null && !item.youtubeUrl.isNullOrBlank()) {
-                android.util.Log.d("ODKRYWAJ_NAV", "OK pressed: playing '${item.title}' url=${item.youtubeUrl}")
-                onNavigateToVodPlayer(item.youtubeUrl!!, item.title)
-                return true
+            if (item != null) {
+                // Top 10 → MovieDetail (rental flow). All entries are KINO PLAY
+                // movies → toVodSlideData() defaults to isKinoPlay=true, so the
+                // detail screen lights up the Wypożycz + Zwiastun layout.
+                if (channelName == "Top 10 w KINIE PLAY") {
+                    android.util.Log.d("ODKRYWAJ_NAV", "OK on Top10 '${item.title}' → MovieDetail")
+                    onNavigateToMovieDetail(item.toVodSlideData())
+                    return true
+                }
+
+                if (!item.youtubeUrl.isNullOrBlank()) {
+                    android.util.Log.d("ODKRYWAJ_NAV", "OK pressed: playing '${item.title}' url=${item.youtubeUrl}")
+                    onNavigateToVodPlayer(item.youtubeUrl!!, item.title)
+                    return true
+                }
             }
             return true
         }
@@ -10994,7 +11865,11 @@ fun OdkrywajChannelRowsLayout(
     onSliderReturnToMenu: () -> Unit = {},
     // === Slider button index for KINO PLAY content ===
     sliderButtonIndex: Int = 0,
-    onSliderButtonIndexChange: (Int) -> Unit = {}
+    onSliderButtonIndexChange: (Int) -> Unit = {},
+    // Slider button 1 "Dowiedz się więcej" → MovieDetail.
+    onNavigateToMovieDetail: (VodSlideData) -> Unit = {},
+    // Slider button 0 "Wypożycz" → PurchaseScreen (quick-purchase mode).
+    onNavigateToPurchase: (VodSlideData) -> Unit = {}
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         channels.forEachIndexed { rowIndex, channelName ->
@@ -11064,7 +11939,9 @@ fun OdkrywajChannelRowsLayout(
                     } else null,
                     // === Slider button index (for KINO PLAY content) ===
                     sliderButtonIndex = sliderButtonIndex,
-                    onSliderButtonIndexChange = onSliderButtonIndexChange
+                    onSliderButtonIndexChange = onSliderButtonIndexChange,
+                    onNavigateToMovieDetail = onNavigateToMovieDetail,
+                    onNavigateToPurchase = onNavigateToPurchase
                 )
             }
         }
@@ -11192,7 +12069,11 @@ fun OdkrywajUnifiedChannelRow(
     onSliderReturnToMenu: (() -> Unit)? = null,
     // === Slider button index for KINO PLAY content ===
     sliderButtonIndex: Int = 0,
-    onSliderButtonIndexChange: (Int) -> Unit = {}
+    onSliderButtonIndexChange: (Int) -> Unit = {},
+    // Slider button 1 "Dowiedz się więcej" → MovieDetail.
+    onNavigateToMovieDetail: (VodSlideData) -> Unit = {},
+    // Slider button 0 "Wypożycz" → PurchaseScreen directly (quick mode).
+    onNavigateToPurchase: (VodSlideData) -> Unit = {}
 ) {
     // ODKRYWAJ section - no onClick to EPG Day needed here
     val isCurrentRow = rowIndex == focusedRowIndex
@@ -11250,7 +12131,17 @@ fun OdkrywajUnifiedChannelRow(
                     onButtonIndexChange = onSliderButtonIndexChange,
                     // === Navigation callbacks ===
                     onNavigateDown = onSliderNavigateDown,
-                    onReturnToMenu = onSliderReturnToMenu
+                    onReturnToMenu = onSliderReturnToMenu,
+                    // Mirror KINO PLAY hero behaviour:
+                    //   - Button 0 "Wypożycz"          → PurchaseScreen (quick mode)
+                    //   - Button 1 "Dowiedz się więcej" → MovieDetail (info card)
+                    onSlideClicked = { item -> onNavigateToPurchase(item) },
+                    onMoreInfoClicked = { item -> onNavigateToMovieDetail(item) },
+                    // Refocus from MovieDetail / Purchase / RentalProcessing back
+                    // onto the still-mounted slider — without this, after BACK
+                    // the slider's onPreviewKeyEvent stops receiving keys (Compose
+                    // focus owner is gone) and LEFT/RIGHT freeze.
+                    refocusTriggerKey = com.uxellence.tv.v3.VodDataCache.odkrywajRefocusTrigger.value
                 )
             }
             "shortcuts" -> {
@@ -13386,11 +14277,23 @@ private fun VodWithChannels(
     // żeby nie blokować main thread podczas pierwszego renderu Kino Play.
     // Re-build whenever rentals change so "Wypożyczone Kino" channel reflects new
     // rentals immediately (without leaving and returning to KINO_PLAY tab).
+    //
+    // Cached classification: KinoPlayGridCache stores the latest classification
+    // map keyed on (supabaseInitialized, rentalsHash). On every KINO_PLAY mount
+    // we seed produceState with the cached value so channels render fully on the
+    // first frame (no empty-channels flash). The producer block checks the cache
+    // again — if still fresh, it returns early without re-running the 50-100ms
+    // classification loop.
     val gridContent by produceState<Map<String, List<VodContent>>>(
-        initialValue = emptyMap(),
+        initialValue = KinoPlayGridCache.get(supabaseInitialized, rentalsSnapshot) ?: emptyMap(),
         supabaseInitialized,
         rentalsSnapshot
     ) {
+        val cached = KinoPlayGridCache.get(supabaseInitialized, rentalsSnapshot)
+        if (cached != null) {
+            value = cached
+            return@produceState
+        }
         value = withContext(kotlinx.coroutines.Dispatchers.Default) {
             val allMovies = VodDataCache.getKinoPlayMovies()
             val byChannel = LinkedHashMap<String, MutableList<VodContent>>()
@@ -13466,6 +14369,10 @@ private fun VodWithChannels(
             }
 
             byChannel
+        }
+        // Persist the freshly-built map so the next mount finds it cached.
+        if (value.isNotEmpty()) {
+            KinoPlayGridCache.put(supabaseInitialized, rentalsSnapshot, value)
         }
     }
 
@@ -14487,7 +15394,10 @@ private fun VodHeroSliderV2(
     // === Navigation callback when UP goes past slider (to menu) ===
     onReturnToMenu: (() -> Unit)? = null,  // Called when UP should go to menu (not KINO PLAY or already on button 0)
     // === External-trigger refocus (e.g. WIDEO overlay refocus after MovieDetail closes) ===
-    refocusTriggerKey: Int = 0
+    refocusTriggerKey: Int = 0,
+    // === KINO PLAY-style button 1 ("Dowiedz się więcej") — open MovieDetail. ===
+    // When null, button 1 is a no-op (legacy behaviour).
+    onMoreInfoClicked: ((VodSlideData) -> Unit)? = null
 ) {
     val sliderItems = items
 
@@ -14691,8 +15601,12 @@ private fun VodHeroSliderV2(
                         if (isKinoPlaySlide) {
                             sliderItems.getOrNull(currentSlide)?.let { item ->
                                 when (buttonIndex) {
-                                    0 -> onSlideClicked?.invoke(item)  // Wypożycz
-                                    1 -> { /* TODO: More info action */ }
+                                    // Button 0 "Wypożycz" → onSlideClicked (caller decides
+                                    // whether this opens MovieDetail or jumps straight to
+                                    // PurchaseScreen via quick-purchase mode).
+                                    0 -> onSlideClicked?.invoke(item)
+                                    // Button 1 "Dowiedz się więcej" → MovieDetail.
+                                    1 -> onMoreInfoClicked?.invoke(item)
                                 }
                             }
                             true
@@ -19618,53 +20532,54 @@ private fun WideoChannelsScreen(
         )
     }
 
+    // gridContent (channel lists) cached in SectionGridCache so re-entering WIDEO
+    // is fast — heavy `.filter().distinctBy().take(40)` work runs ONCE per session,
+    // not on every mount. The hero slider items (`wideoSliderItems` in
+    // WideoChannelRowsLayout) remain on a separate `remember` block that
+    // re-shuffles each mount — preserves the random slider order the user wants.
     val gridContent = remember(filmyFabularne) {
-        val vodContentList = VodDataCache.getVodContentList()
-        val kinoPlayMovies = VodDataCache.getKinoPlayMovies()
+        SectionGridCache.getOrCompute("WIDEO_gridContent") {
+            val vodContentList = VodDataCache.getVodContentList()
+            val kinoPlayMovies = VodDataCache.getKinoPlayMovies()
 
-        // Helper: pull items matching a chip-filter pattern (e.g. "Cinemax",
-        // "Dokumentalny|Documentary"). Falls back to id-prefix matches for service splits.
-        fun byCategory(filterPattern: String): List<VodContent> =
-            filterMoviesByCategory(vodContentList, filterPattern)
+            // "Seriale" channel — Viaplay serials only (per user request).
+            val seriale = vodContentList.filter { it.id.startsWith("viaplay_serial_") }.take(40)
 
-        // "Seriale" channel — Viaplay serials only (per user request).
-        val seriale = vodContentList.filter { it.id.startsWith("viaplay_serial_") }.take(40)
+            // Cinemax — id prefix is the cleanest signal (catalog file is `cinemax.json`)
+            val cinemaxItems = vodContentList.filter { it.id.startsWith("cinemax_") }.take(40)
 
-        // Cinemax — id prefix is the cleanest signal (catalog file is `cinemax.json`)
-        val cinemaxItems = vodContentList.filter { it.id.startsWith("cinemax_") }.take(40)
+            // Dokumentalne — combined service-pack + genre-pack ids, deduped.
+            val dokumentalne = vodContentList.filter {
+                it.id.startsWith("dokument_") || it.id.startsWith("bbc_") ||
+                    it.category.contains("Dokumentalny", ignoreCase = true)
+            }.distinctBy { it.id }.take(40)
 
-        // Dokumentalne — both the service-pack id prefix and the genre-pack id prefix
-        // produce documentary content; combine + dedupe by id.
-        val dokumentalne = vodContentList.filter {
-            it.id.startsWith("dokument_") || it.id.startsWith("bbc_") ||
-                it.category.contains("Dokumentalny", ignoreCase = true)
-        }.distinctBy { it.id }.take(40)
+            // "Świetna rozrywka" → Rozrywka content (id prefix or category match)
+            val rozrywka = vodContentList.filter {
+                it.id.startsWith("rozrywka_") || it.category.contains("Rozrywka", ignoreCase = true)
+            }.distinctBy { it.id }.take(40)
 
-        // "Świetna rozrywka" → Rozrywka content (id prefix or category match)
-        val rozrywka = vodContentList.filter {
-            it.id.startsWith("rozrywka_") || it.category.contains("Rozrywka", ignoreCase = true)
-        }.distinctBy { it.id }.take(40)
+            // "Najlepsze wg Filmwebu" → Kino Play (paid) catalog
+            val filmweb = kinoPlayMovies.shuffled().take(40)
 
-        // "Najlepsze wg Filmwebu" → Kino Play (paid) catalog
-        val filmweb = kinoPlayMovies.shuffled().take(40)
-
-        if (vodContentList.isNotEmpty()) {
-            channels.associateWith { channelName ->
-                when (channelName) {
-                    "Slider Mix", "Skróty v3" -> emptyList()
-                    "Filmy fabularne" -> filmyFabularne
-                    "Seriale" -> seriale
-                    "Cinemax" -> cinemaxItems
-                    "Filmy dokumentalne" -> dokumentalne
-                    "Świetna rozrywka" -> rozrywka
-                    "Najlepsze wg Filmwebu" -> filmweb
-                    "KOLEKCJE" -> vodContentList.shuffled().take(40)  // bez zmian — kolekcje
-                    else -> vodContentList.shuffled().take(40)
+            if (vodContentList.isNotEmpty()) {
+                channels.associateWith { channelName ->
+                    when (channelName) {
+                        "Slider Mix", "Skróty v3" -> emptyList()
+                        "Filmy fabularne" -> filmyFabularne
+                        "Seriale" -> seriale
+                        "Cinemax" -> cinemaxItems
+                        "Filmy dokumentalne" -> dokumentalne
+                        "Świetna rozrywka" -> rozrywka
+                        "Najlepsze wg Filmwebu" -> filmweb
+                        "KOLEKCJE" -> vodContentList.shuffled().take(40)
+                        else -> vodContentList.shuffled().take(40)
+                    }
                 }
-            }
-        } else {
-            channels.associateWith { channelName ->
-                if (channelName == "Filmy fabularne") filmyFabularne else emptyList()
+            } else {
+                channels.associateWith { channelName ->
+                    if (channelName == "Filmy fabularne") filmyFabularne else emptyList()
+                }
             }
         }
     }
@@ -20037,14 +20952,14 @@ fun WideoChannelRowsLayout(
     sliderItemsOverride: List<VodSlideData>? = null,
     sliderSectionType: String = "WIDEO"
 ) {
-    // Load WIDEO slider items from local VOD content. Override `isKinoPlay = false` so
-    // OK on a slide opens MovieDetail in WIDEO mode (Oglądaj + Do obejrzenia, no Wypożycz).
-    // VodContent.toVodSlideData defaults to isKinoPlay=true because most callers use it for
-    // KINO_PLAY content; here we explicitly downgrade since WIDEO is free streaming.
-    val context = LocalContext.current
+    // Load WIDEO slider items from cached VOD content. VodDataCache is primed in
+    // MainActivity.onCreate so getVodContentList() is an in-memory map read here
+    // — no asset I/O, no parser hit on every WIDEO mount. (Previously this branch
+    // called loadVodContentFromAssets(context) on every entry, which re-parsed 29
+    // JSON files and was the main reason switching to WIDEO felt sluggish.)
     val wideoSliderItems = remember(sliderItemsOverride) {
         sliderItemsOverride
-            ?: com.uxellence.tv.v3.version001.loadVodContentFromAssets(context)
+            ?: com.uxellence.tv.v3.VodDataCache.getVodContentList()
                 .shuffled().take(10)
                 .map { it.toVodSlideData().copy(isKinoPlay = false) }
     }
@@ -20664,18 +21579,17 @@ private fun AplikacjeWithHeroScreen(
     onNavigateToAppsGrid: () -> Unit = {},
     aplikacjeVariant: Int = 0
 ) {
-    // Pobieranie banerów z Supabase (tabela aplikacje_slider).
-    // Mock pokazujemy DOPIERO po zakończeniu ładowania (loadComplete=true) — w przeciwnym
-    // razie przy entering migotałyby mock przed Supabase response.
-    var supabaseBanners by remember { mutableStateOf<List<com.uxellence.tv.v3.aplikacje.AplikacjeSliderItem>>(emptyList()) }
-    var loadComplete by remember { mutableStateOf(false) }
+    // Banner cache (pre-warmed at app startup in MainActivity.onCreate).
+    // On every APLIKACJE entry we render cached Supabase banners immediately
+    // (no network wait) and refresh in the background if the cache is stale.
+    // First entry without a cache hit falls back to mock banners — they render
+    // synchronously so the user never sees a blank slider.
+    var supabaseBanners by remember {
+        mutableStateOf(com.uxellence.tv.v3.aplikacje.AplikacjeBannerCache.getCached().orEmpty())
+    }
     LaunchedEffect(Unit) {
-        val repo = com.uxellence.tv.v3.aplikacje.AplikacjeSliderRepository()
-        repo.fetchActiveBanners()
-            .onSuccess { items -> supabaseBanners = items }
-            .onFailure { Log.w("AplikacjeWithHero", "Supabase fetch failed, using mock", it) }
-        loadComplete = true
-        repo.close()
+        val fresh = com.uxellence.tv.v3.aplikacje.AplikacjeBannerCache.ensureLoaded()
+        if (fresh.isNotEmpty()) supabaseBanners = fresh
     }
 
     val mockBanners = remember {
@@ -20717,10 +21631,11 @@ private fun AplikacjeWithHeroScreen(
 
     // Banery wynikowe:
     //   - Supabase niepuste → użyj Supabase (preferowane)
-    //   - loadComplete && Supabase puste/error → fallback do mock
-    //   - jeszcze ładujemy → empty list (slider się nie pokaże, brak migotania)
-    val appBanners = when {
-        supabaseBanners.isNotEmpty() -> supabaseBanners.map { item ->
+    //   - inaczej → mock natychmiast (zero blank-screen latency)
+    // Gdy Supabase wróci po fetchu, supabaseBanners flip + recompose podmienia
+    // mock na realne banery bez migotania.
+    val appBanners = if (supabaseBanners.isNotEmpty()) {
+        supabaseBanners.map { item ->
             VodSlideData(
                 title = item.title,
                 genre = "",
@@ -20738,8 +21653,8 @@ private fun AplikacjeWithHeroScreen(
                 selectedLogoUrl = item.logoUrl
             )
         }
-        loadComplete -> mockBanners
-        else -> emptyList()
+    } else {
+        mockBanners
     }
 
     // Variant 1: tylko channels (Aplikacje na top). Hero locked off, slider niewidoczny.

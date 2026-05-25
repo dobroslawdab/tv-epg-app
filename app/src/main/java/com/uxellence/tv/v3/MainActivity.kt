@@ -63,6 +63,21 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             ConfigManager.refreshConfig(this@MainActivity)
         }
+        // Pre-warm the APLIKACJE hero banner cache so the slider renders
+        // instantly on first entry instead of waiting for the Supabase round-trip.
+        lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            com.uxellence.tv.v3.aplikacje.AplikacjeBannerCache.ensureLoaded()
+        }
+        // Same pre-warm for the ODKRYWAJ slider items.
+        lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            com.uxellence.tv.v3.repository.OdkrywajSliderCache.ensureLoaded()
+        }
+        // Pre-warm KINO_PLAY Supabase data (slider movies + full catalog) so the
+        // first entry to KINO_PLAY / ODKRYWAJ / MOJE skips the network round-trip
+        // that's normally triggered lazily by those screens' LaunchedEffects.
+        lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            VodDataCache.initializeFromSupabase(this@MainActivity)
+        }
         setContent { TvRoot() }
     }
 
@@ -398,6 +413,12 @@ fun TvRoot(
     // State flag for HOME button PIP navigation request
     var shouldNavigateHomeWithPip by remember { mutableStateOf(false) }
 
+    // Counter bumped on every HOME button press. TopMenuScreen2 watches this and
+    // force-focuses the ODKRYWAJ (START) menu tab — even when the user is already
+    // on ODKRYWAJ content. Without this signal, just setting `currentScreen =
+    // TOP_MENU2` doesn't move focus from a channel back to the top menu.
+    var homeFocusTrigger by remember { mutableIntStateOf(0) }
+
     // ====== AUTO-UPDATE SYSTEM ======
     val updateManager = remember { com.uxellence.tv.v3.update.UpdateManager(context) }
     val coroutineScope = rememberCoroutineScope()
@@ -454,42 +475,26 @@ fun TvRoot(
         if (homePressedTrigger > 0) {  // Ignore initial value (0)
             android.util.Log.d("HOME_NAVIGATION", "HOME pressed (trigger=$homePressedTrigger)")
 
-            when {
-                // Scenariusz 1: PIP aktywny w TopMenu2 → Wróć do fullscreen EPG
-                pipPlayer != null && pipMode && currentScreen == NavigationScreen.TOP_MENU2 -> {
-                    android.util.Log.d("HOME_NAVIGATION", "PIP active - returning to fullscreen EPG")
+            // HOME always returns to TopMenu2 / ODKRYWAJ and tears down any active
+            // playback. No more PIP transfer from EPG_DAY (user requested this be
+            // disabled — pressing HOME during fullscreen TV should NOT spawn a
+            // picture-in-picture window).
+            android.util.Log.d("HOME_NAVIGATION", "HOME → TopMenu2/ODKRYWAJ, tearing down PIP/player")
 
-                    currentScreen = NavigationScreen.EPG_DAY
+            currentScreen = NavigationScreen.TOP_MENU2
+            savedTelewizjaSection = "ODKRYWAJ"
+            // Bump the trigger so TopMenuScreen2 force-focuses the START menu tab
+            // (otherwise just re-mounting at TOP_MENU2 leaves the user wherever
+            // they were if they're already on ODKRYWAJ, or stuck in another tab's
+            // content row if the section persists).
+            homeFocusTrigger += 1
 
-                    // Close PIP (same as onClosePip callback)
-                    pipPlayer?.stop()
-                    pipPlayer?.release()
-                    pipPlayer = null
-                    pipStreamUrl = null
-                    pipMode = false
-                }
-
-                // Scenariusz 2: Fullscreen EPG → Nawiguj do TopMenu2 z PIP (jak klawisz "0")
-                currentScreen == NavigationScreen.EPG_DAY -> {
-                    android.util.Log.d("HOME_NAVIGATION", "EPG Day Test - requesting PIP navigation")
-                    shouldNavigateHomeWithPip = true  // EpgDayScreen wykryje i przeniesie player do PIP
-                }
-
-                // Scenariusz 3: Inne ekrany → Nawiguj do TopMenu2/START (bez PIP)
-                else -> {
-                    android.util.Log.d("HOME_NAVIGATION", "Other screen - navigating to TOP_MENU2/START")
-
-                    currentScreen = NavigationScreen.TOP_MENU2
-                    savedTelewizjaSection = "ODKRYWAJ"  // START tab
-
-                    // Clear PIP if active (HOME should reset to clean state)
-                    pipPlayer?.stop()
-                    pipPlayer?.release()
-                    pipPlayer = null
-                    pipStreamUrl = null
-                    pipMode = false
-                }
-            }
+            // Make sure no PIP window survives the navigation.
+            pipPlayer?.stop()
+            pipPlayer?.release()
+            pipPlayer = null
+            pipStreamUrl = null
+            pipMode = false
         }
     }
 
@@ -598,6 +603,7 @@ fun TvRoot(
                     onFocusRestored = { },
                     restoredTelewizjaFocus = savedTelewizjaFocus,
                     restoredSection = savedTelewizjaSection,
+                    homeFocusTrigger = homeFocusTrigger,
                     pipPlayer = pipPlayer,
                     onClosePip = {
                         pipPlayer?.stop()
@@ -1184,6 +1190,8 @@ fun TvRoot(
                                     VodDataCache.searchRefocusTrigger.value + 1
                                 VodDataCache.wideoRefocusTrigger.value =
                                     VodDataCache.wideoRefocusTrigger.value + 1
+                                VodDataCache.odkrywajRefocusTrigger.value =
+                                    VodDataCache.odkrywajRefocusTrigger.value + 1
                                 // Overlay path: state survives via movableContentOf, so we
                                 // don't need savedKinoPlayFocus for restoration. Clear it
                                 // here so a later, unrelated remount of VodWithChannels
@@ -1283,6 +1291,8 @@ fun TvRoot(
                                     VodDataCache.searchRefocusTrigger.value + 1
                                 VodDataCache.wideoRefocusTrigger.value =
                                     VodDataCache.wideoRefocusTrigger.value + 1
+                                VodDataCache.odkrywajRefocusTrigger.value =
+                                    VodDataCache.odkrywajRefocusTrigger.value + 1
                                 // Clear stale savedKinoPlayFocus — see MovieDetail.onBackPressed
                                 // for the same reasoning (state already survives via overlay).
                                 VodDataCache.savedKinoPlayFocus = null

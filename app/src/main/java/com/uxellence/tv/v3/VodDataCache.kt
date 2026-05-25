@@ -99,6 +99,11 @@ object VodDataCache {
     // watches this. Bumped by MainActivity.MovieDetail.onBackPressed.
     val wideoRefocusTrigger: MutableState<Int> = mutableStateOf(0)
 
+    // Same mechanism for the ODKRYWAJ tab — used when MovieDetail closes after the
+    // user clicked a slide / Top 10 poster on the home screen. Bumped by
+    // MainActivity.MovieDetail.onBackPressed, watched by OdkrywajChannelsScreen.
+    val odkrywajRefocusTrigger: MutableState<Int> = mutableStateOf(0)
+
     // True while a full-screen overlay (MovieDetail / Purchase / RentalProcessing) sits
     // on top of TopMenuScreen2. The Kino Play slider's auto-trailer loop reads this so
     // it doesn't keep spinning ExoPlayer in the background — that was suspected to be
