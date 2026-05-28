@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -150,7 +151,9 @@ fun UpdateDialog(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Release notes
+                // Release notes — capped to 4 lines + ellipsis so the dialog
+                // never grows tall enough to push action buttons off-screen.
+                // Full changelog stays on GitHub Releases.
                 if (!updateInfo.releaseNotes.isNullOrBlank()) {
                     Text(
                         text = updateInfo.releaseNotes,
@@ -158,6 +161,8 @@ fun UpdateDialog(
                         color = TEXT_SECONDARY,
                         textAlign = TextAlign.Center,
                         lineHeight = 26.sp,
+                        maxLines = 4,
+                        overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )
                     Spacer(modifier = Modifier.height(32.dp))
