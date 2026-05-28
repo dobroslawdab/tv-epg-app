@@ -699,7 +699,41 @@ fun TvRoot(
                         }
                     },
                     onUpdateInstall = {
-                        updateManager.installApk()
+                        // Same retry-with-feedback path as the main update
+                        // dialog — never let the user tap "Zainstaluj" and
+                        // see nothing happen.
+                        coroutineScope.launch {
+                            var result = updateManager.installApk()
+                            var waited = 0
+                            while (result is com.uxellence.tv.v3.update.UpdateManager.InstallResult.NotReady && waited < 5000) {
+                                kotlinx.coroutines.delay(250)
+                                waited += 250
+                                if (updateManager.isApkReady()) {
+                                    result = updateManager.installApk()
+                                }
+                            }
+                            when (result) {
+                                com.uxellence.tv.v3.update.UpdateManager.InstallResult.Success -> {
+                                    android.util.Log.d("UPDATE", "Installer launched (Konto badge)")
+                                }
+                                com.uxellence.tv.v3.update.UpdateManager.InstallResult.NotReady -> {
+                                    updateState = com.uxellence.tv.v3.update.UpdateState.READY
+                                    android.widget.Toast.makeText(
+                                        context,
+                                        "Plik się jeszcze zapisuje, spróbuj ponownie",
+                                        android.widget.Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                                is com.uxellence.tv.v3.update.UpdateManager.InstallResult.Error -> {
+                                    updateState = com.uxellence.tv.v3.update.UpdateState.READY
+                                    android.widget.Toast.makeText(
+                                        context,
+                                        "Instalator niedostępny — pobierz ponownie",
+                                        android.widget.Toast.LENGTH_LONG
+                                    ).show()
+                                }
+                            }
+                        }
                     },
                     onDismissUpdateBadge = {
                         com.uxellence.tv.v3.utils.VersionTracker.setKontoUpdateBadge(context, false)
@@ -1422,7 +1456,45 @@ fun TvRoot(
                     }
                 },
                 onInstall = {
-                    updateManager.installApk()
+                    // If the user races the FS sync (taps "Zainstaluj" the
+                    // instant DOWNLOADING flips to INSTALLING but before the
+                    // OS actually publishes the APK), `installApk()` returns
+                    // NotReady. Poll up to ~5 s, then either retry the install
+                    // or fall back to "download again" if the file is gone.
+                    coroutineScope.launch {
+                        var result = updateManager.installApk()
+                        var waited = 0
+                        while (result is com.uxellence.tv.v3.update.UpdateManager.InstallResult.NotReady && waited < 5000) {
+                            kotlinx.coroutines.delay(250)
+                            waited += 250
+                            if (updateManager.isApkReady()) {
+                                result = updateManager.installApk()
+                            }
+                        }
+                        when (result) {
+                            com.uxellence.tv.v3.update.UpdateManager.InstallResult.Success -> {
+                                android.util.Log.d("UPDATE", "Installer launched")
+                            }
+                            com.uxellence.tv.v3.update.UpdateManager.InstallResult.NotReady -> {
+                                android.util.Log.w("UPDATE", "APK not ready after 5s — dropping back to READY")
+                                updateState = com.uxellence.tv.v3.update.UpdateState.READY
+                                android.widget.Toast.makeText(
+                                    context,
+                                    "Plik się jeszcze zapisuje, spróbuj ponownie",
+                                    android.widget.Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                            is com.uxellence.tv.v3.update.UpdateManager.InstallResult.Error -> {
+                                android.util.Log.e("UPDATE", "Install error: ${result.message}")
+                                updateState = com.uxellence.tv.v3.update.UpdateState.READY
+                                android.widget.Toast.makeText(
+                                    context,
+                                    "Instalator niedostępny — pobierz ponownie",
+                                    android.widget.Toast.LENGTH_LONG
+                                ).show()
+                            }
+                        }
+                    }
                 },
                 onDismiss = {
                     showUpdateDialog = false

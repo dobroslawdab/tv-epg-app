@@ -123,25 +123,47 @@ class UpdateManager(private val context: Context) {
 
             val totalSize = conn.contentLength.toLong()
             val input = conn.inputStream
-            val output = apkFile.outputStream()
+            val output = java.io.FileOutputStream(apkFile)
             val buffer = ByteArray(8192)
             var bytesRead: Int
             var totalRead = 0L
 
-            while (input.read(buffer).also { bytesRead = it } != -1) {
-                output.write(buffer, 0, bytesRead)
-                totalRead += bytesRead
-                if (totalSize > 0) {
-                    val progress = ((totalRead * 100) / totalSize).toInt()
-                    downloadProgress = progress
-                    withContext(Dispatchers.Main) { onProgress(progress) }
+            try {
+                while (input.read(buffer).also { bytesRead = it } != -1) {
+                    output.write(buffer, 0, bytesRead)
+                    totalRead += bytesRead
+                    if (totalSize > 0) {
+                        val progress = ((totalRead * 100) / totalSize).toInt()
+                        downloadProgress = progress
+                        withContext(Dispatchers.Main) { onProgress(progress) }
+                    }
                 }
+                // Force buffered bytes to disk BEFORE we tell the UI the
+                // download is complete. Without flush + fd.sync the user can
+                // tap "Zainstaluj" before the file is actually visible to
+                // PackageInstaller (read returns 0 bytes / file size mismatch
+                // → silent install failure with no UI feedback).
+                output.flush()
+                output.fd.sync()
+            } finally {
+                output.close()
+                input.close()
+                conn.disconnect()
             }
-            output.close()
-            input.close()
-            conn.disconnect()
 
-            Log.d(TAG, "Download complete: ${apkFile.absolutePath} (${apkFile.length()} bytes)")
+            // Verify the file landed and matches the expected size before we
+            // hand off to UI. Failed integrity → cleanup + report failure
+            // so the dialog drops back to READY state instead of getting stuck
+            // showing "Zainstaluj" over a half-written file.
+            val written = apkFile.length()
+            if (totalSize > 0 && written != totalSize) {
+                Log.e(TAG, "Download size mismatch: expected=$totalSize actual=$written")
+                apkFile.delete()
+                withContext(Dispatchers.Main) { onComplete(false) }
+                return@withContext
+            }
+
+            Log.d(TAG, "Download complete: ${apkFile.absolutePath} ($written bytes)")
             withContext(Dispatchers.Main) { onComplete(true) }
         } catch (e: Exception) {
             Log.e(TAG, "Download error: ${e.message}")
@@ -151,27 +173,46 @@ class UpdateManager(private val context: Context) {
     }
 
     /**
-     * Install downloaded APK
-     * Call this after download is complete
+     * Returns true when the previously-downloaded APK is on disk and matches
+     * what the system installer expects (readable + non-zero size).
      */
-    fun installApk() {
+    fun isApkReady(): Boolean {
+        val apkFile = File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), APK_FILE_NAME)
+        return apkFile.exists() && apkFile.canRead() && apkFile.length() > 0
+    }
+
+    /**
+     * Install downloaded APK. Returns a sealed [InstallResult] so the UI can
+     * react: success → dismiss dialog, file-not-ready → tell user to wait,
+     * error → drop back to download state. Previously this returned Unit and
+     * silently logged failures — users tapped "Zainstaluj" and "nothing
+     * happened" because the file hadn't fully flushed yet, or because
+     * ACTION_VIEW threw an ActivityNotFoundException on box ROMs without a
+     * built-in PackageInstaller.
+     */
+    fun installApk(): InstallResult {
         val apkFile = File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), APK_FILE_NAME)
 
-        if (!apkFile.exists()) {
-            Log.e(TAG, "APK file not found: ${apkFile.absolutePath}")
-            return
+        if (!apkFile.exists() || apkFile.length() == 0L) {
+            Log.w(TAG, "installApk: file not ready (exists=${apkFile.exists()}, size=${apkFile.length()})")
+            return InstallResult.NotReady
         }
 
-        Log.d(TAG, "Installing APK: ${apkFile.absolutePath}")
+        Log.d(TAG, "Installing APK: ${apkFile.absolutePath} (${apkFile.length()} bytes)")
 
-        val apkUri: Uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            FileProvider.getUriForFile(
-                context,
-                "${context.packageName}.fileprovider",
-                apkFile
-            )
-        } else {
-            Uri.fromFile(apkFile)
+        val apkUri: Uri = try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.fileprovider",
+                    apkFile
+                )
+            } else {
+                Uri.fromFile(apkFile)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "FileProvider.getUriForFile failed", e)
+            return InstallResult.Error("FileProvider: ${e.message}")
         }
 
         val intent = Intent(Intent.ACTION_VIEW).apply {
@@ -179,7 +220,19 @@ class UpdateManager(private val context: Context) {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
         }
 
-        context.startActivity(intent)
+        return try {
+            context.startActivity(intent)
+            InstallResult.Success
+        } catch (e: Exception) {
+            Log.e(TAG, "startActivity for installer failed", e)
+            InstallResult.Error("Installer not available: ${e.message}")
+        }
+    }
+
+    sealed class InstallResult {
+        object Success : InstallResult()
+        object NotReady : InstallResult()
+        data class Error(val message: String) : InstallResult()
     }
 
     /**
