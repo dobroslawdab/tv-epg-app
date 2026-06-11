@@ -30,7 +30,10 @@ class DemoChannelPlayerController(private val context: Context) {
     companion object {
         private const val TAG = "DemoLive"
         private const val LIVE_EDGE_TOLERANCE_MS = 5_000L
-        private const val ENTRY_DVR_BACKLOG_MS = 300_000L  // wejście = środek bloku 1
+        // Wejście = 20 min po "starcie anteny": jesteśmy w środku bloku 2,
+        // a CAŁY blok 1 (poprzedni materiał) jest w buforze DVR — można się
+        // do niego przewinąć (wymaganie: "przewinięcie materiału przed")
+        private const val ENTRY_DVR_BACKLOG_MS = 1_200_000L
     }
 
     val antennaStartWallMs: Long = System.currentTimeMillis() - ENTRY_DVR_BACKLOG_MS

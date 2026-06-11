@@ -98,6 +98,25 @@ object DemoChannelSchedule {
         }
     }
 
+    /**
+     * Lista bloków ramówki wokół danej pozycji: [before] bloków wstecz,
+     * blok bieżący i [after] bloków w przód (do przeglądania w warstwie EPG).
+     */
+    fun blocksAround(virtualMs: Long, before: Int, after: Int): List<EpgBlock> {
+        val result = ArrayDeque<EpgBlock>()
+        var block = epgBlockAt(virtualMs)
+        result.add(block)
+        repeat(before) {
+            val prevStart = result.first().startVirtualMs - 1
+            if (prevStart < 0) return@repeat
+            result.addFirst(epgBlockAt(prevStart))
+        }
+        repeat(after) {
+            result.add(epgBlockAt(result.last().endVirtualMs + 1))
+        }
+        return result.toList()
+    }
+
     /** Pozycje wirtualne kropek granic bloków ramówki w zakresie [from, to]. */
     fun blockBoundariesIn(fromVirtualMs: Long, toVirtualMs: Long): List<Long> {
         if (toVirtualMs < fromVirtualMs) return emptyList()

@@ -91,7 +91,7 @@ fun DemoSeekOverlay(
             Text(
                 text = clockText,
                 color = TEXT_PRIMARY,
-                fontSize = 32.sp,
+                fontSize = demoSp(32, sy),
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
@@ -136,7 +136,7 @@ fun DemoSeekOverlay(
                                 Text(
                                     text = formatWall(antennaStartWallMs + slotVirtualMs.coerceAtLeast(0), withSeconds = true),
                                     color = if (isCenter) AQUA else Color(0x99EEEEEE),
-                                    fontSize = if (isCenter) 18.sp else 13.sp,
+                                    fontSize = if (isCenter) demoSp(18, sy) else demoSp(13, sy),
                                     fontWeight = if (isCenter) FontWeight.Bold else FontWeight.Normal
                                 )
                                 Spacer(modifier = Modifier.height(sy(4)))
@@ -170,14 +170,41 @@ fun DemoSeekOverlay(
 
                 Spacer(modifier = Modifier.height(sy(28)))
 
-                // ============ TYTUŁ BLOKU ============
+                // ============ TYTUŁ BLOKU + INFO RAMÓWKI ============
                 Text(
                     text = blockTitle,
                     color = TEXT_PRIMARY.copy(alpha = 0.85f),
-                    fontSize = 38.sp,
+                    fontSize = demoSp(38, sy),
                     fontWeight = FontWeight.Normal,
                     modifier = Modifier.padding(start = sx(260))
                 )
+                Spacer(modifier = Modifier.height(sy(6)))
+                // Ile do końca bieżącego bloku (od pozycji kursora) • kiedy następny • od kiedy poprzedni
+                run {
+                    val cursorBlock = DemoChannelSchedule.epgBlockAt(seekVirtualMs)
+                    val nextBlock = DemoChannelSchedule.epgBlockAt(cursorBlock.endVirtualMs + 1)
+                    val remainingMs = (cursorBlock.endVirtualMs - seekVirtualMs).coerceAtLeast(0L)
+                    val remMin = remainingMs / 60_000
+                    val remSec = (remainingMs % 60_000) / 1_000
+                    val parts = mutableListOf(
+                        "Do końca: ${remMin}:${remSec.toString().padStart(2, '0')}",
+                        "Następny: ${nextBlock.title} o " +
+                            formatWall(antennaStartWallMs + nextBlock.startVirtualMs, withSeconds = false)
+                    )
+                    if (cursorBlock.startVirtualMs > 0) {
+                        val prevBlock = DemoChannelSchedule.epgBlockAt(cursorBlock.startVirtualMs - 1)
+                        parts.add(
+                            "Poprzedni: ${prevBlock.title} od " +
+                                formatWall(antennaStartWallMs + prevBlock.startVirtualMs, withSeconds = false)
+                        )
+                    }
+                    Text(
+                        text = parts.joinToString("   •   "),
+                        color = Color(0xB3EEEEEE),
+                        fontSize = demoSp(20, sy),
+                        modifier = Modifier.padding(start = sx(260))
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(sy(20)))
 
@@ -214,7 +241,7 @@ fun DemoSeekOverlay(
                         Text(
                             text = "LIVE",
                             color = if (isReturnToLiveFocused) AQUA else Color(0xFF311257),
-                            fontSize = 14.sp,
+                            fontSize = demoSp(14, sy),
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -222,7 +249,7 @@ fun DemoSeekOverlay(
                     Text(
                         text = "Wróć do live",
                         color = contentColor,
-                        fontSize = 24.sp,
+                        fontSize = demoSp(24, sy),
                         fontWeight = FontWeight.Medium
                     )
                 }
@@ -285,7 +312,7 @@ private fun SegmentedSeekBar(
             Text(
                 text = formatWall(antennaStartWallMs + boundary, withSeconds = false),
                 color = TEXT_PRIMARY,
-                fontSize = 20.sp,
+                fontSize = demoSp(20, sy),
                 modifier = Modifier.offset(x = barWidth * f - sx(36), y = sy(44))
             )
         }
@@ -308,7 +335,7 @@ private fun SegmentedSeekBar(
         Text(
             text = formatWall(antennaStartWallMs + seekVirtualMs, withSeconds = true),
             color = TEXT_PRIMARY,
-            fontSize = 22.sp,
+            fontSize = demoSp(22, sy),
             fontWeight = FontWeight.Bold,
             modifier = Modifier.offset(x = (barWidth * markerFraction - sx(54)).coerceAtLeast(0.dp), y = sy(44))
         )
@@ -319,3 +346,10 @@ internal fun formatWall(wallMs: Long, withSeconds: Boolean): String {
     val pattern = if (withSeconds) "HH:mm:ss" else "HH:mm"
     return SimpleDateFormat(pattern, Locale.getDefault()).format(Date(wallMs))
 }
+
+/**
+ * Font skalowany jak w EpgDayScreen: rozmiar z designu 1920x1080 × współczynnik sy.
+ * Surowe .sp na emulatorze TV (~0.5 skali) dawało fonty 2x za duże.
+ */
+internal fun demoSp(designPx: Int, sy: (Int) -> Dp): androidx.compose.ui.unit.TextUnit =
+    (designPx * sy(1).value).sp

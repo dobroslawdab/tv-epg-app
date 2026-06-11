@@ -3,10 +3,8 @@ package com.uxellence.tv.v3.demolive
 import android.graphics.Bitmap
 import android.util.Log
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,12 +21,12 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.ui.zIndex
 import kotlinx.coroutines.delay
 
 private const val TAG = "DemoLive"
 private const val SEEK_STEP_MS = 10_000L
-private const val LIVE_INFO_TIMEOUT_MS = 10_000L
+private const val EPG_TIMEOUT_MS = 12_000L
+private const val CONTROLS_TIMEOUT_MS = 10_000L
 private const val SEEK_AUTOCANCEL_MS = 5_000L
 
 /**
@@ -71,9 +69,9 @@ private class DemoVideoView(
         }
     }
 
-    /** Letterbox: dopasuj wysokość TextureView do proporcji wideo (środek, czarne pasy). */
+    /** Letterbox: dopasuj wymiary TextureView do proporcji wideo (środek, czarne pasy). */
     private fun applyAspect(videoSize: com.google.android.exoplayer2.video.VideoSize) {
-        if (videoSize.height == 0 || videoSize.width == 0 || width == 0) return
+        if (videoSize.height == 0 || videoSize.width == 0 || width == 0 || height == 0) return
         val videoAspect = videoSize.width * videoSize.pixelWidthHeightRatio / videoSize.height
         val viewAspect = width.toFloat() / height.toFloat()
         val lp = textureView.layoutParams as LayoutParams
@@ -101,12 +99,16 @@ private class DemoVideoView(
 /**
  * DEMO LIVE SCREEN — symulacja kanału live z ramówką (pełny flow):
  *
- *   LIVE_INFO (start) --OK--> DETAIL (z PIP) --BACK--> LIVE_INFO
- *       |  BACK / timeout 10s
- *       v
- *   FULLSCREEN --LEFT/RIGHT--> SEEK_OVERLAY (filmstrip + segmentowany pasek ramówki)
- *       |  BACK = wyjście do HOME            |  OK = potwierdź / "Wróć do live"
+ *   EPG (start; rail bloków ramówki jak w EpgDayScreen)
+ *     | BACK / timeout 12s
+ *     v
+ *   FULLSCREEN --OK--> CONTROLS (pauza / zacznij od początku / nagraj)
+ *     | LEFT/RIGHT             | BACK / timeout 10s (gdy nie spauzowane)
+ *     v
+ *   SEEK_OVERLAY (filmstrip + segmentowany pasek ramówki + "Wróć do live")
  *
+ * Wejście = 20 min po starcie anteny: jesteśmy w połowie bloku 2, a cały blok 1
+ * (poprzedni materiał) jest w DVR — można się do niego przewinąć.
  * Kluczowy case: ramówka NIE pokrywa się z materiałami — patrz DemoChannelSchedule.
  */
 @Composable
@@ -119,7 +121,7 @@ fun DemoLiveScreen(
     val controller = remember { DemoChannelPlayerController(context) }
     val filmstrip = remember { DemoFilmstripProvider() }
 
-    var layer by remember { mutableStateOf(DemoLayer.LIVE_INFO) }
+    var layer by remember { mutableStateOf(DemoLayer.EPG) }
     var isReady by remember { mutableStateOf(false) }
     // Player jako stan Compose — inaczej update AndroidView nie wykona się ponownie
     // po utworzeniu playera (lambda obserwuje wyłącznie snapshot state)
@@ -130,18 +132,22 @@ fun DemoLiveScreen(
 
     var currentVirtualMs by remember { mutableLongStateOf(0L) }
     var liveEdgeMs by remember { mutableLongStateOf(0L) }
+    var isPaused by remember { mutableStateOf(false) }
+
+    // Warstwa EPG: lista bloków + fokus
+    var epgBlocks by remember { mutableStateOf<List<DemoChannelSchedule.EpgBlock>>(emptyList()) }
+    var epgFocusIndex by remember { mutableIntStateOf(0) }
+    var epgInteractionAt by remember { mutableLongStateOf(0L) }
+
+    // Warstwa CONTROLS
+    var controlsFocusIndex by remember { mutableIntStateOf(0) }
+    var controlsInteractionAt by remember { mutableLongStateOf(0L) }
 
     // Seek state
     var seekVirtualMs by remember { mutableLongStateOf(0L) }
     var lastSeekActionTime by remember { mutableLongStateOf(0L) }
     var returnToLiveFocused by remember { mutableStateOf(false) }
     var filmstripFrames by remember { mutableStateOf<List<Pair<Long, Bitmap?>>>(emptyList()) }
-
-    // Detail state
-    var detailFocusIndex by remember { mutableIntStateOf(0) }
-
-    // Auto-hide warstwy LIVE_INFO
-    var liveInfoShownAt by remember { mutableLongStateOf(System.currentTimeMillis()) }
 
     // Akceleracja seeka (wzorzec z VodPlayerScreen)
     var rapidPressCount by remember { mutableIntStateOf(0) }
@@ -169,22 +175,72 @@ fun DemoLiveScreen(
         )
     }
 
+    fun openEpg() {
+        val now = controller.currentVirtualPositionMs()
+        epgBlocks = DemoChannelSchedule.blocksAround(now, before = 2, after = 3)
+        epgFocusIndex = epgBlocks.indexOfFirst { now in it.startVirtualMs until it.endVirtualMs }
+            .coerceAtLeast(0)
+        epgInteractionAt = System.currentTimeMillis()
+        layer = DemoLayer.EPG
+    }
+
     // ============ AKCJE (wywoływane przez DemoLiveKeyController) ============
     val actions = remember {
         DemoLiveActions(
-            showLiveInfo = {
-                layer = DemoLayer.LIVE_INFO
-                liveInfoShownAt = System.currentTimeMillis()
+            showEpg = { openEpg() },
+            epgMove = { dir ->
+                epgFocusIndex = (epgFocusIndex + dir).coerceIn(0, (epgBlocks.size - 1).coerceAtLeast(0))
+                epgInteractionAt = System.currentTimeMillis()
             },
-            showDetail = {
-                detailFocusIndex = 0
-                layer = DemoLayer.DETAIL
+            epgSelect = {
+                val block = epgBlocks.getOrNull(epgFocusIndex)
+                if (block != null && block.startVirtualMs <= controller.virtualNow()) {
+                    // Odtwarzaj od początku bloku (timeshift do ramówki); clamp w kontrolerze
+                    controller.seekToVirtual(block.startVirtualMs)
+                    isPaused = false
+                    layer = DemoLayer.FULLSCREEN
+                    Log.i(TAG, "EPG select: '${block.title}' → ${block.startVirtualMs}ms")
+                } else {
+                    epgInteractionAt = System.currentTimeMillis()  // blok przyszły — ignoruj
+                }
+            },
+            showControls = {
+                controlsFocusIndex = 0
+                controlsInteractionAt = System.currentTimeMillis()
+                layer = DemoLayer.CONTROLS
+            },
+            controlsMove = { dir ->
+                controlsFocusIndex = (controlsFocusIndex + dir).coerceIn(0, 2)
+                controlsInteractionAt = System.currentTimeMillis()
+            },
+            controlsSelect = {
+                controlsInteractionAt = System.currentTimeMillis()
+                when (controlsFocusIndex) {
+                    0 -> {  // Pauza / Wznów
+                        val p = controller.player
+                        if (p != null) {
+                            if (p.isPlaying) {
+                                p.pause(); isPaused = true
+                            } else {
+                                p.play(); isPaused = false
+                            }
+                            Log.i(TAG, "Controls: pauza → isPaused=$isPaused")
+                        }
+                    }
+                    1 -> {  // Zacznij od początku bieżącego bloku ramówki
+                        val block = DemoChannelSchedule.epgBlockAt(controller.currentVirtualPositionMs())
+                        controller.seekToVirtual(block.startVirtualMs)
+                        isPaused = false
+                        layer = DemoLayer.FULLSCREEN
+                        Log.i(TAG, "Controls: zacznij od początku → ${block.startVirtualMs}ms")
+                    }
+                    2 -> { /* Nagraj — atrapa */ }
+                }
             },
             goFullscreen = { layer = DemoLayer.FULLSCREEN },
             exit = { onBackPressed() },
             seekStep = { direction ->
                 if (layer != DemoLayer.SEEK_OVERLAY) {
-                    // Wejście w tryb przewijania: pauza, kursor od bieżącej pozycji
                     controller.player?.pause()
                     seekVirtualMs = controller.currentVirtualPositionMs()
                     returnToLiveFocused = false
@@ -198,17 +254,20 @@ fun DemoLiveScreen(
             },
             seekConfirm = {
                 controller.seekToVirtual(seekVirtualMs)
+                isPaused = false
                 rapidPressCount = 0
                 layer = DemoLayer.FULLSCREEN
             },
             seekCancel = {
                 controller.player?.play()
+                isPaused = false
                 rapidPressCount = 0
                 layer = DemoLayer.FULLSCREEN
                 Log.i(TAG, "SEEK cancel")
             },
             returnToLive = {
                 controller.seekToLiveEdge()
+                isPaused = false
                 rapidPressCount = 0
                 returnToLiveFocused = false
                 layer = DemoLayer.FULLSCREEN
@@ -217,14 +276,6 @@ fun DemoLiveScreen(
             seekFocusChange = { toButton ->
                 returnToLiveFocused = toButton
                 lastSeekActionTime = System.currentTimeMillis()
-            },
-            detailFocusedIndex = { detailFocusIndex },
-            detailFocusChange = { detailFocusIndex = it },
-            startOver = {
-                val block = DemoChannelSchedule.epgBlockAt(controller.currentVirtualPositionMs())
-                controller.seekToVirtual(block.startVirtualMs)
-                layer = DemoLayer.FULLSCREEN
-                Log.i(TAG, "Zacznij od początku → blockStart=${block.startVirtualMs}ms")
             }
         )
     }
@@ -241,7 +292,7 @@ fun DemoLiveScreen(
             playerRef = controller.player
             filmstrip.startExtraction(fileA.absolutePath, fileB.absolutePath)
             isReady = true
-            liveInfoShownAt = System.currentTimeMillis()
+            openEpg()
             Log.i(TAG, "Demo ready: antennaStart=${controller.antennaStartWallMs}")
         } catch (e: Exception) {
             Log.e(TAG, "Setup error: ${e.message}")
@@ -277,10 +328,18 @@ fun DemoLiveScreen(
         }
     }
 
-    // Auto-hide LIVE_INFO po 10 s
-    LaunchedEffect(layer, liveInfoShownAt) {
-        if (layer == DemoLayer.LIVE_INFO && isReady) {
-            delay(LIVE_INFO_TIMEOUT_MS)
+    // Auto-hide warstwy EPG po 12 s bez interakcji
+    LaunchedEffect(layer, epgInteractionAt) {
+        if (layer == DemoLayer.EPG && isReady) {
+            delay(EPG_TIMEOUT_MS)
+            layer = DemoLayer.FULLSCREEN
+        }
+    }
+
+    // Auto-hide kontrolek po 10 s (chyba że spauzowane — wtedy zostają)
+    LaunchedEffect(layer, controlsInteractionAt, isPaused) {
+        if (layer == DemoLayer.CONTROLS && !isPaused) {
+            delay(CONTROLS_TIMEOUT_MS)
             layer = DemoLayer.FULLSCREEN
         }
     }
@@ -291,6 +350,7 @@ fun DemoLiveScreen(
         delay(SEEK_AUTOCANCEL_MS)
         if (layer == DemoLayer.SEEK_OVERLAY) {
             controller.player?.play()
+            isPaused = false
             layer = DemoLayer.FULLSCREEN
             Log.i(TAG, "SEEK auto-cancel po ${SEEK_AUTOCANCEL_MS}ms")
         }
@@ -298,17 +358,15 @@ fun DemoLiveScreen(
 
     // ============ UI ============
     // Wspólny handler klawiszy — używany przez Compose root Box ORAZ przez
-    // dispatchKeyEvent PlayerView (sprawdzony wzorzec z VodPlayerScreen:356-363:
-    // fokus okna potrafi wylądować na AndroidView zamiast na focusable() Boxie).
+    // dispatchKeyEvent DemoVideoView (fokus okna potrafi wylądować na AndroidView)
     val keyHandler = rememberUpdatedState<(Int) -> Boolean> { keyCode ->
         if (!isReady) {
-            // Podczas pobierania tylko BACK działa
             if (keyCode == android.view.KeyEvent.KEYCODE_BACK) {
                 onBackPressed(); true
             } else false
         } else {
             val handled = DemoLiveKeyController.handleKey(keyCode, layer, actions)
-            Log.i(TAG, "key=$keyCode layer(before)=$layer handled=$handled")
+            Log.i(TAG, "key=$keyCode layer(after)=$layer handled=$handled")
             handled
         }
     }
@@ -318,25 +376,10 @@ fun DemoLiveScreen(
         delay(200)
         rootFocus.requestFocus()
     }
-    // Re-parenting DemoVideoView (movableContentOf przy zmianie warstwy) potrafi
-    // zgubić fokus okna — przywracaj na root po każdej zmianie warstwy (wzorzec Issue #4)
+    // Zmiany warstw potrafią zgubić fokus okna — przywracaj na root (wzorzec Issue #4)
     LaunchedEffect(layer) {
         delay(50)
         rootFocus.requestFocus()
-    }
-
-    // Jeden widok wideo renderowany z dwóch pozycji w drzewie (movableContentOf —
-    // patrz CLAUDE.md lesson #10): fullscreen POD overlayami albo PIP NAD detalem.
-    // TextureView zamiast PlayerView/SurfaceView — SurfaceView w Compose daje
-    // czarny ekran (z-order; patrz CLAUDE.md "Trailer Auto-Play System").
-    val videoLayer = remember {
-        movableContentOf { modifier: Modifier ->
-            AndroidView(
-                factory = { ctx -> DemoVideoView(ctx) { keyCode -> keyHandler.value(keyCode) } },
-                update = { view -> view.attach(playerRef) },
-                modifier = modifier
-            )
-        }
     }
 
     Box(
@@ -350,60 +393,58 @@ fun DemoLiveScreen(
             }
             .focusable()
     ) {
-        if (layer == DemoLayer.DETAIL) {
-            // Warstwa detalu na spodzie, PIP (ten sam PlayerView) NA WIERZCHU w rogu
-            DemoDetailLayer(
-                isVisible = true,
-                block = DemoChannelSchedule.epgBlockAt(currentVirtualMs),
-                currentVirtualMs = currentVirtualMs,
-                antennaStartWallMs = controller.antennaStartWallMs,
-                thumbnail = filmstrip.framesAround(
-                    centerVirtualMs = DemoChannelSchedule.epgBlockAt(currentVirtualMs).startVirtualMs,
+        // Wideo zawsze fullscreen pod warstwami
+        AndroidView(
+            factory = { ctx -> DemoVideoView(ctx) { keyCode -> keyHandler.value(keyCode) } },
+            update = { view -> view.attach(playerRef) },
+            modifier = Modifier.fillMaxSize()
+        )
+
+        // Warstwa EPG (start; jak EpgDayScreen pod zakładką Telewizja)
+        DemoEpgLayer(
+            isVisible = layer == DemoLayer.EPG && isReady,
+            blocks = epgBlocks,
+            focusedIndex = epgFocusIndex,
+            currentVirtualMs = currentVirtualMs,
+            dvrStartVirtualMs = 0L,
+            antennaStartWallMs = controller.antennaStartWallMs,
+            thumbnailFor = { block ->
+                filmstrip.framesAround(
+                    centerVirtualMs = block.startVirtualMs,
                     liveEdgeVirtualMs = liveEdgeMs,
                     stepMs = SEEK_STEP_MS,
                     sideCount = 0
-                ).firstOrNull()?.second,
-                focusedButtonIndex = detailFocusIndex,
-                sx = sx,
-                sy = sy
-            )
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = sx(60), bottom = sy(140))
-                    .width(sx(480))
-                    .height(sy(270))
-                    .zIndex(5f)
-                    .border(2.dp, Color(0x66EEEEEE), RoundedCornerShape(sx(8)))
-            ) {
-                videoLayer(Modifier.fillMaxSize())
-            }
-        } else {
-            // Fullscreen video pod overlayami
-            videoLayer(Modifier.fillMaxSize())
+                ).firstOrNull()?.second
+            },
+            sx = sx,
+            sy = sy
+        )
 
-            DemoLiveInfoBar(
-                isVisible = layer == DemoLayer.LIVE_INFO && isReady,
-                block = DemoChannelSchedule.epgBlockAt(currentVirtualMs),
-                currentVirtualMs = currentVirtualMs,
-                antennaStartWallMs = controller.antennaStartWallMs,
-                sx = sx,
-                sy = sy
-            )
+        // Warstwa kontrolek playera (OK z pełnego ekranu)
+        DemoControlsLayer(
+            isVisible = layer == DemoLayer.CONTROLS,
+            block = DemoChannelSchedule.epgBlockAt(currentVirtualMs),
+            currentVirtualMs = currentVirtualMs,
+            antennaStartWallMs = controller.antennaStartWallMs,
+            isPaused = isPaused,
+            focusedIndex = controlsFocusIndex,
+            sx = sx,
+            sy = sy
+        )
 
-            DemoSeekOverlay(
-                isVisible = layer == DemoLayer.SEEK_OVERLAY,
-                seekVirtualMs = seekVirtualMs,
-                liveEdgeVirtualMs = liveEdgeMs.coerceAtLeast(1L),
-                frames = filmstripFrames,
-                boundaries = DemoChannelSchedule.blockBoundariesIn(0L, liveEdgeMs),
-                blockTitle = DemoChannelSchedule.epgBlockAt(seekVirtualMs).title,
-                antennaStartWallMs = controller.antennaStartWallMs,
-                isReturnToLiveFocused = returnToLiveFocused,
-                sx = sx,
-                sy = sy
-            )
-        }
+        // Overlay przewijania
+        DemoSeekOverlay(
+            isVisible = layer == DemoLayer.SEEK_OVERLAY,
+            seekVirtualMs = seekVirtualMs,
+            liveEdgeVirtualMs = liveEdgeMs.coerceAtLeast(1L),
+            frames = filmstripFrames,
+            boundaries = DemoChannelSchedule.blockBoundariesIn(0L, liveEdgeMs),
+            blockTitle = DemoChannelSchedule.epgBlockAt(seekVirtualMs).title,
+            antennaStartWallMs = controller.antennaStartWallMs,
+            isReturnToLiveFocused = returnToLiveFocused,
+            sx = sx,
+            sy = sy
+        )
 
         // Pobieranie / błąd
         if (!isReady) {
@@ -414,12 +455,12 @@ fun DemoLiveScreen(
                 if (errorMsg != null) {
                     Text(
                         "Błąd: $errorMsg",
-                        style = TextStyle(fontSize = 24.sp, color = Color(0xFFFF6B6B))
+                        style = TextStyle(fontSize = demoSp(24, sy), color = Color(0xFFFF6B6B))
                     )
                 } else {
                     Text(
                         "Pobieranie $downloadLabel… ${downloadProgress}%",
-                        style = TextStyle(fontSize = 24.sp, color = Color.White)
+                        style = TextStyle(fontSize = demoSp(24, sy), color = Color.White)
                     )
                     Spacer(Modifier.height(16.dp))
                     Box(
