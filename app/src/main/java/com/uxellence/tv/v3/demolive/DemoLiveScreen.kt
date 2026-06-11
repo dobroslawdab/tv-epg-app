@@ -259,16 +259,21 @@ fun DemoLiveScreen(
                 val program = row?.programs?.getOrNull(epgProgramIndex[epgChannelIndex] ?: -1)
                 if (row != null && program != null) {
                     if (epgChannelIndex == 0) {
-                        // DEMO TV: timeshift do początku programu (clamp do okna DVR)
-                        // i przejście do PLAYERA Z KONTROLKAMI
-                        val targetVirtual = program.startUtc.toEpochMilli() - controller.antennaStartWallMs
-                        if (targetVirtual <= controller.virtualNow()) {
-                            controller.seekToVirtual(targetVirtual)
-                            isPaused = false
+                        // DEMO TV: przejście do PLAYERA Z KONTROLKAMI.
+                        // Program AKTUALNIE odtwarzany → kontynuuj bez cofania;
+                        // program miniony → timeshift do jego początku (clamp do DVR).
+                        val targetStart = program.startUtc.toEpochMilli() - controller.antennaStartWallMs
+                        val targetEnd = program.endUtc.toEpochMilli() - controller.antennaStartWallMs
+                        val playingNow = controller.currentVirtualPositionMs() in targetStart until targetEnd
+                        if (playingNow || targetStart <= controller.virtualNow()) {
+                            if (!playingNow) {
+                                controller.seekToVirtual(targetStart)
+                                isPaused = false
+                            }
                             controlsFocusIndex = 0
                             controlsInteractionAt = System.currentTimeMillis()
                             layer = DemoLayer.CONTROLS
-                            Log.i(TAG, "EPG select: '${program.title}' → ${targetVirtual}ms + CONTROLS")
+                            Log.i(TAG, "EPG select: '${program.title}' playingNow=$playingNow → CONTROLS")
                         } else {
                             epgInteractionAt = System.currentTimeMillis()  // program przyszły
                         }
