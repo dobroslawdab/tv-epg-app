@@ -81,7 +81,8 @@ object DemoLiveKeyController {
             a.controlsSelect(); true
         }
         KeyEvent.KEYCODE_BACK -> {
-            a.goFullscreen(); true
+            // Łańcuch wstecz: kontrolki → warstwa EPG → czysty player → wyjście
+            a.showEpg(); true
         }
         KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN -> true  // konsumuj
         else -> false
