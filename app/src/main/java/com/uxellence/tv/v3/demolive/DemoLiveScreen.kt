@@ -174,9 +174,9 @@ fun DemoLiveScreen(
         return SEEK_STEP_MS * multiplier
     }
 
-    fun updateFilmstrip() {
+    fun updateFilmstrip(centerMs: Long) {
         filmstripFrames = filmstrip.framesAround(
-            centerVirtualMs = seekVirtualMs,
+            centerVirtualMs = centerMs,
             liveEdgeVirtualMs = controller.virtualNow(),
             stepMs = SEEK_STEP_MS,
             sideCount = 3,
@@ -300,6 +300,7 @@ fun DemoLiveScreen(
                 if (!controlsBarFocused) {
                     controlsBarFocused = true
                     controlsBarCursorMs = controller.currentVirtualPositionMs()
+                    updateFilmstrip(controlsBarCursorMs)
                 }
                 controlsInteractionAt = System.currentTimeMillis()
             },
@@ -315,6 +316,7 @@ fun DemoLiveScreen(
                     val lower = maxOf(block.startVirtualMs, controller.dvrStartMs())
                     val upper = minOf(block.endVirtualMs, controller.virtualNow())
                     controlsBarCursorMs = (controlsBarCursorMs + getSeekStep() * dir).coerceIn(lower, upper)
+                    updateFilmstrip(controlsBarCursorMs)
                 } else {
                     controlsFocusIndex = (controlsFocusIndex + dir).coerceIn(0, 2)
                 }
@@ -361,7 +363,7 @@ fun DemoLiveScreen(
                 val step = getSeekStep() * direction
                 seekVirtualMs = (seekVirtualMs + step).coerceIn(controller.dvrStartMs(), controller.virtualNow())
                 lastSeekActionTime = System.currentTimeMillis()
-                updateFilmstrip()
+                updateFilmstrip(seekVirtualMs)
                 Log.i(TAG, "SEEK ${if (direction > 0) "RIGHT" else "LEFT"} → ${seekVirtualMs}ms / edge=${controller.virtualNow()}ms")
             },
             seekConfirm = {
@@ -593,6 +595,8 @@ fun DemoLiveScreen(
             focusedIndex = if (controlsBarFocused) -1 else controlsFocusIndex,
             isBarFocused = controlsBarFocused,
             barCursorVirtualMs = controlsBarCursorMs,
+            liveEdgeVirtualMs = liveEdgeMs.coerceAtLeast(1L),
+            frames = filmstripFrames,
             sx = sx,
             sy = sy
         )

@@ -39,6 +39,8 @@ fun DemoControlsLayer(
     focusedIndex: Int,            // -1 gdy fokus na pasku postępu
     isBarFocused: Boolean,
     barCursorVirtualMs: Long,
+    liveEdgeVirtualMs: Long,
+    frames: List<Pair<Long, android.graphics.Bitmap?>>,
     sx: (Int) -> Dp,
     sy: (Int) -> Dp
 ) {
@@ -69,6 +71,18 @@ fun DemoControlsLayer(
                     .padding(start = sx(80), end = sx(80), bottom = sy(56))
                     .fillMaxWidth()
             ) {
+                // Miniaturki nad paskiem — jak podczas przewijania (fokus na pasku)
+                if (isBarFocused && frames.isNotEmpty()) {
+                    DemoFilmstrip(
+                        centerVirtualMs = barCursorVirtualMs,
+                        liveEdgeVirtualMs = liveEdgeVirtualMs,
+                        frames = frames,
+                        antennaStartWallMs = antennaStartWallMs,
+                        sx = sx,
+                        sy = sy
+                    )
+                    Spacer(modifier = Modifier.height(sy(24)))
+                }
                 Text(
                     text = block.title,
                     color = TEXT_PRIMARY,

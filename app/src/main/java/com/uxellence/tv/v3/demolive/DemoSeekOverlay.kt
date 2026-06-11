@@ -106,68 +106,14 @@ fun DemoSeekOverlay(
                     .padding(bottom = sy(48))
             ) {
                 // ============ FILMSTRIP 7 MINIATUR ============
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clipToBounds(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Row(
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.Bottom,
-                        modifier = Modifier.wrapContentWidth(unbounded = true)
-                    ) {
-                        frames.forEachIndexed { index, (frameOffsetMs, bitmap) ->
-                            val isCenter = index == frames.size / 2
-                            val slotVirtualMs = seekVirtualMs + frameOffsetMs
-                            val inRange = slotVirtualMs in 0..liveEdgeVirtualMs
-
-                            val thumbWidth = if (isCenter) sx(480) else sx(320)
-                            val thumbHeight = if (isCenter) sy(270) else sy(180)
-
-                            if (index > 0) Spacer(modifier = Modifier.width(sx(10)))
-
-                            if (!inRange && !isCenter) {
-                                // Poza DVR/za live edge: niewidoczny spacer trzyma wyrównanie środka
-                                Spacer(modifier = Modifier.width(thumbWidth).height(thumbHeight))
-                                return@forEachIndexed
-                            }
-
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(
-                                    text = formatWall(antennaStartWallMs + slotVirtualMs.coerceAtLeast(0), withSeconds = true),
-                                    color = if (isCenter) AQUA else Color(0x99EEEEEE),
-                                    fontSize = if (isCenter) demoSp(18, sy) else demoSp(13, sy),
-                                    fontWeight = if (isCenter) FontWeight.Bold else FontWeight.Normal
-                                )
-                                Spacer(modifier = Modifier.height(sy(4)))
-                                Box(
-                                    modifier = Modifier
-                                        .width(thumbWidth)
-                                        .height(thumbHeight)
-                                        .clip(RoundedCornerShape(sx(8)))
-                                        .background(Color(0x40000000))
-                                        .then(
-                                            if (isCenter) Modifier.border(3.dp, AQUA, RoundedCornerShape(sx(8)))
-                                            else Modifier.border(1.dp, Color(0x50EEEEEE), RoundedCornerShape(sx(8)))
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    if (bitmap != null && !bitmap.isRecycled) {
-                                        Image(
-                                            bitmap = bitmap.asImageBitmap(),
-                                            contentDescription = null,
-                                            contentScale = ContentScale.Crop,
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .clip(RoundedCornerShape(sx(8)))
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+                DemoFilmstrip(
+                    centerVirtualMs = seekVirtualMs,
+                    liveEdgeVirtualMs = liveEdgeVirtualMs,
+                    frames = frames,
+                    antennaStartWallMs = antennaStartWallMs,
+                    sx = sx,
+                    sy = sy
+                )
 
                 Spacer(modifier = Modifier.height(sy(28)))
 
@@ -345,6 +291,83 @@ private fun SegmentedSeekBar(
             fontWeight = FontWeight.Bold,
             modifier = Modifier.offset(x = (barWidth * markerFraction - sx(54)).coerceAtLeast(0.dp), y = sy(44))
         )
+    }
+}
+
+/**
+ * Filmstrip 7 miniatur — współdzielony przez overlay przewijania i pasek
+ * postępu w warstwie kontrolek (środek 480x270 z aqua borderem, boki 320x180).
+ */
+@Composable
+internal fun DemoFilmstrip(
+    centerVirtualMs: Long,
+    liveEdgeVirtualMs: Long,
+    frames: List<Pair<Long, Bitmap?>>,
+    antennaStartWallMs: Long,
+    sx: (Int) -> Dp,
+    sy: (Int) -> Dp
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clipToBounds(),
+        contentAlignment = Alignment.Center
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.Bottom,
+            modifier = Modifier.wrapContentWidth(unbounded = true)
+        ) {
+            frames.forEachIndexed { index, (frameOffsetMs, bitmap) ->
+                val isCenter = index == frames.size / 2
+                val slotVirtualMs = centerVirtualMs + frameOffsetMs
+                val inRange = slotVirtualMs in 0..liveEdgeVirtualMs
+
+                val thumbWidth = if (isCenter) sx(480) else sx(320)
+                val thumbHeight = if (isCenter) sy(270) else sy(180)
+
+                if (index > 0) Spacer(modifier = Modifier.width(sx(10)))
+
+                if (!inRange && !isCenter) {
+                    // Poza DVR/za live edge: niewidoczny spacer trzyma wyrównanie środka
+                    Spacer(modifier = Modifier.width(thumbWidth).height(thumbHeight))
+                    return@forEachIndexed
+                }
+
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = formatWall(antennaStartWallMs + slotVirtualMs.coerceAtLeast(0), withSeconds = true),
+                        color = if (isCenter) AQUA else Color(0x99EEEEEE),
+                        fontSize = if (isCenter) demoSp(18, sy) else demoSp(13, sy),
+                        fontWeight = if (isCenter) FontWeight.Bold else FontWeight.Normal
+                    )
+                    Spacer(modifier = Modifier.height(sy(4)))
+                    Box(
+                        modifier = Modifier
+                            .width(thumbWidth)
+                            .height(thumbHeight)
+                            .clip(RoundedCornerShape(sx(8)))
+                            .background(Color(0x40000000))
+                            .then(
+                                if (isCenter) Modifier.border(3.dp, AQUA, RoundedCornerShape(sx(8)))
+                                else Modifier.border(1.dp, Color(0x50EEEEEE), RoundedCornerShape(sx(8)))
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (bitmap != null && !bitmap.isRecycled) {
+                            Image(
+                                bitmap = bitmap.asImageBitmap(),
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(RoundedCornerShape(sx(8)))
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
