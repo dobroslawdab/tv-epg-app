@@ -54,7 +54,8 @@ fun VodPlayerScreen(
     title: String,
     onBackPressed: () -> Unit,
     sx: (Int) -> Dp,
-    sy: (Int) -> Dp
+    sy: (Int) -> Dp,
+    fullFilmstrip: Boolean = false
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -135,10 +136,14 @@ fun VodPlayerScreen(
                 }
 
                 Log.i(TAG, "Downloading: $streamUrl")
+                // Pobieranie do .part + rename po sukcesie — przerwane pobieranie
+                // (BACK w trakcie) nie zostawia uciętego pliku udającego cache hit
+                val partFile = File(cacheDir, "$fileName.part")
+                partFile.delete()
                 val conn = URL(streamUrl).openConnection()
                 val totalSize = conn.contentLength
                 val input = conn.getInputStream()
-                val output = localFile.outputStream()
+                val output = partFile.outputStream()
                 val buffer = ByteArray(8192)
                 var bytesRead: Int
                 var totalRead = 0L
@@ -150,6 +155,11 @@ fun VodPlayerScreen(
                 }
                 output.close()
                 input.close()
+                if (totalSize > 0 && partFile.length() != totalSize.toLong()) {
+                    partFile.delete()
+                    throw java.io.IOException("Incomplete download: ${partFile.length()}/$totalSize B")
+                }
+                partFile.renameTo(localFile)
                 Log.i(TAG, "Downloaded: ${localFile.absolutePath} (${localFile.length()} bytes)")
                 localFilePath = localFile.absolutePath
             } catch (e: Exception) {
@@ -214,7 +224,10 @@ fun VodPlayerScreen(
     }
 
     // Periodic frame capture during normal playback
+    // (pomijany przy fullFilmstrip — pełna ekstrakcja wypełnia ring buffer,
+    //  PixelCopy wypychałby klatki z początku pliku)
     LaunchedEffect(player, isSeeking) {
+        if (fullFilmstrip) return@LaunchedEffect
         val p = player ?: return@LaunchedEffect
         while (true) {
             delay(CAPTURE_INTERVAL_MS)
@@ -230,8 +243,12 @@ fun VodPlayerScreen(
         if (durationMs <= 0) return@LaunchedEffect
         // Use local file path for extraction (faster than URL)
         val extractPath = if (path.startsWith("/")) path else streamUrl
-            // Extract keyframe every ~5s for precise filmstrip (145s / 30 ≈ 5s intervals)
-        frameCaptureManager.extractKeyFrames(extractPath, durationMs, count = 30)
+        // fullFilmstrip: klatka co ~5s na całej długości (limit ring buffera);
+        // default: 30 klatek jak dotychczas (Kino Play)
+        val count = if (fullFilmstrip) {
+            (durationMs / 5_000L).toInt().coerceIn(1, FrameCaptureManager.MAX_FRAMES - 2)
+        } else 30
+        frameCaptureManager.extractKeyFrames(extractPath, durationMs, count = count)
         Log.i(TAG, "Keyframe extraction started for ${durationMs}ms")
     }
 

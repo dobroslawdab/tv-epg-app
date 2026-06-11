@@ -1,0 +1,161 @@
+package com.uxellence.tv.v3.demolive
+
+import android.content.Context
+import android.net.Uri
+import android.util.Log
+import com.google.android.exoplayer2.ExoPlayer
+import com.google.android.exoplayer2.MediaItem
+import com.google.android.exoplayer2.Player
+import com.google.android.exoplayer2.SeekParameters
+import com.google.android.exoplayer2.Timeline
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
+import java.net.URL
+
+/**
+ * DEMO CHANNEL PLAYER CONTROLLER — player "anteny" symulowanego kanału live.
+ *
+ * - Playlista ExoPlayer (A, B) + REPEAT_MODE_ALL: przejście do następnego materiału
+ *   następuje przy FAKTYCZNYM końcu pliku (auto transition), nie przy kropce ramówki.
+ * - Oś wirtualna zakotwiczona w zegarze ściennym; wejście na ekran = 5 min po
+ *   "starcie anteny", żeby od razu był bufor DVR za plecami.
+ * - trackedCycle: numer pętli materiałów — inkrementowany WYŁĄCZNIE przy
+ *   automatycznym przejściu B→A (REASON_AUTO na index 0); przy seeku ustawiany jawnie.
+ */
+class DemoChannelPlayerController(private val context: Context) {
+
+    companion object {
+        private const val TAG = "DemoLive"
+        private const val LIVE_EDGE_TOLERANCE_MS = 5_000L
+        private const val ENTRY_DVR_BACKLOG_MS = 300_000L  // wejście = środek bloku 1
+    }
+
+    val antennaStartWallMs: Long = System.currentTimeMillis() - ENTRY_DVR_BACKLOG_MS
+
+    var player: ExoPlayer? = null
+        private set
+
+    @Volatile private var trackedCycle = 0L
+
+    /**
+     * Pobiera plik do cache (cacheDir/demo_live/). Pobieranie idzie do pliku .part,
+     * rename na finalny dopiero po sukcesie — przerwane pobieranie nie udaje cache hit.
+     */
+    suspend fun downloadToCache(url: String, onProgress: (Int) -> Unit): File =
+        withContext(Dispatchers.IO) {
+            val dir = File(context.cacheDir, "demo_live")
+            dir.mkdirs()
+            val finalFile = File(dir, "demo_${url.hashCode()}.mp4")
+            if (finalFile.exists() && finalFile.length() > 0) {
+                Log.i(TAG, "Cache hit: ${finalFile.absolutePath}")
+                return@withContext finalFile
+            }
+
+            val partFile = File(dir, "${finalFile.name}.part")
+            partFile.delete()
+            Log.i(TAG, "Downloading: $url")
+            val conn = URL(url).openConnection()
+            val totalSize = conn.contentLengthLong
+            conn.getInputStream().use { input ->
+                FileOutputStream(partFile).use { output ->
+                    val buffer = ByteArray(64 * 1024)
+                    var read: Int
+                    var total = 0L
+                    while (input.read(buffer).also { read = it } != -1) {
+                        output.write(buffer, 0, read)
+                        total += read
+                        if (totalSize > 0) onProgress(((total * 100) / totalSize).toInt())
+                    }
+                    output.flush()
+                    output.fd.sync()
+                }
+            }
+            if (totalSize > 0 && partFile.length() != totalSize) {
+                partFile.delete()
+                throw IOException("Niekompletne pobieranie: ${partFile.length()}/$totalSize B")
+            }
+            if (!partFile.renameTo(finalFile)) {
+                throw IOException("Nie udało się przenieść ${partFile.name} → ${finalFile.name}")
+            }
+            Log.i(TAG, "Downloaded: ${finalFile.absolutePath} (${finalFile.length()} B)")
+            finalFile
+        }
+
+    fun preparePlayer(fileA: File, fileB: File) {
+        val exo = ExoPlayer.Builder(context).build()
+        exo.playWhenReady = true
+        exo.setSeekParameters(SeekParameters.EXACT)
+        exo.repeatMode = Player.REPEAT_MODE_ALL
+        exo.addListener(object : Player.Listener {
+            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO &&
+                    exo.currentMediaItemIndex == 0
+                ) {
+                    trackedCycle++
+                    Log.i(TAG, "onMediaItemTransition reason=AUTO → nowa pętla, trackedCycle=$trackedCycle")
+                } else {
+                    Log.i(TAG, "onMediaItemTransition reason=$reason index=${exo.currentMediaItemIndex}")
+                }
+            }
+
+            override fun onTimelineChanged(timeline: Timeline, reason: Int) {
+                if (timeline.windowCount >= 2) {
+                    val window = Timeline.Window()
+                    val dA = timeline.getWindow(0, window).durationMs
+                    val dB = timeline.getWindow(1, window).durationMs
+                    if (dA > 0 && dB > 0) {
+                        DemoChannelSchedule.durAMs = dA
+                        DemoChannelSchedule.durBMs = dB
+                        Log.i(TAG, "Timeline: durA=${dA}ms durB=${dB}ms")
+                    }
+                }
+            }
+        })
+        exo.setMediaItems(
+            listOf(
+                MediaItem.fromUri(Uri.fromFile(fileA)),
+                MediaItem.fromUri(Uri.fromFile(fileB))
+            )
+        )
+        exo.prepare()
+        player = exo
+        seekToVirtual(virtualNow())
+    }
+
+    /** Live edge w osi wirtualnej — rośnie z zegarem ściennym. */
+    fun virtualNow(): Long = System.currentTimeMillis() - antennaStartWallMs
+
+    /** Bieżąca pozycja odtwarzania w osi wirtualnej. */
+    fun currentVirtualPositionMs(): Long {
+        val p = player ?: return 0L
+        return DemoChannelSchedule.virtualFor(trackedCycle, p.currentMediaItemIndex, p.currentPosition)
+    }
+
+    /** Seek do pozycji wirtualnej (clamp do [0, live edge]); przełącza MediaItem jeśli trzeba. */
+    fun seekToVirtual(targetVirtualMs: Long) {
+        val p = player ?: return
+        val clamped = targetVirtualMs.coerceIn(0L, virtualNow())
+        val mp = DemoChannelSchedule.materialPositionFor(clamped)
+        // Nie seekuj na sam koniec okna (ochrona przed natychmiastową auto-transition
+        // i IllegalSeekPositionException przy pozycji > duration okna)
+        val windowDur = if (mp.mediaItemIndex == 0) DemoChannelSchedule.durAMs else DemoChannelSchedule.durBMs
+        val safePos = mp.positionMs.coerceAtMost((windowDur - 500L).coerceAtLeast(0L))
+        trackedCycle = mp.cycle
+        p.seekTo(mp.mediaItemIndex, safePos)
+        p.play()
+        Log.i(TAG, "seekToVirtual($targetVirtualMs → $clamped) = item=${mp.mediaItemIndex} pos=${safePos}ms cycle=${mp.cycle}")
+    }
+
+    fun seekToLiveEdge() = seekToVirtual(virtualNow())
+
+    fun isAtLiveEdge(): Boolean = virtualNow() - currentVirtualPositionMs() < LIVE_EDGE_TOLERANCE_MS
+
+    fun release() {
+        player?.stop()
+        player?.release()
+        player = null
+    }
+}

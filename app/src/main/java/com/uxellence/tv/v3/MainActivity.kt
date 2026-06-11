@@ -97,7 +97,7 @@ class MainActivity : ComponentActivity() {
 }
 
 enum class NavigationScreen {
-    HOME, LIVE, COMPONENT_SHOWCASE, TOP_MENU2, SHORTCUT, CHANNELE, VIDEOSLIDER, SLIDER, SLIDER_MIX, EPG, EPG_DAY, FOCUS_MINI_CARD, VOICE_TEST, SPLASH, WHATS_NEW, STARTUP_MODE_SELECTION, LAUNCHER_SETUP, ZAPPING_BAR, CHANNEL_GRID, WIDEO_GRID, KINO_GRID, VOD_GRID, RECORDINGS_GRID, APPS_GRID, SERIES_EPISODES, MOVIE_DETAIL, PURCHASE, RENTAL_PROCESSING, OLYMPICS, VOD_PLAYER
+    HOME, LIVE, COMPONENT_SHOWCASE, TOP_MENU2, SHORTCUT, CHANNELE, VIDEOSLIDER, SLIDER, SLIDER_MIX, EPG, EPG_DAY, FOCUS_MINI_CARD, VOICE_TEST, SPLASH, WHATS_NEW, STARTUP_MODE_SELECTION, LAUNCHER_SETUP, ZAPPING_BAR, CHANNEL_GRID, WIDEO_GRID, KINO_GRID, VOD_GRID, RECORDINGS_GRID, APPS_GRID, SERIES_EPISODES, MOVIE_DETAIL, PURCHASE, RENTAL_PROCESSING, OLYMPICS, VOD_PLAYER, DEMO_LIVE, DEMO_VOD
 }
 
 // Helper functions for launcher setup
@@ -509,6 +509,8 @@ fun TvRoot(
     // Menu items dla wszystkich ekranów - najnowsze na górze
     val menuItems = remember {
         listOf(
+            MainMenuItem(id = "demo_live", title = "📡 Demo: Kanał live + ramówka", navigationScreen = NavigationScreen.DEMO_LIVE),
+            MainMenuItem(id = "demo_vod", title = "🎞 Demo: VOD + miniaturki", navigationScreen = NavigationScreen.DEMO_VOD),
             MainMenuItem(id = "kino_grid", title = "🎬 Lista Kino", navigationScreen = NavigationScreen.KINO_GRID),
             MainMenuItem(id = "vod_grid", title = "📹 Lista Wideo", navigationScreen = NavigationScreen.WIDEO_GRID),
             MainMenuItem(id = "channel_grid", title = "📺 Lista kanałów TV", navigationScreen = NavigationScreen.CHANNEL_GRID),
@@ -1409,6 +1411,33 @@ fun TvRoot(
                     },
                     sx = ::sx,
                     sy = ::sy
+                )
+            }
+            NavigationScreen.DEMO_LIVE -> {
+                val demoConfig = LocalConfiguration.current
+                val scaleX = demoConfig.screenWidthDp / 1920f
+                val scaleY = demoConfig.screenHeightDp / 1080f
+                fun sx(px: Int) = (px * scaleX).dp
+                fun sy(px: Int) = (px * scaleY).dp
+                com.uxellence.tv.v3.demolive.DemoLiveScreen(
+                    onBackPressed = { currentScreen = NavigationScreen.HOME },
+                    sx = ::sx,
+                    sy = ::sy
+                )
+            }
+            NavigationScreen.DEMO_VOD -> {
+                val demoConfig = LocalConfiguration.current
+                val scaleX = demoConfig.screenWidthDp / 1920f
+                val scaleY = demoConfig.screenHeightDp / 1080f
+                fun sx(px: Int) = (px * scaleX).dp
+                fun sy(px: Int) = (px * scaleY).dp
+                com.uxellence.tv.v3.vodplayer.VodPlayerScreen(
+                    streamUrl = com.uxellence.tv.v3.demolive.DemoChannelSchedule.URL_A,
+                    title = "Demo: VOD + miniaturki (Sintel)",
+                    onBackPressed = { currentScreen = NavigationScreen.HOME },
+                    sx = ::sx,
+                    sy = ::sy,
+                    fullFilmstrip = true
                 )
             }
             NavigationScreen.SLIDER -> {
