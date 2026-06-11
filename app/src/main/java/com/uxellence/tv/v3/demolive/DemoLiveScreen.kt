@@ -501,12 +501,16 @@ fun DemoLiveScreen(
 
     // ============ UI ============
     // Wspólny handler klawiszy — używany przez Compose root Box ORAZ przez
-    // dispatchKeyEvent DemoVideoView (fokus okna potrafi wylądować na AndroidView)
+    // dispatchKeyEvent DemoVideoView (fokus okna potrafi wylądować na AndroidView).
+    // UWAGA: BACK celowo NIE jest tu obsługiwany — przepuszczamy go do systemowego
+    // OnBackPressedDispatcher (BackHandler niżej). Obsługa w obu miejscach dawała
+    // podwójne przetworzenie jednego naciśnięcia (DOWN w widoku + dispatcher na UP):
+    // warstwa EPG znikała i natychmiast pojawiała się ponownie.
     val keyHandler = rememberUpdatedState<(Int) -> Boolean> { keyCode ->
-        if (!isReady) {
-            if (keyCode == android.view.KeyEvent.KEYCODE_BACK) {
-                onBackPressed(); true
-            } else false
+        if (keyCode == android.view.KeyEvent.KEYCODE_BACK) {
+            false
+        } else if (!isReady) {
+            false
         } else {
             val handled = DemoLiveKeyController.handleKey(keyCode, layer, actions)
             Log.i(TAG, "key=$keyCode layer(after)=$layer handled=$handled")
@@ -514,10 +518,15 @@ fun DemoLiveScreen(
         }
     }
 
-    // Systemowy BACK przez OnBackPressedDispatcher — łapie też przypadek zgubionego
-    // fokusu okna (bez tego BACK potrafił wyrzucić z całej aplikacji)
+    // JEDYNY punkt obsługi BACK: systemowy OnBackPressedDispatcher — dokładnie
+    // jedno wywołanie na naciśnięcie, działa też przy zgubionym fokusie okna
     androidx.activity.compose.BackHandler(enabled = true) {
-        keyHandler.value(android.view.KeyEvent.KEYCODE_BACK)
+        if (!isReady) {
+            onBackPressed()
+        } else {
+            DemoLiveKeyController.handleKey(android.view.KeyEvent.KEYCODE_BACK, layer, actions)
+            Log.i(TAG, "BACK(dispatcher) layer(after)=$layer")
+        }
     }
 
     val rootFocus = remember { FocusRequester() }
