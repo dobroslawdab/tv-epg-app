@@ -322,6 +322,16 @@ fun DemoLiveScreen(
             },
             goFullscreen = { layer = DemoLayer.FULLSCREEN },
             exit = { onBackPressed() },
+            enterSeek = {
+                // UP z playera: pasek postępu z kursorem na bieżącej pozycji (bez kroku)
+                controller.player?.pause()
+                seekVirtualMs = controller.currentVirtualPositionMs()
+                returnToLiveFocused = false
+                lastSeekActionTime = System.currentTimeMillis()
+                updateFilmstrip()
+                layer = DemoLayer.SEEK_OVERLAY
+                Log.i(TAG, "SEEK enter (UP) @ ${seekVirtualMs}ms")
+            },
             seekStep = { direction ->
                 if (layer != DemoLayer.SEEK_OVERLAY) {
                     controller.player?.pause()

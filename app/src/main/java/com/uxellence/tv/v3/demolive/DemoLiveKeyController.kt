@@ -23,6 +23,7 @@ class DemoLiveActions(
     val controlsSelect: () -> Unit,
     val goFullscreen: () -> Unit,
     val exit: () -> Unit,
+    val enterSeek: () -> Unit,           // wejście na pasek postępu bez kroku (UP z playera)
     val seekStep: (direction: Int) -> Unit,
     val seekConfirm: () -> Unit,
     val seekCancel: () -> Unit,
@@ -98,7 +99,10 @@ object DemoLiveKeyController {
         KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
             a.showEpg(); true   // OK na czystym playerze = warstwa EPG
         }
-        KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN -> {
+        KeyEvent.KEYCODE_DPAD_UP -> {
+            a.enterSeek(); true   // UP = pasek postępu (kursor na bieżącej pozycji)
+        }
+        KeyEvent.KEYCODE_DPAD_DOWN -> {
             a.showEpg(); true
         }
         KeyEvent.KEYCODE_BACK -> {
