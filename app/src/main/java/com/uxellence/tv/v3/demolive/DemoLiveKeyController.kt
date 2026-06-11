@@ -16,6 +16,7 @@ enum class DemoLayer { EPG, CONTROLS, FULLSCREEN, SEEK_OVERLAY }
 class DemoLiveActions(
     val showEpg: () -> Unit,
     val epgMove: (direction: Int) -> Unit,
+    val epgMoveChannel: (direction: Int) -> Unit,
     val epgSelect: () -> Unit,
     val showControls: () -> Unit,
     val controlsMove: (direction: Int) -> Unit,
@@ -60,7 +61,12 @@ object DemoLiveKeyController {
         KeyEvent.KEYCODE_BACK -> {
             a.goFullscreen(); true
         }
-        KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN -> true  // konsumuj
+        KeyEvent.KEYCODE_DPAD_UP -> {
+            a.epgMoveChannel(-1); true
+        }
+        KeyEvent.KEYCODE_DPAD_DOWN -> {
+            a.epgMoveChannel(+1); true
+        }
         else -> false
     }
 

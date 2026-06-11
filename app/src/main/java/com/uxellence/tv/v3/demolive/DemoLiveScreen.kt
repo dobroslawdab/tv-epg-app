@@ -134,9 +134,11 @@ fun DemoLiveScreen(
     var liveEdgeMs by remember { mutableLongStateOf(0L) }
     var isPaused by remember { mutableStateOf(false) }
 
-    // Warstwa EPG: lista bloków + fokus
-    var epgBlocks by remember { mutableStateOf<List<DemoChannelSchedule.EpgBlock>>(emptyList()) }
-    var epgFocusIndex by remember { mutableIntStateOf(0) }
+    // Warstwa EPG: wiersz 0 = DEMO TV (sztuczna ramówka), 1..N = prawdziwe kanały z EPG
+    var epgRows by remember { mutableStateOf<List<com.uxellence.tv.v3.epg.ChannelEpgRow>>(emptyList()) }
+    var realChannelRows by remember { mutableStateOf<List<com.uxellence.tv.v3.epg.ChannelEpgRow>>(emptyList()) }
+    var epgChannelIndex by remember { mutableIntStateOf(0) }
+    val epgProgramIndex = remember { mutableStateMapOf<Int, Int>() }
     var epgInteractionAt by remember { mutableLongStateOf(0L) }
 
     // Warstwa CONTROLS
@@ -175,11 +177,46 @@ fun DemoLiveScreen(
         )
     }
 
+    // Wiersz DEMO TV: bloki sztucznej ramówki jako EpgProgram (cover = klatka z materiału)
+    fun buildDemoRow(): com.uxellence.tv.v3.epg.ChannelEpgRow {
+        val nowV = controller.currentVirtualPositionMs()
+        val edge = controller.virtualNow()
+        val blocks = DemoChannelSchedule.blocksAround(nowV, before = 3, after = 8)
+        val programs = blocks.map { b ->
+            com.uxellence.tv.v3.epg.EpgProgram(
+                channelId = "demo",
+                title = b.title,
+                startUtc = java.time.Instant.ofEpochMilli(controller.antennaStartWallMs + b.startVirtualMs),
+                endUtc = java.time.Instant.ofEpochMilli(controller.antennaStartWallMs + b.endVirtualMs),
+                description = b.description,
+                categories = listOf(b.genre, b.year, b.country, b.age),
+                iconUrl = filmstrip.thumbUriFor(b.startVirtualMs, edge, context.cacheDir)
+            )
+        }
+        val nowInstant = java.time.Instant.ofEpochMilli(controller.antennaStartWallMs + nowV)
+        val currentIdx = programs.indexOfFirst { p ->
+            !nowInstant.isBefore(p.startUtc) && nowInstant.isBefore(p.endUtc)
+        }.coerceAtLeast(0)
+        return com.uxellence.tv.v3.epg.ChannelEpgRow(
+            channel = com.uxellence.tv.v3.channels.TvChannelData(
+                id = "demo",
+                name = "DEMO TV",
+                streamUrl = "",
+                logoUrl = null,
+                epgId = "demo"
+            ),
+            channelNumber = 122,
+            programs = programs,
+            currentProgramIndex = currentIdx,
+            lazyListState = androidx.compose.foundation.lazy.LazyListState()
+        )
+    }
+
     fun openEpg() {
-        val now = controller.currentVirtualPositionMs()
-        epgBlocks = DemoChannelSchedule.blocksAround(now, before = 2, after = 3)
-        epgFocusIndex = epgBlocks.indexOfFirst { now in it.startVirtualMs until it.endVirtualMs }
-            .coerceAtLeast(0)
+        epgRows = listOf(buildDemoRow()) + realChannelRows
+        epgChannelIndex = 0
+        epgProgramIndex.clear()
+        epgRows.forEachIndexed { i, row -> epgProgramIndex[i] = row.currentProgramIndex }
         epgInteractionAt = System.currentTimeMillis()
         layer = DemoLayer.EPG
     }
@@ -189,19 +226,41 @@ fun DemoLiveScreen(
         DemoLiveActions(
             showEpg = { openEpg() },
             epgMove = { dir ->
-                epgFocusIndex = (epgFocusIndex + dir).coerceIn(0, (epgBlocks.size - 1).coerceAtLeast(0))
+                val row = epgRows.getOrNull(epgChannelIndex)
+                if (row != null) {
+                    val cur = epgProgramIndex[epgChannelIndex] ?: row.currentProgramIndex
+                    epgProgramIndex[epgChannelIndex] =
+                        (cur + dir).coerceIn(0, (row.programs.size - 1).coerceAtLeast(0))
+                }
+                epgInteractionAt = System.currentTimeMillis()
+            },
+            epgMoveChannel = { dir ->
+                epgChannelIndex = (epgChannelIndex + dir).coerceIn(0, (epgRows.size - 1).coerceAtLeast(0))
                 epgInteractionAt = System.currentTimeMillis()
             },
             epgSelect = {
-                val block = epgBlocks.getOrNull(epgFocusIndex)
-                if (block != null && block.startVirtualMs <= controller.virtualNow()) {
-                    // Odtwarzaj od początku bloku (timeshift do ramówki); clamp w kontrolerze
-                    controller.seekToVirtual(block.startVirtualMs)
-                    isPaused = false
-                    layer = DemoLayer.FULLSCREEN
-                    Log.i(TAG, "EPG select: '${block.title}' → ${block.startVirtualMs}ms")
-                } else {
-                    epgInteractionAt = System.currentTimeMillis()  // blok przyszły — ignoruj
+                val row = epgRows.getOrNull(epgChannelIndex)
+                val program = row?.programs?.getOrNull(epgProgramIndex[epgChannelIndex] ?: -1)
+                if (row != null && program != null) {
+                    if (epgChannelIndex == 0) {
+                        // DEMO TV: timeshift do początku bloku ramówki (jeśli już wyemitowany)
+                        val targetVirtual = program.startUtc.toEpochMilli() - controller.antennaStartWallMs
+                        if (targetVirtual <= controller.virtualNow()) {
+                            controller.seekToVirtual(targetVirtual)
+                            isPaused = false
+                            layer = DemoLayer.FULLSCREEN
+                            Log.i(TAG, "EPG select: '${program.title}' → ${targetVirtual}ms")
+                        } else {
+                            epgInteractionAt = System.currentTimeMillis()  // program przyszły
+                        }
+                    } else {
+                        android.widget.Toast.makeText(
+                            context,
+                            "Demo: odtwarzanie działa tylko na kanale DEMO TV",
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                        epgInteractionAt = System.currentTimeMillis()
+                    }
                 }
             },
             showControls = {
@@ -297,6 +356,49 @@ fun DemoLiveScreen(
         } catch (e: Exception) {
             Log.e(TAG, "Setup error: ${e.message}")
             errorMsg = e.message ?: "Błąd pobierania"
+        }
+    }
+
+    // Prawdziwe kanały z prawdziwym EPG (jak w EpgDayScreen) — ładowane w tle,
+    // doklejane pod wierszem DEMO TV gdy gotowe
+    LaunchedEffect(isReady) {
+        if (!isReady) return@LaunchedEffect
+        try {
+            if (!com.uxellence.tv.v3.channels.ChannelManager.isInitialized()) {
+                com.uxellence.tv.v3.channels.ChannelManager.initialize(context)
+            }
+            val repo = com.uxellence.tv.v3.repository.EpgRepository.getInstance(context)
+            val now = java.time.Instant.now()
+            val rows = mutableListOf<com.uxellence.tv.v3.epg.ChannelEpgRow>()
+            var channelNumber = 0
+            for (channel in com.uxellence.tv.v3.channels.ChannelManager.getAllChannels(includeUnavailable = false)) {
+                val programs = try {
+                    repo.getFullDayPrograms(channel.epgId ?: channel.id, now)
+                } catch (e: Exception) {
+                    emptyList()
+                }
+                if (programs.isEmpty()) continue
+                val sorted = programs.sortedBy { it.startUtc }
+                val currentIdx = sorted.indexOfFirst { p ->
+                    !now.isBefore(p.startUtc) && now.isBefore(p.endUtc)
+                }.coerceAtLeast(0)
+                channelNumber++
+                rows.add(
+                    com.uxellence.tv.v3.epg.ChannelEpgRow(
+                        channel = channel,
+                        channelNumber = channelNumber,
+                        programs = sorted,
+                        currentProgramIndex = currentIdx,
+                        lazyListState = androidx.compose.foundation.lazy.LazyListState()
+                    )
+                )
+                if (channelNumber >= 9) break
+            }
+            realChannelRows = rows
+            Log.i(TAG, "Real EPG rows loaded: ${rows.size}")
+            if (layer == DemoLayer.EPG) openEpg()  // odśwież widok o realne kanały
+        } catch (e: Exception) {
+            Log.e(TAG, "Real EPG load failed: ${e.message}")
         }
     }
 
@@ -400,22 +502,15 @@ fun DemoLiveScreen(
             modifier = Modifier.fillMaxSize()
         )
 
-        // Warstwa EPG (start; jak EpgDayScreen pod zakładką Telewizja)
+        // Warstwa EPG (start; identyczna wizualnie z EpgDayScreen pod zakładką Telewizja)
         DemoEpgLayer(
             isVisible = layer == DemoLayer.EPG && isReady,
-            blocks = epgBlocks,
-            focusedIndex = epgFocusIndex,
-            currentVirtualMs = currentVirtualMs,
-            dvrStartVirtualMs = 0L,
-            antennaStartWallMs = controller.antennaStartWallMs,
-            thumbnailFor = { block ->
-                filmstrip.framesAround(
-                    centerVirtualMs = block.startVirtualMs,
-                    liveEdgeVirtualMs = liveEdgeMs,
-                    stepMs = SEEK_STEP_MS,
-                    sideCount = 0
-                ).firstOrNull()?.second
+            rows = epgRows,
+            focusedChannelIndex = epgChannelIndex,
+            focusedProgramIndexFor = { i ->
+                epgProgramIndex[i] ?: (epgRows.getOrNull(i)?.currentProgramIndex ?: 0)
             },
+            focusedTime = java.time.Instant.now(),
             sx = sx,
             sy = sy
         )

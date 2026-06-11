@@ -53,6 +53,29 @@ class DemoFilmstripProvider {
         }
     }
 
+    /**
+     * URI pliku PNG z klatką dla początku bloku ramówki (cover karty EPG —
+     * EpgDayItem przyjmuje tylko iconUrl). Plik powstaje raz, w cache demo.
+     * Zwraca null gdy blok poza DVR albo klatki jeszcze nie wyekstrahowane.
+     */
+    fun thumbUriFor(blockStartVirtualMs: Long, liveEdgeVirtualMs: Long, cacheDir: java.io.File): String? {
+        if (blockStartVirtualMs < 0 || blockStartVirtualMs > liveEdgeVirtualMs) return null
+        val mp = DemoChannelSchedule.materialPositionFor(blockStartVirtualMs)
+        val manager = if (mp.mediaItemIndex == 0) managerA else managerB
+        val bitmap = manager.getClosestFrame(mp.positionMs) ?: return null
+        val dir = java.io.File(cacheDir, "demo_live")
+        dir.mkdirs()
+        val file = java.io.File(dir, "thumb_${blockStartVirtualMs}.png")
+        if (!file.exists() || file.length() == 0L) {
+            runCatching {
+                java.io.FileOutputStream(file).use { out ->
+                    bitmap.compress(Bitmap.CompressFormat.PNG, 85, out)
+                }
+            }.onFailure { return null }
+        }
+        return file.toURI().toString()
+    }
+
     fun release() {
         managerA.release()
         managerB.release()

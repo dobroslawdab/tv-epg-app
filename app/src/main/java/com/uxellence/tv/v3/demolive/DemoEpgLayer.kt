@@ -1,55 +1,58 @@
 package com.uxellence.tv.v3.demolive
 
-import android.graphics.Bitmap
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import com.uxellence.tv.v3.epg.ChannelEpgRow
+import com.uxellence.tv.v3.epg.ChannelInfoOverlay
+import com.uxellence.tv.v3.epg.EpgDayItem
+import java.time.Instant
 
-private val AQUA = Color(0xFF5AECD3)
-private val TEXT_PRIMARY = Color(0xFFEEEEEE)
+// Stałe layoutu skopiowane z EpgDayScreen (tam są private) — IDENTYCZNY wygląd
+private const val GRADIENT_TOP = 276
+private const val GRADIENT_HEIGHT = 804
+private const val FOCUSED_X = 330
+private const val SCREEN_WIDTH = 1920
+private const val END_PADDING = SCREEN_WIDTH - FOCUSED_X
+private const val CHANNEL_INFO_X = 40
+private const val CHANNEL_ROW_HEIGHT = 142
+private const val VIEWPORT_HEIGHT_MULTI = 446          // 3 kanały: 3×142 + 2×10
+private const val FIXED_FOCUS_Y_MULTI = 960
+private const val ITEM_GAP = 48
+private const val ROW_GAP = 10
 
 /**
- * DEMO EPG LAYER — warstwa EPG na live, wzorowana na EpgDayScreen (zakładka Telewizja):
- * gradient od dołu, info kanału (numer + nazwa) po lewej, poziomy rail kart programów
- * ramówki (karta wg EpgDayItem: cover 208x116 z aqua borderem dla fokusu, czasy,
- * tytuł 48px, metadane, pasek postępu emisji dla bieżącego bloku).
+ * DEMO EPG LAYER — wierna replika warstwy EPG z EpgDayScreen (zakładka Telewizja),
+ * zbudowana z TYCH SAMYCH komponentów: ChannelEpgRow + ChannelInfoOverlay + EpgDayItem.
  *
- * LEFT/RIGHT przegląda bloki, OK = przewiń antenę do początku bloku (jeśli w DVR),
- * BACK = schowaj warstwę.
+ * Wiersz 0 = kanał testowy DEMO TV (programy ze sztucznej ramówki DemoChannelSchedule),
+ * wiersze 1..N = prawdziwe kanały z prawdziwym EPG (ChannelManager + EpgRepository).
+ *
+ * Tryb 3-kanałowy (isExpanded w EpgDayScreen): fokusowany kanał w środku viewportu,
+ * sąsiednie wiersze z alpha 0.5; fokusowany program na X=330.
  */
 @Composable
 fun DemoEpgLayer(
     isVisible: Boolean,
-    blocks: List<DemoChannelSchedule.EpgBlock>,
-    focusedIndex: Int,
-    currentVirtualMs: Long,
-    dvrStartVirtualMs: Long,
-    antennaStartWallMs: Long,
-    thumbnailFor: (DemoChannelSchedule.EpgBlock) -> Bitmap?,
+    rows: List<ChannelEpgRow>,
+    focusedChannelIndex: Int,
+    focusedProgramIndexFor: (Int) -> Int,
+    focusedTime: Instant,
     sx: (Int) -> Dp,
     sy: (Int) -> Dp
 ) {
@@ -62,191 +65,94 @@ fun DemoEpgLayer(
             .zIndex(10f)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // Gradient jak w EpgDayScreen (1-channel mode)
+            // Gradient jak w EpgDayScreen (wariant 3-kanałowy: mocniejszy dla czytelności)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(sy(520))
-                    .align(Alignment.BottomCenter)
+                    .height(sy(GRADIENT_HEIGHT))
+                    .offset(y = sy(GRADIENT_TOP))
                     .background(
                         Brush.verticalGradient(
-                            0.2f to Color(0x0048227C),
-                            0.75f to Color(0xFF48227C)
+                            0.45f to Color(0x0048227C),
+                            0.63f to Color(0xFF48227C)
                         )
                     )
+                    .zIndex(1f)
             )
 
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
+            // Viewport 3 kanałów — pozycjonowanie jak w EpgDayScreen (expanded mode)
+            val viewportOffset = FIXED_FOCUS_Y_MULTI - (2 * CHANNEL_ROW_HEIGHT) - ROW_GAP
+            val columnState = rememberLazyListState()
+            LaunchedEffect(focusedChannelIndex, isVisible) {
+                if (isVisible && focusedChannelIndex in rows.indices) {
+                    columnState.animateScrollToItem(focusedChannelIndex)
+                }
+            }
+            LazyColumn(
+                state = columnState,
                 modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(bottom = sy(56))
+                    .fillMaxWidth()
+                    .height(sy(VIEWPORT_HEIGHT_MULTI))
+                    .offset(y = sy(viewportOffset))
+                    .zIndex(2f),
+                contentPadding = PaddingValues(
+                    top = sy(CHANNEL_ROW_HEIGHT + ROW_GAP),
+                    bottom = sy(CHANNEL_ROW_HEIGHT + ROW_GAP)
+                ),
+                verticalArrangement = Arrangement.spacedBy(sy(ROW_GAP))
             ) {
-                // Info kanału (numer + nazwa) — odpowiednik ChannelInfoOverlay
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier
-                        .padding(start = sx(56), end = sx(40))
-                        .width(sx(170))
-                ) {
+                itemsIndexed(rows) { channelIndex, channelRow ->
+                    val isFocusedChannel = channelIndex == focusedChannelIndex
+                    val focusedProgramIndex = focusedProgramIndexFor(channelIndex)
+
+                    // Auto-scroll wiersza: fokusowany/bieżący program na X=330
+                    LaunchedEffect(focusedProgramIndex, isFocusedChannel, isVisible) {
+                        if (isVisible && focusedProgramIndex in channelRow.programs.indices) {
+                            channelRow.lazyListState.animateScrollToItem(focusedProgramIndex)
+                        }
+                    }
+
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(sx(8)))
-                            .border(2.dp, Color(0x66EEEEEE), RoundedCornerShape(sx(8)))
-                            .padding(horizontal = sx(16), vertical = sy(8))
+                            .fillMaxWidth()
+                            .height(sy(CHANNEL_ROW_HEIGHT))
+                            .alpha(if (isFocusedChannel) 1f else 0.5f)
                     ) {
-                        Text("122", color = TEXT_PRIMARY, fontSize = demoSp(28, sy), fontWeight = FontWeight.Bold)
-                    }
-                    Spacer(modifier = Modifier.height(sy(8)))
-                    Text("DEMO TV", color = TEXT_PRIMARY, fontSize = demoSp(20, sy), fontWeight = FontWeight.Bold)
-                }
-
-                // Rail kart programów
-                val listState = rememberLazyListState()
-                LaunchedEffect(focusedIndex, isVisible) {
-                    if (isVisible && focusedIndex >= 0) listState.animateScrollToItem(focusedIndex)
-                }
-                LazyRow(
-                    state = listState,
-                    horizontalArrangement = Arrangement.spacedBy(sx(48))
-                ) {
-                    items(blocks.size) { index ->
-                        val block = blocks[index]
-                        DemoEpgCard(
-                            block = block,
-                            isFocused = index == focusedIndex,
-                            isCurrent = currentVirtualMs in block.startVirtualMs until block.endVirtualMs,
-                            inDvr = block.startVirtualMs >= dvrStartVirtualMs &&
-                                block.startVirtualMs <= currentVirtualMs,
-                            antennaStartWallMs = antennaStartWallMs,
-                            currentVirtualMs = currentVirtualMs,
-                            thumbnail = thumbnailFor(block),
+                        ChannelInfoOverlay(
+                            channel = channelRow.channel,
+                            channelNumber = channelRow.channelNumber,
+                            modifier = Modifier
+                                .align(Alignment.CenterStart)
+                                .padding(start = sx(CHANNEL_INFO_X))
+                                .zIndex(3f),
                             sx = sx,
                             sy = sy
                         )
+
+                        LazyRow(
+                            state = channelRow.lazyListState,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .align(Alignment.CenterStart),
+                            contentPadding = PaddingValues(
+                                start = sx(FOCUSED_X),
+                                end = sx(END_PADDING)
+                            ),
+                            horizontalArrangement = Arrangement.spacedBy(sx(ITEM_GAP))
+                        ) {
+                            itemsIndexed(channelRow.programs) { programIndex, program ->
+                                EpgDayItem(
+                                    program = program,
+                                    isFocused = isFocusedChannel && programIndex == focusedProgramIndex,
+                                    focusedTime = focusedTime,
+                                    sx = sx,
+                                    sy = sy
+                                )
+                            }
+                        }
                     }
                 }
             }
-
-            Text(
-                text = "OK — odtwarzaj od początku   |   BACK — pełny ekran",
-                color = Color(0x99EEEEEE),
-                fontSize = demoSp(16, sy),
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(start = sx(266), bottom = sy(20))
-            )
-        }
-    }
-}
-
-@Composable
-private fun DemoEpgCard(
-    block: DemoChannelSchedule.EpgBlock,
-    isFocused: Boolean,
-    isCurrent: Boolean,
-    inDvr: Boolean,
-    antennaStartWallMs: Long,
-    currentVirtualMs: Long,
-    thumbnail: Bitmap?,
-    sx: (Int) -> Dp,
-    sy: (Int) -> Dp
-) {
-    val alpha = if (isFocused || isCurrent) 1f else 0.5f
-    Column(
-        modifier = Modifier
-            .width(sx(908))
-            .alpha(alpha),
-        verticalArrangement = Arrangement.spacedBy(sy(4))
-    ) {
-        Row(
-            modifier = Modifier.size(sx(908), sy(134)),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(sx(24))
-        ) {
-            if (isFocused || isCurrent) {
-                Box(
-                    modifier = Modifier
-                        .size(sx(208), sy(116))
-                        .clip(RoundedCornerShape(sx(8)))
-                        .background(Color(0xFF5A227C))
-                        .then(
-                            if (isFocused) Modifier.border(sx(6), AQUA, RoundedCornerShape(sx(8)))
-                            else Modifier
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (thumbnail != null && !thumbnail.isRecycled) {
-                        Image(
-                            bitmap = thumbnail.asImageBitmap(),
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    } else {
-                        Text("📺", fontSize = demoSp(40, sy))
-                    }
-                }
-            }
-
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(sy(8))
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = formatWall(antennaStartWallMs + block.startVirtualMs, withSeconds = false) +
-                            " – " + formatWall(antennaStartWallMs + block.endVirtualMs, withSeconds = false),
-                        fontSize = demoSp(24, sy),
-                        fontWeight = FontWeight.Medium,
-                        color = TEXT_PRIMARY
-                    )
-                    if (!inDvr && !isCurrent) {
-                        Spacer(modifier = Modifier.width(sx(16)))
-                        Text(
-                            text = if (block.startVirtualMs > currentVirtualMs) "wkrótce" else "poza buforem",
-                            fontSize = demoSp(18, sy),
-                            color = Color(0x99EEEEEE)
-                        )
-                    }
-                }
-                Text(
-                    text = block.title,
-                    fontSize = demoSp(48, sy),
-                    fontWeight = FontWeight.Medium,
-                    color = TEXT_PRIMARY,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = "${block.genre}  |  ${block.year}  |  ${block.country}  |  ${block.age}",
-                    fontSize = demoSp(20, sy),
-                    color = Color(0xCCEEEEEE)
-                )
-            }
-        }
-
-        // Pasek postępu emisji — tylko dla bieżącego bloku
-        if (isCurrent) {
-            val blockDur = (block.endVirtualMs - block.startVirtualMs).coerceAtLeast(1L)
-            val progress = ((currentVirtualMs - block.startVirtualMs).toFloat() / blockDur).coerceIn(0f, 1f)
-            Box(
-                modifier = Modifier
-                    .width(sx(908))
-                    .height(sy(8))
-                    .clip(RoundedCornerShape(sy(4)))
-                    .background(Color(0x66EEEEEE))
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .fillMaxWidth(progress)
-                        .clip(RoundedCornerShape(sy(4)))
-                        .background(TEXT_PRIMARY)
-                )
-            }
-        } else {
-            Spacer(modifier = Modifier.height(sy(8)))
         }
     }
 }
