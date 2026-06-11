@@ -92,6 +92,9 @@ interface ProgramDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPrograms(programs: List<ProgramEntity>)
     
+    @Query("SELECT MAX(endUtc) FROM programs")
+    suspend fun getLatestProgramEnd(): Instant?
+
     @Query("DELETE FROM programs WHERE startUtc < :beforeTime")
     suspend fun deleteOldPrograms(beforeTime: Instant)
     

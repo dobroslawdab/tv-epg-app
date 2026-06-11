@@ -523,7 +523,9 @@ class EpgRepository private constructor(context: Context) {
                     val now = Instant.now()
                     val startOfDay = now.atZone(java.time.ZoneId.systemDefault())
                         .toLocalDate().atStartOfDay(java.time.ZoneId.systemDefault()).toInstant()
-                    val endOfDay = startOfDay.plus(Duration.ofDays(1))
+                    // 2 dni (dziś + jutro): po północy dane wciąż pokrywają "teraz",
+                    // bez tego "Teraz w TV" byłoby puste do następnego odświeżenia
+                    val endOfDay = startOfDay.plus(Duration.ofDays(2))
 
                     android.util.Log.d("EpgRepository", "Time range: $startOfDay to $endOfDay")
                     val result = refreshEpgData(
@@ -651,8 +653,20 @@ class EpgRepository private constructor(context: Context) {
     
     private suspend fun isCacheExpired(): Boolean {
         val metadata = metadataDao.getMetadata(EPG_METADATA_KEY)
-        return metadata == null || 
-               Duration.between(metadata.lastUpdated, Instant.now()).toHours() > CACHE_DURATION_HOURS
+        if (metadata == null ||
+            Duration.between(metadata.lastUpdated, Instant.now()).toHours() > CACHE_DURATION_HOURS
+        ) {
+            return true
+        }
+        // TTL może być świeży, ale refresh ładuje programy tylko do końca dnia kalendarzowego.
+        // Po północy dane przestają pokrywać "teraz" — bez tego warunku "Teraz w TV" jest puste
+        // aż do wygaśnięcia TTL (getCurrentProgram zwraca NULL dla wszystkich kanałów).
+        val latestProgramEnd = programDao.getLatestProgramEnd()
+        if (latestProgramEnd == null || latestProgramEnd.isBefore(Instant.now())) {
+            android.util.Log.d("EpgRepository", "Cache stale: data horizon passed (latest end: $latestProgramEnd)")
+            return true
+        }
+        return false
     }
     
     private suspend fun isEmpty(): Boolean {
