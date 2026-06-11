@@ -88,6 +88,24 @@ fun DemoEpgLayer(
                     columnState.animateScrollToItem(focusedChannelIndex)
                 }
             }
+
+            // TIME SYNC jak w EpgDayScreen: wszystkie kanały przewijają się do programu
+            // emitowanego o focusedTime — czasówki między wierszami się zgadzają
+            LaunchedEffect(focusedTime, rows, isVisible) {
+                if (!isVisible || rows.isEmpty()) return@LaunchedEffect
+                rows.forEachIndexed { index, channelRow ->
+                    val matchingIndex = channelRow.programs.indexOfFirst { program ->
+                        !focusedTime.isBefore(program.startUtc) && focusedTime.isBefore(program.endUtc)
+                    }
+                    if (matchingIndex >= 0) {
+                        if (index == focusedChannelIndex) {
+                            channelRow.lazyListState.animateScrollToItem(matchingIndex, 0)
+                        } else {
+                            channelRow.lazyListState.scrollToItem(matchingIndex, 0)
+                        }
+                    }
+                }
+            }
             LazyColumn(
                 state = columnState,
                 modifier = Modifier
@@ -104,13 +122,6 @@ fun DemoEpgLayer(
                 itemsIndexed(rows) { channelIndex, channelRow ->
                     val isFocusedChannel = channelIndex == focusedChannelIndex
                     val focusedProgramIndex = focusedProgramIndexFor(channelIndex)
-
-                    // Auto-scroll wiersza: fokusowany/bieżący program na X=330
-                    LaunchedEffect(focusedProgramIndex, isFocusedChannel, isVisible) {
-                        if (isVisible && focusedProgramIndex in channelRow.programs.indices) {
-                            channelRow.lazyListState.animateScrollToItem(focusedProgramIndex)
-                        }
-                    }
 
                     Box(
                         modifier = Modifier

@@ -51,6 +51,7 @@ fun DemoSeekOverlay(
     isVisible: Boolean,
     seekVirtualMs: Long,
     liveEdgeVirtualMs: Long,
+    dvrStartVirtualMs: Long,
     frames: List<Pair<Long, Bitmap?>>,
     boundaries: List<Long>,
     blockTitle: String,
@@ -212,6 +213,7 @@ fun DemoSeekOverlay(
                 SegmentedSeekBar(
                     seekVirtualMs = seekVirtualMs,
                     liveEdgeVirtualMs = liveEdgeVirtualMs,
+                    dvrStartVirtualMs = dvrStartVirtualMs,
                     boundaries = boundaries,
                     antennaStartWallMs = antennaStartWallMs,
                     sx = sx,
@@ -262,14 +264,18 @@ fun DemoSeekOverlay(
 private fun SegmentedSeekBar(
     seekVirtualMs: Long,
     liveEdgeVirtualMs: Long,
+    dvrStartVirtualMs: Long,
     boundaries: List<Long>,
     antennaStartWallMs: Long,
     sx: (Int) -> Dp,
     sy: (Int) -> Dp
 ) {
     val barHeight = sy(6)
-    val edge = liveEdgeVirtualMs.coerceAtLeast(1L)
-    fun fractionOf(virtualMs: Long): Float = (virtualMs.toFloat() / edge.toFloat()).coerceIn(0f, 1f)
+    // Skala paska: okno DVR (dvrStart → live edge), nie cała historia anteny
+    val windowStart = dvrStartVirtualMs.coerceAtLeast(0L)
+    val windowSpan = (liveEdgeVirtualMs - windowStart).coerceAtLeast(1L)
+    fun fractionOf(virtualMs: Long): Float =
+        ((virtualMs - windowStart).toFloat() / windowSpan.toFloat()).coerceIn(0f, 1f)
 
     BoxWithConstraints(
         modifier = Modifier

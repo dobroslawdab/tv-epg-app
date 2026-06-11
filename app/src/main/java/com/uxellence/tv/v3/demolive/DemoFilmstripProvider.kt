@@ -37,12 +37,13 @@ class DemoFilmstripProvider {
         centerVirtualMs: Long,
         liveEdgeVirtualMs: Long,
         stepMs: Long = 10_000L,
-        sideCount: Int = 3
+        sideCount: Int = 3,
+        dvrStartVirtualMs: Long = 0L
     ): List<Pair<Long, Bitmap?>> {
         return (-sideCount..sideCount).map { i ->
             val offset = i * stepMs
             val v = centerVirtualMs + offset
-            val bitmap = if (v < 0 || v > liveEdgeVirtualMs) {
+            val bitmap = if (v < dvrStartVirtualMs || v > liveEdgeVirtualMs) {
                 null
             } else {
                 val mp = DemoChannelSchedule.materialPositionFor(v)
@@ -59,7 +60,9 @@ class DemoFilmstripProvider {
      * Zwraca null gdy blok poza DVR albo klatki jeszcze nie wyekstrahowane.
      */
     fun thumbUriFor(blockStartVirtualMs: Long, liveEdgeVirtualMs: Long, cacheDir: java.io.File): String? {
-        if (blockStartVirtualMs < 0 || blockStartVirtualMs > liveEdgeVirtualMs) return null
+        // Barker channel: materiał zapętlony, więc cover znamy też dla bloków
+        // przyszłych — pokazuj klatkę dla każdego bloku ramówki
+        if (blockStartVirtualMs < 0) return null
         val mp = DemoChannelSchedule.materialPositionFor(blockStartVirtualMs)
         val manager = if (mp.mediaItemIndex == 0) managerA else managerB
         val bitmap = manager.getClosestFrame(mp.positionMs) ?: return null

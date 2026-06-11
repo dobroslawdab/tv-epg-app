@@ -140,6 +140,9 @@ fun DemoLiveScreen(
     var epgChannelIndex by remember { mutableIntStateOf(0) }
     val epgProgramIndex = remember { mutableStateMapOf<Int, Int>() }
     var epgInteractionAt by remember { mutableLongStateOf(0L) }
+    // Czas fokusu siatki EPG (TIME SYNC) — start fokusowanego programu;
+    // wszystkie wiersze przewijają się do programu emitowanego o tym czasie
+    var epgFocusedTime by remember { mutableStateOf(java.time.Instant.now()) }
 
     // Warstwa CONTROLS
     var controlsFocusIndex by remember { mutableIntStateOf(0) }
@@ -173,7 +176,8 @@ fun DemoLiveScreen(
             centerVirtualMs = seekVirtualMs,
             liveEdgeVirtualMs = controller.virtualNow(),
             stepMs = SEEK_STEP_MS,
-            sideCount = 3
+            sideCount = 3,
+            dvrStartVirtualMs = controller.dvrStartMs()
         )
     }
 
@@ -217,6 +221,7 @@ fun DemoLiveScreen(
         epgChannelIndex = 0
         epgProgramIndex.clear()
         epgRows.forEachIndexed { i, row -> epgProgramIndex[i] = row.currentProgramIndex }
+        epgFocusedTime = java.time.Instant.now()
         epgInteractionAt = System.currentTimeMillis()
         layer = DemoLayer.EPG
     }
@@ -229,13 +234,24 @@ fun DemoLiveScreen(
                 val row = epgRows.getOrNull(epgChannelIndex)
                 if (row != null) {
                     val cur = epgProgramIndex[epgChannelIndex] ?: row.currentProgramIndex
-                    epgProgramIndex[epgChannelIndex] =
-                        (cur + dir).coerceIn(0, (row.programs.size - 1).coerceAtLeast(0))
+                    val newIdx = (cur + dir).coerceIn(0, (row.programs.size - 1).coerceAtLeast(0))
+                    epgProgramIndex[epgChannelIndex] = newIdx
+                    // TIME SYNC: pozostałe kanały przewiną się do czasu startu fokusowanego programu
+                    row.programs.getOrNull(newIdx)?.let { epgFocusedTime = it.startUtc }
                 }
                 epgInteractionAt = System.currentTimeMillis()
             },
             epgMoveChannel = { dir ->
-                epgChannelIndex = (epgChannelIndex + dir).coerceIn(0, (epgRows.size - 1).coerceAtLeast(0))
+                val newChannel = (epgChannelIndex + dir).coerceIn(0, (epgRows.size - 1).coerceAtLeast(0))
+                epgChannelIndex = newChannel
+                // Na nowym kanale fokusuj program emitowany o epgFocusedTime (siatka czasowa)
+                epgRows.getOrNull(newChannel)?.let { row ->
+                    val matching = row.programs.indexOfFirst { p ->
+                        !epgFocusedTime.isBefore(p.startUtc) && epgFocusedTime.isBefore(p.endUtc)
+                    }
+                    epgProgramIndex[newChannel] =
+                        if (matching >= 0) matching else row.currentProgramIndex
+                }
                 epgInteractionAt = System.currentTimeMillis()
             },
             epgSelect = {
@@ -243,13 +259,16 @@ fun DemoLiveScreen(
                 val program = row?.programs?.getOrNull(epgProgramIndex[epgChannelIndex] ?: -1)
                 if (row != null && program != null) {
                     if (epgChannelIndex == 0) {
-                        // DEMO TV: timeshift do początku bloku ramówki (jeśli już wyemitowany)
+                        // DEMO TV: timeshift do początku programu (clamp do okna DVR)
+                        // i przejście do PLAYERA Z KONTROLKAMI
                         val targetVirtual = program.startUtc.toEpochMilli() - controller.antennaStartWallMs
                         if (targetVirtual <= controller.virtualNow()) {
                             controller.seekToVirtual(targetVirtual)
                             isPaused = false
-                            layer = DemoLayer.FULLSCREEN
-                            Log.i(TAG, "EPG select: '${program.title}' → ${targetVirtual}ms")
+                            controlsFocusIndex = 0
+                            controlsInteractionAt = System.currentTimeMillis()
+                            layer = DemoLayer.CONTROLS
+                            Log.i(TAG, "EPG select: '${program.title}' → ${targetVirtual}ms + CONTROLS")
                         } else {
                             epgInteractionAt = System.currentTimeMillis()  // program przyszły
                         }
@@ -306,7 +325,7 @@ fun DemoLiveScreen(
                     layer = DemoLayer.SEEK_OVERLAY
                 }
                 val step = getSeekStep() * direction
-                seekVirtualMs = (seekVirtualMs + step).coerceIn(0L, controller.virtualNow())
+                seekVirtualMs = (seekVirtualMs + step).coerceIn(controller.dvrStartMs(), controller.virtualNow())
                 lastSeekActionTime = System.currentTimeMillis()
                 updateFilmstrip()
                 Log.i(TAG, "SEEK ${if (direction > 0) "RIGHT" else "LEFT"} → ${seekVirtualMs}ms / edge=${controller.virtualNow()}ms")
@@ -473,6 +492,12 @@ fun DemoLiveScreen(
         }
     }
 
+    // Systemowy BACK przez OnBackPressedDispatcher — łapie też przypadek zgubionego
+    // fokusu okna (bez tego BACK potrafił wyrzucić z całej aplikacji)
+    androidx.activity.compose.BackHandler(enabled = true) {
+        keyHandler.value(android.view.KeyEvent.KEYCODE_BACK)
+    }
+
     val rootFocus = remember { FocusRequester() }
     LaunchedEffect(Unit) {
         delay(200)
@@ -510,7 +535,7 @@ fun DemoLiveScreen(
             focusedProgramIndexFor = { i ->
                 epgProgramIndex[i] ?: (epgRows.getOrNull(i)?.currentProgramIndex ?: 0)
             },
-            focusedTime = java.time.Instant.now(),
+            focusedTime = epgFocusedTime,
             sx = sx,
             sy = sy
         )
@@ -532,8 +557,9 @@ fun DemoLiveScreen(
             isVisible = layer == DemoLayer.SEEK_OVERLAY,
             seekVirtualMs = seekVirtualMs,
             liveEdgeVirtualMs = liveEdgeMs.coerceAtLeast(1L),
+            dvrStartVirtualMs = controller.dvrStartMs(),
             frames = filmstripFrames,
-            boundaries = DemoChannelSchedule.blockBoundariesIn(0L, liveEdgeMs),
+            boundaries = DemoChannelSchedule.blockBoundariesIn(controller.dvrStartMs(), liveEdgeMs),
             blockTitle = DemoChannelSchedule.epgBlockAt(seekVirtualMs).title,
             antennaStartWallMs = controller.antennaStartWallMs,
             isReturnToLiveFocused = returnToLiveFocused,

@@ -1,22 +1,17 @@
 package com.uxellence.tv.v3.demolive
 
+import java.util.Calendar
+
 /**
- * DEMO CHANNEL SCHEDULE — czysta logika symulowanego kanału live.
+ * DEMO BARKER CHANNEL SCHEDULE — czysta logika kanału testowego.
  *
- * "Antena" = dwa lokalne pliki MP4 grane back-to-back w pętli:
- *   A = Sintel (~14:48), B = Big Buck Bunny (~9:56) → MATERIAL_CYCLE ~24:44
- *   (gtv-videos-bucket przestał być publiczny — Sintel z archive.org,
- *    BBB z exoplayer-test-media-0; oba to lekkie, sprawdzone MP4 h264)
+ * Barker channel: ramówka zakotwiczona w ZEGARZE ŚCIENNYM — start dziś o 9:00,
+ * materiały A (Sintel ~14:48) i B (Big Buck Bunny ~9:56) grane naprzemiennie
+ * w pętli, bloki ramówki rozstawione DOKŁADNIE co długość materiałów (do ~20:00).
+ * Wejście o dowolnej godzinie (np. 12:33) trafia w zaplanowany przedział,
+ * a czasy bloków zgadzają się z czasami prawdziwego EPG innych kanałów.
  *
- * Ramówka (EPG) celowo NIE pokrywa się z anteną:
- *   blok 1 "Sintel" planowo 12:00, blok 2 "Big Buck Bunny" planowo 14:00
- *   → EPG_CYCLE 26:00 ≠ MATERIAL_CYCLE 24:44
- *
- * Symulowane przypadki rozjazdu (kluczowy cel demo):
- *   - materiał A kończy się ~2:48 ZA kropką końca bloku 1,
- *   - materiał B kończy się ~1:16 PRZED kropką końca bloku 2.
- *
- * Oś wirtualna: virtualMs = wallClock - antennaStart. Live edge = virtualNow().
+ * Oś wirtualna: virtualMs = wallClock - barkerStart(9:00). Live edge = virtualNow().
  */
 object DemoChannelSchedule {
     const val URL_A = "https://archive.org/download/Sintel/sintel-2048-stereo_512kb.mp4"
@@ -27,9 +22,21 @@ object DemoChannelSchedule {
     @Volatile var durBMs: Long = 596_000L
     val materialCycleMs: Long get() = durAMs + durBMs
 
-    const val BLOCK_1_PLANNED_MS = 720_000L   // 12:00
-    const val BLOCK_2_PLANNED_MS = 840_000L   // 14:00
-    val epgCycleMs: Long get() = BLOCK_1_PLANNED_MS + BLOCK_2_PLANNED_MS
+    const val BARKER_START_HOUR = 9   // start anteny: dziś 9:00
+    const val BARKER_END_HOUR = 20    // koniec ramówki (informacyjnie)
+
+    /** Start barker channel: dziś 9:00 lokalnie (wczoraj 9:00 jeśli teraz przed 9:00). */
+    fun barkerStartWallMs(nowWallMs: Long = System.currentTimeMillis()): Long {
+        val cal = Calendar.getInstance().apply {
+            timeInMillis = nowWallMs
+            set(Calendar.HOUR_OF_DAY, BARKER_START_HOUR)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        if (cal.timeInMillis > nowWallMs) cal.add(Calendar.DAY_OF_YEAR, -1)
+        return cal.timeInMillis
+    }
 
     data class MaterialPos(val mediaItemIndex: Int, val positionMs: Long, val cycle: Long)
 
@@ -64,7 +71,7 @@ object DemoChannelSchedule {
             "łagodny olbrzym postanawia dać łobuzom nauczkę."
     )
 
-    /** Mapowanie pozycji wirtualnej → (indeks MediaItem, pozycja w pliku, numer cyklu materiałów). */
+    /** Mapowanie pozycji wirtualnej → (indeks MediaItem, pozycja w pliku, numer cyklu). */
     fun materialPositionFor(virtualMs: Long): MaterialPos {
         val v = virtualMs.coerceAtLeast(0L)
         val cycle = v / materialCycleMs
@@ -80,27 +87,30 @@ object DemoChannelSchedule {
     fun virtualFor(cycle: Long, mediaItemIndex: Int, positionMs: Long): Long =
         cycle * materialCycleMs + (if (mediaItemIndex == 0) positionMs else durAMs + positionMs)
 
-    /** Blok ramówki obejmujący daną pozycję wirtualną (z wypełnionymi czasami start/end). */
+    /**
+     * Blok ramówki obejmujący pozycję wirtualną. Barker channel: blok == materiał,
+     * więc granice bloków pokrywają się z przejściami plików.
+     */
     fun epgBlockAt(virtualMs: Long): EpgBlock {
         val v = virtualMs.coerceAtLeast(0L)
-        val cycleStart = (v / epgCycleMs) * epgCycleMs
-        val inCycle = v % epgCycleMs
-        return if (inCycle < BLOCK_1_PLANNED_MS) {
+        val cycleStart = (v / materialCycleMs) * materialCycleMs
+        val inCycle = v % materialCycleMs
+        return if (inCycle < durAMs) {
             BLOCK_A_META.copy(
                 startVirtualMs = cycleStart,
-                endVirtualMs = cycleStart + BLOCK_1_PLANNED_MS
+                endVirtualMs = cycleStart + durAMs
             )
         } else {
             BLOCK_B_META.copy(
-                startVirtualMs = cycleStart + BLOCK_1_PLANNED_MS,
-                endVirtualMs = cycleStart + epgCycleMs
+                startVirtualMs = cycleStart + durAMs,
+                endVirtualMs = cycleStart + materialCycleMs
             )
         }
     }
 
     /**
      * Lista bloków ramówki wokół danej pozycji: [before] bloków wstecz,
-     * blok bieżący i [after] bloków w przód (do przeglądania w warstwie EPG).
+     * blok bieżący i [after] bloków w przód (rail warstwy EPG).
      */
     fun blocksAround(virtualMs: Long, before: Int, after: Int): List<EpgBlock> {
         val result = ArrayDeque<EpgBlock>()
@@ -117,14 +127,14 @@ object DemoChannelSchedule {
         return result.toList()
     }
 
-    /** Pozycje wirtualne kropek granic bloków ramówki w zakresie [from, to]. */
+    /** Pozycje wirtualne granic bloków ramówki w zakresie [from, to]. */
     fun blockBoundariesIn(fromVirtualMs: Long, toVirtualMs: Long): List<Long> {
         if (toVirtualMs < fromVirtualMs) return emptyList()
         val result = mutableListOf<Long>()
-        var k = (fromVirtualMs / epgCycleMs) - 1
-        while (k * epgCycleMs <= toVirtualMs) {
-            val base = k * epgCycleMs
-            for (boundary in listOf(base, base + BLOCK_1_PLANNED_MS)) {
+        var k = (fromVirtualMs / materialCycleMs) - 1
+        while (k * materialCycleMs <= toVirtualMs) {
+            val base = k * materialCycleMs
+            for (boundary in listOf(base, base + durAMs)) {
                 if (boundary in fromVirtualMs..toVirtualMs) result.add(boundary)
             }
             k++

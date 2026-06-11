@@ -95,7 +95,7 @@ object DemoLiveKeyController {
             a.seekStep(+1); true
         }
         KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-            a.showControls(); true
+            a.showEpg(); true   // OK na czystym playerze = warstwa EPG
         }
         KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN -> {
             a.showEpg(); true

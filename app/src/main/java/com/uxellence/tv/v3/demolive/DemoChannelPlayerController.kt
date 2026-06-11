@@ -30,13 +30,13 @@ class DemoChannelPlayerController(private val context: Context) {
     companion object {
         private const val TAG = "DemoLive"
         private const val LIVE_EDGE_TOLERANCE_MS = 5_000L
-        // Wejście = 20 min po "starcie anteny": jesteśmy w środku bloku 2,
-        // a CAŁY blok 1 (poprzedni materiał) jest w buforze DVR — można się
-        // do niego przewinąć (wymaganie: "przewinięcie materiału przed")
-        private const val ENTRY_DVR_BACKLOG_MS = 1_200_000L
+        // Okno DVR: godzina wstecz od live edge — obejmuje poprzedni materiał,
+        // a pasek przewijania pozostaje czytelny (barker gra od 9:00)
+        private const val DVR_WINDOW_MS = 3_600_000L
     }
 
-    val antennaStartWallMs: Long = System.currentTimeMillis() - ENTRY_DVR_BACKLOG_MS
+    /** Barker channel: antena wystartowała dziś o 9:00 (zegar ścienny). */
+    val antennaStartWallMs: Long = DemoChannelSchedule.barkerStartWallMs()
 
     var player: ExoPlayer? = null
         private set
@@ -131,16 +131,19 @@ class DemoChannelPlayerController(private val context: Context) {
     /** Live edge w osi wirtualnej — rośnie z zegarem ściennym. */
     fun virtualNow(): Long = System.currentTimeMillis() - antennaStartWallMs
 
+    /** Początek okna DVR (60 min wstecz od live edge, nie wcześniej niż start anteny). */
+    fun dvrStartMs(): Long = (virtualNow() - DVR_WINDOW_MS).coerceAtLeast(0L)
+
     /** Bieżąca pozycja odtwarzania w osi wirtualnej. */
     fun currentVirtualPositionMs(): Long {
         val p = player ?: return 0L
         return DemoChannelSchedule.virtualFor(trackedCycle, p.currentMediaItemIndex, p.currentPosition)
     }
 
-    /** Seek do pozycji wirtualnej (clamp do [0, live edge]); przełącza MediaItem jeśli trzeba. */
+    /** Seek do pozycji wirtualnej (clamp do okna DVR); przełącza MediaItem jeśli trzeba. */
     fun seekToVirtual(targetVirtualMs: Long) {
         val p = player ?: return
-        val clamped = targetVirtualMs.coerceIn(0L, virtualNow())
+        val clamped = targetVirtualMs.coerceIn(dvrStartMs(), virtualNow())
         val mp = DemoChannelSchedule.materialPositionFor(clamped)
         // Nie seekuj na sam koniec okna (ochrona przed natychmiastową auto-transition
         // i IllegalSeekPositionException przy pozycji > duration okna)
