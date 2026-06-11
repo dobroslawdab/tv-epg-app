@@ -143,6 +143,9 @@ fun DemoLiveScreen(
     // Czas fokusu siatki EPG (TIME SYNC) — start fokusowanego programu;
     // wszystkie wiersze przewijają się do programu emitowanego o tym czasie
     var epgFocusedTime by remember { mutableStateOf(java.time.Instant.now()) }
+    // EPG otwarta przez BACK z czystego playera: kolejny BACK = wyjście z playera
+    // (rozbrajana przy każdej nawigacji w EPG i przy innych ścieżkach otwarcia)
+    var epgOpenedByBack by remember { mutableStateOf(false) }
 
     // Warstwa CONTROLS
     var controlsFocusIndex by remember { mutableIntStateOf(0) }
@@ -217,6 +220,7 @@ fun DemoLiveScreen(
     }
 
     fun openEpg() {
+        epgOpenedByBack = false
         epgRows = listOf(buildDemoRow()) + realChannelRows
         epgChannelIndex = 0
         epgProgramIndex.clear()
@@ -230,7 +234,19 @@ fun DemoLiveScreen(
     val actions = remember {
         DemoLiveActions(
             showEpg = { openEpg() },
+            showEpgOnBack = {
+                openEpg()
+                epgOpenedByBack = true
+            },
+            epgBack = {
+                if (epgOpenedByBack) {
+                    onBackPressed()   // drugie wstecz: zamknij warstwę i wyjdź z playera
+                } else {
+                    layer = DemoLayer.FULLSCREEN
+                }
+            },
             epgMove = { dir ->
+                epgOpenedByBack = false
                 val row = epgRows.getOrNull(epgChannelIndex)
                 if (row != null) {
                     val cur = epgProgramIndex[epgChannelIndex] ?: row.currentProgramIndex
@@ -242,6 +258,7 @@ fun DemoLiveScreen(
                 epgInteractionAt = System.currentTimeMillis()
             },
             epgMoveChannel = { dir ->
+                epgOpenedByBack = false
                 val newChannel = (epgChannelIndex + dir).coerceIn(0, (epgRows.size - 1).coerceAtLeast(0))
                 epgChannelIndex = newChannel
                 // Na nowym kanale fokusuj program emitowany o epgFocusedTime (siatka czasowa)

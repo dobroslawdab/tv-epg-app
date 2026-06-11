@@ -15,6 +15,8 @@ enum class DemoLayer { EPG, CONTROLS, FULLSCREEN, SEEK_OVERLAY }
  */
 class DemoLiveActions(
     val showEpg: () -> Unit,
+    val showEpgOnBack: () -> Unit,   // EPG otwarta przez BACK z czystego playera (uzbrojona na wyjście)
+    val epgBack: () -> Unit,         // BACK na EPG: schowaj warstwę albo wyjdź (gdy uzbrojona)
     val epgMove: (direction: Int) -> Unit,
     val epgMoveChannel: (direction: Int) -> Unit,
     val epgSelect: () -> Unit,
@@ -59,7 +61,7 @@ object DemoLiveKeyController {
             a.epgSelect(); true
         }
         KeyEvent.KEYCODE_BACK -> {
-            a.goFullscreen(); true
+            a.epgBack(); true
         }
         KeyEvent.KEYCODE_DPAD_UP -> {
             a.epgMoveChannel(-1); true
@@ -102,7 +104,9 @@ object DemoLiveKeyController {
             a.showEpg(); true
         }
         KeyEvent.KEYCODE_BACK -> {
-            a.exit(); true
+            // Pierwsze wstecz z czystego playera pokazuje EPG; dopiero
+            // kolejne (na EPG) zamyka warstwę i wychodzi z playera
+            a.showEpgOnBack(); true
         }
         else -> false
     }
