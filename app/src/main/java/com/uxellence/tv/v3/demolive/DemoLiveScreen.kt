@@ -3,8 +3,10 @@ package com.uxellence.tv.v3.demolive
 import android.graphics.Bitmap
 import android.util.Log
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,15 +21,15 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.zIndex
 import kotlinx.coroutines.delay
 
 private const val TAG = "DemoLive"
 private const val SEEK_STEP_MS = 10_000L
 private const val EPG_TIMEOUT_MS = 12_000L
-private const val CONTROLS_TIMEOUT_MS = 10_000L
-private const val SEEK_AUTOCANCEL_MS = 5_000L
+private const val PLAYER_UI_TIMEOUT_MS = 10_000L
+private const val STRIP_AUTOEXIT_MS = 5_000L
 
 /**
  * Widok wideo demo: TextureView (nie SurfaceView — z-order w Compose) z zachowaniem
@@ -97,19 +99,17 @@ private class DemoVideoView(
 }
 
 /**
- * DEMO LIVE SCREEN — symulacja kanału live z ramówką (pełny flow):
+ * DEMO LIVE SCREEN — symulacja barker channel z ramówką (pełny flow):
  *
- *   EPG (start; rail bloków ramówki jak w EpgDayScreen)
+ *   EPG (start; replika EpgDayScreen) --OK na programie--> PLAYER_UI:BUTTONS
  *     | BACK / timeout 12s
  *     v
- *   FULLSCREEN --OK--> CONTROLS (pauza / zacznij od początku / nagraj)
- *     | LEFT/RIGHT             | BACK / timeout 10s (gdy nie spauzowane)
- *     v
- *   SEEK_OVERLAY (filmstrip + segmentowany pasek ramówki + "Wróć do live")
+ *   FULLSCREEN --OK/UP/DOWN--> EPG, --LEFT/RIGHT--> PLAYER_UI:STRIP (przewijanie)
  *
- * Wejście = 20 min po starcie anteny: jesteśmy w połowie bloku 2, a cały blok 1
- * (poprzedni materiał) jest w DVR — można się do niego przewinąć.
- * Kluczowy case: ramówka NIE pokrywa się z materiałami — patrz DemoChannelSchedule.
+ *   PLAYER_UI (jeden widok, trzy strefy — wg designu Play):
+ *     BUTTONS (fokus "Zatrzymaj") --UP--> STRIP (taśma miniatur + kursor)
+ *     BUTTONS --DOWN--> DESCRIPTION (pełny opis, wideo w PIP)
+ *     STRIP --OK--> seek + powrót na BUTTONS;  BACK: STRIP/DESCRIPTION → BUTTONS → EPG
  */
 @Composable
 fun DemoLiveScreen(
@@ -144,17 +144,11 @@ fun DemoLiveScreen(
     // wszystkie wiersze przewijają się do programu emitowanego o tym czasie
     var epgFocusedTime by remember { mutableStateOf(java.time.Instant.now()) }
 
-    // Warstwa CONTROLS
-    var controlsFocusIndex by remember { mutableIntStateOf(0) }
-    var controlsInteractionAt by remember { mutableLongStateOf(0L) }
-    // Fokus na pasku postępu w kontrolkach (UP z przycisków) + kursor przewijania
-    var controlsBarFocused by remember { mutableStateOf(false) }
-    var controlsBarCursorMs by remember { mutableLongStateOf(0L) }
-
-    // Seek state
-    var seekVirtualMs by remember { mutableLongStateOf(0L) }
-    var lastSeekActionTime by remember { mutableLongStateOf(0L) }
-    var returnToLiveFocused by remember { mutableStateOf(false) }
+    // PLAYER_UI: strefa + fokus przycisków (0..4) + kursor taśmy
+    var playerZone by remember { mutableStateOf(PlayerZone.BUTTONS) }
+    var playerButtonsFocus by remember { mutableIntStateOf(0) }
+    var scrubCursorMs by remember { mutableLongStateOf(0L) }
+    var playerInteractionAt by remember { mutableLongStateOf(0L) }
     var filmstripFrames by remember { mutableStateOf<List<Pair<Long, Bitmap?>>>(emptyList()) }
 
     // Akceleracja seeka (wzorzec z VodPlayerScreen)
@@ -182,6 +176,21 @@ fun DemoLiveScreen(
             sideCount = 3,
             dvrStartVirtualMs = controller.dvrStartMs()
         )
+    }
+
+    fun openPlayerButtons() {
+        playerZone = PlayerZone.BUTTONS
+        playerButtonsFocus = 0
+        playerInteractionAt = System.currentTimeMillis()
+        layer = DemoLayer.PLAYER_UI
+    }
+
+    fun openStrip(initialCursor: Long) {
+        playerZone = PlayerZone.STRIP
+        scrubCursorMs = initialCursor
+        updateFilmstrip(initialCursor)
+        playerInteractionAt = System.currentTimeMillis()
+        layer = DemoLayer.PLAYER_UI
     }
 
     // Wiersz DEMO TV: bloki sztucznej ramówki jako EpgProgram (cover = klatka z materiału)
@@ -262,9 +271,8 @@ fun DemoLiveScreen(
                 val program = row?.programs?.getOrNull(epgProgramIndex[epgChannelIndex] ?: -1)
                 if (row != null && program != null) {
                     if (epgChannelIndex == 0) {
-                        // DEMO TV: przejście do PLAYERA Z KONTROLKAMI.
-                        // Program AKTUALNIE odtwarzany → kontynuuj bez cofania;
-                        // program miniony → timeshift do jego początku (clamp do DVR).
+                        // DEMO TV: program AKTUALNIE odtwarzany → kontynuuj bez cofania;
+                        // miniony → timeshift do początku. Fokus ląduje na "Zatrzymaj".
                         val targetStart = program.startUtc.toEpochMilli() - controller.antennaStartWallMs
                         val targetEnd = program.endUtc.toEpochMilli() - controller.antennaStartWallMs
                         val playingNow = controller.currentVirtualPositionMs() in targetStart until targetEnd
@@ -273,10 +281,8 @@ fun DemoLiveScreen(
                                 controller.seekToVirtual(targetStart)
                                 isPaused = false
                             }
-                            controlsFocusIndex = 0
-                            controlsInteractionAt = System.currentTimeMillis()
-                            layer = DemoLayer.CONTROLS
-                            Log.i(TAG, "EPG select: '${program.title}' playingNow=$playingNow → CONTROLS")
+                            openPlayerButtons()
+                            Log.i(TAG, "EPG select: '${program.title}' playingNow=$playingNow → PLAYER_UI")
                         } else {
                             epgInteractionAt = System.currentTimeMillis()  // program przyszły
                         }
@@ -290,107 +296,110 @@ fun DemoLiveScreen(
                     }
                 }
             },
-            showControls = {
-                controlsFocusIndex = 0
-                controlsBarFocused = false
-                controlsInteractionAt = System.currentTimeMillis()
-                layer = DemoLayer.CONTROLS
-            },
-            controlsUp = {
-                if (!controlsBarFocused) {
-                    controlsBarFocused = true
-                    controlsBarCursorMs = controller.currentVirtualPositionMs()
-                    updateFilmstrip(controlsBarCursorMs)
-                }
-                controlsInteractionAt = System.currentTimeMillis()
-            },
-            controlsDown = {
-                controlsBarFocused = false
-                controlsInteractionAt = System.currentTimeMillis()
-            },
-            controlsMove = { dir ->
-                controlsInteractionAt = System.currentTimeMillis()
-                if (controlsBarFocused) {
-                    // Przewijanie kursorem po pasku postępu bieżącego bloku
-                    val block = DemoChannelSchedule.epgBlockAt(controller.currentVirtualPositionMs())
-                    val lower = maxOf(block.startVirtualMs, controller.dvrStartMs())
-                    val upper = minOf(block.endVirtualMs, controller.virtualNow())
-                    controlsBarCursorMs = (controlsBarCursorMs + getSeekStep() * dir).coerceIn(lower, upper)
-                    updateFilmstrip(controlsBarCursorMs)
-                } else {
-                    controlsFocusIndex = (controlsFocusIndex + dir).coerceIn(0, 2)
-                }
-            },
-            controlsSelect = {
-                controlsInteractionAt = System.currentTimeMillis()
-                if (controlsBarFocused) {
-                    // OK na pasku = skok do kursora, kontrolki zostają widoczne
-                    controller.seekToVirtual(controlsBarCursorMs)
-                    isPaused = false
-                    rapidPressCount = 0
-                    Log.i(TAG, "Controls bar seek → ${controlsBarCursorMs}ms")
-                } else when (controlsFocusIndex) {
-                    0 -> {  // Pauza / Wznów
-                        val p = controller.player
-                        if (p != null) {
-                            if (p.isPlaying) {
-                                p.pause(); isPaused = true
-                            } else {
-                                p.play(); isPaused = false
-                            }
-                            Log.i(TAG, "Controls: pauza → isPaused=$isPaused")
-                        }
+            playerMove = { dir ->
+                playerInteractionAt = System.currentTimeMillis()
+                when (playerZone) {
+                    PlayerZone.BUTTONS -> {
+                        playerButtonsFocus = (playerButtonsFocus + dir).coerceIn(0, 4)
                     }
-                    1 -> {  // Zacznij od początku bieżącego bloku ramówki
-                        val block = DemoChannelSchedule.epgBlockAt(controller.currentVirtualPositionMs())
-                        controller.seekToVirtual(block.startVirtualMs)
+                    PlayerZone.STRIP -> {
+                        scrubCursorMs = (scrubCursorMs + getSeekStep() * dir)
+                            .coerceIn(controller.dvrStartMs(), controller.virtualNow())
+                        updateFilmstrip(scrubCursorMs)
+                    }
+                    PlayerZone.DESCRIPTION -> { /* brak nawigacji poziomej */ }
+                }
+            },
+            playerSelect = {
+                playerInteractionAt = System.currentTimeMillis()
+                when (playerZone) {
+                    PlayerZone.STRIP -> {
+                        // OK na taśmie = skok do kursora, fokus wraca na "Zatrzymaj"
+                        controller.seekToVirtual(scrubCursorMs)
                         isPaused = false
-                        layer = DemoLayer.FULLSCREEN
-                        Log.i(TAG, "Controls: zacznij od początku → ${block.startVirtualMs}ms")
+                        rapidPressCount = 0
+                        playerZone = PlayerZone.BUTTONS
+                        playerButtonsFocus = 0
+                        Log.i(TAG, "STRIP seek → ${scrubCursorMs}ms → BUTTONS")
                     }
-                    2 -> { /* Nagraj — atrapa */ }
+                    PlayerZone.BUTTONS -> when (playerButtonsFocus) {
+                        0 -> {  // Zatrzymaj / Wznów
+                            val p = controller.player
+                            if (p != null) {
+                                if (p.isPlaying) {
+                                    p.pause(); isPaused = true
+                                } else {
+                                    p.play(); isPaused = false
+                                }
+                                Log.i(TAG, "Player: zatrzymaj → isPaused=$isPaused")
+                            }
+                        }
+                        1 -> {  // Wróć do live
+                            controller.seekToLiveEdge()
+                            isPaused = false
+                            Log.i(TAG, "Player: wróć do live")
+                        }
+                        2 -> {  // Zacznij od początku bieżącego bloku ramówki
+                            val block = DemoChannelSchedule.epgBlockAt(controller.currentVirtualPositionMs())
+                            controller.seekToVirtual(block.startVirtualMs)
+                            isPaused = false
+                            Log.i(TAG, "Player: zacznij od początku → ${block.startVirtualMs}ms")
+                        }
+                        else -> { /* Nagraj / Napisy — atrapy */ }
+                    }
+                    PlayerZone.DESCRIPTION -> { /* nic */ }
                 }
+            },
+            playerUp = {
+                playerInteractionAt = System.currentTimeMillis()
+                when (playerZone) {
+                    PlayerZone.BUTTONS -> {
+                        // Z przycisków na taśmę (kursor startuje z bieżącej pozycji)
+                        playerZone = PlayerZone.STRIP
+                        scrubCursorMs = controller.currentVirtualPositionMs()
+                        updateFilmstrip(scrubCursorMs)
+                    }
+                    PlayerZone.DESCRIPTION -> {
+                        playerZone = PlayerZone.BUTTONS   // wideo wraca z PIP na pełny ekran
+                    }
+                    PlayerZone.STRIP -> { /* nic */ }
+                }
+            },
+            playerDown = {
+                playerInteractionAt = System.currentTimeMillis()
+                when (playerZone) {
+                    PlayerZone.BUTTONS -> {
+                        playerZone = PlayerZone.DESCRIPTION   // opis, wideo do PIP
+                    }
+                    PlayerZone.STRIP -> {
+                        playerZone = PlayerZone.BUTTONS
+                        playerButtonsFocus = 0
+                    }
+                    PlayerZone.DESCRIPTION -> { /* nic */ }
+                }
+            },
+            playerBack = {
+                playerInteractionAt = System.currentTimeMillis()
+                when (playerZone) {
+                    PlayerZone.STRIP, PlayerZone.DESCRIPTION -> {
+                        playerZone = PlayerZone.BUTTONS
+                        playerButtonsFocus = 0
+                    }
+                    PlayerZone.BUTTONS -> openEpg()   // łańcuch: player UI → EPG → fullscreen → wyjście
+                }
+            },
+            openStripWithStep = { direction ->
+                if (layer != DemoLayer.PLAYER_UI || playerZone != PlayerZone.STRIP) {
+                    openStrip(controller.currentVirtualPositionMs())
+                }
+                scrubCursorMs = (scrubCursorMs + getSeekStep() * direction)
+                    .coerceIn(controller.dvrStartMs(), controller.virtualNow())
+                updateFilmstrip(scrubCursorMs)
+                playerInteractionAt = System.currentTimeMillis()
+                Log.i(TAG, "STRIP ${if (direction > 0) "RIGHT" else "LEFT"} → ${scrubCursorMs}ms")
             },
             goFullscreen = { layer = DemoLayer.FULLSCREEN },
-            exit = { onBackPressed() },
-            seekStep = { direction ->
-                if (layer != DemoLayer.SEEK_OVERLAY) {
-                    controller.player?.pause()
-                    seekVirtualMs = controller.currentVirtualPositionMs()
-                    returnToLiveFocused = false
-                    layer = DemoLayer.SEEK_OVERLAY
-                }
-                val step = getSeekStep() * direction
-                seekVirtualMs = (seekVirtualMs + step).coerceIn(controller.dvrStartMs(), controller.virtualNow())
-                lastSeekActionTime = System.currentTimeMillis()
-                updateFilmstrip(seekVirtualMs)
-                Log.i(TAG, "SEEK ${if (direction > 0) "RIGHT" else "LEFT"} → ${seekVirtualMs}ms / edge=${controller.virtualNow()}ms")
-            },
-            seekConfirm = {
-                controller.seekToVirtual(seekVirtualMs)
-                isPaused = false
-                rapidPressCount = 0
-                layer = DemoLayer.FULLSCREEN
-            },
-            seekCancel = {
-                controller.player?.play()
-                isPaused = false
-                rapidPressCount = 0
-                layer = DemoLayer.FULLSCREEN
-                Log.i(TAG, "SEEK cancel")
-            },
-            returnToLive = {
-                controller.seekToLiveEdge()
-                isPaused = false
-                rapidPressCount = 0
-                returnToLiveFocused = false
-                layer = DemoLayer.FULLSCREEN
-            },
-            isReturnToLiveFocused = { returnToLiveFocused },
-            seekFocusChange = { toButton ->
-                returnToLiveFocused = toButton
-                lastSeekActionTime = System.currentTimeMillis()
-            }
+            exit = { onBackPressed() }
         )
     }
 
@@ -493,23 +502,21 @@ fun DemoLiveScreen(
         }
     }
 
-    // Auto-hide kontrolek po 10 s (chyba że spauzowane — wtedy zostają)
-    LaunchedEffect(layer, controlsInteractionAt, isPaused) {
-        if (layer == DemoLayer.CONTROLS && !isPaused) {
-            delay(CONTROLS_TIMEOUT_MS)
+    // Auto-hide UI playera (strefa BUTTONS) po 10 s — chyba że spauzowane
+    LaunchedEffect(layer, playerZone, playerInteractionAt, isPaused) {
+        if (layer == DemoLayer.PLAYER_UI && playerZone == PlayerZone.BUTTONS && !isPaused) {
+            delay(PLAYER_UI_TIMEOUT_MS)
             layer = DemoLayer.FULLSCREEN
         }
     }
 
-    // Auto-cancel seek po 5 s bezczynności
-    LaunchedEffect(lastSeekActionTime) {
-        if (lastSeekActionTime == 0L) return@LaunchedEffect
-        delay(SEEK_AUTOCANCEL_MS)
-        if (layer == DemoLayer.SEEK_OVERLAY) {
-            controller.player?.play()
-            isPaused = false
-            layer = DemoLayer.FULLSCREEN
-            Log.i(TAG, "SEEK auto-cancel po ${SEEK_AUTOCANCEL_MS}ms")
+    // Taśma: 5 s bezczynności → powrót na przyciski (bez seeka)
+    LaunchedEffect(layer, playerZone, playerInteractionAt) {
+        if (layer == DemoLayer.PLAYER_UI && playerZone == PlayerZone.STRIP) {
+            delay(STRIP_AUTOEXIT_MS)
+            playerZone = PlayerZone.BUTTONS
+            playerButtonsFocus = 0
+            Log.i(TAG, "STRIP auto-exit po ${STRIP_AUTOEXIT_MS}ms")
         }
     }
 
@@ -518,8 +525,7 @@ fun DemoLiveScreen(
     // dispatchKeyEvent DemoVideoView (fokus okna potrafi wylądować na AndroidView).
     // UWAGA: BACK celowo NIE jest tu obsługiwany — przepuszczamy go do systemowego
     // OnBackPressedDispatcher (BackHandler niżej). Obsługa w obu miejscach dawała
-    // podwójne przetworzenie jednego naciśnięcia (DOWN w widoku + dispatcher na UP):
-    // warstwa EPG znikała i natychmiast pojawiała się ponownie.
+    // podwójne przetworzenie jednego naciśnięcia (DOWN w widoku + dispatcher na UP).
     val keyHandler = rememberUpdatedState<(Int) -> Boolean> { keyCode ->
         if (keyCode == android.view.KeyEvent.KEYCODE_BACK) {
             false
@@ -527,7 +533,7 @@ fun DemoLiveScreen(
             false
         } else {
             val handled = DemoLiveKeyController.handleKey(keyCode, layer, actions)
-            Log.i(TAG, "key=$keyCode layer(after)=$layer handled=$handled")
+            Log.i(TAG, "key=$keyCode layer(after)=$layer zone=$playerZone handled=$handled")
             handled
         }
     }
@@ -539,7 +545,7 @@ fun DemoLiveScreen(
             onBackPressed()
         } else {
             DemoLiveKeyController.handleKey(android.view.KeyEvent.KEYCODE_BACK, layer, actions)
-            Log.i(TAG, "BACK(dispatcher) layer(after)=$layer")
+            Log.i(TAG, "BACK(dispatcher) layer(after)=$layer zone=$playerZone")
         }
     }
 
@@ -549,10 +555,24 @@ fun DemoLiveScreen(
         rootFocus.requestFocus()
     }
     // Zmiany warstw potrafią zgubić fokus okna — przywracaj na root (wzorzec Issue #4)
-    LaunchedEffect(layer) {
+    LaunchedEffect(layer, playerZone) {
         delay(50)
         rootFocus.requestFocus()
     }
+
+    // Jeden widok wideo renderowany z dwóch pozycji (movableContentOf — CLAUDE.md
+    // lesson #10): fullscreen POD warstwami albo PIP NAD opisem (strefa DESCRIPTION)
+    val videoLayer = remember {
+        movableContentOf { modifier: Modifier ->
+            AndroidView(
+                factory = { ctx -> DemoVideoView(ctx) { keyCode -> keyHandler.value(keyCode) } },
+                update = { view -> view.attach(playerRef) },
+                modifier = modifier
+            )
+        }
+    }
+
+    val isDescription = layer == DemoLayer.PLAYER_UI && playerZone == PlayerZone.DESCRIPTION
 
     Box(
         modifier = Modifier
@@ -565,14 +585,12 @@ fun DemoLiveScreen(
             }
             .focusable()
     ) {
-        // Wideo zawsze fullscreen pod warstwami
-        AndroidView(
-            factory = { ctx -> DemoVideoView(ctx) { keyCode -> keyHandler.value(keyCode) } },
-            update = { view -> view.attach(playerRef) },
-            modifier = Modifier.fillMaxSize()
-        )
+        if (!isDescription) {
+            // Wideo fullscreen pod warstwami
+            videoLayer(Modifier.fillMaxSize())
+        }
 
-        // Warstwa EPG (start; identyczna wizualnie z EpgDayScreen pod zakładką Telewizja)
+        // Warstwa EPG (identyczna wizualnie z EpgDayScreen pod zakładką Telewizja)
         DemoEpgLayer(
             isVisible = layer == DemoLayer.EPG && isReady,
             rows = epgRows,
@@ -585,36 +603,37 @@ fun DemoLiveScreen(
             sy = sy
         )
 
-        // Warstwa kontrolek playera (OK z pełnego ekranu)
-        DemoControlsLayer(
-            isVisible = layer == DemoLayer.CONTROLS,
+        // Zunifikowane UI playera (BUTTONS / STRIP / DESCRIPTION)
+        DemoPlayerUi(
+            isVisible = layer == DemoLayer.PLAYER_UI,
+            zone = playerZone,
             block = DemoChannelSchedule.epgBlockAt(currentVirtualMs),
             currentVirtualMs = currentVirtualMs,
+            liveEdgeVirtualMs = liveEdgeMs.coerceAtLeast(1L),
+            dvrStartVirtualMs = controller.dvrStartMs(),
+            scrubCursorMs = scrubCursorMs,
             antennaStartWallMs = controller.antennaStartWallMs,
             isPaused = isPaused,
-            focusedIndex = if (controlsBarFocused) -1 else controlsFocusIndex,
-            isBarFocused = controlsBarFocused,
-            barCursorVirtualMs = controlsBarCursorMs,
-            liveEdgeVirtualMs = liveEdgeMs.coerceAtLeast(1L),
+            buttonsFocusIndex = if (playerZone == PlayerZone.BUTTONS) playerButtonsFocus else -1,
             frames = filmstripFrames,
             sx = sx,
             sy = sy
         )
 
-        // Overlay przewijania
-        DemoSeekOverlay(
-            isVisible = layer == DemoLayer.SEEK_OVERLAY,
-            seekVirtualMs = seekVirtualMs,
-            liveEdgeVirtualMs = liveEdgeMs.coerceAtLeast(1L),
-            dvrStartVirtualMs = controller.dvrStartMs(),
-            frames = filmstripFrames,
-            boundaries = DemoChannelSchedule.blockBoundariesIn(controller.dvrStartMs(), liveEdgeMs),
-            blockTitle = DemoChannelSchedule.epgBlockAt(seekVirtualMs).title,
-            antennaStartWallMs = controller.antennaStartWallMs,
-            isReturnToLiveFocused = returnToLiveFocused,
-            sx = sx,
-            sy = sy
-        )
+        if (isDescription) {
+            // PIP: ten sam widok wideo w prawym dolnym rogu, NAD warstwą opisu
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = sx(60), bottom = sy(60))
+                    .width(sx(480))
+                    .height(sy(270))
+                    .zIndex(15f)
+                    .border(2.dp, Color(0x66EEEEEE), RoundedCornerShape(sx(8)))
+            ) {
+                videoLayer(Modifier.fillMaxSize())
+            }
+        }
 
         // Pobieranie / błąd
         if (!isReady) {
