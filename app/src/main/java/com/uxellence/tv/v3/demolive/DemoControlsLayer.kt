@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 
@@ -35,7 +36,9 @@ fun DemoControlsLayer(
     currentVirtualMs: Long,
     antennaStartWallMs: Long,
     isPaused: Boolean,
-    focusedIndex: Int,
+    focusedIndex: Int,            // -1 gdy fokus na pasku postępu
+    isBarFocused: Boolean,
+    barCursorVirtualMs: Long,
     sx: (Int) -> Dp,
     sy: (Int) -> Dp
 ) {
@@ -82,25 +85,63 @@ fun DemoControlsLayer(
                 )
                 Spacer(modifier = Modifier.height(sy(14)))
 
+                // Pasek postępu bloku — fokusowalny (UP z przycisków): LEFT/RIGHT
+                // przesuwa kursor, OK skacze do kursora, DOWN wraca na przyciski
                 val blockDur = (block.endVirtualMs - block.startVirtualMs).coerceAtLeast(1L)
                 val progress = ((currentVirtualMs - block.startVirtualMs).toFloat() / blockDur).coerceIn(0f, 1f)
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(0.7f)
-                        .height(sy(6))
-                        .clip(RoundedCornerShape(sy(3)))
-                        .background(Color(0x40EEEEEE))
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxHeight()
-                            .fillMaxWidth(progress)
-                            .clip(RoundedCornerShape(sy(3)))
-                            .background(AQUA)
-                    )
+                val cursorFraction = ((barCursorVirtualMs - block.startVirtualMs).toFloat() / blockDur).coerceIn(0f, 1f)
+                val barHeight = if (isBarFocused) sy(10) else sy(6)
+
+                if (isBarFocused) {
+                    // Etykieta czasu nad kursorem
+                    BoxWithConstraints(modifier = Modifier.fillMaxWidth(0.7f)) {
+                        Text(
+                            text = formatWall(antennaStartWallMs + barCursorVirtualMs, withSeconds = true),
+                            color = AQUA,
+                            fontSize = demoSp(22, sy),
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.offset(
+                                x = (maxWidth * cursorFraction - sx(54)).coerceAtLeast(0.dp)
+                            )
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(sy(6)))
                 }
 
-                Spacer(modifier = Modifier.height(sy(24)))
+                BoxWithConstraints(
+                    modifier = Modifier
+                        .fillMaxWidth(0.7f)
+                        .height(sy(28)),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    val barWidth = maxWidth
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(barHeight)
+                            .clip(RoundedCornerShape(barHeight / 2))
+                            .background(if (isBarFocused) Color(0x66EEEEEE) else Color(0x40EEEEEE))
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .fillMaxWidth(progress)
+                                .clip(RoundedCornerShape(barHeight / 2))
+                                .background(AQUA)
+                        )
+                    }
+                    if (isBarFocused) {
+                        // Kursor przewijania
+                        Box(
+                            modifier = Modifier
+                                .offset(x = barWidth * cursorFraction - sy(12))
+                                .size(sy(24))
+                                .background(AQUA, androidx.compose.foundation.shape.CircleShape)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(sy(14)))
 
                 Row {
                     ControlButton(

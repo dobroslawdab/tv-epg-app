@@ -21,9 +21,10 @@ class DemoLiveActions(
     val showControls: () -> Unit,
     val controlsMove: (direction: Int) -> Unit,
     val controlsSelect: () -> Unit,
+    val controlsUp: () -> Unit,          // z przycisków na pasek postępu
+    val controlsDown: () -> Unit,        // z paska z powrotem na przyciski
     val goFullscreen: () -> Unit,
     val exit: () -> Unit,
-    val enterSeek: () -> Unit,           // wejście na pasek postępu bez kroku (UP z playera)
     val seekStep: (direction: Int) -> Unit,
     val seekConfirm: () -> Unit,
     val seekCancel: () -> Unit,
@@ -85,7 +86,12 @@ object DemoLiveKeyController {
             // Łańcuch wstecz: kontrolki → warstwa EPG → czysty player → wyjście
             a.showEpg(); true
         }
-        KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN -> true  // konsumuj
+        KeyEvent.KEYCODE_DPAD_UP -> {
+            a.controlsUp(); true     // z przycisków (np. Pauza) na pasek postępu
+        }
+        KeyEvent.KEYCODE_DPAD_DOWN -> {
+            a.controlsDown(); true   // z paska z powrotem na przyciski
+        }
         else -> false
     }
 
@@ -99,11 +105,8 @@ object DemoLiveKeyController {
         KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
             a.showEpg(); true   // OK na czystym playerze = warstwa EPG
         }
-        KeyEvent.KEYCODE_DPAD_UP -> {
-            a.enterSeek(); true   // UP = pasek postępu (kursor na bieżącej pozycji)
-        }
-        KeyEvent.KEYCODE_DPAD_DOWN -> {
-            a.showEpg(); true
+        KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN -> {
+            a.showEpg(); true   // góra/dół na czystym playerze = warstwa EPG
         }
         KeyEvent.KEYCODE_BACK -> {
             a.exit(); true   // wstecz na czystym playerze = wyjście z playera

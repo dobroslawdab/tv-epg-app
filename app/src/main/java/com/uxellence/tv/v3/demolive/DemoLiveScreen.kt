@@ -147,6 +147,9 @@ fun DemoLiveScreen(
     // Warstwa CONTROLS
     var controlsFocusIndex by remember { mutableIntStateOf(0) }
     var controlsInteractionAt by remember { mutableLongStateOf(0L) }
+    // Fokus na pasku postępu w kontrolkach (UP z przycisków) + kursor przewijania
+    var controlsBarFocused by remember { mutableStateOf(false) }
+    var controlsBarCursorMs by remember { mutableLongStateOf(0L) }
 
     // Seek state
     var seekVirtualMs by remember { mutableLongStateOf(0L) }
@@ -289,16 +292,42 @@ fun DemoLiveScreen(
             },
             showControls = {
                 controlsFocusIndex = 0
+                controlsBarFocused = false
                 controlsInteractionAt = System.currentTimeMillis()
                 layer = DemoLayer.CONTROLS
             },
-            controlsMove = { dir ->
-                controlsFocusIndex = (controlsFocusIndex + dir).coerceIn(0, 2)
+            controlsUp = {
+                if (!controlsBarFocused) {
+                    controlsBarFocused = true
+                    controlsBarCursorMs = controller.currentVirtualPositionMs()
+                }
                 controlsInteractionAt = System.currentTimeMillis()
+            },
+            controlsDown = {
+                controlsBarFocused = false
+                controlsInteractionAt = System.currentTimeMillis()
+            },
+            controlsMove = { dir ->
+                controlsInteractionAt = System.currentTimeMillis()
+                if (controlsBarFocused) {
+                    // Przewijanie kursorem po pasku postępu bieżącego bloku
+                    val block = DemoChannelSchedule.epgBlockAt(controller.currentVirtualPositionMs())
+                    val lower = maxOf(block.startVirtualMs, controller.dvrStartMs())
+                    val upper = minOf(block.endVirtualMs, controller.virtualNow())
+                    controlsBarCursorMs = (controlsBarCursorMs + getSeekStep() * dir).coerceIn(lower, upper)
+                } else {
+                    controlsFocusIndex = (controlsFocusIndex + dir).coerceIn(0, 2)
+                }
             },
             controlsSelect = {
                 controlsInteractionAt = System.currentTimeMillis()
-                when (controlsFocusIndex) {
+                if (controlsBarFocused) {
+                    // OK na pasku = skok do kursora, kontrolki zostają widoczne
+                    controller.seekToVirtual(controlsBarCursorMs)
+                    isPaused = false
+                    rapidPressCount = 0
+                    Log.i(TAG, "Controls bar seek → ${controlsBarCursorMs}ms")
+                } else when (controlsFocusIndex) {
                     0 -> {  // Pauza / Wznów
                         val p = controller.player
                         if (p != null) {
@@ -322,16 +351,6 @@ fun DemoLiveScreen(
             },
             goFullscreen = { layer = DemoLayer.FULLSCREEN },
             exit = { onBackPressed() },
-            enterSeek = {
-                // UP z playera: pasek postępu z kursorem na bieżącej pozycji (bez kroku)
-                controller.player?.pause()
-                seekVirtualMs = controller.currentVirtualPositionMs()
-                returnToLiveFocused = false
-                lastSeekActionTime = System.currentTimeMillis()
-                updateFilmstrip()
-                layer = DemoLayer.SEEK_OVERLAY
-                Log.i(TAG, "SEEK enter (UP) @ ${seekVirtualMs}ms")
-            },
             seekStep = { direction ->
                 if (layer != DemoLayer.SEEK_OVERLAY) {
                     controller.player?.pause()
@@ -571,7 +590,9 @@ fun DemoLiveScreen(
             currentVirtualMs = currentVirtualMs,
             antennaStartWallMs = controller.antennaStartWallMs,
             isPaused = isPaused,
-            focusedIndex = controlsFocusIndex,
+            focusedIndex = if (controlsBarFocused) -1 else controlsFocusIndex,
+            isBarFocused = controlsBarFocused,
+            barCursorVirtualMs = controlsBarCursorMs,
             sx = sx,
             sy = sy
         )
