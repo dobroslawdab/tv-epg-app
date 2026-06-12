@@ -202,31 +202,28 @@ fun DemoLiveScreen(
         layer = DemoLayer.PLAYER_UI
     }
 
-    // Blok ramówki dla UI playera na dostrojonym kanale: DEMO TV = barker,
-    // realny kanał = jego bieżący program z EPG przeliczony na oś wirtualną
-    fun uiBlockForTunedChannel(): DemoChannelSchedule.EpgBlock {
+    // Blok ramówki dostrojonego kanału w pozycji wirtualnej: DEMO TV = sztuczna
+    // ramówka (barker), realny kanał = program z prawdziwego EPG przeliczony na
+    // oś wirtualną; null = brak programu w EPG o tym czasie (realny kanał)
+    fun blockForTunedChannel(virtualMs: Long): DemoChannelSchedule.EpgBlock? {
         if (tunedChannelIndex == 0) {
-            return DemoChannelSchedule.epgBlockAt(controller.currentVirtualPositionMs())
+            return DemoChannelSchedule.epgBlockAt(virtualMs)
         }
-        val row = epgRows.getOrNull(tunedChannelIndex)
-        val now = java.time.Instant.now()
-        val program = row?.programs?.firstOrNull { p ->
-            !now.isBefore(p.startUtc) && now.isBefore(p.endUtc)
-        }
-        return if (row != null && program != null) {
-            DemoChannelSchedule.EpgBlock(
-                title = program.title,
-                startVirtualMs = program.startUtc.toEpochMilli() - controller.antennaStartWallMs,
-                endVirtualMs = program.endUtc.toEpochMilli() - controller.antennaStartWallMs,
-                genre = program.categories.firstOrNull { it.isNotBlank() } ?: "",
-                year = "",
-                country = "",
-                age = "",
-                description = program.description ?: "Brak opisu programu w danych EPG."
-            )
-        } else {
-            DemoChannelSchedule.epgBlockAt(controller.virtualNow())
-        }
+        val row = epgRows.getOrNull(tunedChannelIndex) ?: return null
+        val instant = java.time.Instant.ofEpochMilli(controller.antennaStartWallMs + virtualMs)
+        val program = row.programs.firstOrNull { p ->
+            !instant.isBefore(p.startUtc) && instant.isBefore(p.endUtc)
+        } ?: return null
+        return DemoChannelSchedule.EpgBlock(
+            title = program.title,
+            startVirtualMs = program.startUtc.toEpochMilli() - controller.antennaStartWallMs,
+            endVirtualMs = program.endUtc.toEpochMilli() - controller.antennaStartWallMs,
+            genre = program.categories.firstOrNull { it.isNotBlank() } ?: "",
+            year = "",
+            country = "",
+            age = "",
+            description = program.description ?: "Brak opisu programu w danych EPG."
+        )
     }
 
     fun openStrip(initialCursor: Long) {
@@ -407,7 +404,8 @@ fun DemoLiveScreen(
                 playerInteractionAt = System.currentTimeMillis()
                 when (playerZone) {
                     PlayerZone.BUTTONS -> {
-                        val atLive = tunedChannelIndex != 0 || controller.isAtLiveEdge()
+                        // Pauza ≠ live — przy pauzie slot 1 jest przyciskiem "Wróć do live"
+                        val atLive = tunedChannelIndex != 0 || (!isPaused && controller.isAtLiveEdge())
                         var newFocus = (playerButtonsFocus + dir).coerceIn(0, 4)
                         if (atLive && newFocus == 1) {
                             // Na live slot 1 to status "Oglądasz live" (niefokusowalny) — przeskocz
@@ -789,16 +787,33 @@ fun DemoLiveScreen(
         )
 
         // Zunifikowane UI playera (BUTTONS / STRIP / SNIPPET); DETAIL renderuje
-        // poniżej prawdziwy MovieDetailScreen (identyczny z zakładką Wideo)
+        // poniżej prawdziwy MovieDetailScreen (identyczny z zakładką Wideo).
+        // W STRIP materiałem głównym (nagłówek + środkowy segment paska) jest
+        // blok POD KURSOREM — przeskok na sąsiedni materiał przepina metadane
+        val uiRefVirtualMs = if (tunedChannelIndex == 0) currentVirtualMs else liveEdgeMs
+        val uiMainBlock = (if (playerZone == PlayerZone.STRIP) {
+            blockForTunedChannel(scrubCursorMs)
+        } else {
+            blockForTunedChannel(uiRefVirtualMs)
+        }) ?: DemoChannelSchedule.epgBlockAt(uiRefVirtualMs)
+        val uiPrevBlock = if (uiMainBlock.startVirtualMs > 0) {
+            blockForTunedChannel(uiMainBlock.startVirtualMs - 1)
+        } else null
+        val uiNextBlock = blockForTunedChannel(uiMainBlock.endVirtualMs + 1)
+        val playerTunedRow = epgRows.getOrNull(tunedChannelIndex)
         DemoPlayerUi(
             isVisible = layer == DemoLayer.PLAYER_UI && playerZone != PlayerZone.DETAIL,
             zone = playerZone,
-            block = uiBlockForTunedChannel(),
-            detailBlock = DemoChannelSchedule.epgBlockAt(currentVirtualMs),
-            detailTiming = detailTiming,
-            currentVirtualMs = if (tunedChannelIndex == 0) currentVirtualMs else liveEdgeMs,
+            block = uiMainBlock,
+            prevBlock = uiPrevBlock,
+            nextBlock = uiNextBlock,
+            channel = playerTunedRow?.channel,
+            channelNumber = playerTunedRow?.channelNumber ?: 122,
+            currentVirtualMs = uiRefVirtualMs,
+            // Pauza ≠ live: każde odsunięcie od live (seek LUB pauza) pokazuje
+            // przycisk "Wróć do live" zamiast statusu "Oglądasz live"
             isAtLiveEdge = tunedChannelIndex != 0 ||
-                (liveEdgeMs - currentVirtualMs) < 5_000L,
+                (!isPaused && (liveEdgeMs - currentVirtualMs) < 5_000L),
             liveEdgeVirtualMs = liveEdgeMs.coerceAtLeast(1L),
             dvrStartVirtualMs = controller.dvrStartMs(),
             scrubCursorMs = scrubCursorMs,

@@ -2,6 +2,8 @@ package com.uxellence.tv.v3.demolive
 
 import android.graphics.Bitmap
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
@@ -11,6 +13,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -21,10 +24,26 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import com.uxellence.tv.v3.channels.TvChannelData
+import com.uxellence.tv.v3.epg.ChannelInfoOverlay
+import kotlin.math.abs
 
 private val AQUA = Color(0xFF5AECD3)
 private val BG_PURPLE = Color(0xFF48227C)
 private val TEXT_PRIMARY = Color(0xFFEEEEEE)
+private val TEXT_SECONDARY = Color(0xCCEEEEEE)
+
+// Siatka layoutu wspólna z warstwą EPG: badge kanału na X=40 (CHANNEL_INFO_X),
+// główna kolumna treści na X=330 (FOCUSED_X) — "odstęp od lewej jak w aplikacji"
+private const val LEFT_X = 40
+private const val MAIN_X = 330
+// Pasek postępu: bieżący materiał ma ZAWSZE stałą szerokość (niezależnie czy trwa
+// 20 min czy 2 h); sąsiednie materiały to ścieśnione segmenty po bokach
+private const val BAR_MAIN_W = 1230
+private const val BAR_GAP = 16
+// Fold opisu: w BUTTONS kolumna zsunięta w dół (opis częściowo pod ekranem),
+// fokus na opisie (SNIPPET) podnosi ją tak, by opis był widoczny w całości
+private const val FOLD_OFFSET = 150
 
 /** Strefy fokusu zunifikowanego UI playera. */
 enum class PlayerZone { BUTTONS, STRIP, SNIPPET, DETAIL }
@@ -33,25 +52,29 @@ enum class PlayerZone { BUTTONS, STRIP, SNIPPET, DETAIL }
 enum class BlockTiming { PAST, CURRENT, FUTURE }
 
 /**
- * DEMO PLAYER UI — jeden widok playera w czterech stanach (wg designu Play):
+ * DEMO PLAYER UI — jeden widok playera w trzech stanach (wg designu Play):
  *
- *  - BUTTONS: nagłówek kanału + tytuł + metadane, segmentowany pasek bloków
- *    ramówki, rząd przycisków (fokus domyślnie "Zatrzymaj"), skrót opisu,
- *  - SNIPPET (DOWN z przycisków): jak BUTTONS, ale fokus na skrócie opisu
- *    (aqua ramka) — wideo wciąż na pełnym ekranie, bez PIP,
- *  - STRIP (UP z przycisków / przewijanie): taśma miniatur nad TYM SAMYM
- *    paskiem, kursor z czasem, fokus na taśmie, przyciski wciąż widoczne,
- *  - DETAIL (OK na skrócie opisu / OK w EPG na programie minionym lub
- *    przyszłym): detal jak na VOD — nagłówek, pełny opis, przycisk akcji,
- *    obraz w PIP (PIP rysuje DemoLiveScreen NAD tą warstwą).
+ *  - BUTTONS: nagłówek kanału (badge+logo jak w EPG) + tytuł + metadane,
+ *    pasek stałej szerokości, rząd przycisków; opis pod przyciskami częściowo
+ *    schowany pod foldem ekranu,
+ *  - SNIPPET (DOWN z przycisków): kolumna podjeżdża do góry, opis w aqua ramce
+ *    widoczny w całości (3 linie + wielokropek),
+ *  - STRIP (UP z przycisków / przewijanie): nagłówek u góry, taśma miniatur,
+ *    czasy NAD paskiem (start | kursor | live | koniec); materiał pod kursorem
+ *    staje się głównym — jego metadane i jego segment paska na środku.
+ *
+ *  DETAIL renderuje DemoLiveScreen prawdziwym MovieDetailScreen (ten widok
+ *  jest wtedy ukryty).
  */
 @Composable
 fun DemoPlayerUi(
     isVisible: Boolean,
     zone: PlayerZone,
     block: DemoChannelSchedule.EpgBlock,
-    detailBlock: DemoChannelSchedule.EpgBlock,
-    detailTiming: BlockTiming,
+    prevBlock: DemoChannelSchedule.EpgBlock?,
+    nextBlock: DemoChannelSchedule.EpgBlock?,
+    channel: TvChannelData?,
+    channelNumber: Int,
     currentVirtualMs: Long,
     liveEdgeVirtualMs: Long,
     dvrStartVirtualMs: Long,
@@ -73,181 +96,135 @@ fun DemoPlayerUi(
             .zIndex(12f)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            if (zone == PlayerZone.DETAIL) {
-                // Stan DETAL (jak na VOD): tło brandowe, nagłówek, pełny opis,
-                // przycisk akcji; wideo idzie do PIP nad warstwą
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(BG_PURPLE)
-                )
-                Column(modifier = Modifier.padding(start = sx(40), top = sy(150), end = sx(60))) {
-                    PlayerHeader(detailBlock, antennaStartWallMs, sx, sy)
-                    Spacer(modifier = Modifier.height(sy(40)))
-                    Text(
-                        text = detailBlock.description,
-                        color = TEXT_PRIMARY,
-                        fontSize = demoSp(24, sy),
-                        lineHeight = demoSp(34, sy),
-                        modifier = Modifier
-                            .fillMaxWidth(0.58f)
-                            .padding(start = sx(260))
+            // Gradient od dołu — te same stopy i kolor co warstwa EPG (DemoEpgLayer)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(sy(804))
+                    .offset(y = sy(276))
+                    .background(
+                        Brush.verticalGradient(
+                            0.45f to Color(0x0048227C),
+                            0.63f to Color(0xFF48227C)
+                        )
                     )
-                    Spacer(modifier = Modifier.height(sy(48)))
-                    Box(modifier = Modifier.padding(start = sx(260))) {
-                        PlayerButton(
-                            label = when (detailTiming) {
-                                BlockTiming.CURRENT -> "⏸  Oglądaj"
-                                BlockTiming.PAST -> "▶  Oglądaj od początku"
-                                BlockTiming.FUTURE -> "REC  Nagraj"
-                            },
-                            isFocused = true,
-                            sx = sx, sy = sy
-                        )
-                    }
-                }
-                // Prawy dolny róg zostaje wolny — tam DemoLiveScreen rysuje PIP
-            } else {
-                // Stany BUTTONS / STRIP: gradient od dołu nad grającym wideo
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(if (zone == PlayerZone.STRIP) sy(640) else sy(440))
-                        .align(Alignment.BottomCenter)
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(Color.Transparent, Color(0xF0311257))
-                            )
-                        )
+            )
+
+            // Zegar ścienny (prawy górny róg, jak w designie)
+            Text(
+                text = formatWall(antennaStartWallMs + liveEdgeVirtualMs, withSeconds = false),
+                color = TEXT_PRIMARY,
+                fontSize = demoSp(28, sy),
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = sy(40), end = sx(60))
+            )
+
+            if (zone == PlayerZone.STRIP) {
+                // Nagłówek u góry; metadane bloku POD KURSOREM (materiał pod kursorem
+                // jest głównym — przeskok na sąsiedni przepina nagłówek i pasek)
+                PlayerHeader(
+                    block = block,
+                    channel = channel,
+                    channelNumber = channelNumber,
+                    modifier = Modifier.padding(top = sy(40)),
+                    sx = sx, sy = sy
                 )
-
-                if (zone == PlayerZone.STRIP) {
-                    // Nagłówek u góry (jak w designie przewijania)
-                    Box(modifier = Modifier.padding(start = sx(40), top = sy(40))) {
-                        PlayerHeader(block, antennaStartWallMs, sx, sy)
-                    }
-                }
-
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .align(Alignment.BottomCenter)
-                        .padding(start = sx(80), end = sx(80), bottom = sy(48))
+                        .padding(bottom = sy(48))
                 ) {
-                    if (zone == PlayerZone.STRIP) {
-                        // Taśma miniatur — fokus na niej podczas przewijania
-                        DemoFilmstrip(
-                            centerVirtualMs = scrubCursorMs,
-                            liveEdgeVirtualMs = liveEdgeVirtualMs,
-                            frames = frames,
-                            antennaStartWallMs = antennaStartWallMs,
-                            sx = sx,
-                            sy = sy
-                        )
-                        Spacer(modifier = Modifier.height(sy(24)))
-                    } else {
-                        PlayerHeader(block, antennaStartWallMs, sx, sy)
-                        Spacer(modifier = Modifier.height(sy(18)))
-                    }
-
-                    DemoSegmentedBlockBar(
-                        block = block,
-                        positionMs = currentVirtualMs,
-                        cursorMs = if (zone == PlayerZone.STRIP) scrubCursorMs else null,
+                    DemoFilmstrip(
+                        centerVirtualMs = scrubCursorMs,
                         liveEdgeVirtualMs = liveEdgeVirtualMs,
+                        frames = frames,
                         antennaStartWallMs = antennaStartWallMs,
-                        showTimes = zone == PlayerZone.STRIP,
+                        showTimeLabels = false,   // czasy są nad paskiem, nie nad miniaturami
                         sx = sx, sy = sy
                     )
-
+                    Spacer(modifier = Modifier.height(sy(16)))
+                    DemoFixedBlockBar(
+                        block = block,
+                        prevBlock = prevBlock,
+                        nextBlock = nextBlock,
+                        positionMs = currentVirtualMs,
+                        cursorMs = scrubCursorMs,
+                        liveEdgeVirtualMs = liveEdgeVirtualMs,
+                        antennaStartWallMs = antennaStartWallMs,
+                        showTimes = true,
+                        sx = sx, sy = sy
+                    )
                     Spacer(modifier = Modifier.height(sy(20)))
-
-                    PlayerButtonsRow(isPaused, buttonsFocusIndex, isAtLiveEdge, sx, sy)
-
-                    if (zone == PlayerZone.BUTTONS || zone == PlayerZone.SNIPPET) {
-                        Spacer(modifier = Modifier.height(sy(18)))
-                        // Skrót opisu — fokusowalny (DOWN z przycisków): aqua ramka,
-                        // OK otwiera detal z PIP
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth(0.6f)
-                                .then(
-                                    if (zone == PlayerZone.SNIPPET) {
-                                        Modifier
-                                            .border(2.dp, AQUA, RoundedCornerShape(sx(6)))
-                                            .padding(sx(10))
-                                    } else Modifier
-                                )
-                        ) {
-                            Text(
-                                text = block.description,
-                                color = Color(0xCCEEEEEE),
-                                fontSize = demoSp(20, sy),
-                                lineHeight = demoSp(28, sy),
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
+                    Box(modifier = Modifier.padding(start = sx(MAIN_X))) {
+                        PlayerButtonsRow(isPaused, buttonsFocusIndex, isAtLiveEdge, sx, sy)
                     }
                 }
-            }
-        }
-    }
-}
-
-/** Nagłówek: numer kanału + nazwa + tytuł bloku + metadane (wg designu). */
-@Composable
-private fun PlayerHeader(
-    block: DemoChannelSchedule.EpgBlock,
-    antennaStartWallMs: Long,
-    sx: (Int) -> Dp,
-    sy: (Int) -> Dp
-) {
-    Row(verticalAlignment = Alignment.Top) {
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(sx(6)))
-                .border(1.5.dp, Color(0x99EEEEEE), RoundedCornerShape(sx(6)))
-                .padding(horizontal = sx(12), vertical = sy(6))
-        ) {
-            Text("122", color = TEXT_PRIMARY, fontSize = demoSp(22, sy), fontWeight = FontWeight.Medium)
-        }
-        Spacer(modifier = Modifier.width(sx(20)))
-        Text(
-            "DEMO TV",
-            color = TEXT_PRIMARY,
-            fontSize = demoSp(26, sy),
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(top = sy(4))
-        )
-        Spacer(modifier = Modifier.width(sx(36)))
-        Column {
-            Text(
-                text = block.title,
-                color = TEXT_PRIMARY,
-                fontSize = demoSp(36, sy),
-                fontWeight = FontWeight.Medium
-            )
-            Spacer(modifier = Modifier.height(sy(4)))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                val blockMin = (block.endVirtualMs - block.startVirtualMs) / 60_000
-                Text(
-                    text = formatWall(antennaStartWallMs + block.startVirtualMs, withSeconds = false) +
-                        "–" + formatWall(antennaStartWallMs + block.endVirtualMs, withSeconds = false) +
-                        "  |  ${block.genre}  |  $blockMin min  |  ${block.year}  |  ${block.country}  |  ${block.age}  |",
-                    color = Color(0xCCEEEEEE),
-                    fontSize = demoSp(18, sy)
+            } else {
+                // BUTTONS / SNIPPET — dolna kolumna z animowanym foldem opisu
+                val foldOffset by animateDpAsState(
+                    targetValue = if (zone == PlayerZone.SNIPPET) 0.dp else sy(FOLD_OFFSET),
+                    animationSpec = tween(350),
+                    label = "demo_player_fold"
                 )
-                Spacer(modifier = Modifier.width(sx(10)))
-                listOf("S", "W", "N", "P").forEach { letter ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.BottomCenter)
+                        .offset(y = foldOffset)
+                        .padding(bottom = sy(100))
+                ) {
+                    PlayerHeader(
+                        block = block,
+                        channel = channel,
+                        channelNumber = channelNumber,
+                        modifier = Modifier,
+                        sx = sx, sy = sy
+                    )
+                    Spacer(modifier = Modifier.height(sy(18)))
+                    DemoFixedBlockBar(
+                        block = block,
+                        prevBlock = prevBlock,
+                        nextBlock = nextBlock,
+                        positionMs = currentVirtualMs,
+                        cursorMs = null,
+                        liveEdgeVirtualMs = liveEdgeVirtualMs,
+                        antennaStartWallMs = antennaStartWallMs,
+                        showTimes = false,
+                        sx = sx, sy = sy
+                    )
+                    Spacer(modifier = Modifier.height(sy(24)))
+                    Box(modifier = Modifier.padding(start = sx(MAIN_X))) {
+                        PlayerButtonsRow(isPaused, buttonsFocusIndex, isAtLiveEdge, sx, sy)
+                    }
+                    Spacer(modifier = Modifier.height(sy(28)))
+                    // Opis: ramka zawsze zajmuje miejsce (transparentna gdy bez fokusu),
+                    // żeby fokus nie przesuwał tekstu; aqua ramka tylko w SNIPPET
                     Box(
                         modifier = Modifier
-                            .padding(end = sx(6))
-                            .clip(RoundedCornerShape(sx(4)))
-                            .border(1.dp, Color(0x99EEEEEE), RoundedCornerShape(sx(4)))
-                            .padding(horizontal = sx(6), vertical = sy(1))
+                            .padding(start = sx(MAIN_X))
+                            .width(sx(980))
+                            .border(
+                                2.dp,
+                                if (zone == PlayerZone.SNIPPET) AQUA else Color.Transparent,
+                                RoundedCornerShape(sx(6))
+                            )
+                            .padding(sx(12))
                     ) {
-                        Text(letter, color = Color(0xCCEEEEEE), fontSize = demoSp(13, sy))
+                        Text(
+                            text = block.description,
+                            color = TEXT_SECONDARY,
+                            fontSize = demoSp(22, sy),
+                            lineHeight = demoSp(32, sy),
+                            maxLines = 3,
+                            overflow = if (zone == PlayerZone.SNIPPET) {
+                                TextOverflow.Ellipsis
+                            } else {
+                                TextOverflow.Clip   // reszta chowa się pod foldem
+                            }
+                        )
                     }
                 }
             }
@@ -256,13 +233,97 @@ private fun PlayerHeader(
 }
 
 /**
- * Segmentowany pasek bloków ramówki (poprzedni | bieżący | następny),
- * szerokości proporcjonalne do długości bloków, przerwy między segmentami.
- * Aqua wypełnienie do pozycji odtwarzania, kursor (STRIP) i znacznik live.
+ * Nagłówek playera wg designu: badge numeru + logo kanału przy lewej (X=40,
+ * komponent ChannelInfoOverlay z warstwy EPG), tytuł + metadane w głównej
+ * kolumnie (X=330). Metadane bez godzin — czasy pokazuje pasek przy przewijaniu.
  */
 @Composable
-private fun DemoSegmentedBlockBar(
+private fun PlayerHeader(
     block: DemoChannelSchedule.EpgBlock,
+    channel: TvChannelData?,
+    channelNumber: Int,
+    modifier: Modifier,
+    sx: (Int) -> Dp,
+    sy: (Int) -> Dp
+) {
+    Box(modifier = modifier.fillMaxWidth()) {
+        if (channel != null) {
+            ChannelInfoOverlay(
+                channel = channel,
+                channelNumber = channelNumber,
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(start = sx(LEFT_X)),
+                sx = sx, sy = sy
+            )
+        } else {
+            // Fallback zanim warstwa EPG zbuduje wiersze kanałów
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(start = sx(LEFT_X))
+                    .clip(RoundedCornerShape(sx(6)))
+                    .border(1.5.dp, Color(0x99EEEEEE), RoundedCornerShape(sx(6)))
+                    .padding(horizontal = sx(12), vertical = sy(6))
+            ) {
+                Text(
+                    text = channelNumber.toString(),
+                    color = TEXT_PRIMARY,
+                    fontSize = demoSp(22, sy),
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+
+        Column(modifier = Modifier.padding(start = sx(MAIN_X), end = sx(200))) {
+            Text(
+                text = block.title,
+                color = TEXT_PRIMARY,
+                fontSize = demoSp(44, sy),
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(modifier = Modifier.height(sy(8)))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                val blockMin = (block.endVirtualMs - block.startVirtualMs) / 60_000
+                val meta = listOf(block.genre, "$blockMin min", block.year, block.country, block.age)
+                    .filter { it.isNotBlank() }
+                Text(
+                    text = meta.joinToString("  |  ") + "  |",
+                    color = TEXT_SECONDARY,
+                    fontSize = demoSp(20, sy)
+                )
+                Spacer(modifier = Modifier.width(sx(12)))
+                listOf("S", "W", "N", "P").forEach { letter ->
+                    Box(
+                        modifier = Modifier
+                            .padding(end = sx(8))
+                            .clip(RoundedCornerShape(sx(4)))
+                            .border(1.dp, Color(0x99EEEEEE), RoundedCornerShape(sx(4)))
+                            .padding(horizontal = sx(7), vertical = sy(2))
+                    ) {
+                        Text(letter, color = TEXT_SECONDARY, fontSize = demoSp(14, sy))
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Pasek postępu o STAŁEJ szerokości segmentu głównego (wg designu):
+ * bieżący materiał zawsze zajmuje BAR_MAIN_W px od X=330 — niezależnie od czasu
+ * trwania. Materiał poprzedni/następny to ścieśnione segmenty od krawędzi ekranu.
+ * Znacznik live (biała kropka) wędruje po osi czasu; kursor przewijania (aqua)
+ * tylko w STRIP. Czasy nad paskiem: start i koniec segmentu głównego, czas
+ * kursora (pogrubiony, z sekundami) i "live: HH:mm".
+ */
+@Composable
+private fun DemoFixedBlockBar(
+    block: DemoChannelSchedule.EpgBlock,
+    prevBlock: DemoChannelSchedule.EpgBlock?,
+    nextBlock: DemoChannelSchedule.EpgBlock?,
     positionMs: Long,
     cursorMs: Long?,
     liveEdgeVirtualMs: Long,
@@ -271,100 +332,150 @@ private fun DemoSegmentedBlockBar(
     sx: (Int) -> Dp,
     sy: (Int) -> Dp
 ) {
-    val prevBlock = if (block.startVirtualMs > 0) DemoChannelSchedule.epgBlockAt(block.startVirtualMs - 1) else null
-    val nextBlock = DemoChannelSchedule.epgBlockAt(block.endVirtualMs + 1)
-
-    val windowStart = prevBlock?.startVirtualMs ?: block.startVirtualMs
-    val windowEnd = nextBlock.endVirtualMs
-    val windowSpan = (windowEnd - windowStart).coerceAtLeast(1L)
-
+    val labelsH = if (showTimes) 40 else 0
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxWidth()
-            .height(if (showTimes) sy(64) else sy(28))
+            .height(sy(labelsH + 20))
     ) {
         val fullWidth = maxWidth
-        fun xOf(virtualMs: Long): Dp =
-            fullWidth * ((virtualMs - windowStart).toFloat() / windowSpan.toFloat()).coerceIn(0f, 1f)
+        val mainX = sx(MAIN_X)
+        val mainW = sx(BAR_MAIN_W)
+        val gap = sx(BAR_GAP)
+        val prevW = (mainX - gap).coerceAtLeast(0.dp)
+        val nextX = mainX + mainW + gap
+        val nextW = (fullWidth - nextX).coerceAtLeast(0.dp)
+        val barY = sy(labelsH + 7)
+        val barH = sy(6)
 
-        val gap = sx(8)
-        val barHeight = sy(6)
-        val segments = listOfNotNull(prevBlock, block, nextBlock)
+        fun fracIn(b: DemoChannelSchedule.EpgBlock, t: Long): Float =
+            ((t - b.startVirtualMs).toFloat() /
+                (b.endVirtualMs - b.startVirtualMs).coerceAtLeast(1L).toFloat()).coerceIn(0f, 1f)
 
-        // Segmenty
-        segments.forEach { seg ->
-            val segStartX = xOf(seg.startVirtualMs) + if (seg !== segments.first()) gap / 2 else 0.dp
-            val segEndX = xOf(seg.endVirtualMs) - if (seg !== segments.last()) gap / 2 else 0.dp
-            val segWidth = (segEndX - segStartX).coerceAtLeast(0.dp)
-            Box(
-                modifier = Modifier
-                    .offset(x = segStartX, y = sy(10))
-                    .width(segWidth)
-                    .height(barHeight)
-                    .clip(RoundedCornerShape(barHeight / 2))
-                    .background(Color(0x40EEEEEE))
-            ) {
-                // Wypełnienie: do pozycji odtwarzania (w obrębie segmentu)
-                val fillEnd = positionMs.coerceIn(seg.startVirtualMs, seg.endVirtualMs)
-                val fillFraction = ((fillEnd - seg.startVirtualMs).toFloat() /
-                    (seg.endVirtualMs - seg.startVirtualMs).coerceAtLeast(1L).toFloat()).coerceIn(0f, 1f)
-                if (fillFraction > 0f) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxHeight()
-                            .fillMaxWidth(fillFraction)
-                            .clip(RoundedCornerShape(barHeight / 2))
-                            .background(AQUA)
-                    )
-                }
-            }
+        // x dla czasu t: segment główny ma stałą skalę, sąsiednie własną (ścieśnioną);
+        // null = czas poza widocznym oknem (nie rysuj znacznika)
+        fun xOf(t: Long): Dp? = when {
+            t >= block.startVirtualMs && t <= block.endVirtualMs ->
+                mainX + mainW * fracIn(block, t)
+            t < block.startVirtualMs ->
+                if (prevBlock != null) prevW * fracIn(prevBlock, t) else 0.dp
+            else ->
+                if (nextBlock != null) nextX + nextW * fracIn(nextBlock, t) else null
         }
 
-        // Znacznik live (gdy live edge w oknie i różny od pozycji)
-        if (liveEdgeVirtualMs in windowStart..windowEnd) {
+        val refMs = cursorMs ?: positionMs
+        val fillColor = if (cursorMs != null) AQUA else Color(0xFFEEEEEE)
+
+        // Segment poprzedniego materiału (od lewej krawędzi ekranu)
+        if (prevW > 0.dp) {
             Box(
                 modifier = Modifier
-                    .offset(x = xOf(liveEdgeVirtualMs) - sy(5), y = sy(10) + barHeight / 2 - sy(5))
-                    .size(sy(10))
-                    .background(Color(0xFFEEEEEE), CircleShape)
+                    .offset(x = 0.dp, y = barY)
+                    .width(prevW)
+                    .height(barH)
+                    .clip(RoundedCornerShape(barH / 2))
+                    .background(if (cursorMs == null) Color(0xB3EEEEEE) else Color(0x40EEEEEE))
             )
-            if (showTimes) {
-                Text(
-                    text = "live: " + formatWall(antennaStartWallMs + liveEdgeVirtualMs, withSeconds = false),
-                    color = Color(0xCCEEEEEE),
-                    fontSize = demoSp(18, sy),
-                    modifier = Modifier.offset(x = (xOf(liveEdgeVirtualMs) - sx(40)).coerceAtLeast(0.dp), y = sy(30))
+        }
+
+        // Segment główny: tor + wypełnienie do pozycji (BUTTONS) / kursora (STRIP)
+        Box(
+            modifier = Modifier
+                .offset(x = mainX, y = barY)
+                .width(mainW)
+                .height(barH)
+                .clip(RoundedCornerShape(barH / 2))
+                .background(Color(0x40EEEEEE))
+        ) {
+            val fillFraction = fracIn(block, refMs)
+            if (fillFraction > 0f) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .fillMaxWidth(fillFraction)
+                        .clip(RoundedCornerShape(barH / 2))
+                        .background(fillColor)
                 )
             }
         }
 
-        // Kursor przewijania (STRIP)
-        if (cursorMs != null) {
+        // Segment następnego materiału (do prawej krawędzi ekranu)
+        if (nextW > 0.dp) {
             Box(
                 modifier = Modifier
-                    .offset(x = xOf(cursorMs) - sy(12), y = sy(10) + barHeight / 2 - sy(12))
-                    .size(sy(24))
+                    .offset(x = nextX, y = barY)
+                    .width(nextW)
+                    .height(barH)
+                    .clip(RoundedCornerShape(barH / 2))
+                    .background(Color(0x40EEEEEE))
+            )
+        }
+
+        // Znacznik live (biała kropka) — przesuwa się z zegarem; widoczny też
+        // poza segmentem głównym (timeshift: live ucieka do następnego materiału)
+        val liveX = xOf(liveEdgeVirtualMs)
+        if (liveX != null) {
+            Box(
+                modifier = Modifier
+                    .offset(x = liveX - sy(5), y = barY + barH / 2 - sy(5))
+                    .size(sy(10))
+                    .background(Color(0xFFEEEEEE), CircleShape)
+            )
+        }
+
+        // Kursor przewijania (STRIP) — zawsze w segmencie głównym, bo materiał
+        // pod kursorem JEST segmentem głównym
+        val cursorX = cursorMs?.let { xOf(it) }
+        if (cursorX != null) {
+            Box(
+                modifier = Modifier
+                    .offset(x = cursorX - sy(11), y = barY + barH / 2 - sy(11))
+                    .size(sy(22))
                     .background(AQUA, CircleShape)
             )
         }
 
         if (showTimes) {
-            // Czasy granic segmentów + pogrubiony czas kursora
-            segments.forEach { seg ->
+            // Czasy NAD paskiem: granice segmentu głównego, kursor (bold), live.
+            // Etykiety graniczne ustępują miejsca kursorowi i live (kolizje)
+            val liveLabelVisible = liveX != null &&
+                (cursorX == null || abs((liveX - cursorX).value) > sx(120).value)
+            val startLabelX = (mainX - sx(24)).coerceAtLeast(0.dp)
+            val endLabelX = mainX + mainW - sx(24)
+            fun clearOf(labelX: Dp): Boolean =
+                (cursorX == null || abs((labelX - cursorX).value) > sx(110).value) &&
+                    (!liveLabelVisible || liveX == null || abs((labelX - liveX).value) > sx(110).value)
+            if (clearOf(startLabelX)) {
                 Text(
-                    text = formatWall(antennaStartWallMs + seg.startVirtualMs, withSeconds = false),
-                    color = Color(0xCCEEEEEE),
+                    text = formatWall(antennaStartWallMs + block.startVirtualMs, withSeconds = false),
+                    color = TEXT_SECONDARY,
                     fontSize = demoSp(18, sy),
-                    modifier = Modifier.offset(x = xOf(seg.startVirtualMs), y = sy(30))
+                    modifier = Modifier.offset(x = startLabelX, y = 0.dp)
                 )
             }
-            if (cursorMs != null) {
+            if (clearOf(endLabelX)) {
+                Text(
+                    text = formatWall(antennaStartWallMs + block.endVirtualMs, withSeconds = false),
+                    color = TEXT_SECONDARY,
+                    fontSize = demoSp(18, sy),
+                    modifier = Modifier.offset(x = endLabelX, y = 0.dp)
+                )
+            }
+            if (liveLabelVisible && liveX != null) {
+                Text(
+                    text = "live: " + formatWall(antennaStartWallMs + liveEdgeVirtualMs, withSeconds = false),
+                    color = TEXT_SECONDARY,
+                    fontSize = demoSp(18, sy),
+                    modifier = Modifier.offset(x = (liveX - sx(50)).coerceAtLeast(0.dp), y = 0.dp)
+                )
+            }
+            if (cursorMs != null && cursorX != null) {
                 Text(
                     text = formatWall(antennaStartWallMs + cursorMs, withSeconds = true),
                     color = TEXT_PRIMARY,
                     fontSize = demoSp(20, sy),
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.offset(x = (xOf(cursorMs) - sx(50)).coerceAtLeast(0.dp), y = sy(30))
+                    modifier = Modifier.offset(x = (cursorX - sx(48)).coerceAtLeast(0.dp), y = 0.dp)
                 )
             }
         }
@@ -374,8 +485,8 @@ private fun DemoSegmentedBlockBar(
 /**
  * Rząd przycisków playera (wg designu: Zatrzymaj | Wróć do live | Zacznij od początku |
  * Nagraj | Napisy...). Na live edge zamiast przycisku "Wróć do live" jest
- * niefokusowalny status "● Oglądasz live" — przycisk pojawia się dopiero po
- * przewinięciu wstecz (timeshift).
+ * niefokusowalny status "● Oglądasz live" — przycisk pojawia się po KAŻDYM
+ * odsunięciu od live: przewinięciu wstecz LUB pauzie (pauza ≠ live).
  */
 @Composable
 private fun PlayerButtonsRow(
@@ -428,7 +539,7 @@ private fun PlayerButton(
 ) {
     Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(sx(10)))
+            .clip(RoundedCornerShape(sx(8)))
             .background(if (isFocused) AQUA else Color(0x33EEEEEE))
             .padding(horizontal = sx(22), vertical = sy(14))
     ) {

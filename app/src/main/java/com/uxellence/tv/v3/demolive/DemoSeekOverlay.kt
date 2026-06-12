@@ -44,6 +44,7 @@ internal fun DemoFilmstrip(
     liveEdgeVirtualMs: Long,
     frames: List<Pair<Long, Bitmap?>>,
     antennaStartWallMs: Long,
+    showTimeLabels: Boolean = true,   // false: czasy pokazuje pasek postępu (design)
     sx: (Int) -> Dp,
     sy: (Int) -> Dp
 ) {
@@ -75,13 +76,15 @@ internal fun DemoFilmstrip(
                 }
 
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = formatWall(antennaStartWallMs + slotVirtualMs.coerceAtLeast(0), withSeconds = true),
-                        color = if (isCenter) AQUA else Color(0x99EEEEEE),
-                        fontSize = if (isCenter) demoSp(18, sy) else demoSp(13, sy),
-                        fontWeight = if (isCenter) FontWeight.Bold else FontWeight.Normal
-                    )
-                    Spacer(modifier = Modifier.height(sy(4)))
+                    if (showTimeLabels) {
+                        Text(
+                            text = formatWall(antennaStartWallMs + slotVirtualMs.coerceAtLeast(0), withSeconds = true),
+                            color = if (isCenter) AQUA else Color(0x99EEEEEE),
+                            fontSize = if (isCenter) demoSp(18, sy) else demoSp(13, sy),
+                            fontWeight = if (isCenter) FontWeight.Bold else FontWeight.Normal
+                        )
+                        Spacer(modifier = Modifier.height(sy(4)))
+                    }
                     Box(
                         modifier = Modifier
                             .width(thumbWidth)
@@ -89,7 +92,8 @@ internal fun DemoFilmstrip(
                             .clip(RoundedCornerShape(sx(8)))
                             .background(Color(0x40000000))
                             .then(
-                                if (isCenter) Modifier.border(3.dp, AQUA, RoundedCornerShape(sx(8)))
+                                // Środkowa miniatura: biała ramka (design przewijania)
+                                if (isCenter) Modifier.border(3.dp, Color(0xFFEEEEEE), RoundedCornerShape(sx(8)))
                                 else Modifier.border(1.dp, Color(0x50EEEEEE), RoundedCornerShape(sx(8)))
                             ),
                         contentAlignment = Alignment.Center
