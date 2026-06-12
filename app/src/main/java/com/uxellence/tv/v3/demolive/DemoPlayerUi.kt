@@ -27,23 +27,31 @@ private val BG_PURPLE = Color(0xFF48227C)
 private val TEXT_PRIMARY = Color(0xFFEEEEEE)
 
 /** Strefy fokusu zunifikowanego UI playera. */
-enum class PlayerZone { BUTTONS, STRIP, DESCRIPTION }
+enum class PlayerZone { BUTTONS, STRIP, SNIPPET, DETAIL }
+
+/** Relacja bloku ramówki do "teraz" — steruje przyciskiem akcji w detalu. */
+enum class BlockTiming { PAST, CURRENT, FUTURE }
 
 /**
- * DEMO PLAYER UI — jeden widok playera w trzech stanach (wg designu Play):
+ * DEMO PLAYER UI — jeden widok playera w czterech stanach (wg designu Play):
  *
  *  - BUTTONS: nagłówek kanału + tytuł + metadane, segmentowany pasek bloków
  *    ramówki, rząd przycisków (fokus domyślnie "Zatrzymaj"), skrót opisu,
+ *  - SNIPPET (DOWN z przycisków): jak BUTTONS, ale fokus na skrócie opisu
+ *    (aqua ramka) — wideo wciąż na pełnym ekranie, bez PIP,
  *  - STRIP (UP z przycisków / przewijanie): taśma miniatur nad TYM SAMYM
  *    paskiem, kursor z czasem, fokus na taśmie, przyciski wciąż widoczne,
- *  - DESCRIPTION (DOWN z przycisków): pełny opis na tle brandowym, obraz
- *    przechodzi do PIP (rysowany przez DemoLiveScreen NAD tą warstwą).
+ *  - DETAIL (OK na skrócie opisu / OK w EPG na programie minionym lub
+ *    przyszłym): detal jak na VOD — nagłówek, pełny opis, przycisk akcji,
+ *    obraz w PIP (PIP rysuje DemoLiveScreen NAD tą warstwą).
  */
 @Composable
 fun DemoPlayerUi(
     isVisible: Boolean,
     zone: PlayerZone,
     block: DemoChannelSchedule.EpgBlock,
+    detailBlock: DemoChannelSchedule.EpgBlock,
+    detailTiming: BlockTiming,
     currentVirtualMs: Long,
     liveEdgeVirtualMs: Long,
     dvrStartVirtualMs: Long,
@@ -64,35 +72,38 @@ fun DemoPlayerUi(
             .zIndex(12f)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            if (zone == PlayerZone.DESCRIPTION) {
-                // Stan OPIS: pełne tło brandowe (wideo idzie do PIP nad warstwą)
+            if (zone == PlayerZone.DETAIL) {
+                // Stan DETAL (jak na VOD): tło brandowe, nagłówek, pełny opis,
+                // przycisk akcji; wideo idzie do PIP nad warstwą
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .background(BG_PURPLE)
                 )
-                Column(modifier = Modifier.padding(start = sx(40), top = sy(40), end = sx(60))) {
-                    PlayerHeader(block, antennaStartWallMs, sx, sy)
-                    Spacer(modifier = Modifier.height(sy(24)))
-                    DemoSegmentedBlockBar(
-                        block = block,
-                        positionMs = currentVirtualMs,
-                        cursorMs = null,
-                        liveEdgeVirtualMs = liveEdgeVirtualMs,
-                        antennaStartWallMs = antennaStartWallMs,
-                        showTimes = false,
-                        sx = sx, sy = sy
-                    )
-                    Spacer(modifier = Modifier.height(sy(24)))
-                    PlayerButtonsRow(isPaused, buttonsFocusIndex, sx, sy)
-                    Spacer(modifier = Modifier.height(sy(32)))
+                Column(modifier = Modifier.padding(start = sx(40), top = sy(150), end = sx(60))) {
+                    PlayerHeader(detailBlock, antennaStartWallMs, sx, sy)
+                    Spacer(modifier = Modifier.height(sy(40)))
                     Text(
-                        text = block.description,
+                        text = detailBlock.description,
                         color = TEXT_PRIMARY,
                         fontSize = demoSp(24, sy),
                         lineHeight = demoSp(34, sy),
-                        modifier = Modifier.fillMaxWidth(0.62f)
+                        modifier = Modifier
+                            .fillMaxWidth(0.58f)
+                            .padding(start = sx(260))
                     )
+                    Spacer(modifier = Modifier.height(sy(48)))
+                    Box(modifier = Modifier.padding(start = sx(260))) {
+                        PlayerButton(
+                            label = when (detailTiming) {
+                                BlockTiming.CURRENT -> "⏸  Oglądaj"
+                                BlockTiming.PAST -> "▶  Oglądaj od początku"
+                                BlockTiming.FUTURE -> "REC  Nagraj"
+                            },
+                            isFocused = true,
+                            sx = sx, sy = sy
+                        )
+                    }
                 }
                 // Prawy dolny róg zostaje wolny — tam DemoLiveScreen rysuje PIP
             } else {
@@ -152,17 +163,30 @@ fun DemoPlayerUi(
 
                     PlayerButtonsRow(isPaused, buttonsFocusIndex, sx, sy)
 
-                    if (zone == PlayerZone.BUTTONS) {
+                    if (zone == PlayerZone.BUTTONS || zone == PlayerZone.SNIPPET) {
                         Spacer(modifier = Modifier.height(sy(18)))
-                        Text(
-                            text = block.description,
-                            color = Color(0xCCEEEEEE),
-                            fontSize = demoSp(20, sy),
-                            lineHeight = demoSp(28, sy),
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.fillMaxWidth(0.6f)
-                        )
+                        // Skrót opisu — fokusowalny (DOWN z przycisków): aqua ramka,
+                        // OK otwiera detal z PIP
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(0.6f)
+                                .then(
+                                    if (zone == PlayerZone.SNIPPET) {
+                                        Modifier
+                                            .border(2.dp, AQUA, RoundedCornerShape(sx(6)))
+                                            .padding(sx(10))
+                                    } else Modifier
+                                )
+                        ) {
+                            Text(
+                                text = block.description,
+                                color = Color(0xCCEEEEEE),
+                                fontSize = demoSp(20, sy),
+                                lineHeight = demoSp(28, sy),
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
                 }
             }

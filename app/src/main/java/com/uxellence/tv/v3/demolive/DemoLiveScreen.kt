@@ -150,6 +150,11 @@ fun DemoLiveScreen(
     var scrubCursorMs by remember { mutableLongStateOf(0L) }
     var playerInteractionAt by remember { mutableLongStateOf(0L) }
     var filmstripFrames by remember { mutableStateOf<List<Pair<Long, Bitmap?>>>(emptyList()) }
+    // Detal programu (strefa DETAIL): jaki blok pokazuje, jego relacja do "teraz"
+    // i skąd przyszliśmy (EPG vs skrót opisu) — steruje BACK i przyciskiem akcji
+    var detailBlock by remember { mutableStateOf<DemoChannelSchedule.EpgBlock?>(null) }
+    var detailTiming by remember { mutableStateOf(BlockTiming.CURRENT) }
+    var detailFromEpg by remember { mutableStateOf(false) }
 
     // Akceleracja seeka (wzorzec z VodPlayerScreen)
     var rapidPressCount by remember { mutableIntStateOf(0) }
@@ -189,6 +194,20 @@ fun DemoLiveScreen(
         playerZone = PlayerZone.STRIP
         scrubCursorMs = initialCursor
         updateFilmstrip(initialCursor)
+        playerInteractionAt = System.currentTimeMillis()
+        layer = DemoLayer.PLAYER_UI
+    }
+
+    fun openDetail(block: DemoChannelSchedule.EpgBlock, fromEpg: Boolean) {
+        val nowV = controller.currentVirtualPositionMs()
+        detailBlock = block
+        detailTiming = when {
+            nowV in block.startVirtualMs until block.endVirtualMs -> BlockTiming.CURRENT
+            block.endVirtualMs <= controller.virtualNow() -> BlockTiming.PAST
+            else -> BlockTiming.FUTURE
+        }
+        detailFromEpg = fromEpg
+        playerZone = PlayerZone.DETAIL
         playerInteractionAt = System.currentTimeMillis()
         layer = DemoLayer.PLAYER_UI
     }
@@ -276,15 +295,14 @@ fun DemoLiveScreen(
                         val targetStart = program.startUtc.toEpochMilli() - controller.antennaStartWallMs
                         val targetEnd = program.endUtc.toEpochMilli() - controller.antennaStartWallMs
                         val playingNow = controller.currentVirtualPositionMs() in targetStart until targetEnd
-                        if (playingNow || targetStart <= controller.virtualNow()) {
-                            if (!playingNow) {
-                                controller.seekToVirtual(targetStart)
-                                isPaused = false
-                            }
+                        if (playingNow) {
+                            // Program bieżący: kontynuuj odtwarzanie + UI playera
                             openPlayerButtons()
-                            Log.i(TAG, "EPG select: '${program.title}' playingNow=$playingNow → PLAYER_UI")
+                            Log.i(TAG, "EPG select: '${program.title}' (bieżący) → PLAYER_UI")
                         } else {
-                            epgInteractionAt = System.currentTimeMillis()  // program przyszły
+                            // Program miniony LUB przyszły: detal z PIP (jak na VOD)
+                            openDetail(DemoChannelSchedule.epgBlockAt(targetStart), fromEpg = true)
+                            Log.i(TAG, "EPG select: '${program.title}' → DETAIL (timing=$detailTiming)")
                         }
                     } else {
                         android.widget.Toast.makeText(
@@ -307,7 +325,7 @@ fun DemoLiveScreen(
                             .coerceIn(controller.dvrStartMs(), controller.virtualNow())
                         updateFilmstrip(scrubCursorMs)
                     }
-                    PlayerZone.DESCRIPTION -> { /* brak nawigacji poziomej */ }
+                    PlayerZone.SNIPPET, PlayerZone.DETAIL -> { /* brak nawigacji poziomej */ }
                 }
             },
             playerSelect = {
@@ -347,7 +365,41 @@ fun DemoLiveScreen(
                         }
                         else -> { /* Nagraj / Napisy — atrapy */ }
                     }
-                    PlayerZone.DESCRIPTION -> { /* nic */ }
+                    PlayerZone.SNIPPET -> {
+                        // OK na skrócie opisu → detal z PIP (blok bieżący)
+                        openDetail(
+                            DemoChannelSchedule.epgBlockAt(controller.currentVirtualPositionMs()),
+                            fromEpg = false
+                        )
+                        Log.i(TAG, "SNIPPET → DETAIL")
+                    }
+                    PlayerZone.DETAIL -> {
+                        // Przycisk akcji detalu — zależnie od relacji bloku do "teraz"
+                        val db = detailBlock
+                        when (detailTiming) {
+                            BlockTiming.CURRENT -> {
+                                playerZone = PlayerZone.BUTTONS
+                                playerButtonsFocus = 0
+                                Log.i(TAG, "DETAIL: Oglądaj (bieżący) → BUTTONS")
+                            }
+                            BlockTiming.PAST -> {
+                                if (db != null) {
+                                    controller.seekToVirtual(db.startVirtualMs)
+                                    isPaused = false
+                                }
+                                playerZone = PlayerZone.BUTTONS
+                                playerButtonsFocus = 0
+                                Log.i(TAG, "DETAIL: Oglądaj od początku → ${db?.startVirtualMs}ms")
+                            }
+                            BlockTiming.FUTURE -> {
+                                android.widget.Toast.makeText(
+                                    context,
+                                    "Demo: nagrywanie to atrapa",
+                                    android.widget.Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        }
+                    }
                 }
             },
             playerUp = {
@@ -359,29 +411,37 @@ fun DemoLiveScreen(
                         scrubCursorMs = controller.currentVirtualPositionMs()
                         updateFilmstrip(scrubCursorMs)
                     }
-                    PlayerZone.DESCRIPTION -> {
-                        playerZone = PlayerZone.BUTTONS   // wideo wraca z PIP na pełny ekran
+                    PlayerZone.SNIPPET -> {
+                        playerZone = PlayerZone.BUTTONS
+                        playerButtonsFocus = 0
                     }
-                    PlayerZone.STRIP -> { /* nic */ }
+                    PlayerZone.STRIP, PlayerZone.DETAIL -> { /* nic */ }
                 }
             },
             playerDown = {
                 playerInteractionAt = System.currentTimeMillis()
                 when (playerZone) {
                     PlayerZone.BUTTONS -> {
-                        playerZone = PlayerZone.DESCRIPTION   // opis, wideo do PIP
+                        playerZone = PlayerZone.SNIPPET   // fokus na skrót opisu (bez PIP)
                     }
                     PlayerZone.STRIP -> {
                         playerZone = PlayerZone.BUTTONS
                         playerButtonsFocus = 0
                     }
-                    PlayerZone.DESCRIPTION -> { /* nic */ }
+                    PlayerZone.SNIPPET, PlayerZone.DETAIL -> { /* nic */ }
                 }
             },
             playerBack = {
                 playerInteractionAt = System.currentTimeMillis()
                 when (playerZone) {
-                    PlayerZone.STRIP, PlayerZone.DESCRIPTION -> {
+                    PlayerZone.DETAIL -> {
+                        if (detailFromEpg) {
+                            openEpg()   // wróć tam, skąd przyszliśmy
+                        } else {
+                            playerZone = PlayerZone.SNIPPET
+                        }
+                    }
+                    PlayerZone.STRIP, PlayerZone.SNIPPET -> {
                         playerZone = PlayerZone.BUTTONS
                         playerButtonsFocus = 0
                     }
@@ -572,7 +632,7 @@ fun DemoLiveScreen(
         }
     }
 
-    val isDescription = layer == DemoLayer.PLAYER_UI && playerZone == PlayerZone.DESCRIPTION
+    val isDetail = layer == DemoLayer.PLAYER_UI && playerZone == PlayerZone.DETAIL
 
     Box(
         modifier = Modifier
@@ -585,7 +645,7 @@ fun DemoLiveScreen(
             }
             .focusable()
     ) {
-        if (!isDescription) {
+        if (!isDetail) {
             // Wideo fullscreen pod warstwami
             videoLayer(Modifier.fillMaxSize())
         }
@@ -608,6 +668,8 @@ fun DemoLiveScreen(
             isVisible = layer == DemoLayer.PLAYER_UI,
             zone = playerZone,
             block = DemoChannelSchedule.epgBlockAt(currentVirtualMs),
+            detailBlock = detailBlock ?: DemoChannelSchedule.epgBlockAt(currentVirtualMs),
+            detailTiming = detailTiming,
             currentVirtualMs = currentVirtualMs,
             liveEdgeVirtualMs = liveEdgeMs.coerceAtLeast(1L),
             dvrStartVirtualMs = controller.dvrStartMs(),
@@ -620,8 +682,8 @@ fun DemoLiveScreen(
             sy = sy
         )
 
-        if (isDescription) {
-            // PIP: ten sam widok wideo w prawym dolnym rogu, NAD warstwą opisu
+        if (isDetail) {
+            // PIP: ten sam widok wideo w prawym dolnym rogu, NAD warstwą detalu
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
