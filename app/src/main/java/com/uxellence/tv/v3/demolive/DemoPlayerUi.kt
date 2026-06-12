@@ -58,6 +58,7 @@ fun DemoPlayerUi(
     scrubCursorMs: Long,
     antennaStartWallMs: Long,
     isPaused: Boolean,
+    isAtLiveEdge: Boolean,      // na live: status "Oglądasz live" zamiast "Wróć do live"
     buttonsFocusIndex: Int,     // 0..4; -1 gdy fokus poza przyciskami
     frames: List<Pair<Long, Bitmap?>>,
     sx: (Int) -> Dp,
@@ -161,7 +162,7 @@ fun DemoPlayerUi(
 
                     Spacer(modifier = Modifier.height(sy(20)))
 
-                    PlayerButtonsRow(isPaused, buttonsFocusIndex, sx, sy)
+                    PlayerButtonsRow(isPaused, buttonsFocusIndex, isAtLiveEdge, sx, sy)
 
                     if (zone == PlayerZone.BUTTONS || zone == PlayerZone.SNIPPET) {
                         Spacer(modifier = Modifier.height(sy(18)))
@@ -370,18 +371,45 @@ private fun DemoSegmentedBlockBar(
     }
 }
 
-/** Rząd przycisków playera (wg designu: Zatrzymaj | Wróć do live | Zacznij od początku | Nagraj | Napisy...). */
+/**
+ * Rząd przycisków playera (wg designu: Zatrzymaj | Wróć do live | Zacznij od początku |
+ * Nagraj | Napisy...). Na live edge zamiast przycisku "Wróć do live" jest
+ * niefokusowalny status "● Oglądasz live" — przycisk pojawia się dopiero po
+ * przewinięciu wstecz (timeshift).
+ */
 @Composable
 private fun PlayerButtonsRow(
     isPaused: Boolean,
     focusedIndex: Int,
+    isAtLiveEdge: Boolean,
     sx: (Int) -> Dp,
     sy: (Int) -> Dp
 ) {
-    Row {
+    Row(verticalAlignment = Alignment.CenterVertically) {
         PlayerButton(if (isPaused) "▶  Wznów" else "⏸  Zatrzymaj", focusedIndex == 0, sx, sy)
         Spacer(modifier = Modifier.width(sx(16)))
-        PlayerButton("LIVE  Wróć do live", focusedIndex == 1, sx, sy)
+        if (isAtLiveEdge) {
+            // Status, nie przycisk — fokus go omija
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(horizontal = sx(10))
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(sy(12))
+                        .background(Color.Red, CircleShape)
+                )
+                Spacer(modifier = Modifier.width(sx(10)))
+                Text(
+                    text = "Oglądasz live",
+                    color = TEXT_PRIMARY,
+                    fontSize = demoSp(20, sy),
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        } else {
+            PlayerButton("LIVE  Wróć do live", focusedIndex == 1, sx, sy)
+        }
         Spacer(modifier = Modifier.width(sx(16)))
         PlayerButton("↺  Zacznij od początku", focusedIndex == 2, sx, sy)
         Spacer(modifier = Modifier.width(sx(16)))

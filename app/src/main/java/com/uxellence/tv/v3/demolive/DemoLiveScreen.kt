@@ -407,7 +407,13 @@ fun DemoLiveScreen(
                 playerInteractionAt = System.currentTimeMillis()
                 when (playerZone) {
                     PlayerZone.BUTTONS -> {
-                        playerButtonsFocus = (playerButtonsFocus + dir).coerceIn(0, 4)
+                        val atLive = tunedChannelIndex != 0 || controller.isAtLiveEdge()
+                        var newFocus = (playerButtonsFocus + dir).coerceIn(0, 4)
+                        if (atLive && newFocus == 1) {
+                            // Na live slot 1 to status "Oglądasz live" (niefokusowalny) — przeskocz
+                            newFocus = (newFocus + dir).coerceIn(0, 4)
+                        }
+                        playerButtonsFocus = newFocus
                     }
                     PlayerZone.STRIP -> {
                         scrubCursorMs = (scrubCursorMs + getSeekStep() * dir)
@@ -791,6 +797,8 @@ fun DemoLiveScreen(
             detailBlock = DemoChannelSchedule.epgBlockAt(currentVirtualMs),
             detailTiming = detailTiming,
             currentVirtualMs = if (tunedChannelIndex == 0) currentVirtualMs else liveEdgeMs,
+            isAtLiveEdge = tunedChannelIndex != 0 ||
+                (liveEdgeMs - currentVirtualMs) < 5_000L,
             liveEdgeVirtualMs = liveEdgeMs.coerceAtLeast(1L),
             dvrStartVirtualMs = controller.dvrStartMs(),
             scrubCursorMs = scrubCursorMs,
