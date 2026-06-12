@@ -53,6 +53,9 @@ fun DemoEpgLayer(
     focusedChannelIndex: Int,
     focusedProgramIndexFor: (Int) -> Int,
     focusedTime: Instant,
+    tunedChannelIndex: Int,     // kanał na ekranie — jego oglądany program dostaje playkę
+    playbackInstant: Instant,   // pozycja oglądania (przy timeshifcie cofnięta względem live)
+    nowInstant: Instant,        // zegar ścienny = live; program live-now ma ciemniejsze tło
     sx: (Int) -> Dp,
     sy: (Int) -> Dp
 ) {
@@ -152,10 +155,38 @@ fun DemoEpgLayer(
                             horizontalArrangement = Arrangement.spacedBy(sx(ITEM_GAP))
                         ) {
                             itemsIndexed(channelRow.programs) { programIndex, program ->
+                                // Live teraz (zegar ścienny) → ciemniejsze tło kafelka
+                                val isLiveNow = !nowInstant.isBefore(program.startUtc) &&
+                                    nowInstant.isBefore(program.endUtc)
+                                // Oglądany teraz: zatunowany kanał + program obejmujący
+                                // POZYCJĘ ODTWARZANIA (przy timeshifcie to program miniony)
+                                val isWatchedNow = channelIndex == tunedChannelIndex &&
+                                    !playbackInstant.isBefore(program.startUtc) &&
+                                    playbackInstant.isBefore(program.endUtc)
+                                // Timeshift: oglądanie cofnięte względem live → pasek pokazuje
+                                // pozycję oglądania (aqua) i punkt live (biała kropka)
+                                val isTimeshifted = isWatchedNow &&
+                                    java.time.Duration.between(playbackInstant, nowInstant)
+                                        .toMillis() > 5_000L
+                                val programSpanMs = java.time.Duration
+                                    .between(program.startUtc, program.endUtc)
+                                    .toMillis().coerceAtLeast(1L).toFloat()
+                                val watchProgress = if (isTimeshifted) {
+                                    (java.time.Duration.between(program.startUtc, playbackInstant)
+                                        .toMillis().toFloat() / programSpanMs).coerceIn(0f, 1f)
+                                } else null
+                                val liveDotAt = if (isTimeshifted && isLiveNow) {
+                                    (java.time.Duration.between(program.startUtc, nowInstant)
+                                        .toMillis().toFloat() / programSpanMs).coerceIn(0f, 1f)
+                                } else null
                                 EpgDayItem(
                                     program = program,
                                     isFocused = isFocusedChannel && programIndex == focusedProgramIndex,
                                     focusedTime = focusedTime,
+                                    liveNowBackground = isLiveNow,
+                                    isWatchedNow = isWatchedNow,
+                                    watchProgress = watchProgress,
+                                    liveDotAt = liveDotAt,
                                     sx = sx,
                                     sy = sy
                                 )

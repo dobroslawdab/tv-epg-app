@@ -1,8 +1,14 @@
 package com.uxellence.tv.v3.epg
 
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.LazyColumn
@@ -1366,6 +1372,10 @@ fun EpgDayItem(
     program: EpgProgram,
     isFocused: Boolean,
     focusedTime: Instant,  // NEW: Use focusedTime instead of now() for sync
+    liveNowBackground: Boolean? = null,  // non-null: tryb demo EPG — true = ciemniejsze tło (program live teraz)
+    isWatchedNow: Boolean = false,       // migająca playka: program aktualnie oglądany (zatunowany)
+    watchProgress: Float? = null,        // timeshift: wypełnienie paska do pozycji oglądania (aqua)
+    liveDotAt: Float? = null,            // timeshift: biała kropka live na pasku (0..1)
     sx: (Int) -> Dp,  // Layout Engineer: ALWAYS sx/sy
     sy: (Int) -> Dp
 ) {
@@ -1382,7 +1392,17 @@ fun EpgDayItem(
     Column(
         modifier = Modifier
             .width(sx(EPG_DAY_ITEM_WIDTH))  // Figma: 908px width
-            .alpha(alpha),  // Full opacity for focused or currently playing, dimmed for past/future
+            .alpha(alpha)  // Full opacity for focused or currently playing, dimmed for past/future
+            .then(
+                // Tryb demo: program nadawany TERAZ (live) dostaje ciemniejsze tło;
+                // padding stosowany dla wszystkich itemów trybu, żeby treść się nie przesuwała
+                if (liveNowBackground == true) {
+                    Modifier.background(Color(0x66000000), RoundedCornerShape(sx(12)))
+                } else Modifier
+            )
+            .then(
+                if (liveNowBackground != null) Modifier.padding(horizontal = sx(16)) else Modifier
+            ),
         verticalArrangement = Arrangement.spacedBy(sy(4))  // Figma: gap 4px
     ) {
         // 1. Body - Figma: Row 908x134, gap 24px
@@ -1463,6 +1483,27 @@ fun EpgDayItem(
                         horizontalArrangement = Arrangement.spacedBy(sx(4)),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        if (isWatchedNow) {
+                            // Migająca playka: ten program jest teraz na ekranie (zatunowany)
+                            val blink = rememberInfiniteTransition(label = "watch_blink")
+                                .animateFloat(
+                                    initialValue = 1f,
+                                    targetValue = 0.15f,
+                                    animationSpec = infiniteRepeatable(
+                                        animation = tween(600),
+                                        repeatMode = RepeatMode.Reverse
+                                    ),
+                                    label = "watch_blink_alpha"
+                                )
+                            Text(
+                                text = "▶",
+                                fontSize = (24 * sy(1).value / 1).sp,
+                                color = Color(0xFF5AECD3),
+                                modifier = Modifier
+                                    .alpha(blink.value)
+                                    .padding(end = sx(6))
+                            )
+                        }
                         Text(
                             text = startTime,
                             fontSize = (24 * sy(1).value / 1).sp,  // Figma: 24px
@@ -1511,6 +1552,8 @@ fun EpgDayItem(
             modifier = Modifier
                 .width(sx(EPG_DAY_ITEM_WIDTH))  // Figma: 908px
                 .height(sy(EPG_DAY_PROGRESS_HEIGHT)),  // Figma: 8px
+            watchProgress = watchProgress,
+            liveDotAt = liveDotAt,
             sx = sx,
             sy = sy
         )
@@ -1530,6 +1573,8 @@ fun EpgDayItem(
 fun ProgressBar(
     program: EpgProgram,
     modifier: Modifier = Modifier,
+    watchProgress: Float? = null,  // timeshift: wypełnienie do pozycji oglądania (aqua zamiast bieli)
+    liveDotAt: Float? = null,      // timeshift: biała kropka "gdzie jest live" (0..1)
     sx: (Int) -> Dp,
     sy: (Int) -> Dp
 ) {
@@ -1547,7 +1592,9 @@ fun ProgressBar(
         }
     }
 
-    Box(modifier = modifier) {
+    BoxWithConstraints(modifier = modifier) {
+        val barWidth = maxWidth
+
         // Background (40% opacity) - Figma: rgba(238, 238, 238, 0.4)
         Box(
             modifier = Modifier
@@ -1559,16 +1606,28 @@ fun ProgressBar(
                 )
         )
 
-        // Progress fill (100% opacity) - Figma: #EEEEEE
+        // Progress fill: standardowo biel (zegar ścienny); przy timeshifcie aqua
+        // do pozycji oglądania — widać, że oglądanie jest cofnięte względem live
+        val fillFraction = watchProgress ?: progress
         Box(
             modifier = Modifier
-                .fillMaxWidth(progress)
+                .fillMaxWidth(fillFraction)
                 .fillMaxHeight()
                 .background(
-                    Color(0xFFEEEEEE),  // Figma: #EEEEEE 100%
+                    if (watchProgress != null) Color(0xFF5AECD3) else Color(0xFFEEEEEE),
                     RoundedCornerShape(sx(4))
                 )
         )
+
+        // Punkt live (biała kropka) — gdzie jest teraz live, gdy oglądanie cofnięte
+        if (liveDotAt != null) {
+            Box(
+                modifier = Modifier
+                    .offset(x = barWidth * liveDotAt.coerceIn(0f, 1f) - sy(7), y = -sy(3))
+                    .size(sy(14))
+                    .background(Color(0xFFEEEEEE), CircleShape)
+            )
+        }
     }
 }
 

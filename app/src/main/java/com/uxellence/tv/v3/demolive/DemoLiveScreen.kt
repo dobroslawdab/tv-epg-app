@@ -782,6 +782,13 @@ fun DemoLiveScreen(
                 epgProgramIndex[i] ?: (epgRows.getOrNull(i)?.currentProgramIndex ?: 0)
             },
             focusedTime = epgFocusedTime,
+            tunedChannelIndex = tunedChannelIndex,
+            // Realny kanał nie ma timeshiftu w demo — pozycja oglądania = live
+            playbackInstant = java.time.Instant.ofEpochMilli(
+                controller.antennaStartWallMs +
+                    (if (tunedChannelIndex == 0) currentVirtualMs else liveEdgeMs)
+            ),
+            nowInstant = java.time.Instant.ofEpochMilli(controller.antennaStartWallMs + liveEdgeMs),
             sx = sx,
             sy = sy
         )
