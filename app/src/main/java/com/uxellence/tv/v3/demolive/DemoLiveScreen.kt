@@ -150,11 +150,15 @@ fun DemoLiveScreen(
     var scrubCursorMs by remember { mutableLongStateOf(0L) }
     var playerInteractionAt by remember { mutableLongStateOf(0L) }
     var filmstripFrames by remember { mutableStateOf<List<Pair<Long, Bitmap?>>>(emptyList()) }
-    // Detal programu (strefa DETAIL): jaki blok pokazuje, jego relacja do "teraz"
-    // i skąd przyszliśmy (EPG vs skrót opisu) — steruje BACK i przyciskiem akcji
-    var detailBlock by remember { mutableStateOf<DemoChannelSchedule.EpgBlock?>(null) }
+    // Detal programu (strefa DETAIL): renderowany PRAWDZIWYM MovieDetailScreen
+    // (tryb WIDEO — identyczny wygląd jak detale programów pod zakładką Wideo).
+    // detailSlide = dane do ekranu; timing/isDemo sterują akcją "Oglądaj";
+    // fromEpg steruje dokąd wraca BACK; detailStartVirtualMs = cel timeshiftu
+    var detailSlide by remember { mutableStateOf<com.uxellence.tv.v3.VodSlideData?>(null) }
     var detailTiming by remember { mutableStateOf(BlockTiming.CURRENT) }
+    var detailIsDemo by remember { mutableStateOf(true) }
     var detailFromEpg by remember { mutableStateOf(false) }
+    var detailStartVirtualMs by remember { mutableLongStateOf(0L) }
 
     // Akceleracja seeka (wzorzec z VodPlayerScreen)
     var rapidPressCount by remember { mutableIntStateOf(0) }
@@ -198,15 +202,39 @@ fun DemoLiveScreen(
         layer = DemoLayer.PLAYER_UI
     }
 
-    fun openDetail(block: DemoChannelSchedule.EpgBlock, fromEpg: Boolean) {
+    // Detal z EpgProgram (dowolny kanał) — dane VodSlideData jak w zakładce Wideo
+    fun openDetail(
+        program: com.uxellence.tv.v3.epg.EpgProgram,
+        channelLogoUrl: String?,
+        isDemo: Boolean,
+        fromEpg: Boolean
+    ) {
+        val startV = program.startUtc.toEpochMilli() - controller.antennaStartWallMs
+        val endV = program.endUtc.toEpochMilli() - controller.antennaStartWallMs
         val nowV = controller.currentVirtualPositionMs()
-        detailBlock = block
+        val durationMin = (program.endUtc.toEpochMilli() - program.startUtc.toEpochMilli()) / 60_000
+        detailSlide = com.uxellence.tv.v3.VodSlideData(
+            title = program.title,
+            genre = program.categories.filter { it.isNotBlank() }.take(2).joinToString(", "),
+            duration = "$durationMin min",
+            year = "",
+            country = "",
+            ageRating = "13 lat",
+            description = program.description ?: "Brak opisu programu w danych EPG.",
+            price = "",
+            backgroundUrl = program.iconUrl ?: "",
+            posterUrl = program.iconUrl ?: "",
+            isKinoPlay = false,
+            channelLogoUrl = channelLogoUrl
+        )
         detailTiming = when {
-            nowV in block.startVirtualMs until block.endVirtualMs -> BlockTiming.CURRENT
-            block.endVirtualMs <= controller.virtualNow() -> BlockTiming.PAST
+            isDemo && nowV in startV until endV -> BlockTiming.CURRENT
+            endV <= controller.virtualNow() -> BlockTiming.PAST
             else -> BlockTiming.FUTURE
         }
+        detailIsDemo = isDemo
         detailFromEpg = fromEpg
+        detailStartVirtualMs = startV
         playerZone = PlayerZone.DETAIL
         playerInteractionAt = System.currentTimeMillis()
         layer = DemoLayer.PLAYER_UI
@@ -248,11 +276,22 @@ fun DemoLiveScreen(
     }
 
     fun openEpg() {
-        epgRows = listOf(buildDemoRow()) + realChannelRows
+        val demoRow = buildDemoRow()
+        epgRows = listOf(demoRow) + realChannelRows
         epgChannelIndex = 0
+        // TIME SYNC musi celować w program AKTUALNIE ODTWARZANY (pozycja playbacku,
+        // nie zegar ścienny) — przy timeshifcie to różne programy; bez tego fokus
+        // ląduje poza wycentrowanym kafelkiem i OK otwiera detal zamiast playera
+        val focused = demoRow.programs.getOrNull(demoRow.currentProgramIndex)?.startUtc
+            ?: java.time.Instant.now()
+        epgFocusedTime = focused
         epgProgramIndex.clear()
-        epgRows.forEachIndexed { i, row -> epgProgramIndex[i] = row.currentProgramIndex }
-        epgFocusedTime = java.time.Instant.now()
+        epgRows.forEachIndexed { i, row ->
+            val match = row.programs.indexOfFirst { p ->
+                !focused.isBefore(p.startUtc) && focused.isBefore(p.endUtc)
+            }
+            epgProgramIndex[i] = if (match >= 0) match else row.currentProgramIndex
+        }
         epgInteractionAt = System.currentTimeMillis()
         layer = DemoLayer.EPG
     }
@@ -289,28 +328,25 @@ fun DemoLiveScreen(
                 val row = epgRows.getOrNull(epgChannelIndex)
                 val program = row?.programs?.getOrNull(epgProgramIndex[epgChannelIndex] ?: -1)
                 if (row != null && program != null) {
-                    if (epgChannelIndex == 0) {
-                        // DEMO TV: program AKTUALNIE odtwarzany → kontynuuj bez cofania;
-                        // miniony → timeshift do początku. Fokus ląduje na "Zatrzymaj".
-                        val targetStart = program.startUtc.toEpochMilli() - controller.antennaStartWallMs
-                        val targetEnd = program.endUtc.toEpochMilli() - controller.antennaStartWallMs
-                        val playingNow = controller.currentVirtualPositionMs() in targetStart until targetEnd
-                        if (playingNow) {
-                            // Program bieżący: kontynuuj odtwarzanie + UI playera
-                            openPlayerButtons()
-                            Log.i(TAG, "EPG select: '${program.title}' (bieżący) → PLAYER_UI")
-                        } else {
-                            // Program miniony LUB przyszły: detal z PIP (jak na VOD)
-                            openDetail(DemoChannelSchedule.epgBlockAt(targetStart), fromEpg = true)
-                            Log.i(TAG, "EPG select: '${program.title}' → DETAIL (timing=$detailTiming)")
-                        }
+                    val isDemo = epgChannelIndex == 0
+                    val targetStart = program.startUtc.toEpochMilli() - controller.antennaStartWallMs
+                    val targetEnd = program.endUtc.toEpochMilli() - controller.antennaStartWallMs
+                    val playingNow = isDemo &&
+                        controller.currentVirtualPositionMs() in targetStart until targetEnd
+                    if (playingNow) {
+                        // DEMO TV, program bieżący: kontynuuj odtwarzanie + UI playera
+                        openPlayerButtons()
+                        Log.i(TAG, "EPG select: '${program.title}' (bieżący) → PLAYER_UI")
                     } else {
-                        android.widget.Toast.makeText(
-                            context,
-                            "Demo: odtwarzanie działa tylko na kanale DEMO TV",
-                            android.widget.Toast.LENGTH_SHORT
-                        ).show()
-                        epgInteractionAt = System.currentTimeMillis()
+                        // Każdy inny program (DEMO TV miniony/przyszły ORAZ programy
+                        // realnych kanałów — mamy metadane z EPG) → detal jak na Wideo
+                        openDetail(
+                            program = program,
+                            channelLogoUrl = row.channel.logoUrl,
+                            isDemo = isDemo,
+                            fromEpg = true
+                        )
+                        Log.i(TAG, "EPG select: '${program.title}' (${row.channel.name}) → DETAIL (timing=$detailTiming)")
                     }
                 }
             },
@@ -366,39 +402,22 @@ fun DemoLiveScreen(
                         else -> { /* Nagraj / Napisy — atrapy */ }
                     }
                     PlayerZone.SNIPPET -> {
-                        // OK na skrócie opisu → detal z PIP (blok bieżący)
-                        openDetail(
-                            DemoChannelSchedule.epgBlockAt(controller.currentVirtualPositionMs()),
-                            fromEpg = false
+                        // OK na skrócie opisu → detal bieżącego programu DEMO TV
+                        val block = DemoChannelSchedule.epgBlockAt(controller.currentVirtualPositionMs())
+                        val program = com.uxellence.tv.v3.epg.EpgProgram(
+                            channelId = "demo",
+                            title = block.title,
+                            startUtc = java.time.Instant.ofEpochMilli(controller.antennaStartWallMs + block.startVirtualMs),
+                            endUtc = java.time.Instant.ofEpochMilli(controller.antennaStartWallMs + block.endVirtualMs),
+                            description = block.description,
+                            categories = listOf(block.genre, block.year, block.country),
+                            iconUrl = filmstrip.thumbUriFor(block.startVirtualMs, controller.virtualNow(), context.cacheDir)
                         )
+                        openDetail(program, channelLogoUrl = null, isDemo = true, fromEpg = false)
                         Log.i(TAG, "SNIPPET → DETAIL")
                     }
                     PlayerZone.DETAIL -> {
-                        // Przycisk akcji detalu — zależnie od relacji bloku do "teraz"
-                        val db = detailBlock
-                        when (detailTiming) {
-                            BlockTiming.CURRENT -> {
-                                playerZone = PlayerZone.BUTTONS
-                                playerButtonsFocus = 0
-                                Log.i(TAG, "DETAIL: Oglądaj (bieżący) → BUTTONS")
-                            }
-                            BlockTiming.PAST -> {
-                                if (db != null) {
-                                    controller.seekToVirtual(db.startVirtualMs)
-                                    isPaused = false
-                                }
-                                playerZone = PlayerZone.BUTTONS
-                                playerButtonsFocus = 0
-                                Log.i(TAG, "DETAIL: Oglądaj od początku → ${db?.startVirtualMs}ms")
-                            }
-                            BlockTiming.FUTURE -> {
-                                android.widget.Toast.makeText(
-                                    context,
-                                    "Demo: nagrywanie to atrapa",
-                                    android.widget.Toast.LENGTH_SHORT
-                                ).show()
-                            }
-                        }
+                        // OK obsługuje MovieDetailScreen (własny fokus) — tu nic
                     }
                 }
             },
@@ -591,6 +610,10 @@ fun DemoLiveScreen(
             false
         } else if (!isReady) {
             false
+        } else if (layer == DemoLayer.PLAYER_UI && playerZone == PlayerZone.DETAIL) {
+            // Detal renderuje MovieDetailScreen z własnym fokusem i klawiszami —
+            // nie przechwytuj (tylko BACK idzie przez nasz BackHandler)
+            false
         } else {
             val handled = DemoLiveKeyController.handleKey(keyCode, layer, actions)
             Log.i(TAG, "key=$keyCode layer(after)=$layer zone=$playerZone handled=$handled")
@@ -614,8 +637,10 @@ fun DemoLiveScreen(
         delay(200)
         rootFocus.requestFocus()
     }
-    // Zmiany warstw potrafią zgubić fokus okna — przywracaj na root (wzorzec Issue #4)
+    // Zmiany warstw potrafią zgubić fokus okna — przywracaj na root (wzorzec Issue #4).
+    // WYJĄTEK: strefa DETAIL — fokus należy do MovieDetailScreen (jego przyciski)
     LaunchedEffect(layer, playerZone) {
+        if (layer == DemoLayer.PLAYER_UI && playerZone == PlayerZone.DETAIL) return@LaunchedEffect
         delay(50)
         rootFocus.requestFocus()
     }
@@ -663,12 +688,13 @@ fun DemoLiveScreen(
             sy = sy
         )
 
-        // Zunifikowane UI playera (BUTTONS / STRIP / DESCRIPTION)
+        // Zunifikowane UI playera (BUTTONS / STRIP / SNIPPET); DETAIL renderuje
+        // poniżej prawdziwy MovieDetailScreen (identyczny z zakładką Wideo)
         DemoPlayerUi(
-            isVisible = layer == DemoLayer.PLAYER_UI,
+            isVisible = layer == DemoLayer.PLAYER_UI && playerZone != PlayerZone.DETAIL,
             zone = playerZone,
             block = DemoChannelSchedule.epgBlockAt(currentVirtualMs),
-            detailBlock = detailBlock ?: DemoChannelSchedule.epgBlockAt(currentVirtualMs),
+            detailBlock = DemoChannelSchedule.epgBlockAt(currentVirtualMs),
             detailTiming = detailTiming,
             currentVirtualMs = currentVirtualMs,
             liveEdgeVirtualMs = liveEdgeMs.coerceAtLeast(1L),
@@ -683,6 +709,50 @@ fun DemoLiveScreen(
         )
 
         if (isDetail) {
+            val slide = detailSlide
+            if (slide != null) {
+                // PRAWDZIWY MovieDetailScreen w trybie WIDEO — wygląd identyczny
+                // z detalami programów pod zakładką Wideo. Własny fokus i klawisze;
+                // BACK przechodzi przez nasz BackHandler → playerBack
+                Box(modifier = Modifier
+                    .fillMaxSize()
+                    .zIndex(14f)
+                ) {
+                    com.uxellence.tv.v3.moviedetail.MovieDetailScreen(
+                        item = slide,
+                        onBackPressed = { /* BACK obsługuje BackHandler (dispatcher) */ },
+                        onWatchClicked = {
+                            if (detailIsDemo) {
+                                when (detailTiming) {
+                                    BlockTiming.CURRENT -> {
+                                        openPlayerButtons()
+                                        Log.i(TAG, "DETAIL: Oglądaj (bieżący) → PLAYER_UI")
+                                    }
+                                    BlockTiming.PAST -> {
+                                        controller.seekToVirtual(detailStartVirtualMs)
+                                        isPaused = false
+                                        openPlayerButtons()
+                                        Log.i(TAG, "DETAIL: Oglądaj od początku → ${detailStartVirtualMs}ms")
+                                    }
+                                    BlockTiming.FUTURE -> {
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            "Demo: program jeszcze się nie rozpoczął",
+                                            android.widget.Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                }
+                            } else {
+                                android.widget.Toast.makeText(
+                                    context,
+                                    "Demo: odtwarzanie działa tylko na kanale DEMO TV",
+                                    android.widget.Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        }
+                    )
+                }
+            }
             // PIP: ten sam widok wideo w prawym dolnym rogu, NAD warstwą detalu
             Box(
                 modifier = Modifier
