@@ -48,13 +48,15 @@ object DemoChannelSchedule {
         val year: String,
         val country: String,
         val age: String,
-        val description: String
+        val description: String,
+        val coverUrl: String? = null   // okładka programu (EPG/detal); null = klatka z materiału
     )
 
     private val BLOCK_A_META = EpgBlock(
         title = "Sintel",
         startVirtualMs = 0L, endVirtualMs = 0L,
         genre = "fantasy", year = "2010 r.", country = "Holandia", age = "12 lat",
+        coverUrl = "https://m.media-amazon.com/images/S/pv-target-images/6faeb35e463ad90c72c97d47d06367ec7bc4d9d0be63659d6c9fb18777cf3b12.png",
         description = "Samotna wojowniczka Sintel przemierza świat w poszukiwaniu Scales — " +
             "małego smoka, którego niegdyś uratowała i wychowała, a który został jej brutalnie " +
             "odebrany. Wędrówka przez lodowe pustkowia i mroczne jaskinie wystawi jej " +

@@ -253,7 +253,7 @@ fun DemoLiveScreen(
                 endUtc = java.time.Instant.ofEpochMilli(controller.antennaStartWallMs + b.endVirtualMs),
                 description = b.description,
                 categories = listOf(b.genre, b.year, b.country, b.age),
-                iconUrl = filmstrip.thumbUriFor(b.startVirtualMs, edge, context.cacheDir)
+                iconUrl = b.coverUrl ?: filmstrip.thumbUriFor(b.startVirtualMs, edge, context.cacheDir)
             )
         }
         val nowInstant = java.time.Instant.ofEpochMilli(controller.antennaStartWallMs + nowV)
@@ -411,7 +411,8 @@ fun DemoLiveScreen(
                             endUtc = java.time.Instant.ofEpochMilli(controller.antennaStartWallMs + block.endVirtualMs),
                             description = block.description,
                             categories = listOf(block.genre, block.year, block.country),
-                            iconUrl = filmstrip.thumbUriFor(block.startVirtualMs, controller.virtualNow(), context.cacheDir)
+                            iconUrl = block.coverUrl
+                                ?: filmstrip.thumbUriFor(block.startVirtualMs, controller.virtualNow(), context.cacheDir)
                         )
                         openDetail(program, channelLogoUrl = null, isDemo = true, fromEpg = false)
                         Log.i(TAG, "SNIPPET → DETAIL")
