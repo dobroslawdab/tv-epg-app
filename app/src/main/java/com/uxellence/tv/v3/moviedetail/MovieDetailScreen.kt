@@ -77,7 +77,11 @@ fun MovieDetailScreen(
     onPreviewClicked: () -> Unit = {},
     onMoreInfoClicked: () -> Unit = {}, // Zachowujemy dla kompatybilności, ale nie używamy
     onNavigatePrev: (() -> Unit)? = null,  // WIDEO: LEFT from leftmost button → previous sibling
-    onNavigateNext: (() -> Unit)? = null   // WIDEO: RIGHT from rightmost button → next sibling
+    onNavigateNext: (() -> Unit)? = null,  // WIDEO: RIGHT from rightmost button → next sibling
+    // Nadpisanie przycisków (tryb WIDEO) — np. demo live: program przyszły ma
+    // [Nagraj, Przypomnij] zamiast [Oglądaj, Do obejrzenia]. null = standard.
+    customButtons: List<String>? = null,
+    onCustomButtonClicked: ((index: Int) -> Unit)? = null
 ) {
     // Reactive rental state — recomposes when RentalManager.rentals changes (e.g. after
     // rental confirmation or debug clear). VodSlideData has no stable id field, so we
@@ -190,7 +194,7 @@ fun MovieDetailScreen(
     val isWideoMode = !item.isKinoPlay
     val watchlistItems = com.uxellence.tv.v3.watchlist.WatchlistManager.items.value
     val isOnWatchlist = remember(watchlistItems, item.title) { item.title in watchlistItems }
-    val buttons = when {
+    val buttons = customButtons ?: when {
         isWideoMode -> listOf(
             "Oglądaj",
             if (isOnWatchlist) "Usuń z listy" else "Do obejrzenia"
@@ -475,7 +479,9 @@ fun MovieDetailScreen(
                                 if (isFocused) focusedButtonIndex = index
                             },
                             onClick = {
-                                when (index) {
+                                if (customButtons != null) {
+                                    onCustomButtonClicked?.invoke(index)
+                                } else when (index) {
                                     0 -> if (isWideoMode || isRented) onWatchClicked() else onRentClicked()
                                     1 -> if (isWideoMode) {
                                         com.uxellence.tv.v3.watchlist.WatchlistManager.toggle(item.title, context)
@@ -613,7 +619,9 @@ fun MovieDetailScreen(
                             browseMode = false
                             return@onPreviewKeyEvent true
                         }
-                        when (focusedButtonIndex) {
+                        if (customButtons != null) {
+                            onCustomButtonClicked?.invoke(focusedButtonIndex)
+                        } else when (focusedButtonIndex) {
                             0 -> if (isWideoMode || isRented) onWatchClicked() else onRentClicked()
                             1 -> if (isWideoMode) {
                                 com.uxellence.tv.v3.watchlist.WatchlistManager.toggle(item.title, context)

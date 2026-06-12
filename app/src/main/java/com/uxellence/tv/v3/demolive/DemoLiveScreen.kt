@@ -721,6 +721,19 @@ fun DemoLiveScreen(
                     com.uxellence.tv.v3.moviedetail.MovieDetailScreen(
                         item = slide,
                         onBackPressed = { /* BACK obsługuje BackHandler (dispatcher) */ },
+                        // Program PRZYSZŁY: nie da się go oglądać — [Nagraj, Przypomnij];
+                        // miniony/bieżący: standardowe [Oglądaj, Do obejrzenia]
+                        customButtons = if (detailTiming == BlockTiming.FUTURE) {
+                            listOf("Nagraj", "Przypomnij")
+                        } else null,
+                        onCustomButtonClicked = { index ->
+                            val msg = if (index == 0) {
+                                "Nagranie zaplanowane: ${slide.title} (atrapa)"
+                            } else {
+                                "Przypomnimy o programie: ${slide.title} (atrapa)"
+                            }
+                            android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
+                        },
                         onWatchClicked = {
                             if (detailIsDemo) {
                                 when (detailTiming) {
@@ -734,13 +747,7 @@ fun DemoLiveScreen(
                                         openPlayerButtons()
                                         Log.i(TAG, "DETAIL: Oglądaj od początku → ${detailStartVirtualMs}ms")
                                     }
-                                    BlockTiming.FUTURE -> {
-                                        android.widget.Toast.makeText(
-                                            context,
-                                            "Demo: program jeszcze się nie rozpoczął",
-                                            android.widget.Toast.LENGTH_SHORT
-                                        ).show()
-                                    }
+                                    BlockTiming.FUTURE -> { /* nieosiągalne: FUTURE ma customButtons */ }
                                 }
                             } else {
                                 android.widget.Toast.makeText(
