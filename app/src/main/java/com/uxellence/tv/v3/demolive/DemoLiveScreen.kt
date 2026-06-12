@@ -133,6 +133,9 @@ fun DemoLiveScreen(
     var currentVirtualMs by remember { mutableLongStateOf(0L) }
     var liveEdgeMs by remember { mutableLongStateOf(0L) }
     var isPaused by remember { mutableStateOf(false) }
+    // Dostrojony kanał: 0 = DEMO TV (gra barker), >0 = realny kanał — w demo nie ma
+    // jego streamu, więc zamiast wideo plansza "Brak live"; UI playera działa tak samo
+    var tunedChannelIndex by remember { mutableIntStateOf(0) }
 
     // Warstwa EPG: wiersz 0 = DEMO TV (sztuczna ramówka), 1..N = prawdziwe kanały z EPG
     var epgRows by remember { mutableStateOf<List<com.uxellence.tv.v3.epg.ChannelEpgRow>>(emptyList()) }
@@ -178,13 +181,18 @@ fun DemoLiveScreen(
     }
 
     fun updateFilmstrip(centerMs: Long) {
-        filmstripFrames = filmstrip.framesAround(
-            centerVirtualMs = centerMs,
-            liveEdgeVirtualMs = controller.virtualNow(),
-            stepMs = SEEK_STEP_MS,
-            sideCount = 3,
-            dvrStartVirtualMs = controller.dvrStartMs()
-        )
+        filmstripFrames = if (tunedChannelIndex == 0) {
+            filmstrip.framesAround(
+                centerVirtualMs = centerMs,
+                liveEdgeVirtualMs = controller.virtualNow(),
+                stepMs = SEEK_STEP_MS,
+                sideCount = 3,
+                dvrStartVirtualMs = controller.dvrStartMs()
+            )
+        } else {
+            // Realny kanał: brak materiału w demo — puste sloty z etykietami czasu
+            (-3..3).map { i -> (i * SEEK_STEP_MS) to null }
+        }
     }
 
     fun openPlayerButtons() {
@@ -192,6 +200,33 @@ fun DemoLiveScreen(
         playerButtonsFocus = 0
         playerInteractionAt = System.currentTimeMillis()
         layer = DemoLayer.PLAYER_UI
+    }
+
+    // Blok ramówki dla UI playera na dostrojonym kanale: DEMO TV = barker,
+    // realny kanał = jego bieżący program z EPG przeliczony na oś wirtualną
+    fun uiBlockForTunedChannel(): DemoChannelSchedule.EpgBlock {
+        if (tunedChannelIndex == 0) {
+            return DemoChannelSchedule.epgBlockAt(controller.currentVirtualPositionMs())
+        }
+        val row = epgRows.getOrNull(tunedChannelIndex)
+        val now = java.time.Instant.now()
+        val program = row?.programs?.firstOrNull { p ->
+            !now.isBefore(p.startUtc) && now.isBefore(p.endUtc)
+        }
+        return if (row != null && program != null) {
+            DemoChannelSchedule.EpgBlock(
+                title = program.title,
+                startVirtualMs = program.startUtc.toEpochMilli() - controller.antennaStartWallMs,
+                endVirtualMs = program.endUtc.toEpochMilli() - controller.antennaStartWallMs,
+                genre = program.categories.firstOrNull { it.isNotBlank() } ?: "",
+                year = "",
+                country = "",
+                age = "",
+                description = program.description ?: "Brak opisu programu w danych EPG."
+            )
+        } else {
+            DemoChannelSchedule.epgBlockAt(controller.virtualNow())
+        }
     }
 
     fun openStrip(initialCursor: Long) {
@@ -331,22 +366,40 @@ fun DemoLiveScreen(
                     val isDemo = epgChannelIndex == 0
                     val targetStart = program.startUtc.toEpochMilli() - controller.antennaStartWallMs
                     val targetEnd = program.endUtc.toEpochMilli() - controller.antennaStartWallMs
-                    val playingNow = isDemo &&
-                        controller.currentVirtualPositionMs() in targetStart until targetEnd
-                    if (playingNow) {
-                        // DEMO TV, program bieżący: kontynuuj odtwarzanie + UI playera
-                        openPlayerButtons()
-                        Log.i(TAG, "EPG select: '${program.title}' (bieżący) → PLAYER_UI")
-                    } else {
-                        // Każdy inny program (DEMO TV miniony/przyszły ORAZ programy
-                        // realnych kanałów — mamy metadane z EPG) → detal jak na Wideo
-                        openDetail(
-                            program = program,
-                            channelLogoUrl = row.channel.logoUrl,
-                            isDemo = isDemo,
-                            fromEpg = true
-                        )
-                        Log.i(TAG, "EPG select: '${program.title}' (${row.channel.name}) → DETAIL (timing=$detailTiming)")
+                    // "Teraz na żywo": DEMO TV wg pozycji odtwarzania, realne kanały wg zegara
+                    val nowRef = if (isDemo) controller.currentVirtualPositionMs() else controller.virtualNow()
+                    val playingNow = nowRef in targetStart until targetEnd
+                    when {
+                        playingNow && epgChannelIndex == tunedChannelIndex -> {
+                            // Drugie kliknięcie na dostrojonym kanale → UI playera
+                            // (przewijanie i przyciski działają tak samo wszędzie)
+                            openPlayerButtons()
+                            Log.i(TAG, "EPG select: '${program.title}' (dostrojony) → PLAYER_UI")
+                        }
+                        playingNow -> {
+                            // Pierwsze kliknięcie: dostrój kanał. DEMO TV gra barker;
+                            // realny kanał nie ma streamu w demo → plansza "Brak live",
+                            // warstwa EPG zostaje otwarta
+                            tunedChannelIndex = epgChannelIndex
+                            if (epgChannelIndex == 0) {
+                                controller.player?.play()
+                                isPaused = false
+                            } else {
+                                controller.player?.pause()
+                            }
+                            epgInteractionAt = System.currentTimeMillis()
+                            Log.i(TAG, "EPG select: tune → ${row.channel.name} (kanał ${row.channelNumber})")
+                        }
+                        else -> {
+                            // Program miniony/przyszły (dowolny kanał) → detal jak na Wideo
+                            openDetail(
+                                program = program,
+                                channelLogoUrl = row.channel.logoUrl,
+                                isDemo = isDemo,
+                                fromEpg = true
+                            )
+                            Log.i(TAG, "EPG select: '${program.title}' (${row.channel.name}) → DETAIL (timing=$detailTiming)")
+                        }
                     }
                 }
             },
@@ -676,6 +729,46 @@ fun DemoLiveScreen(
             videoLayer(Modifier.fillMaxSize())
         }
 
+        // Realny kanał: w demo nie ma jego streamu — plansza "Brak live" zamiast
+        // wideo (pod warstwami EPG/playera, więc cały flow działa identycznie)
+        if (tunedChannelIndex != 0 && !isDetail) {
+            val tunedRow = epgRows.getOrNull(tunedChannelIndex)
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFF1A0E2E))
+                    .zIndex(5f),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = tunedRow?.channel?.name ?: "",
+                        style = TextStyle(
+                            fontSize = demoSp(28, sy),
+                            color = Color(0x99EEEEEE)
+                        )
+                    )
+                    Spacer(Modifier.height(sy(12)))
+                    Text(
+                        text = "Brak live",
+                        style = TextStyle(
+                            fontSize = demoSp(56, sy),
+                            color = Color(0xFFEEEEEE),
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                        )
+                    )
+                    Spacer(Modifier.height(sy(12)))
+                    Text(
+                        text = "Transmisja tego kanału jest niedostępna w demo — ramówka, detal i przewijanie działają normalnie",
+                        style = TextStyle(
+                            fontSize = demoSp(20, sy),
+                            color = Color(0x99EEEEEE)
+                        )
+                    )
+                }
+            }
+        }
+
         // Warstwa EPG (identyczna wizualnie z EpgDayScreen pod zakładką Telewizja)
         DemoEpgLayer(
             isVisible = layer == DemoLayer.EPG && isReady,
@@ -694,10 +787,10 @@ fun DemoLiveScreen(
         DemoPlayerUi(
             isVisible = layer == DemoLayer.PLAYER_UI && playerZone != PlayerZone.DETAIL,
             zone = playerZone,
-            block = DemoChannelSchedule.epgBlockAt(currentVirtualMs),
+            block = uiBlockForTunedChannel(),
             detailBlock = DemoChannelSchedule.epgBlockAt(currentVirtualMs),
             detailTiming = detailTiming,
-            currentVirtualMs = currentVirtualMs,
+            currentVirtualMs = if (tunedChannelIndex == 0) currentVirtualMs else liveEdgeMs,
             liveEdgeVirtualMs = liveEdgeMs.coerceAtLeast(1L),
             dvrStartVirtualMs = controller.dvrStartMs(),
             scrubCursorMs = scrubCursorMs,
