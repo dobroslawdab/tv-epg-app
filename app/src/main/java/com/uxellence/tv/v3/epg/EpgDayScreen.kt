@@ -1397,7 +1397,7 @@ fun EpgDayItem(
                 // Tryb demo: program nadawany TERAZ (live) dostaje ciemniejsze tło;
                 // padding stosowany dla wszystkich itemów trybu, żeby treść się nie przesuwała
                 if (liveNowBackground == true) {
-                    Modifier.background(Color(0x66000000), RoundedCornerShape(sx(12)))
+                    Modifier.background(Color(0x66000000))   // bez zaokrągleń
                 } else Modifier
             )
             .then(
