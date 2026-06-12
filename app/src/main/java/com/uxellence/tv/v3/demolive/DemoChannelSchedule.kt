@@ -67,6 +67,7 @@ object DemoChannelSchedule {
         title = "Big Buck Bunny",
         startVirtualMs = 0L, endVirtualMs = 0L,
         genre = "animacja", year = "2008 r.", country = "Holandia", age = "7 lat",
+        coverUrl = "https://m.media-amazon.com/images/M/MV5BMjMzNDM1ZmEtYzRjOC00Nzg5LWFlZTAtMTA1M2I0NDc2Njg3XkEyXkFqcGc@._V1_.jpg",
         description = "Ogromny, dobroduszny królik budzi się pewnego ranka, by cieszyć się " +
             "urokami leśnej polany. Sielankę przerywa trójka złośliwych gryzoni, która dla zabawy " +
             "dręczy mniejsze zwierzęta. Gdy ich ofiarą padają ukochane motyle królika, " +
