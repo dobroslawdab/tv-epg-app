@@ -17,6 +17,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.uxellence.tv.v3.epg.ChannelEpgRow
 import com.uxellence.tv.v3.epg.ChannelInfoOverlay
@@ -31,8 +32,10 @@ private const val SCREEN_WIDTH = 1920
 private const val END_PADDING = SCREEN_WIDTH - FOCUSED_X
 private const val CHANNEL_INFO_X = 40
 private const val CHANNEL_ROW_HEIGHT = 142
+private const val VIEWPORT_HEIGHT_SINGLE = 142         // 1 kanał (pasek programów danego kanału)
 private const val VIEWPORT_HEIGHT_MULTI = 446          // 3 kanały: 3×142 + 2×10
-private const val FIXED_FOCUS_Y_MULTI = 960
+private const val FIXED_FOCUS_Y_SINGLE = 1000          // 80px od dołu (tryb 1 kanału)
+private const val FIXED_FOCUS_Y_MULTI = 960            // 120px od dołu (tryb 3+ kanałów)
 private const val ITEM_GAP = 48
 private const val ROW_GAP = 10
 
@@ -53,6 +56,7 @@ fun DemoEpgLayer(
     focusedChannelIndex: Int,
     focusedProgramIndexFor: (Int) -> Int,
     focusedTime: Instant,
+    isExpanded: Boolean,        // false = pasek 1 kanału (start); true = 3 kanały (po DOWN)
     tunedChannelIndex: Int,     // kanał na ekranie — jego oglądany program dostaje playkę
     playbackInstant: Instant,   // pozycja oglądania (przy timeshifcie cofnięta względem live)
     nowInstant: Instant,        // zegar ścienny = live; program live-now ma ciemniejsze tło
@@ -68,23 +72,36 @@ fun DemoEpgLayer(
             .zIndex(10f)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // Gradient jak w EpgDayScreen (wariant 3-kanałowy: mocniejszy dla czytelności)
+            // Gradient jak w EpgDayScreen: tryb 1 kanału = subtelny/niższy (0.61→0.82),
+            // tryb 3 kanałów = mocniejszy/wyższy (0.45→0.63) dla czytelności listy
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(sy(GRADIENT_HEIGHT))
                     .offset(y = sy(GRADIENT_TOP))
                     .background(
-                        Brush.verticalGradient(
-                            0.45f to Color(0x0048227C),
-                            0.63f to Color(0xFF48227C)
-                        )
+                        if (isExpanded) {
+                            Brush.verticalGradient(
+                                0.45f to Color(0x0048227C),
+                                0.63f to Color(0xFF48227C)
+                            )
+                        } else {
+                            Brush.verticalGradient(
+                                0.61f to Color(0x0048227C),
+                                0.82f to Color(0xFF48227C)
+                            )
+                        }
                     )
                     .zIndex(1f)
             )
 
-            // Viewport 3 kanałów — pozycjonowanie jak w EpgDayScreen (expanded mode)
-            val viewportOffset = FIXED_FOCUS_Y_MULTI - (2 * CHANNEL_ROW_HEIGHT) - ROW_GAP
+            // Viewport: 1 kanał (start) albo 3 kanały (po rozwinięciu) — jak EpgDayScreen
+            val viewportHeight = if (isExpanded) VIEWPORT_HEIGHT_MULTI else VIEWPORT_HEIGHT_SINGLE
+            val viewportOffset = if (isExpanded) {
+                FIXED_FOCUS_Y_MULTI - (2 * CHANNEL_ROW_HEIGHT) - ROW_GAP
+            } else {
+                FIXED_FOCUS_Y_SINGLE - CHANNEL_ROW_HEIGHT
+            }
             val columnState = rememberLazyListState()
             LaunchedEffect(focusedChannelIndex, isVisible) {
                 if (isVisible && focusedChannelIndex in rows.indices) {
@@ -113,13 +130,17 @@ fun DemoEpgLayer(
                 state = columnState,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(sy(VIEWPORT_HEIGHT_MULTI))
+                    .height(sy(viewportHeight))
                     .offset(y = sy(viewportOffset))
                     .zIndex(2f),
-                contentPadding = PaddingValues(
-                    top = sy(CHANNEL_ROW_HEIGHT + ROW_GAP),
-                    bottom = sy(CHANNEL_ROW_HEIGHT + ROW_GAP)
-                ),
+                // Tryb 1 kanału: bez paddingu (widać tylko fokusowany pasek);
+                // tryb 3 kanałów: padding na pierwszy/ostatni kanał
+                contentPadding = if (isExpanded) {
+                    PaddingValues(
+                        top = sy(CHANNEL_ROW_HEIGHT + ROW_GAP),
+                        bottom = sy(CHANNEL_ROW_HEIGHT + ROW_GAP)
+                    )
+                } else PaddingValues(0.dp),
                 verticalArrangement = Arrangement.spacedBy(sy(ROW_GAP))
             ) {
                 itemsIndexed(rows) { channelIndex, channelRow ->

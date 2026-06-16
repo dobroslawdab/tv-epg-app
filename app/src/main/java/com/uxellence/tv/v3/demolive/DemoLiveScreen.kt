@@ -141,6 +141,9 @@ fun DemoLiveScreen(
     var epgRows by remember { mutableStateOf<List<com.uxellence.tv.v3.epg.ChannelEpgRow>>(emptyList()) }
     var realChannelRows by remember { mutableStateOf<List<com.uxellence.tv.v3.epg.ChannelEpgRow>>(emptyList()) }
     var epgChannelIndex by remember { mutableIntStateOf(0) }
+    // Warstwa EPG jak pod Telewizją: start = pasek 1 kanału (zatunowanego), pierwszy
+    // DOWN rozwija do 3 kanałów; UP w trybie 1-kanałowym nic nie robi
+    var epgExpanded by remember { mutableStateOf(false) }
     val epgProgramIndex = remember { mutableStateMapOf<Int, Int>() }
     var epgInteractionAt by remember { mutableLongStateOf(0L) }
     // Czas fokusu siatki EPG (TIME SYNC) — start fokusowanego programu;
@@ -310,11 +313,14 @@ fun DemoLiveScreen(
     fun openEpg() {
         val demoRow = buildDemoRow()
         epgRows = listOf(demoRow) + realChannelRows
-        epgChannelIndex = 0
+        // Start jak pod Telewizją: pasek 1 kanału (tego, który jest na ekranie)
+        epgExpanded = false
+        epgChannelIndex = tunedChannelIndex.coerceIn(0, (epgRows.size - 1).coerceAtLeast(0))
         // TIME SYNC musi celować w program AKTUALNIE ODTWARZANY (pozycja playbacku,
         // nie zegar ścienny) — przy timeshifcie to różne programy; bez tego fokus
         // ląduje poza wycentrowanym kafelkiem i OK otwiera detal zamiast playera
-        val focused = demoRow.programs.getOrNull(demoRow.currentProgramIndex)?.startUtc
+        val focusRow = epgRows.getOrNull(epgChannelIndex) ?: demoRow
+        val focused = focusRow.programs.getOrNull(focusRow.currentProgramIndex)?.startUtc
             ?: java.time.Instant.now()
         epgFocusedTime = focused
         epgProgramIndex.clear()
@@ -344,15 +350,26 @@ fun DemoLiveScreen(
                 epgInteractionAt = System.currentTimeMillis()
             },
             epgMoveChannel = { dir ->
-                val newChannel = (epgChannelIndex + dir).coerceIn(0, (epgRows.size - 1).coerceAtLeast(0))
-                epgChannelIndex = newChannel
-                // Na nowym kanale fokusuj program emitowany o epgFocusedTime (siatka czasowa)
-                epgRows.getOrNull(newChannel)?.let { row ->
-                    val matching = row.programs.indexOfFirst { p ->
-                        !epgFocusedTime.isBefore(p.startUtc) && epgFocusedTime.isBefore(p.endUtc)
+                // Wzorzec z Telewizji: w trybie 1 kanału UP nic nie robi, pierwszy DOWN
+                // rozwija listę i przechodzi na kolejny kanał; potem normalna nawigacja
+                val doMove = if (!epgExpanded) {
+                    if (dir > 0) {
+                        epgExpanded = true
+                        true
+                    } else false
+                } else true
+
+                if (doMove) {
+                    val newChannel = (epgChannelIndex + dir).coerceIn(0, (epgRows.size - 1).coerceAtLeast(0))
+                    epgChannelIndex = newChannel
+                    // Na nowym kanale fokusuj program emitowany o epgFocusedTime (siatka czasowa)
+                    epgRows.getOrNull(newChannel)?.let { row ->
+                        val matching = row.programs.indexOfFirst { p ->
+                            !epgFocusedTime.isBefore(p.startUtc) && epgFocusedTime.isBefore(p.endUtc)
+                        }
+                        epgProgramIndex[newChannel] =
+                            if (matching >= 0) matching else row.currentProgramIndex
                     }
-                    epgProgramIndex[newChannel] =
-                        if (matching >= 0) matching else row.currentProgramIndex
                 }
                 epgInteractionAt = System.currentTimeMillis()
             },
@@ -782,6 +799,7 @@ fun DemoLiveScreen(
                 epgProgramIndex[i] ?: (epgRows.getOrNull(i)?.currentProgramIndex ?: 0)
             },
             focusedTime = epgFocusedTime,
+            isExpanded = epgExpanded,
             tunedChannelIndex = tunedChannelIndex,
             // Realny kanał nie ma timeshiftu w demo — pozycja oglądania = live
             playbackInstant = java.time.Instant.ofEpochMilli(
