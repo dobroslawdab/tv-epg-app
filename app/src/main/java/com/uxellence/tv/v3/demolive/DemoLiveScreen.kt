@@ -334,6 +334,29 @@ fun DemoLiveScreen(
         layer = DemoLayer.EPG
     }
 
+    // Indeks programu AKTUALNIE OGLĄDANEGO na danym kanale: DEMO TV = program pod
+    // pozycją odtwarzania (przy timeshifcie miniony), realny kanał = program live
+    fun liveProgramIndexFor(channelIdx: Int): Int {
+        val row = epgRows.getOrNull(channelIdx) ?: return 0
+        val refMs = if (channelIdx == 0) controller.currentVirtualPositionMs() else controller.virtualNow()
+        val instant = java.time.Instant.ofEpochMilli(controller.antennaStartWallMs + refMs)
+        val idx = row.programs.indexOfFirst { p ->
+            !instant.isBefore(p.startUtc) && instant.isBefore(p.endUtc)
+        }
+        return if (idx >= 0) idx else row.currentProgramIndex
+    }
+
+    // Czy fokus EPG jest na OGLĄDANEJ pozycji: ten sam kanał co na ekranie, jego
+    // bieżący program, tryb 1-kanałowy. Jeśli nie — pierwszy BACK tam wraca,
+    // dopiero kolejny zamyka warstwę
+    fun isEpgAtWatchedPosition(): Boolean {
+        if (epgExpanded) return false
+        if (epgChannelIndex != tunedChannelIndex) return false
+        val row = epgRows.getOrNull(tunedChannelIndex) ?: return false
+        val focusedIdx = epgProgramIndex[tunedChannelIndex] ?: row.currentProgramIndex
+        return focusedIdx == liveProgramIndexFor(tunedChannelIndex)
+    }
+
     // ============ AKCJE (wywoływane przez DemoLiveKeyController) ============
     val actions = remember {
         DemoLiveActions(
@@ -415,6 +438,17 @@ fun DemoLiveScreen(
                             Log.i(TAG, "EPG select: '${program.title}' (${row.channel.name}) → DETAIL (timing=$detailTiming)")
                         }
                     }
+                }
+            },
+            epgBack = {
+                if (isEpgAtWatchedPosition()) {
+                    // Już na oglądanym kanale + bieżącym programie → zamknij EPG
+                    layer = DemoLayer.FULLSCREEN
+                    Log.i(TAG, "EPG BACK: at watched position → FULLSCREEN")
+                } else {
+                    // Wróć do oglądanego kanału + bieżącego programu (live), tryb 1-kanałowy
+                    openEpg()
+                    Log.i(TAG, "EPG BACK: re-home to watched channel=$tunedChannelIndex")
                 }
             },
             playerMove = { dir ->

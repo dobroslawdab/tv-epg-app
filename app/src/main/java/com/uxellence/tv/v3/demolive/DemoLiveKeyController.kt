@@ -18,6 +18,7 @@ class DemoLiveActions(
     val epgMove: (direction: Int) -> Unit,
     val epgMoveChannel: (direction: Int) -> Unit,
     val epgSelect: () -> Unit,
+    val epgBack: () -> Unit,
     val playerMove: (direction: Int) -> Unit,
     val playerSelect: () -> Unit,
     val playerUp: () -> Unit,
@@ -56,7 +57,10 @@ object DemoLiveKeyController {
             a.epgSelect(); true
         }
         KeyEvent.KEYCODE_BACK -> {
-            a.goFullscreen(); true   // zamknij warstwę EPG, oglądanie bez interfejsu
+            // Wielopoziomowy BACK: jeśli fokus jest na innym programie/kanale niż
+            // oglądany → wróć do oglądanego kanału + bieżącego programu; dopiero gdy
+            // już tam jesteśmy → zamknij warstwę EPG (oglądanie bez interfejsu)
+            a.epgBack(); true
         }
         KeyEvent.KEYCODE_DPAD_UP -> {
             a.epgMoveChannel(-1); true
