@@ -590,8 +590,17 @@ fun DemoLiveScreen(
             val rows = mutableListOf<com.uxellence.tv.v3.epg.ChannelEpgRow>()
             var channelNumber = 0
             for (channel in com.uxellence.tv.v3.channels.ChannelManager.getAllChannels(includeUnavailable = false)) {
+                val epgKey = channel.epgId ?: channel.id
                 val programs = try {
-                    repo.getFullDayPrograms(channel.epgId ?: channel.id, now)
+                    // Wczoraj + dziś: getFullDayPrograms filtruje po starcie w obrębie
+                    // doby kalendarzowej, więc program nadawany PRZEZ północ (start
+                    // wczoraj wieczorem) wypada z zapytania "dziś" i powstaje luka tuż
+                    // po 00:00. DEMO TV (ciągła oś barkera) celuje właśnie w tę porę,
+                    // więc bez doby wczorajszej realne kanały nie miały programu o tym
+                    // czasie i nie dawały się zsynchronizować (match=-1).
+                    val today = repo.getFullDayPrograms(epgKey, now)
+                    val yesterday = repo.getFullDayPrograms(epgKey, now.minus(java.time.Duration.ofDays(1)))
+                    (yesterday + today).distinctBy { it.startUtc }
                 } catch (e: Exception) {
                     emptyList()
                 }

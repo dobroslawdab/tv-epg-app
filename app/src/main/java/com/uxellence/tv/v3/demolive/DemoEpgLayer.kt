@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
@@ -72,6 +73,18 @@ fun DemoEpgLayer(
             .zIndex(10f)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
+            // Zegar ścienny w prawym górnym rogu — widoczny razem z GUI (warstwą EPG)
+            Text(
+                text = formatWall(nowInstant.toEpochMilli(), withSeconds = false),
+                color = Color(0xFFEEEEEE),
+                fontSize = demoSp(28, sy),
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = sy(40), end = sx(60))
+                    .zIndex(4f)
+            )
+
             // Gradient jak w EpgDayScreen: tryb 1 kanału = subtelny/niższy (0.61→0.82),
             // tryb 3 kanałów = mocniejszy/wyższy (0.45→0.63) dla czytelności listy
             Box(
@@ -110,9 +123,14 @@ fun DemoEpgLayer(
             }
 
             // TIME SYNC jak w EpgDayScreen: wszystkie kanały przewijają się do programu
-            // emitowanego o focusedTime — czasówki między wierszami się zgadzają
-            LaunchedEffect(focusedTime, rows, isVisible) {
+            // emitowanego o focusedTime — czasówki między wierszami się zgadzają.
+            // Klucz zawiera isExpanded + focusedChannelIndex: w trybie 1-kanałowym
+            // pozostałe LazyRow nie są skomponowane, więc scrollToItem na nich nie
+            // zadziała; po rozwinięciu (DOWN) trzeba zsynchronizować je ponownie,
+            // gdy już są w composition (stąd delay na layout świeżych wierszy).
+            LaunchedEffect(focusedTime, rows, isVisible, isExpanded, focusedChannelIndex) {
                 if (!isVisible || rows.isEmpty()) return@LaunchedEffect
+                kotlinx.coroutines.delay(32)
                 rows.forEachIndexed { index, channelRow ->
                     val matchingIndex = channelRow.programs.indexOfFirst { program ->
                         !focusedTime.isBefore(program.startUtc) && focusedTime.isBefore(program.endUtc)
