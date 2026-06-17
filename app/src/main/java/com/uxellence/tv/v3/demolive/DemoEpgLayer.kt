@@ -58,6 +58,7 @@ fun DemoEpgLayer(
     focusedProgramIndexFor: (Int) -> Int,
     focusedTime: Instant,
     isExpanded: Boolean,        // false = pasek 1 kanału (start); true = 3 kanały (po DOWN)
+    isBlackout: (channelIdx: Int, programIdx: Int) -> Boolean = { _, _ -> false },  // brak praw → wyszarzenie + kłódka
     tunedChannelIndex: Int,     // kanał na ekranie — jego oglądany program dostaje playkę
     playbackInstant: Instant,   // pozycja oglądania (przy timeshifcie cofnięta względem live)
     nowInstant: Instant,        // zegar ścienny = live; program live-now ma ciemniejsze tło
@@ -226,6 +227,7 @@ fun DemoEpgLayer(
                                     isWatchedNow = isWatchedNow,
                                     watchProgress = watchProgress,
                                     liveDotAt = liveDotAt,
+                                    isBlackout = isBlackout(channelIndex, programIndex),
                                     sx = sx,
                                     sy = sy
                                 )

@@ -1376,6 +1376,7 @@ fun EpgDayItem(
     isWatchedNow: Boolean = false,       // migająca playka: program aktualnie oglądany (zatunowany)
     watchProgress: Float? = null,        // timeshift: wypełnienie paska do pozycji oglądania (aqua)
     liveDotAt: Float? = null,            // timeshift: biała kropka live na pasku (0..1)
+    isBlackout: Boolean = false,         // brak praw — wyszarzony kafelek + plakietka „kłódka"
     sx: (Int) -> Dp,  // Layout Engineer: ALWAYS sx/sy
     sy: (Int) -> Dp
 ) {
@@ -1384,9 +1385,13 @@ fun EpgDayItem(
     val startTime = program.startUtc.atZone(zone).format(timeFormatter)
     val endTime = program.endUtc.atZone(zone).format(timeFormatter)
 
-    // Alpha logic: focused OR currently playing (at focusedTime) = full opacity, otherwise dimmed
+    // Alpha logic: blackout = mocno wyszarzony; inaczej focused/playing = pełny, reszta przygaszona
     val isCurrentlyPlaying = !focusedTime.isBefore(program.startUtc) && focusedTime.isBefore(program.endUtc)
-    val alpha = if (isFocused || isCurrentlyPlaying) 1f else 0.5f
+    val alpha = when {
+        isBlackout -> 0.38f
+        isFocused || isCurrentlyPlaying -> 1f
+        else -> 0.5f
+    }
 
     // Figma: epg_1 - Column with gap 4px
     Column(
@@ -1502,6 +1507,16 @@ fun EpgDayItem(
                                 modifier = Modifier
                                     .alpha(blink.value)
                                     .padding(end = sx(6))
+                            )
+                        }
+                        if (isBlackout) {
+                            // Plakietka braku praw — program nieodtwarzalny (blackout)
+                            Text(
+                                text = "🔒 Niedostępne",
+                                fontSize = (18 * sy(1).value / 1).sp,
+                                fontWeight = FontWeight.Medium,
+                                color = Color(0xFFEEEEEE),
+                                modifier = Modifier.padding(end = sx(10))
                             )
                         }
                         Text(

@@ -29,7 +29,6 @@ private const val TAG = "DemoLive"
 private const val SEEK_STEP_MS = 10_000L
 private const val EPG_TIMEOUT_MS = 12_000L
 private const val PLAYER_UI_TIMEOUT_MS = 10_000L
-private const val STRIP_AUTOEXIT_MS = 5_000L
 
 /**
  * Widok wideo demo: TextureView (nie SurfaceView — z-order w Compose) z zachowaniem
@@ -156,6 +155,15 @@ fun DemoLiveScreen(
     var scrubCursorMs by remember { mutableLongStateOf(0L) }
     var playerInteractionAt by remember { mutableLongStateOf(0L) }
     var filmstripFrames by remember { mutableStateOf<List<Pair<Long, Bitmap?>>>(emptyList()) }
+    // Scrub UX: pozycja sprzed rozpoczęcia przewijania (WSTECZ wraca do niej),
+    // oraz timestamp ostatniej próby przewinięcia do przodu na kanale BACKWARD_ONLY
+    // (wyzwala zanikający komunikat „Przewijanie do przodu nie jest dostępne")
+    var scrubStartVirtualMs by remember { mutableLongStateOf(0L) }
+    var forwardBlockedAt by remember { mutableLongStateOf(0L) }
+    var forwardBlockedMsgVisible by remember { mutableStateOf(false) }
+    // DEMO: override polityki przewijania DEMO TV (klawisz "2") — by pokazać
+    // blokady na żywym wideo (jedyny kanał z materiałem). null = klasyfikacja auto
+    var demoPolicyOverride by remember { mutableStateOf<DemoSeekPolicy?>(null) }
     // Detal programu (strefa DETAIL): renderowany PRAWDZIWYM MovieDetailScreen
     // (tryb WIDEO — identyczny wygląd jak detale programów pod zakładką Wideo).
     // detailSlide = dane do ekranu; timing/isDemo sterują akcją "Oglądaj";
@@ -203,6 +211,30 @@ fun DemoLiveScreen(
         playerButtonsFocus = 0
         playerInteractionAt = System.currentTimeMillis()
         layer = DemoLayer.PLAYER_UI
+    }
+
+    // Polityka przewijania dostrojonego kanału (blokady per kanał, nie per program)
+    fun tunedSeekPolicy(): DemoSeekPolicy {
+        if (tunedChannelIndex == 0 && demoPolicyOverride != null) return demoPolicyOverride!!
+        val name = epgRows.getOrNull(tunedChannelIndex)?.channel?.name ?: ""
+        return DemoSeekPolicyClassifier.policyForChannel(name, isDemoBarker = tunedChannelIndex == 0)
+    }
+
+    fun showForwardBlocked() {
+        forwardBlockedAt = System.currentTimeMillis()
+        forwardBlockedMsgVisible = true
+        playerInteractionAt = System.currentTimeMillis()
+        Log.i(TAG, "Forward seek blocked (policy=${tunedSeekPolicy()})")
+    }
+
+    // Blackout (brak praw) programu pod daną pozycją wirtualną na dostrojonym kanale
+    fun isBlackoutAtVirtual(virtualMs: Long): Boolean {
+        val row = epgRows.getOrNull(tunedChannelIndex) ?: return false
+        val instant = java.time.Instant.ofEpochMilli(controller.antennaStartWallMs + virtualMs)
+        val idx = row.programs.indexOfFirst { p ->
+            !instant.isBefore(p.startUtc) && instant.isBefore(p.endUtc)
+        }
+        return idx >= 0 && DemoSeekPolicyClassifier.isBlackout(tunedChannelIndex, idx)
     }
 
     // Blok ramówki dostrojonego kanału w pozycji wirtualnej: DEMO TV = sztuczna
@@ -398,8 +430,18 @@ fun DemoLiveScreen(
             },
             epgSelect = {
                 val row = epgRows.getOrNull(epgChannelIndex)
-                val program = row?.programs?.getOrNull(epgProgramIndex[epgChannelIndex] ?: -1)
-                if (row != null && program != null) {
+                val focusedProgIdx = epgProgramIndex[epgChannelIndex] ?: -1
+                val program = row?.programs?.getOrNull(focusedProgIdx)
+                if (row != null && program != null &&
+                    DemoSeekPolicyClassifier.isBlackout(epgChannelIndex, focusedProgIdx)
+                ) {
+                    // Blackout (brak praw) — nie da się odtworzyć/dostroić
+                    android.widget.Toast.makeText(
+                        context, "Tego programu nie można odtworzyć", android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                    epgInteractionAt = System.currentTimeMillis()
+                    Log.i(TAG, "EPG select: '${program.title}' blackout → blocked")
+                } else if (row != null && program != null) {
                     val isDemo = epgChannelIndex == 0
                     val targetStart = program.startUtc.toEpochMilli() - controller.antennaStartWallMs
                     val targetEnd = program.endUtc.toEpochMilli() - controller.antennaStartWallMs
@@ -465,9 +507,15 @@ fun DemoLiveScreen(
                         playerButtonsFocus = newFocus
                     }
                     PlayerZone.STRIP -> {
-                        scrubCursorMs = (scrubCursorMs + getSeekStep() * dir)
-                            .coerceIn(controller.dvrStartMs(), controller.virtualNow())
-                        updateFilmstrip(scrubCursorMs)
+                        if (dir > 0 && tunedSeekPolicy() == DemoSeekPolicy.BACKWARD_ONLY) {
+                            // Blokada przewijania DO PRZODU (TVN/Disney) — komunikat, bez ruchu
+                            showForwardBlocked()
+                        } else {
+                            scrubCursorMs = (scrubCursorMs + getSeekStep() * dir)
+                                .coerceIn(controller.dvrStartMs(), controller.virtualNow())
+                            updateFilmstrip(scrubCursorMs)
+                            forwardBlockedMsgVisible = false
+                        }
                     }
                     PlayerZone.SNIPPET, PlayerZone.DETAIL -> { /* brak nawigacji poziomej */ }
                 }
@@ -476,13 +524,22 @@ fun DemoLiveScreen(
                 playerInteractionAt = System.currentTimeMillis()
                 when (playerZone) {
                     PlayerZone.STRIP -> {
-                        // OK na taśmie = skok do kursora, fokus wraca na "Zatrzymaj"
-                        controller.seekToVirtual(scrubCursorMs)
-                        isPaused = false
-                        rapidPressCount = 0
-                        playerZone = PlayerZone.BUTTONS
-                        playerButtonsFocus = 0
-                        Log.i(TAG, "STRIP seek → ${scrubCursorMs}ms → BUTTONS")
+                        if (isBlackoutAtVirtual(scrubCursorMs)) {
+                            // Blackout (brak praw) — nie odtwarzaj tego fragmentu
+                            android.widget.Toast.makeText(
+                                context, "Tego programu nie można odtworzyć", android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                            Log.i(TAG, "STRIP OK on blackout → blocked")
+                        } else {
+                            // OK na taśmie = skok do kursora, fokus wraca na "Zatrzymaj"
+                            controller.seekToVirtual(scrubCursorMs)
+                            isPaused = false
+                            rapidPressCount = 0
+                            forwardBlockedMsgVisible = false
+                            playerZone = PlayerZone.BUTTONS
+                            playerButtonsFocus = 0
+                            Log.i(TAG, "STRIP seek → ${scrubCursorMs}ms → BUTTONS")
+                        }
                     }
                     PlayerZone.BUTTONS -> when (playerButtonsFocus) {
                         0 -> {  // Zatrzymaj / Wznów
@@ -534,10 +591,18 @@ fun DemoLiveScreen(
                 playerInteractionAt = System.currentTimeMillis()
                 when (playerZone) {
                     PlayerZone.BUTTONS -> {
-                        // Z przycisków na taśmę (kursor startuje z bieżącej pozycji)
-                        playerZone = PlayerZone.STRIP
-                        scrubCursorMs = controller.currentVirtualPositionMs()
-                        updateFilmstrip(scrubCursorMs)
+                        if (tunedSeekPolicy() == DemoSeekPolicy.NONE) {
+                            // Telewizja bez startover — brak przewijania, nie otwieraj taśmy
+                            android.widget.Toast.makeText(
+                                context, "Przewijanie niedostępne na tym kanale", android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                        } else {
+                            // Z przycisków na taśmę (kursor startuje z bieżącej pozycji)
+                            playerZone = PlayerZone.STRIP
+                            scrubStartVirtualMs = controller.currentVirtualPositionMs()
+                            scrubCursorMs = scrubStartVirtualMs
+                            updateFilmstrip(scrubCursorMs)
+                        }
                     }
                     PlayerZone.SNIPPET -> {
                         playerZone = PlayerZone.BUTTONS
@@ -569,7 +634,20 @@ fun DemoLiveScreen(
                             playerZone = PlayerZone.SNIPPET
                         }
                     }
-                    PlayerZone.STRIP, PlayerZone.SNIPPET -> {
+                    PlayerZone.STRIP -> {
+                        // WSTECZ z przewijania wraca do OGLĄDANEJ treści (nie do klatki
+                        // pod kursorem): barker/VOD → kadr startowy (playback nie ruszał
+                        // się, commit jest dopiero na OK); realny kanał (startover/backward)
+                        // → live. Klatka NIE gaśnie sama — wychodzimy tylko na WSTECZ.
+                        if (tunedChannelIndex != 0) {
+                            controller.seekToLiveEdge()
+                            isPaused = false
+                        }
+                        forwardBlockedMsgVisible = false
+                        playerZone = PlayerZone.BUTTONS
+                        playerButtonsFocus = 0
+                    }
+                    PlayerZone.SNIPPET -> {
                         playerZone = PlayerZone.BUTTONS
                         playerButtonsFocus = 0
                     }
@@ -577,14 +655,35 @@ fun DemoLiveScreen(
                 }
             },
             openStripWithStep = { direction ->
-                if (layer != DemoLayer.PLAYER_UI || playerZone != PlayerZone.STRIP) {
-                    openStrip(controller.currentVirtualPositionMs())
+                val policy = tunedSeekPolicy()
+                when {
+                    policy == DemoSeekPolicy.NONE -> {
+                        // Telewizja bez startover — brak przewijania
+                        android.widget.Toast.makeText(
+                            context, "Przewijanie niedostępne na tym kanale", android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                    direction > 0 && policy == DemoSeekPolicy.BACKWARD_ONLY -> {
+                        // Blokada do przodu — pokaż komunikat, ale wejdź w STRIP (żeby user
+                        // widział pasek i mógł przewijać w tył / wrócić do live)
+                        if (layer != DemoLayer.PLAYER_UI || playerZone != PlayerZone.STRIP) {
+                            scrubStartVirtualMs = controller.currentVirtualPositionMs()
+                            openStrip(scrubStartVirtualMs)
+                        }
+                        showForwardBlocked()
+                    }
+                    else -> {
+                        if (layer != DemoLayer.PLAYER_UI || playerZone != PlayerZone.STRIP) {
+                            scrubStartVirtualMs = controller.currentVirtualPositionMs()
+                            openStrip(scrubStartVirtualMs)
+                        }
+                        scrubCursorMs = (scrubCursorMs + getSeekStep() * direction)
+                            .coerceIn(controller.dvrStartMs(), controller.virtualNow())
+                        updateFilmstrip(scrubCursorMs)
+                        playerInteractionAt = System.currentTimeMillis()
+                        Log.i(TAG, "STRIP ${if (direction > 0) "RIGHT" else "LEFT"} → ${scrubCursorMs}ms")
+                    }
                 }
-                scrubCursorMs = (scrubCursorMs + getSeekStep() * direction)
-                    .coerceIn(controller.dvrStartMs(), controller.virtualNow())
-                updateFilmstrip(scrubCursorMs)
-                playerInteractionAt = System.currentTimeMillis()
-                Log.i(TAG, "STRIP ${if (direction > 0) "RIGHT" else "LEFT"} → ${scrubCursorMs}ms")
             },
             goFullscreen = { layer = DemoLayer.FULLSCREEN },
             exit = { onBackPressed() }
@@ -707,13 +806,16 @@ fun DemoLiveScreen(
         }
     }
 
-    // Taśma: 5 s bezczynności → powrót na przyciski (bez seeka)
-    LaunchedEffect(layer, playerZone, playerInteractionAt) {
-        if (layer == DemoLayer.PLAYER_UI && playerZone == PlayerZone.STRIP) {
-            delay(STRIP_AUTOEXIT_MS)
-            playerZone = PlayerZone.BUTTONS
-            playerButtonsFocus = 0
-            Log.i(TAG, "STRIP auto-exit po ${STRIP_AUTOEXIT_MS}ms")
+    // Scrub preview NIE wygasa sam (wytyczne BO / benchmark Netflix: klatka nie
+    // gaśnie i nie wraca do poprzedniej pozycji). Wyjście ze STRIP tylko akcją
+    // użytkownika: OK (skok), WSTECZ (powrót do oglądanej treści) lub dalsze
+    // przewijanie. Brak auto-exit po czasie.
+
+    // Komunikat „Przewijanie do przodu nie jest dostępne" znika po ~3 s
+    LaunchedEffect(forwardBlockedAt) {
+        if (forwardBlockedMsgVisible) {
+            delay(3_000)
+            forwardBlockedMsgVisible = false
         }
     }
 
@@ -732,6 +834,18 @@ fun DemoLiveScreen(
             // Detal renderuje MovieDetailScreen z własnym fokusem i klawiszami —
             // nie przechwytuj (tylko BACK idzie przez nasz BackHandler)
             false
+        } else if (keyCode == android.view.KeyEvent.KEYCODE_2) {
+            // DEMO: cykluj politykę przewijania DEMO TV (pokaz blokad na żywym wideo)
+            demoPolicyOverride = when (demoPolicyOverride) {
+                null, DemoSeekPolicy.BOTH -> DemoSeekPolicy.BACKWARD_ONLY
+                DemoSeekPolicy.BACKWARD_ONLY -> DemoSeekPolicy.NONE
+                DemoSeekPolicy.NONE -> DemoSeekPolicy.BOTH
+            }
+            android.widget.Toast.makeText(
+                context, "DEMO TV: przewijanie = ${demoPolicyOverride}", android.widget.Toast.LENGTH_SHORT
+            ).show()
+            Log.i(TAG, "demoPolicyOverride=$demoPolicyOverride")
+            true
         } else {
             val handled = DemoLiveKeyController.handleKey(keyCode, layer, actions)
             Log.i(TAG, "key=$keyCode layer(after)=$layer zone=$playerZone handled=$handled")
@@ -843,6 +957,7 @@ fun DemoLiveScreen(
             },
             focusedTime = epgFocusedTime,
             isExpanded = epgExpanded,
+            isBlackout = { ch, prog -> DemoSeekPolicyClassifier.isBlackout(ch, prog) },
             tunedChannelIndex = tunedChannelIndex,
             // Realny kanał nie ma timeshiftu w demo — pozycja oglądania = live
             playbackInstant = java.time.Instant.ofEpochMilli(
@@ -888,6 +1003,7 @@ fun DemoLiveScreen(
             antennaStartWallMs = controller.antennaStartWallMs,
             isPaused = isPaused,
             buttonsFocusIndex = if (playerZone == PlayerZone.BUTTONS) playerButtonsFocus else -1,
+            forwardBlockedMsgVisible = forwardBlockedMsgVisible,
             frames = filmstripFrames,
             sx = sx,
             sy = sy
