@@ -1571,6 +1571,24 @@ adb shell cmd role add-role-holder android.app.role.HOME com.uxellence.tv.v3
 
 ---
 
+## Demo Live Channel + Ramówka Mockup 🆕
+
+**Status**: ✅ Makieta UX dla A/B testów
+**Pattern Guide**: [`docs/patterns/DEMO_LIVE_PATTERN.md`](docs/patterns/DEMO_LIVE_PATTERN.md)
+**Pakiet**: `app/src/main/java/com/uxellence/tv/v3/demolive/`
+
+Pełny flow kanału live z ramówką (barker channel): warstwa EPG jak pod Telewizją (single→expanded), zunifikowany player z przewijaniem (scrub preview, filmstrip, timeshift), detale programów (`MovieDetailScreen`). Maszyna stanów `EPG ⇄ PLAYER_UI ⇄ FULLSCREEN` (`DemoLiveKeyController`), oś wirtualna zakotwiczona w zegarze ściennym (`DemoChannelSchedule`/`DemoChannelPlayerController`).
+
+**Kluczowe wzorce** (szczegóły w pattern-doc):
+- Reużycie produkcyjnych komponentów wizualnych (`ChannelInfoOverlay`, `EpgDayItem`, `FrameCaptureManager`, `MovieDetailScreen`) — markery EPG dodane jako **opcjonalne parametry z domyślnymi**, więc produkcyjny EpgDayScreen bez zmian.
+- TIME SYNC kanałów: klucz efektu zawiera `isExpanded` + `focusedChannelIndex` + delay — kanały poza viewportem w trybie single nie są skomponowane.
+- **Pułapka danych przez północ**: `getFullDayPrograms(now)` gubi program nadawany przez północ → ładować dobę **wczoraj+dziś** i scalać.
+- Wielopoziomowy BACK w EPG: re-home do oglądanego kanału+programu zanim zamknie.
+
+**Wejście**: menu deweloperskie (klawisz „1") → „📡 Demo: Kanał live + ramówka".
+
+---
+
 ## MOJE Section Spacing System (2025-09-29)
 
 ### 📋 System Documentation
