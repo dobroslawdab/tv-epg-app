@@ -76,6 +76,11 @@ fun AbcSearchKeyboard(
     isNumberMode: Boolean,
     sx: (Int) -> Dp,
     sy: (Int) -> Dp,
+    // True only while the keyboard owns the focus in its parent screen.
+    // When false (caller moved focus to the grid / chips), no key renders
+    // the focused/aqua style — otherwise the screen would show two focus
+    // indicators at once (last key + grid item).
+    isActive: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     val rows = keyboardRows(isNumberMode)
@@ -86,7 +91,7 @@ fun AbcSearchKeyboard(
         rows.forEachIndexed { rowIdx, rowKeys ->
             Row(horizontalArrangement = Arrangement.spacedBy(sx(4))) {
                 rowKeys.forEachIndexed { colIdx, key ->
-                    val isFocused = rowIdx == focusedRow && colIdx == focusedCol
+                    val isFocused = isActive && rowIdx == focusedRow && colIdx == focusedCol
                     val keyWidth = when (key) {
                         KEY_SPACE -> letterW * 4 + gapW * 3
                         else -> letterW

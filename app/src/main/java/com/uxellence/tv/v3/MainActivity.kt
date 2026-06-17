@@ -402,6 +402,22 @@ fun TvRoot(
     // Save TOP_MENU2 section for smart BACK navigation: "TELEWIZJA", "MOJE", etc.
     var savedTelewizjaSection by remember { mutableStateOf<String?>(null) }
 
+    // Set przez VodGridScreen/KinoGridScreen empty state ("Szukaj w całym serwisie")
+    // → MainActivity przełącza na TOP_MENU2/SEARCH z preseed query. Resetowane do null
+    // po jednorazowym przekazaniu, żeby kolejne wejścia w SEARCH nie były pre-fillowane.
+    var pendingGlobalSearchQuery by remember { mutableStateOf<String?>(null) }
+
+    // Po przekazaniu query do SearchScreen przy mount (mutableStateOf(initialQuery)),
+    // zerujemy pending żeby kolejne mount SearchScreen (np. po przełączeniu sekcji)
+    // nie nadpisał użytkownikowi obecnej frazy. 500 ms = SectionContent zdąży się
+    // wyrenderować i przekazać initialQuery dalej.
+    LaunchedEffect(pendingGlobalSearchQuery) {
+        if (pendingGlobalSearchQuery != null) {
+            kotlinx.coroutines.delay(500)
+            pendingGlobalSearchQuery = null
+        }
+    }
+
     // PIP (Picture-in-Picture) state
     var pipPlayer by remember { mutableStateOf<com.google.android.exoplayer2.ExoPlayer?>(null) }
     var pipStreamUrl by remember { mutableStateOf<String?>(null) }
@@ -622,6 +638,7 @@ fun TvRoot(
                     onFocusRestored = { },
                     restoredTelewizjaFocus = savedTelewizjaFocus,
                     restoredSection = savedTelewizjaSection,
+                    initialSearchQuery = pendingGlobalSearchQuery ?: "",
                     homeFocusTrigger = homeFocusTrigger,
                     pipPlayer = pipPlayer,
                     onClosePip = {
@@ -1109,6 +1126,13 @@ fun TvRoot(
                         selectedMovieData = vodContentToWideoSlideData(vodContent)
                         previousScreen = NavigationScreen.VOD_GRID
                         currentScreen = NavigationScreen.MOVIE_DETAIL
+                    },
+                    onGlobalSearch = { query ->
+                        // "Szukaj w całym serwisie" — przeskocz do TOP_MENU2/SEARCH
+                        // z preseed query żeby user kontynuował pisanie tam.
+                        pendingGlobalSearchQuery = query
+                        savedTelewizjaSection = "SEARCH"
+                        currentScreen = NavigationScreen.TOP_MENU2
                     }
                 )
             }

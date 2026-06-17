@@ -151,14 +151,17 @@ fun SearchScreen(
     sy: (Int) -> Dp,
     onNavigateToMovieDetail: (com.uxellence.tv.v3.VodSlideData) -> Unit = {},
     onReturnToMenu: () -> Unit = {},
-    searchKeyboardMode: Int = 0
+    searchKeyboardMode: Int = 0,
+    // Preseed query when user entered SEARCH via "Szukaj w całym serwisie"
+    // from VodGridScreen / KinoGridScreen. Empty = standard fresh entry.
+    initialQuery: String = ""
 ) {
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
     val useSystemKeyboard = searchKeyboardMode == 1
     val isMode2 = searchKeyboardMode == 2
 
-    var searchQuery by remember { mutableStateOf("") }
+    var searchQuery by remember { mutableStateOf(initialQuery) }
     var isNumberMode by remember { mutableStateOf(false) }
     var keyboardRow by remember { mutableIntStateOf(0) }
     var keyboardCol by remember { mutableIntStateOf(0) }

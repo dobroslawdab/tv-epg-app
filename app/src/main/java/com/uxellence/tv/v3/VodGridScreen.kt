@@ -39,6 +39,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -51,8 +52,8 @@ import com.uxellence.tv.v3.components.keyboardRows
 import com.uxellence.tv.v3.version001.VodContent
 import kotlinx.coroutines.launch
 
-// Grid layout constants — horizontal thumbnails (344x194), 5 columns default
-private const val GRID_COLUMNS = 5
+// Grid layout constants — horizontal thumbnails (344x194), 4 columns default
+private const val GRID_COLUMNS = 4
 private const val GRID_COLUMNS_WITH_KEYBOARD = 3       // bigger thumbnails when keyboard panel is up
 private const val GRADIENT_OVERLAY_HEIGHT = 600
 private const val TITLE_LEFT_PADDING = 0
@@ -62,8 +63,11 @@ private const val GRID_HORIZONTAL_GAP = 20
 private const val GRID_VERTICAL_GAP = 40
 private const val FOCUSED_ROW_PIN_Y_DP = 240          // Pin focused row at this Y from viewport top
 
-// Width reserved on the left when the search keyboard is visible (matches KinoGridScreen).
-private const val VOD_SEARCH_KEYBOARD_SHIFT_DP = 480
+// Width reserved on the left when the search keyboard is visible.
+// Klawiatura ma ~404 dp szerokości i startuje na x=40 → kończy się na ~444.
+// Grid startuje na GRID_LEFT_PADDING(80) + SHIFT. Przy SHIFT=480 odstęp ≈ 116 dp;
+// po połowie ≈ 58 dp → SHIFT = 480 - 58 = 422.
+private const val VOD_SEARCH_KEYBOARD_SHIFT_DP = 422
 
 // Sort options — mirror KinoSortOption so the spec parity is identical across
 // both grids. "Data dodania", "Data produkcji" i "Ocena Filmweb" są POKAZANE
@@ -83,7 +87,8 @@ private enum class VodFocusLevel {
     CATEGORY_CHIP,
     SEARCH_CHIP,
     KEYBOARD,
-    GRID
+    GRID,
+    EMPTY_ACTION   // "Szukaj w całym serwisie" gdy wyszukiwanie zwróci 0 wyników
 }
 
 /**
@@ -182,7 +187,9 @@ fun VodGridScreen(
     initialSearchQuery: String = "",
     onMovieClicked: (vodContent: VodContent, siblings: List<VodContent>, index: Int) -> Unit = { _, _, _ -> },
     onCategoryChanged: (String) -> Unit = {},
-    onSearchQueryChanged: (String) -> Unit = {}
+    onSearchQueryChanged: (String) -> Unit = {},
+    // Wywoływane gdy user kliknie "Szukaj w całym serwisie" w empty state.
+    onGlobalSearch: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
@@ -224,6 +231,14 @@ fun VodGridScreen(
     val sortChipFocusRequester = remember { FocusRequester() }
     val categoryChipFocusRequester = remember { FocusRequester() }
     val searchChipFocusRequester = remember { FocusRequester() }
+    // Niewidoczny focusable host pod klawiaturą. Klawiatura sama nie ma
+    // Compose-focusable nodes (literki są tylko renderowane, nawigacja idzie
+    // przez onPreviewKeyEvent na całym ekranie). Bez tego — gdy user pisze
+    // i grid filtruje do 0 wyników — gridFocusRequester znika, Compose
+    // migruje focus na pierwszy focusable = SortChip → onFocusChange flipuje
+    // currentFocusLevel = SORT_CHIP i klawiatura "traci" focus.
+    val keyboardHostFocusRequester = remember { FocusRequester() }
+    val emptyStateActionFocusRequester = remember { FocusRequester() }
     val coroutineScope = rememberCoroutineScope()
 
     var searchActive by remember { mutableStateOf(initialSearchQuery.isNotBlank()) }
@@ -271,6 +286,16 @@ fun VodGridScreen(
         hasRequestedInitialFocus = true
     }
 
+    // Trzymaj Compose focus na klawiaturze gdy currentFocusLevel == KEYBOARD.
+    // Bez tego — gdy grid filtruje do 0 wyników w trakcie pisania — focus
+    // migrowałby automatycznie na SortChip (pierwszy focusable na ekranie).
+    LaunchedEffect(currentFocusLevel, searchActive, searchQuery, filteredVodContent.size) {
+        if (currentFocusLevel == VodFocusLevel.KEYBOARD && searchActive) {
+            kotlinx.coroutines.delay(50)
+            try { keyboardHostFocusRequester.requestFocus() } catch (_: Exception) {}
+        }
+    }
+
     var didInitialFilter by remember { mutableStateOf(false) }
     LaunchedEffect(selectedCategory, selectedSort, allVodContent, searchQuery) {
         var result = allVodContent
@@ -299,6 +324,13 @@ fun VodGridScreen(
             focusedCol = 0
         } else {
             didInitialFilter = true
+        }
+
+        // Jeśli byliśmy na buttonie "Szukaj w całym serwisie" i znowu pojawiły
+        // się wyniki (user dopisał/usunął literę) — wróć na klawiaturę żeby
+        // dalej pisał, a button znika z DOM.
+        if (currentFocusLevel == VodFocusLevel.EMPTY_ACTION && result.isNotEmpty()) {
+            currentFocusLevel = VodFocusLevel.KEYBOARD
         }
     }
 
@@ -382,6 +414,18 @@ fun VodGridScreen(
                                     if (keyboardCol > rowKeys.size - 1) keyboardCol = rowKeys.size - 1
                                 }
                             }
+                            VodFocusLevel.EMPTY_ACTION -> {
+                                // Wracaj na klawiaturę (ostatni wiersz)
+                                val rows = keyboardRows(isNumberMode)
+                                keyboardRow = rows.size - 1
+                                val rowKeys = rows[keyboardRow]
+                                if (keyboardCol > rowKeys.size - 1) keyboardCol = rowKeys.size - 1
+                                currentFocusLevel = VodFocusLevel.KEYBOARD
+                                coroutineScope.launch {
+                                    kotlinx.coroutines.delay(50)
+                                    try { keyboardHostFocusRequester.requestFocus() } catch (_: Exception) {}
+                                }
+                            }
                             else -> { /* already at top */ }
                         }
                         true
@@ -407,6 +451,19 @@ fun VodGridScreen(
                                     keyboardRow++
                                     val rowKeys = rows[keyboardRow]
                                     if (keyboardCol > rowKeys.size - 1) keyboardCol = rowKeys.size - 1
+                                }
+                            }
+                            VodFocusLevel.EMPTY_ACTION -> {
+                                // Fallback safe-route — DOWN na buttonie wraca na klawiaturę
+                                // (oficjalna droga wejścia to RIGHT z klawiatury).
+                                val rows = keyboardRows(isNumberMode)
+                                keyboardRow = rows.size - 1
+                                val rowKeys = rows[keyboardRow]
+                                if (keyboardCol > rowKeys.size - 1) keyboardCol = rowKeys.size - 1
+                                currentFocusLevel = VodFocusLevel.KEYBOARD
+                                coroutineScope.launch {
+                                    kotlinx.coroutines.delay(50)
+                                    try { keyboardHostFocusRequester.requestFocus() } catch (_: Exception) {}
                                 }
                             }
                             VodFocusLevel.GRID -> {
@@ -459,6 +516,17 @@ fun VodGridScreen(
                             VodFocusLevel.KEYBOARD -> {
                                 if (keyboardCol > 0) keyboardCol--
                             }
+                            VodFocusLevel.EMPTY_ACTION -> {
+                                // LEFT z buttona "Szukaj w całym serwisie" → wraca na klawiaturę
+                                // (na ostatnią kolumnę aktualnego wiersza dla symetrii z RIGHT).
+                                val rowKeys = keyboardRows(isNumberMode)[keyboardRow]
+                                keyboardCol = rowKeys.size - 1
+                                currentFocusLevel = VodFocusLevel.KEYBOARD
+                                coroutineScope.launch {
+                                    kotlinx.coroutines.delay(50)
+                                    try { keyboardHostFocusRequester.requestFocus() } catch (_: Exception) {}
+                                }
+                            }
                             else -> { /* already at leftmost */ }
                         }
                         true
@@ -493,8 +561,17 @@ fun VodGridScreen(
                                         kotlinx.coroutines.delay(50)
                                         gridFocusRequesters[Pair(0, 0)]?.requestFocus()
                                     }
+                                } else if (searchActive && searchQuery.isNotBlank()) {
+                                    // RIGHT z ostatniej kolumny klawiatury gdy brak wyników →
+                                    // button "Szukaj w całym serwisie" (empty state).
+                                    currentFocusLevel = VodFocusLevel.EMPTY_ACTION
+                                    coroutineScope.launch {
+                                        kotlinx.coroutines.delay(50)
+                                        try { emptyStateActionFocusRequester.requestFocus() } catch (_: Exception) {}
+                                    }
                                 }
                             }
+                            VodFocusLevel.EMPTY_ACTION -> { /* już na prawym końcu */ }
                             VodFocusLevel.GRID -> {
                                 val numRows = (filteredVodContent.size + gridColumns - 1) / gridColumns
                                 val maxCol = if (focusedRow == numRows - 1) {
@@ -545,6 +622,10 @@ fun VodGridScreen(
                                     }
                                     else -> searchQuery += key
                                 }
+                                true
+                            }
+                            VodFocusLevel.EMPTY_ACTION -> {
+                                onGlobalSearch(searchQuery)
                                 true
                             }
                             else -> false
@@ -613,6 +694,23 @@ fun VodGridScreen(
                         sx = ::sx,
                         sy = ::sy
                     )
+                }
+
+                // Empty state — pokazuje się tylko w trakcie aktywnego search
+                // (z niepustym query) gdy nic nie pasuje. Klawiatura zostaje
+                // aktywna (keyboardHostFocusRequester trzyma focus), button
+                // "Szukaj w całym serwisie" jest osiągalny DOWN z ostatniego
+                // wiersza klawiatury.
+                if (searchActive && searchQuery.isNotBlank() && filteredVodContent.isEmpty()) {
+                    item(span = { GridItemSpan(gridColumns) }) {
+                        VodEmptyState(
+                            query = searchQuery,
+                            isActionFocused = currentFocusLevel == VodFocusLevel.EMPTY_ACTION,
+                            actionFocusRequester = emptyStateActionFocusRequester,
+                            sx = ::sx,
+                            sy = ::sy
+                        )
+                    }
                 }
             }
         }
@@ -705,7 +803,12 @@ fun VodGridScreen(
                 modifier = Modifier
                     .align(Alignment.TopStart)
                     .offset(x = keyboardOffsetX + sx(40), y = sy(140))
-                    .zIndex(15f),
+                    .zIndex(15f)
+                    // Focusable host — patrz keyboardHostFocusRequester deklaracja.
+                    // Trzyma Compose focus na klawiaturze gdy grid filtruje do
+                    // zera (inaczej focus migrował na SortChip).
+                    .focusRequester(keyboardHostFocusRequester)
+                    .focusable(),
                 verticalArrangement = Arrangement.spacedBy(sy(16))
             ) {
                 Text(
@@ -722,6 +825,7 @@ fun VodGridScreen(
                     focusedRow = keyboardRow,
                     focusedCol = keyboardCol,
                     isNumberMode = isNumberMode,
+                    isActive = currentFocusLevel == VodFocusLevel.KEYBOARD,
                     sx = ::sx,
                     sy = ::sy
                 )
@@ -1035,6 +1139,57 @@ private fun PillOption(
                 fontSize = (28 * scaleY).sp,
                 fontWeight = FontWeight.Medium,
                 letterSpacing = 0.56.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun VodEmptyState(
+    query: String,
+    isActionFocused: Boolean,
+    actionFocusRequester: FocusRequester,
+    sx: (Int) -> Dp,
+    sy: (Int) -> Dp
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = sy(40)),
+        verticalArrangement = Arrangement.spacedBy(sy(20))
+    ) {
+        Text(
+            text = "Brak wyników dla \"$query\" w Wideo",
+            color = Color(0xFFEEEEEE),
+            fontSize = (32 * sy(1).value).sp,
+            fontWeight = FontWeight.SemiBold,
+            lineHeight = (40 * sy(1).value).sp
+        )
+        Text(
+            text = "Spróbuj innej frazy lub poszukaj w pozostałych serwisach.",
+            color = Color(0x99EEEEEE),
+            fontSize = (20 * sy(1).value).sp,
+            lineHeight = (28 * sy(1).value).sp
+        )
+        // Button: skala z aqua focus border, identyczny styl jak inne CTA w gridach
+        Box(
+            modifier = Modifier
+                .padding(top = sy(12))
+                .height(sy(64))
+                .background(
+                    color = if (isActionFocused) Color(0xFF5AECD3) else Color(0x33EEEEEE),
+                    shape = RoundedCornerShape(sx(32))
+                )
+                .focusRequester(actionFocusRequester)
+                .focusable()
+                .padding(horizontal = sx(32)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "Szukaj w całym serwisie",
+                color = if (isActionFocused) Color(0xFF281443) else Color(0xFFEEEEEE),
+                fontSize = (22 * sy(1).value).sp,
+                fontWeight = FontWeight.SemiBold
             )
         }
     }

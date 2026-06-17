@@ -845,6 +845,7 @@ fun KinoGridScreen(
                     focusedRow = keyboardRow,
                     focusedCol = keyboardCol,
                     isNumberMode = isNumberMode,
+                    isActive = currentFocusLevel == KinoFocusLevel.KEYBOARD,
                     sx = ::sx,
                     sy = ::sy
                 )

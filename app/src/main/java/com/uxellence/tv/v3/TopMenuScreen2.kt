@@ -1310,6 +1310,9 @@ fun TopMenuScreen2(
     onFocusRestored: () -> Unit = {},
     restoredTelewizjaFocus: FocusState? = null,
     restoredSection: String? = null,
+    // Pre-fill SEARCH section's query — used przez "Szukaj w całym serwisie"
+    // z VodGridScreen / KinoGridScreen empty state.
+    initialSearchQuery: String = "",
     // Counter bumped by MainActivity every time the HOME button is pressed. When
     // it increments we force-focus the ODKRYWAJ (START) menu tab regardless of
     // where the user currently is — even if they're already on ODKRYWAJ content.
@@ -2127,7 +2130,8 @@ fun TopMenuScreen2(
                     onDismissUpdateBadge()
                     showKontoUpdateBadge = false
                 },
-                searchKeyboardMode = searchKeyboardMode
+                searchKeyboardMode = searchKeyboardMode,
+                initialSearchQuery = initialSearchQuery
             )
         }
 
@@ -4008,7 +4012,8 @@ private fun FullPageContent(
     onUpdateDownload: (com.uxellence.tv.v3.update.AppUpdateInfo) -> Unit = {},
     onUpdateInstall: () -> Unit = {},
     onDismissUpdateBadge: () -> Unit = {},
-    searchKeyboardMode: Int = 0
+    searchKeyboardMode: Int = 0,
+    initialSearchQuery: String = ""
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
 
@@ -4048,7 +4053,8 @@ private fun FullPageContent(
                         onReturnToMenu = {
                             globalFocusState.value = GlobalFocusManager.returnToMenu(globalFocusState.value)
                         },
-                        searchKeyboardMode = searchKeyboardMode
+                        searchKeyboardMode = searchKeyboardMode,
+                        initialQuery = initialSearchQuery
                     )
                     "MOJE" -> MojeScreenContent(
                         globalFocusState = globalFocusState,

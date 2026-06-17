@@ -52,9 +52,10 @@ fun HorizontalVodCard(
     channelNumber: String? = null,  // Optional channel number badge
     modifier: Modifier = Modifier
 ) {
-    // Adjusted for 5 columns: 344x194px (16:9 ratio preserved)
-    val itemWidth = sx(344)
-    val itemHeight = sy(194)
+    // Adjusted for 4 columns: 425x239px (16:9 ratio preserved)
+    // 1920 - 160 (L+R padding) - 60 (3 gaps × 20) = 1700 / 4 = 425
+    val itemWidth = sx(425)
+    val itemHeight = sy(239)
 
     Box(
         modifier = modifier
