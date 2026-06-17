@@ -426,6 +426,23 @@ fun TvRoot(
     var updateInfo by remember { mutableStateOf<com.uxellence.tv.v3.update.AppUpdateInfo?>(null) }
     var updateState by remember { mutableStateOf(com.uxellence.tv.v3.update.UpdateState.READY) }
     var downloadProgress by remember { mutableIntStateOf(0) }
+    // Flips to true once the APK has actually flushed to disk. Used to keep
+    // the "Zainstaluj teraz" button hidden behind a spinner for the brief
+    // post-download window so users can't tap a button that would silently
+    // no-op. Polled by a LaunchedEffect on INSTALLING state.
+    var isApkReadyForInstall by remember { mutableStateOf(false) }
+
+    LaunchedEffect(updateState) {
+        if (updateState == com.uxellence.tv.v3.update.UpdateState.INSTALLING) {
+            isApkReadyForInstall = updateManager.isApkReady()
+            while (!isApkReadyForInstall) {
+                kotlinx.coroutines.delay(150)
+                isApkReadyForInstall = updateManager.isApkReady()
+            }
+        } else {
+            isApkReadyForInstall = false
+        }
+    }
 
     // Start background EPG loading on app start
     LaunchedEffect(Unit) {
@@ -1467,6 +1484,7 @@ fun TvRoot(
                 currentVersion = updateManager.getCurrentVersionName(),
                 updateState = updateState,
                 downloadProgress = downloadProgress,
+                isApkReady = isApkReadyForInstall,
                 onDownload = {
                     updateState = com.uxellence.tv.v3.update.UpdateState.DOWNLOADING
                     coroutineScope.launch {

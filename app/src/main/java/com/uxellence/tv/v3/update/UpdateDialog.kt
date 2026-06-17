@@ -57,6 +57,11 @@ fun UpdateDialog(
     onDownload: () -> Unit,
     onInstall: () -> Unit,
     onDismiss: () -> Unit,
+    // True only after the downloaded APK has flushed + fsync'd to disk. The
+    // INSTALLING screen hides the "Zainstaluj teraz" button until this flips
+    // so users can't tap a button that would silently no-op (root cause of
+    // "klikam Zainstaluj i nic się nie dzieje" complaints).
+    isApkReady: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     var focusedButton by remember { mutableStateOf(0) } // 0 = Update, 1 = Later
@@ -185,25 +190,56 @@ fun UpdateDialog(
                     }
 
                     UpdateState.INSTALLING -> {
-                        // Install and Cancel buttons
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(24.dp)
-                        ) {
-                            UpdateButton(
-                                text = "Zainstaluj teraz",
-                                isFocused = focusedButton == 0,
-                                focusRequester = updateButtonFocus,
-                                onClick = onInstall,
-                                onFocused = { focusedButton = 0 }
+                        if (!isApkReady) {
+                            // File still flushing to disk — show a spinner +
+                            // disabled placeholder so the user knows the box
+                            // is working and the "Zainstaluj" tap they're
+                            // about to do isn't a no-op.
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(48.dp),
+                                color = BUTTON_FOCUSED,
+                                strokeWidth = 4.dp
                             )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = "Przygotowuję plik instalacyjny…",
+                                fontSize = 18.sp,
+                                color = TEXT_SECONDARY
+                            )
+                            Spacer(modifier = Modifier.height(20.dp))
+                            Text(
+                                text = "Za moment przycisk Zainstaluj będzie aktywny",
+                                fontSize = 14.sp,
+                                color = TEXT_SECONDARY.copy(alpha = 0.7f)
+                            )
+                        } else {
+                            // Re-focus the install button the moment the file
+                            // becomes ready (covers the case where the user
+                            // was looking at the spinner and arrow-keys
+                            // wouldn't have done anything before now).
+                            LaunchedEffect(Unit) {
+                                focusedButton = 0
+                                try { updateButtonFocus.requestFocus() } catch (_: Exception) {}
+                            }
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(24.dp)
+                            ) {
+                                UpdateButton(
+                                    text = "Zainstaluj teraz",
+                                    isFocused = focusedButton == 0,
+                                    focusRequester = updateButtonFocus,
+                                    onClick = onInstall,
+                                    onFocused = { focusedButton = 0 }
+                                )
 
-                            UpdateButton(
-                                text = "Anuluj",
-                                isFocused = focusedButton == 1,
-                                focusRequester = laterButtonFocus,
-                                onClick = onDismiss,
-                                onFocused = { focusedButton = 1 }
-                            )
+                                UpdateButton(
+                                    text = "Anuluj",
+                                    isFocused = focusedButton == 1,
+                                    focusRequester = laterButtonFocus,
+                                    onClick = onDismiss,
+                                    onFocused = { focusedButton = 1 }
+                                )
+                            }
                         }
                     }
 

@@ -1004,6 +1004,46 @@ SafeNavigationScope(
 - **Documentation**: `docs/patterns/RENTAL_FLOW_PATTERN.md`
 - **Lesson**: Compose-observable singletons (`MutableState` w `object` deklarowane **bez `private`**) są praktyczne dla state cross-screen który ma re-render UI w wielu miejscach naraz (MovieDetail, MOJE→Wypożyczone, DevTogglesModal counter). Każdy reader `state.value` w Composable scope automatycznie subskrybuje recompose. SharedPreferences jako persistence backend, bez Room overhead.
 
+#### **Issue #12: In-App Update Flow — "klikam Zainstaluj i nic się nie dzieje"** (2026-05-28)
+- **Issue**: Auto-update z Supabase + GitHub Releases miał trzy nakładające się wyścigi powodujące że button "Zainstaluj" wyglądał na nieaktywny mimo że state to INSTALLING
+- **Symptoms** (3 fale incydentów):
+  1. **v5.9.0**: dialog za wysoki — długie release_notes wypchały button "Aktualizuj"/"Później" poza viewport 1080p
+  2. **v5.9.1**: użytkownicy "klikam Zainstaluj i nic się nie dzieje" — pobieranie kończyło się, button się wyświetlał, ale klik był silent no-op
+  3. **v5.9.3**: nawet z fix z v5.9.2 (flush+sync) wciąż "klik bez reakcji" zaraz po pobraniu
+- **Root cause** (3 niezależne warstwy):
+  1. **Filesystem race**: `apkFile.outputStream().use { … }` woła `close()` ale **nie** `flush()+fsync()`. Plik pozostawał buffered po `onComplete(true)` → UI flipowało state do INSTALLING → user klikał "Zainstaluj" zanim plik fizycznie był na dysku → `PackageInstaller` widział half-written plik → silent failure
+  2. **Result layer brak**: `installApk()` zwracał `Unit` i logowało błędy (`ActivityNotFoundException` na box ROM bez `PackageInstaller`, `FileProvider.getUriForFile` rzucało `IllegalArgumentException` przy złym `paths.xml`, `SecurityException` gdy REQUEST_INSTALL_PACKAGES odebrane) — UI nie wiedziało że install failed
+  3. **UI feedback gap**: Po flipie do INSTALLING button "Zainstaluj" mountował natychmiast; retry-loop 250ms × 20 w `onInstall` faktycznie działał, ale wizualnie nic się nie zmieniało → user kliknął, czekał, kliknął ponownie myśląc że nic nie działa
+- **Solution** — trzy współzależne warstwy obrony, **wszystkie wymagane**:
+  1. **Filesystem layer** (`UpdateManager.downloadApk`):
+     - Explicit `FileOutputStream` + `try/finally` zamiast `.use`
+     - `output.flush()` + `output.fd.sync()` PRZED `withContext(Dispatchers.Main) { onComplete(true) }`
+     - Size verification: `if (totalSize > 0 && written != totalSize) { delete; onComplete(false) }`
+  2. **Result layer** (`UpdateManager.installApk`):
+     - Sealed `InstallResult { Success, NotReady, Error(message) }`
+     - `try/catch` wokół `FileProvider.getUriForFile` i `startActivity`
+     - Nowy `isApkReady()` helper: `exists && canRead && length > 0`
+  3. **UI layer**:
+     - `UpdateDialog` nowy parametr `isApkReady: Boolean`; w INSTALLING state gdy `!isApkReady` → `CircularProgressIndicator` + "Przygotowuję plik instalacyjny…"; gdy `isApkReady` → button + `LaunchedEffect { focusedButton=0; updateButtonFocus.requestFocus() }`
+     - `MainActivity` ma `isApkReadyForInstall` + `LaunchedEffect(updateState)` poll co 150ms aż `updateManager.isApkReady() == true`
+     - Retry loop 250ms × 20 + Toast `"Plik się jeszcze zapisuje"` / `"Instalator niedostępny"` w `onInstall` (w **obu** call-site'ach: `TopMenuScreen2.onUpdateInstall` linia ~726 i `UpdateDialog.onInstall` linia ~1480)
+     - `UpdateDialog` release_notes z `maxLines=4 + TextOverflow.Ellipsis` żeby buttony zostały widoczne
+- **Result**:
+  - ✅ User nie może kliknąć buttona dopóki plik nie jest fizycznie na dysku
+  - ✅ Każde failure path (`NotReady`, `Error`) ma Toast feedback
+  - ✅ State falls back do READY jeśli install failuje, użytkownik może spróbować ponownie
+  - ✅ Spinner pokazuje że system pracuje (post-download moment ~200-800ms)
+  - ✅ Auto-refocus na button gdy się aktywuje (TV remote ready do strzału)
+- **Files**: `update/UpdateManager.kt` (FileOutputStream + flush/sync + size check + sealed InstallResult + isApkReady), `update/UpdateDialog.kt` (isApkReady param, INSTALLING dual-branch, maxLines/ellipsis), `MainActivity.kt` (isApkReadyForInstall state + LaunchedEffect polling + 2 call-sites retry+Toast), `app/build.gradle.kts` (versionCode bumps 56→61)
+- **Release workflow** (powtarzalny):
+  1. Bump versionCode + versionName w `build.gradle.kts`
+  2. `./gradlew :app:assembleDebug`
+  3. `gh release create v<X.Y.Z> --repo dobroslawdab/tv-epg-app --title "..." --notes "..." app/build/outputs/apk/debug/app-debug.apk`
+  4. POST do `https://kexrkaqxoadxugnnbnjh.supabase.co/rest/v1/app_updates` **service_role key** (anon zablokowany przez RLS), pola: `version_code, version_name, apk_url, release_notes, force_update`
+- **Documentation**: [`docs/patterns/UPDATE_FLOW_PATTERN.md`](docs/patterns/UPDATE_FLOW_PATTERN.md) — pełen pattern guide z anti-patterns, release workflow, debugging quick reference, historia incydentów
+- **Chicken-and-egg ostrzeżenie**: Update-flow fix można dostarczyć tylko via update-flow. Jeśli wypuszczasz fix tej infrastruktury, testuj **dwukrotnie**: prev→fix (czy popsute potrafi się zaktualizować) **i** fix→fix+1 (czy fix sam nie wprowadził regresji)
+- **Lesson**: Filesystem timing + ACTION_VIEW install + Compose state flip to **trzy niezależne wyścigi**. Każdy z nich osobno wygląda jak "nie do złapania w testach" race. Fix wymaga obrony na każdej z warstw — usunięcie nawet jednej (np. "po co spinner skoro flush już jest") otwiera ponownie tę samą klasę bugów na innej rate-of-failure. **NIE usuwaj żadnego z elementów bez przeczytania pattern guide.**
+
 #### **Key Learnings**
 1. **Delegation Pattern**: Sections with complex multi-row navigation (MOJE, START, APLIKACJE, VOD) should delegate ALL keys to child components
 2. **Callback Pattern**: Child components use `onReturnToMenu` callback for menu transitions instead of parent intercepting keys
