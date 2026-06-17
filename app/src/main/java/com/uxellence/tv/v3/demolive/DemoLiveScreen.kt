@@ -787,9 +787,12 @@ fun DemoLiveScreen(
         }
     }
 
-    // Auto-hide warstwy EPG po 12 s bez interakcji
-    LaunchedEffect(layer, epgInteractionAt) {
-        if (layer == DemoLayer.EPG && isReady) {
+    // Auto-hide tylko dla rozwiniętej warstwy EPG (przeglądanie wielu kanałów).
+    // Pasek pojedynczego kanału (single) NIE znika sam — zostaje aż użytkownik
+    // sam zadziała (OK → player, WSTECZ → pełny ekran, GÓRA/DÓŁ → wiele kanałów).
+    // Inaczej „wracając do kanału" pasek po chwili sam przechodził w player.
+    LaunchedEffect(layer, epgInteractionAt, epgExpanded) {
+        if (layer == DemoLayer.EPG && isReady && epgExpanded) {
             delay(EPG_TIMEOUT_MS)
             layer = DemoLayer.FULLSCREEN
         }
