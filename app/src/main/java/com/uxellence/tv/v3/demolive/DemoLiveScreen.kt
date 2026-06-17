@@ -405,26 +405,18 @@ fun DemoLiveScreen(
                 epgInteractionAt = System.currentTimeMillis()
             },
             epgMoveChannel = { dir ->
-                // Wzorzec z Telewizji: w trybie 1 kanału UP nic nie robi, pierwszy DOWN
-                // rozwija listę i przechodzi na kolejny kanał; potem normalna nawigacja
-                val doMove = if (!epgExpanded) {
-                    if (dir > 0) {
-                        epgExpanded = true
-                        true
-                    } else false
-                } else true
-
-                if (doMove) {
-                    val newChannel = (epgChannelIndex + dir).coerceIn(0, (epgRows.size - 1).coerceAtLeast(0))
-                    epgChannelIndex = newChannel
-                    // Na nowym kanale fokusuj program emitowany o epgFocusedTime (siatka czasowa)
-                    epgRows.getOrNull(newChannel)?.let { row ->
-                        val matching = row.programs.indexOfFirst { p ->
-                            !epgFocusedTime.isBefore(p.startUtc) && epgFocusedTime.isBefore(p.endUtc)
-                        }
-                        epgProgramIndex[newChannel] =
-                            if (matching >= 0) matching else row.currentProgramIndex
+                // Pasek pojedynczego kanału (single): GÓRA i DÓŁ rozwijają do warstwy
+                // wielu kanałów. Potem normalna nawigacja między kanałami.
+                epgExpanded = true
+                val newChannel = (epgChannelIndex + dir).coerceIn(0, (epgRows.size - 1).coerceAtLeast(0))
+                epgChannelIndex = newChannel
+                // Na nowym kanale fokusuj program emitowany o epgFocusedTime (siatka czasowa)
+                epgRows.getOrNull(newChannel)?.let { row ->
+                    val matching = row.programs.indexOfFirst { p ->
+                        !epgFocusedTime.isBefore(p.startUtc) && epgFocusedTime.isBefore(p.endUtc)
                     }
+                    epgProgramIndex[newChannel] =
+                        if (matching >= 0) matching else row.currentProgramIndex
                 }
                 epgInteractionAt = System.currentTimeMillis()
             },
@@ -449,23 +441,30 @@ fun DemoLiveScreen(
                     val nowRef = if (isDemo) controller.currentVirtualPositionMs() else controller.virtualNow()
                     val playingNow = nowRef in targetStart until targetEnd
                     when {
-                        playingNow -> {
-                            // Wybór programu nadawanego TERAZ → dostrój kanał (jeśli inny)
-                            // i PRZEJDŹ do playera z paskiem zatunowanego programu.
-                            // Nie zostajemy na warstwie EPG (wcześniej pierwszy wybór tylko
-                            // tunował i zostawiał EPG otwarte).
-                            if (epgChannelIndex != tunedChannelIndex) {
-                                tunedChannelIndex = epgChannelIndex
-                                if (epgChannelIndex == 0) {
-                                    controller.player?.play()
-                                    isPaused = false
-                                } else {
-                                    controller.player?.pause()
-                                }
-                                Log.i(TAG, "EPG select: tune → ${row.channel.name} (kanał ${row.channelNumber})")
+                        playingNow && epgExpanded -> {
+                            // Wybór programu nadawanego TERAZ na warstwie wielu kanałów →
+                            // dostrój kanał i ZWIŃ do paska tylko tego kanału (EPG single).
+                            // Player dopiero przy kolejnym OK na tym pasku.
+                            tunedChannelIndex = epgChannelIndex
+                            if (epgChannelIndex == 0) {
+                                controller.player?.play()
+                                isPaused = false
+                            } else {
+                                controller.player?.pause()
                             }
+                            // Sfokusuj program nadawany teraz na tym kanale (pasek single)
+                            val liveIdx = liveProgramIndexFor(tunedChannelIndex)
+                            epgProgramIndex[tunedChannelIndex] = liveIdx
+                            epgRows.getOrNull(tunedChannelIndex)?.programs?.getOrNull(liveIdx)
+                                ?.let { epgFocusedTime = it.startUtc }
+                            epgExpanded = false
+                            epgInteractionAt = System.currentTimeMillis()
+                            Log.i(TAG, "EPG select: tune → ${row.channel.name} → pasek single")
+                        }
+                        playingNow -> {
+                            // OK na pasku pojedynczego kanału (tryb single) → player
                             openPlayerButtons()
-                            Log.i(TAG, "EPG select: '${program.title}' (live) → PLAYER_UI")
+                            Log.i(TAG, "EPG select: '${program.title}' (single) → PLAYER_UI")
                         }
                         else -> {
                             // Program miniony/przyszły (dowolny kanał) → detal jak na Wideo
@@ -606,11 +605,7 @@ fun DemoLiveScreen(
                         playerZone = PlayerZone.BUTTONS
                         playerButtonsFocus = 0
                     }
-                    PlayerZone.STRIP -> {
-                        // UP z paska przewijania → warstwa EPG (mini EPG zatunowanego kanału)
-                        openEpg()
-                    }
-                    PlayerZone.DETAIL -> { /* nic */ }
+                    PlayerZone.STRIP, PlayerZone.DETAIL -> { /* nic */ }
                 }
             },
             playerDown = {
