@@ -449,25 +449,23 @@ fun DemoLiveScreen(
                     val nowRef = if (isDemo) controller.currentVirtualPositionMs() else controller.virtualNow()
                     val playingNow = nowRef in targetStart until targetEnd
                     when {
-                        playingNow && epgChannelIndex == tunedChannelIndex -> {
-                            // Drugie kliknięcie na dostrojonym kanale → UI playera
-                            // (przewijanie i przyciski działają tak samo wszędzie)
-                            openPlayerButtons()
-                            Log.i(TAG, "EPG select: '${program.title}' (dostrojony) → PLAYER_UI")
-                        }
                         playingNow -> {
-                            // Pierwsze kliknięcie: dostrój kanał. DEMO TV gra barker;
-                            // realny kanał nie ma streamu w demo → plansza "Brak live",
-                            // warstwa EPG zostaje otwarta
-                            tunedChannelIndex = epgChannelIndex
-                            if (epgChannelIndex == 0) {
-                                controller.player?.play()
-                                isPaused = false
-                            } else {
-                                controller.player?.pause()
+                            // Wybór programu nadawanego TERAZ → dostrój kanał (jeśli inny)
+                            // i PRZEJDŹ do playera z paskiem zatunowanego programu.
+                            // Nie zostajemy na warstwie EPG (wcześniej pierwszy wybór tylko
+                            // tunował i zostawiał EPG otwarte).
+                            if (epgChannelIndex != tunedChannelIndex) {
+                                tunedChannelIndex = epgChannelIndex
+                                if (epgChannelIndex == 0) {
+                                    controller.player?.play()
+                                    isPaused = false
+                                } else {
+                                    controller.player?.pause()
+                                }
+                                Log.i(TAG, "EPG select: tune → ${row.channel.name} (kanał ${row.channelNumber})")
                             }
-                            epgInteractionAt = System.currentTimeMillis()
-                            Log.i(TAG, "EPG select: tune → ${row.channel.name} (kanał ${row.channelNumber})")
+                            openPlayerButtons()
+                            Log.i(TAG, "EPG select: '${program.title}' (live) → PLAYER_UI")
                         }
                         else -> {
                             // Program miniony/przyszły (dowolny kanał) → detal jak na Wideo
@@ -608,7 +606,11 @@ fun DemoLiveScreen(
                         playerZone = PlayerZone.BUTTONS
                         playerButtonsFocus = 0
                     }
-                    PlayerZone.STRIP, PlayerZone.DETAIL -> { /* nic */ }
+                    PlayerZone.STRIP -> {
+                        // UP z paska przewijania → warstwa EPG (mini EPG zatunowanego kanału)
+                        openEpg()
+                    }
+                    PlayerZone.DETAIL -> { /* nic */ }
                 }
             },
             playerDown = {
