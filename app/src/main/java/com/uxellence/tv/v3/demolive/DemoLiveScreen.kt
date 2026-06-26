@@ -7,6 +7,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -152,6 +153,11 @@ fun DemoLiveScreen(
     // PLAYER_UI: strefa + fokus przycisków (0..4) + kursor taśmy
     var playerZone by remember { mutableStateOf(PlayerZone.BUTTONS) }
     var playerButtonsFocus by remember { mutableIntStateOf(0) }
+    // Klawisz "3": wygląd paska przycisków playera — false=tekstowy, true=ikonowy (Figma).
+    // Stan trzymany w DemoPlayerPrefs (singleton + SharedPreferences): przeżywa nawigację
+    // i restart, aż do ponownego "3". Odczyt .value subskrybuje recompose.
+    remember { DemoPlayerPrefs.load(context) }
+    val useFigmaButtons = DemoPlayerPrefs.useFigmaButtons.value
     var scrubCursorMs by remember { mutableLongStateOf(0L) }
     var playerInteractionAt by remember { mutableLongStateOf(0L) }
     var filmstripFrames by remember { mutableStateOf<List<Pair<Long, Bitmap?>>>(emptyList()) }
@@ -173,6 +179,12 @@ fun DemoLiveScreen(
     var detailIsDemo by remember { mutableStateOf(true) }
     var detailFromEpg by remember { mutableStateOf(false) }
     var detailStartVirtualMs by remember { mutableLongStateOf(0L) }
+    // Zakres czasu + logo kanału do nakładek detalu wg Figmy (info_line + logo w rogu)
+    var detailStartWallMs by remember { mutableLongStateOf(0L) }
+    var detailEndWallMs by remember { mutableLongStateOf(0L) }
+    var detailChannelLogoUrl by remember { mutableStateOf<String?>(null) }
+    var detailChannelName by remember { mutableStateOf("DEMO TV") }
+    var detailChannelNumber by remember { mutableIntStateOf(122) }
 
     // Akceleracja seeka (wzorzec z VodPlayerScreen)
     var rapidPressCount by remember { mutableIntStateOf(0) }
@@ -274,7 +286,9 @@ fun DemoLiveScreen(
         program: com.uxellence.tv.v3.epg.EpgProgram,
         channelLogoUrl: String?,
         isDemo: Boolean,
-        fromEpg: Boolean
+        fromEpg: Boolean,
+        channelName: String = "DEMO TV",
+        channelNumber: Int = 122
     ) {
         val startV = program.startUtc.toEpochMilli() - controller.antennaStartWallMs
         val endV = program.endUtc.toEpochMilli() - controller.antennaStartWallMs
@@ -302,6 +316,11 @@ fun DemoLiveScreen(
         detailIsDemo = isDemo
         detailFromEpg = fromEpg
         detailStartVirtualMs = startV
+        detailStartWallMs = program.startUtc.toEpochMilli()
+        detailEndWallMs = program.endUtc.toEpochMilli()
+        detailChannelLogoUrl = channelLogoUrl
+        detailChannelName = channelName
+        detailChannelNumber = channelNumber
         playerZone = PlayerZone.DETAIL
         playerInteractionAt = System.currentTimeMillis()
         layer = DemoLayer.PLAYER_UI
@@ -472,7 +491,9 @@ fun DemoLiveScreen(
                                 program = program,
                                 channelLogoUrl = row.channel.logoUrl,
                                 isDemo = isDemo,
-                                fromEpg = true
+                                fromEpg = true,
+                                channelName = row.channel.name,
+                                channelNumber = row.channelNumber
                             )
                             Log.i(TAG, "EPG select: '${program.title}' (${row.channel.name}) → DETAIL (timing=$detailTiming)")
                         }
@@ -528,14 +549,16 @@ fun DemoLiveScreen(
                             ).show()
                             Log.i(TAG, "STRIP OK on blackout → blocked")
                         } else {
-                            // OK na taśmie = skok do kursora, fokus wraca na "Zatrzymaj"
+                            // OK na taśmie = skok do kursora i ukrycie WSZYSTKICH warstw UI
+                            // (czysty player FULLSCREEN, bez paska kontrolek/opisu)
                             controller.seekToVirtual(scrubCursorMs)
                             isPaused = false
                             rapidPressCount = 0
                             forwardBlockedMsgVisible = false
-                            playerZone = PlayerZone.BUTTONS
+                            playerZone = PlayerZone.BUTTONS  // stan wyjściowy gdy UI wróci
                             playerButtonsFocus = 0
-                            Log.i(TAG, "STRIP seek → ${scrubCursorMs}ms → BUTTONS")
+                            layer = DemoLayer.FULLSCREEN
+                            Log.i(TAG, "STRIP seek → ${scrubCursorMs}ms → FULLSCREEN (UI ukryte)")
                         }
                     }
                     PlayerZone.BUTTONS -> when (playerButtonsFocus) {
@@ -846,6 +869,19 @@ fun DemoLiveScreen(
             ).show()
             Log.i(TAG, "demoPolicyOverride=$demoPolicyOverride")
             true
+        } else if (keyCode == android.view.KeyEvent.KEYCODE_3) {
+            // DEMO: przełącz wygląd paska przycisków playera (tekstowy ⇄ ikonowy wg Figmy).
+            // Zapis trwały w DemoPlayerPrefs — utrzymuje się aż do ponownego "3".
+            val on = DemoPlayerPrefs.toggle(context)
+            // odśwież licznik auto-hide, żeby pasek został widoczny i zmiana była od razu widać
+            playerInteractionAt = System.currentTimeMillis()
+            android.widget.Toast.makeText(
+                context,
+                if (on) "Przyciski: wersja Figma (ikony)" else "Przyciski: wersja tekstowa",
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
+            Log.i(TAG, "useFigmaButtons=$on")
+            true
         } else {
             val handled = DemoLiveKeyController.handleKey(keyCode, layer, actions)
             Log.i(TAG, "key=$keyCode layer(after)=$layer zone=$playerZone handled=$handled")
@@ -1003,6 +1039,7 @@ fun DemoLiveScreen(
             antennaStartWallMs = controller.antennaStartWallMs,
             isPaused = isPaused,
             buttonsFocusIndex = if (playerZone == PlayerZone.BUTTONS) playerButtonsFocus else -1,
+            figmaButtons = useFigmaButtons,
             forwardBlockedMsgVisible = forwardBlockedMsgVisible,
             frames = filmstripFrames,
             sx = sx,
@@ -1057,19 +1094,58 @@ fun DemoLiveScreen(
                                     android.widget.Toast.LENGTH_SHORT
                                 ).show()
                             }
+                        },
+                        // Linia "czas + NA ŻYWO" nad tytułem wg Figmy (Detail 5507:5100).
+                        // NA ŻYWO + kropka REC gdy program bieżący; "od początku" dla
+                        // bieżącego/minionego (timeshift dostępny).
+                        wideoHeaderSlot = {
+                            DemoDetailInfoLine(
+                                timeRange = formatWall(detailStartWallMs, false) +
+                                    " – " + formatWall(detailEndWallMs, false),
+                                isLive = detailTiming == BlockTiming.CURRENT,
+                                canStartOver = detailTiming != BlockTiming.FUTURE,
+                                sx = sx, sy = sy
+                            )
                         }
                     )
                 }
+                // Logo kanału w lewym górnym rogu (Figma: 208x208 @ 128,24).
+                // Kanały z logoUrl → obrazek; bez (np. DEMO TV) → badge zastępczy.
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(start = sx(128), top = sy(24))
+                        .size(sx(208), sy(208))
+                        .zIndex(15f)
+                        .clip(RoundedCornerShape(sx(8)))
+                ) {
+                    if (!detailChannelLogoUrl.isNullOrBlank()) {
+                        coil.compose.AsyncImage(
+                            model = detailChannelLogoUrl,
+                            contentDescription = "Logo kanału",
+                            contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        DemoChannelLogoBadge(
+                            channelNumber = detailChannelNumber,
+                            channelName = detailChannelName,
+                            sx = sx, sy = sy
+                        )
+                    }
+                }
             }
-            // PIP: ten sam widok wideo w prawym dolnym rogu, NAD warstwą detalu
+            // PIP: ten sam widok wideo w prawym dolnym rogu, NAD warstwą detalu.
+            // Wymiary/zaokrąglenie/margines wg Figmy (Detail 5507:5100):
+            // 572x336, radius 32, 32 px od prawej i dolnej krawędzi.
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(end = sx(60), bottom = sy(60))
-                    .width(sx(480))
-                    .height(sy(270))
+                    .padding(end = sx(32), bottom = sy(32))
+                    .width(sx(572))
+                    .height(sy(336))
                     .zIndex(15f)
-                    .border(2.dp, Color(0x66EEEEEE), RoundedCornerShape(sx(8)))
+                    .clip(RoundedCornerShape(sx(32)))
             ) {
                 videoLayer(Modifier.fillMaxSize())
             }

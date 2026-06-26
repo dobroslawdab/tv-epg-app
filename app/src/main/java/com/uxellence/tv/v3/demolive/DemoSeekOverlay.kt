@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
@@ -89,11 +90,20 @@ internal fun DemoFilmstrip(
                         modifier = Modifier
                             .width(thumbWidth)
                             .height(thumbHeight)
+                            // Środkowa miniatura: aqua glow (kolorowy cień) wg Figmy
+                            .then(
+                                if (isCenter) Modifier.shadow(
+                                    elevation = sy(16),
+                                    shape = RoundedCornerShape(sx(8)),
+                                    ambientColor = AQUA,
+                                    spotColor = AQUA
+                                ) else Modifier
+                            )
                             .clip(RoundedCornerShape(sx(8)))
                             .background(Color(0x40000000))
                             .then(
-                                // Środkowa miniatura: biała ramka (design przewijania)
-                                if (isCenter) Modifier.border(3.dp, Color(0xFFEEEEEE), RoundedCornerShape(sx(8)))
+                                // Środkowa miniatura: ramka w kolorze fokusa (aqua)
+                                if (isCenter) Modifier.border(3.dp, AQUA, RoundedCornerShape(sx(8)))
                                 else Modifier.border(1.dp, Color(0x50EEEEEE), RoundedCornerShape(sx(8)))
                             ),
                         contentAlignment = Alignment.Center

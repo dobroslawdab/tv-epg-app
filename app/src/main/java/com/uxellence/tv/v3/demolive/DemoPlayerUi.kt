@@ -11,6 +11,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -19,11 +20,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import com.uxellence.tv.v3.R
 import com.uxellence.tv.v3.channels.TvChannelData
 import com.uxellence.tv.v3.epg.ChannelInfoOverlay
 import kotlin.math.abs
@@ -83,6 +88,7 @@ fun DemoPlayerUi(
     isPaused: Boolean,
     isAtLiveEdge: Boolean,      // na live: status "Oglądasz live" zamiast "Wróć do live"
     buttonsFocusIndex: Int,     // 0..4; -1 gdy fokus poza przyciskami
+    figmaButtons: Boolean = false,  // klawisz "3": ikonowy pasek wg designu Figma
     forwardBlockedMsgVisible: Boolean = false,  // banner blokady przewijania do przodu
     frames: List<Pair<Long, Bitmap?>>,
     sx: (Int) -> Dp,
@@ -178,9 +184,14 @@ fun DemoPlayerUi(
                         showTimes = true,
                         sx = sx, sy = sy
                     )
-                    Spacer(modifier = Modifier.height(sy(20)))
-                    Box(modifier = Modifier.padding(start = sx(MAIN_X))) {
-                        PlayerButtonsRow(isPaused, buttonsFocusIndex, isAtLiveEdge, sx, sy)
+                    // Wariant ikonowy: w trybie przewijania (STRIP) chowamy ikonki playera,
+                    // a pasek postępu obniżamy w miejsce kontrolek (sam pasek na dole).
+                    // Wariant tekstowy: pasek + rząd przycisków jak dotąd.
+                    if (!figmaButtons) {
+                        Spacer(modifier = Modifier.height(sy(20)))
+                        Box(modifier = Modifier.padding(start = sx(MAIN_X))) {
+                            PlayerButtonsRow(isPaused, buttonsFocusIndex, isAtLiveEdge, sx, sy)
+                        }
                     }
                 }
             } else {
@@ -213,12 +224,13 @@ fun DemoPlayerUi(
                         cursorMs = null,
                         liveEdgeVirtualMs = liveEdgeVirtualMs,
                         antennaStartWallMs = antennaStartWallMs,
-                        showTimes = false,
+                        showTimes = true,   // poziom kontrolek: ta sama linia czasu (kropki + czasy pod linią)
                         sx = sx, sy = sy
                     )
                     Spacer(modifier = Modifier.height(sy(24)))
                     Box(modifier = Modifier.padding(start = sx(MAIN_X))) {
-                        PlayerButtonsRow(isPaused, buttonsFocusIndex, isAtLiveEdge, sx, sy)
+                        if (figmaButtons) PlayerButtonsRowFigma(isPaused, buttonsFocusIndex, isAtLiveEdge, sx, sy)
+                        else PlayerButtonsRow(isPaused, buttonsFocusIndex, isAtLiveEdge, sx, sy)
                     }
                     Spacer(modifier = Modifier.height(sy(28)))
                     // Opis: ramka zawsze zajmuje miejsce (transparentna gdy bez fokusu),
@@ -353,7 +365,8 @@ private fun DemoFixedBlockBar(
     sx: (Int) -> Dp,
     sy: (Int) -> Dp
 ) {
-    val labelsH = if (showTimes) 40 else 0
+    // Czasy renderowane POD linią (wg Figmy 5513:2013) — rezerwujemy miejsce pod paskiem.
+    val labelsH = if (showTimes) 44 else 0
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxWidth()
@@ -366,8 +379,9 @@ private fun DemoFixedBlockBar(
         val prevW = (mainX - gap).coerceAtLeast(0.dp)
         val nextX = mainX + mainW + gap
         val nextW = (fullWidth - nextX).coerceAtLeast(0.dp)
-        val barY = sy(labelsH + 7)
-        val barH = sy(6)
+        // Pasek u góry, czasy POD nim. Linia 8 px, zaokrąglone końce (wg Figmy).
+        val barY = sy(8)
+        val barH = sy(8)
 
         fun fracIn(b: DemoChannelSchedule.EpgBlock, t: Long): Float =
             ((t - b.startVirtualMs).toFloat() /
@@ -385,9 +399,30 @@ private fun DemoFixedBlockBar(
         }
 
         val refMs = cursorMs ?: positionMs
-        val fillColor = if (cursorMs != null) AQUA else Color(0xFFEEEEEE)
+        // Pasek postępu zawsze biały (kolor fokusa zarezerwowany dla ramki miniaturki)
+        val fillColor = Color(0xFFEEEEEE)
 
-        // Segment poprzedniego materiału (od lewej krawędzi ekranu)
+        // LIVE indicator glow (wg Figmy 5530:5354): aqua podcień pod paskiem od lewej
+        // do pozycji LIVE — pionowy gradient aqua(0.6) przy pasku → transparent w dół.
+        // Wskazuje obszar dostępny "na żywo". Rysowany jako pierwszy (POD paskiem).
+        val liveGlowX = xOf(liveEdgeVirtualMs)
+        if (liveGlowX != null && liveGlowX > 0.dp) {
+            Box(
+                modifier = Modifier
+                    .offset(x = 0.dp, y = barY)
+                    .width(liveGlowX)
+                    .height(sy(48))   // wg Figmy: LIVE indicator glow = 48 px
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(AQUA.copy(alpha = 0.6f), Color.Transparent)
+                        )
+                    )
+            )
+        }
+
+        // Segment poprzedniego materiału (od lewej krawędzi ekranu) — wg Figmy "progress
+        // filled": biały, prominentny, NAD aqua glow (LIVE indicator glow rysowany wyżej,
+        // więc ten segment jest na nim widoczny).
         if (prevW > 0.dp) {
             Box(
                 modifier = Modifier
@@ -395,7 +430,7 @@ private fun DemoFixedBlockBar(
                     .width(prevW)
                     .height(barH)
                     .clip(RoundedCornerShape(barH / 2))
-                    .background(if (cursorMs == null) Color(0xB3EEEEEE) else Color(0x40EEEEEE))
+                    .background(Color(0xFFEEEEEE))
             )
         }
 
@@ -432,72 +467,88 @@ private fun DemoFixedBlockBar(
             )
         }
 
-        // Znacznik live (biała kropka) — przesuwa się z zegarem; widoczny też
-        // poza segmentem głównym (timeshift: live ucieka do następnego materiału)
-        val liveX = xOf(liveEdgeVirtualMs)
-        if (liveX != null) {
+        // Kropki (12 px) w PRZERWACH między segmentami (granice programu). Końce samych
+        // linii są zaokrąglone — BEZ kropek na końcach (wg Figmy 5530:5416).
+        val dotCenterY = barY + barH / 2
+        val startGapX = mainX - gap / 2           // granica prev|main = start bloku
+        val endGapX = mainX + mainW + gap / 2     // granica main|next = koniec bloku
+        for (dx in listOf(startGapX, endGapX)) {
+            if (dx > 0.dp && dx < fullWidth) {
+                Box(
+                    modifier = Modifier
+                        .offset(x = dx - sy(6), y = dotCenterY - sy(6))
+                        .size(sy(12))
+                        .background(Color(0xFFEEEEEE), CircleShape)
+                )
+            }
+        }
+
+        // Biała kreska aktualnego odtwarzania (pozycja playera).
+        val posX = xOf(positionMs)
+        if (posX != null) {
             Box(
                 modifier = Modifier
-                    .offset(x = liveX - sy(5), y = barY + barH / 2 - sy(5))
-                    .size(sy(10))
-                    .background(Color(0xFFEEEEEE), CircleShape)
+                    .offset(x = posX - sy(2), y = dotCenterY - sy(11))
+                    .width(sy(4))
+                    .height(sy(22))
+                    .clip(RoundedCornerShape(sy(2)))
+                    .background(Color(0xFFEEEEEE))
             )
         }
 
-        // Kursor przewijania (STRIP) — zawsze w segmencie głównym, bo materiał
-        // pod kursorem JEST segmentem głównym
+        // Kursor przewijania (STRIP): biała kropka na linii.
         val cursorX = cursorMs?.let { xOf(it) }
         if (cursorX != null) {
             Box(
                 modifier = Modifier
-                    .offset(x = cursorX - sy(11), y = barY + barH / 2 - sy(11))
-                    .size(sy(22))
-                    .background(AQUA, CircleShape)
+                    .offset(x = cursorX - sy(8), y = dotCenterY - sy(8))
+                    .size(sy(16))
+                    .background(Color(0xFFEEEEEE), CircleShape)
             )
         }
 
         if (showTimes) {
-            // Czasy NAD paskiem: granice segmentu głównego, kursor (bold), live.
-            // Etykiety graniczne ustępują miejsca kursorowi i live (kolizje)
-            val liveLabelVisible = liveX != null &&
-                (cursorX == null || abs((liveX - cursorX).value) > sx(120).value)
-            val startLabelX = (mainX - sx(24)).coerceAtLeast(0.dp)
-            val endLabelX = mainX + mainW - sx(24)
-            fun clearOf(labelX: Dp): Boolean =
-                (cursorX == null || abs((labelX - cursorX).value) > sx(110).value) &&
-                    (!liveLabelVisible || liveX == null || abs((labelX - liveX).value) > sx(110).value)
-            if (clearOf(startLabelX)) {
-                Text(
-                    text = formatWall(antennaStartWallMs + block.startVirtualMs, withSeconds = false),
-                    color = TEXT_SECONDARY,
-                    fontSize = demoSp(18, sy),
-                    modifier = Modifier.offset(x = startLabelX, y = 0.dp)
-                )
+            // Czasy POD linią (wg Figmy 5513:2013): granice bloku zwykłym tekstem,
+            // kursor w fioletowym pillu (#48227c). Wyśrodkowane pod znacznikiem.
+            val labelY = barY + barH + sy(10)
+            fun centeredAt(xc: Dp): Modifier =
+                Modifier.offset(x = (xc - sx(80)).coerceAtLeast(0.dp), y = labelY).width(sx(160))
+            fun farFromCursor(xc: Dp): Boolean =
+                cursorX == null || abs((xc - cursorX).value) > sx(110).value
+            if (farFromCursor(startGapX)) {
+                Box(modifier = centeredAt(startGapX), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = formatWall(antennaStartWallMs + block.startVirtualMs, withSeconds = false),
+                        color = TEXT_SECONDARY,
+                        fontSize = demoSp(20, sy)
+                    )
+                }
             }
-            if (clearOf(endLabelX)) {
-                Text(
-                    text = formatWall(antennaStartWallMs + block.endVirtualMs, withSeconds = false),
-                    color = TEXT_SECONDARY,
-                    fontSize = demoSp(18, sy),
-                    modifier = Modifier.offset(x = endLabelX, y = 0.dp)
-                )
-            }
-            if (liveLabelVisible && liveX != null) {
-                Text(
-                    text = "live: " + formatWall(antennaStartWallMs + liveEdgeVirtualMs, withSeconds = false),
-                    color = TEXT_SECONDARY,
-                    fontSize = demoSp(18, sy),
-                    modifier = Modifier.offset(x = (liveX - sx(50)).coerceAtLeast(0.dp), y = 0.dp)
-                )
+            if (farFromCursor(endGapX)) {
+                Box(modifier = centeredAt(endGapX), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = formatWall(antennaStartWallMs + block.endVirtualMs, withSeconds = false),
+                        color = TEXT_SECONDARY,
+                        fontSize = demoSp(20, sy)
+                    )
+                }
             }
             if (cursorMs != null && cursorX != null) {
-                Text(
-                    text = formatWall(antennaStartWallMs + cursorMs, withSeconds = true),
-                    color = TEXT_PRIMARY,
-                    fontSize = demoSp(20, sy),
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.offset(x = (cursorX - sx(48)).coerceAtLeast(0.dp), y = 0.dp)
-                )
+                Box(modifier = centeredAt(cursorX), contentAlignment = Alignment.Center) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(sx(4)))
+                            .background(BG_PURPLE)
+                            .padding(horizontal = sx(8), vertical = sy(4))
+                    ) {
+                        Text(
+                            text = formatWall(antennaStartWallMs + cursorMs, withSeconds = true),
+                            color = TEXT_PRIMARY,
+                            fontSize = demoSp(20, sy),
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
             }
         }
     }
@@ -570,5 +621,198 @@ private fun PlayerButton(
             fontSize = demoSp(20, sy),
             fontWeight = FontWeight.Medium
         )
+    }
+}
+
+private val FIGMA_RED = Color(0xFFDD1538)  // Colours/Secondary/red_base (kropka REC, NA ŻYWO akcent)
+
+/**
+ * Linia info nad tytułem w detalu demo (wg Figmy "Detail" 5507:5100, info_line):
+ * zakres czasu + opcjonalnie [NA ŻYWO] + kółko "od początku" + kropka REC.
+ * Renderowana jako wideoHeaderSlot w MovieDetailScreen (zamiast logo w kolumnie —
+ * logo kanału demo rysuje osobno, w rogu ekranu).
+ */
+@Composable
+internal fun DemoDetailInfoLine(
+    timeRange: String,
+    isLive: Boolean,
+    canStartOver: Boolean,
+    sx: (Int) -> Dp,
+    sy: (Int) -> Dp
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(sx(16))
+    ) {
+        Text(
+            text = timeRange,
+            color = TEXT_PRIMARY,
+            fontSize = demoSp(24, sy),
+            fontWeight = FontWeight.Medium
+        )
+        if (isLive || canStartOver) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(sx(12))
+            ) {
+                if (isLive) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(sx(4)))
+                            .background(TEXT_PRIMARY)
+                            .padding(horizontal = sx(8), vertical = sy(2)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "NA ŻYWO",
+                            color = BG_PURPLE,
+                            fontSize = demoSp(16, sy),
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+                if (canStartOver) {
+                    Box(
+                        modifier = Modifier
+                            .size(sy(32))
+                            .clip(CircleShape)
+                            .background(TEXT_PRIMARY),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.demo_ic_startover),
+                            contentDescription = "Od początku",
+                            tint = BG_PURPLE,
+                            modifier = Modifier.size(sx(18))
+                        )
+                    }
+                }
+                if (isLive) {
+                    Box(
+                        modifier = Modifier
+                            .size(sy(20))
+                            .clip(CircleShape)
+                            .background(FIGMA_RED)
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Zastępczy "logo" kanału w rogu detalu, gdy kanał nie ma logoUrl (np. DEMO TV).
+ * Brandowy kafelek 208x208 (wypełnia rodzica): numer kanału + nazwa.
+ */
+@Composable
+internal fun DemoChannelLogoBadge(
+    channelNumber: Int,
+    channelName: String,
+    sx: (Int) -> Dp,
+    sy: (Int) -> Dp
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(BG_PURPLE),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = channelNumber.toString(),
+                color = Color(0xFF5FEDD4),
+                fontSize = demoSp(44, sy),
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(sy(6)))
+            Text(
+                text = channelName,
+                color = TEXT_PRIMARY,
+                fontSize = demoSp(22, sy),
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                maxLines = 2
+            )
+        }
+    }
+}
+
+// Kolory wariantu Figma (node 3454:4824 "Player_control_item")
+private val FIGMA_CONTAINER_FOCUSED = Color(0xFF5FEDD4)  // Colours/Container/container focused
+private val FIGMA_ICON_FOCUSED = Color(0xFF48227C)       // Colours/Icon/icon focused
+private val FIGMA_ICON_DEFAULT = Color(0x99EEEEEE)       // Colours/Icon/icon primary (przygaszony)
+private val FIGMA_TEXT_STATUS = Color(0xFF5FEDD4)        // Colours/Text/text status
+
+/**
+ * Ikonowy pasek przycisków wg designu Figma (Player_control_item, 152x152).
+ * Te same 5 akcji i indeksy (0..4) co [PlayerButtonsRow] — zmienia się tylko
+ * wygląd: ikona 48px w kafelku 64x64; zfokusowany = aqua kafelek + ikona
+ * w kolorze tła + label aqua pod spodem. Przełączane klawiszem "3".
+ */
+@Composable
+private fun PlayerButtonsRowFigma(
+    isPaused: Boolean,
+    focusedIndex: Int,
+    isAtLiveEdge: Boolean,
+    sx: (Int) -> Dp,
+    sy: (Int) -> Dp
+) {
+    Row(verticalAlignment = Alignment.Top) {
+        FigmaControlItem(R.drawable.demo_ic_pause, if (isPaused) "Wznów" else "Zatrzymaj", focusedIndex == 0, sx, sy)
+        // Na live edge: sama ikonka LIVE bez podpisu "Oglądasz live", niefokusowalna
+        // (w wariancie ikonowym ikona wystarcza za status)
+        FigmaControlItem(R.drawable.demo_ic_live, "Wróć do live", !isAtLiveEdge && focusedIndex == 1, sx, sy)
+        FigmaControlItem(R.drawable.demo_ic_startover, "Zacznij od początku", focusedIndex == 2, sx, sy)
+        FigmaControlItem(R.drawable.demo_ic_rec, "Nagraj", focusedIndex == 3, sx, sy)
+        FigmaControlItem(R.drawable.demo_ic_settings, "Napisy, dźwięk, jakość", focusedIndex == 4, sx, sy)
+    }
+}
+
+@Composable
+private fun FigmaControlItem(
+    iconRes: Int,
+    label: String,
+    isFocused: Boolean,
+    sx: (Int) -> Dp,
+    sy: (Int) -> Dp
+) {
+    // Item 152x152: kontener 64x64 u góry (inset 23.68%), label u dołu (inset 76.32%)
+    Box(modifier = Modifier.size(sx(152), sy(152))) {
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = sy(36))
+                .size(sx(64), sy(64))
+                .clip(RoundedCornerShape(sx(8)))
+                .background(if (isFocused) FIGMA_CONTAINER_FOCUSED else Color.Transparent),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painter = painterResource(id = iconRes),
+                contentDescription = label,
+                tint = if (isFocused) FIGMA_ICON_FOCUSED else FIGMA_ICON_DEFAULT,
+                modifier = Modifier.size(sx(48), sy(48))
+            )
+        }
+        // Label tylko gdy zfokusowany — aqua, Manrope Bold 24,
+        // może wychodzić poza szerokość itemu (whitespace-nowrap w designie)
+        if (isFocused) {
+            Text(
+                text = label,
+                color = FIGMA_TEXT_STATUS,
+                fontSize = demoSp(24, sy),
+                fontWeight = FontWeight.Bold,
+                letterSpacing = (-0.48).sp,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = sy(116))
+                    .wrapContentWidth(unbounded = true)
+            )
+        }
     }
 }
