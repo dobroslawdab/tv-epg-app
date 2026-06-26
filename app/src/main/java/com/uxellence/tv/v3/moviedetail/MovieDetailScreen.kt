@@ -81,7 +81,11 @@ fun MovieDetailScreen(
     // Nadpisanie przycisków (tryb WIDEO) — np. demo live: program przyszły ma
     // [Nagraj, Przypomnij] zamiast [Oglądaj, Do obejrzenia]. null = standard.
     customButtons: List<String>? = null,
-    onCustomButtonClicked: ((index: Int) -> Unit)? = null
+    onCustomButtonClicked: ((index: Int) -> Unit)? = null,
+    // Tryb WIDEO: opcjonalny slot renderowany NAD tytułem zamiast wewnątrz-kolumnowego
+    // logo kanału (np. demo live: linia "czas + NA ŻYWO"). null = domyślne logo (produkcja
+    // VOD/Kino bez zmian).
+    wideoHeaderSlot: (@Composable () -> Unit)? = null
 ) {
     // Reactive rental state — recomposes when RentalManager.rentals changes (e.g. after
     // rental confirmation or debug clear). VodSlideData has no stable id field, so we
@@ -192,6 +196,10 @@ fun MovieDetailScreen(
     // buttons, no Wypożycz/Zwiastun and no director/cast/country metadata block. KINO_PLAY
     // keeps the 2-button layout (Wypożycz/Oglądaj + Zwiastun) as before.
     val isWideoMode = !item.isKinoPlay
+    // Demo live detail (układ wg Figmy "Detail" 5507:5100): logo w rogu rysuje demo,
+    // tu treść wyrównana do lewej (x=128, bez plakatu/spacera) i PRZYCISKI NAD opisem.
+    // Aktywne tylko gdy demo poda wideoHeaderSlot — produkcja VOD/Kino bez zmian.
+    val isDemoLive = wideoHeaderSlot != null
     val watchlistItems = com.uxellence.tv.v3.watchlist.WatchlistManager.items.value
     val isOnWatchlist = remember(watchlistItems, item.title) { item.title in watchlistItems }
     val buttons = customButtons ?: when {
@@ -203,6 +211,34 @@ fun MovieDetailScreen(
             if (isRented) "Oglądaj" else "Wypożycz: ${item.price}",
             "Zwiastun"
         )
+    }
+
+    // Rząd przycisków akcji — wydzielony, by w demo live renderować go NAD opisem
+    // (wg Figmy), a w pozostałych trybach jak dotąd pod opisem. Używany tylko dla
+    // isDemoLive, gdzie item == displayedItem (brak parallax sibling-swap).
+    val actionButtonsRow: @Composable () -> Unit = {
+        Row(horizontalArrangement = Arrangement.spacedBy(sx(24))) {
+            buttons.forEachIndexed { index, label ->
+                ActionButton(
+                    label = label,
+                    isFocused = focusedButtonIndex == index && !isDescriptionFocused,
+                    focusRequester = buttonFocusRequesters[index],
+                    sx = ::sx,
+                    sy = ::sy,
+                    onFocusChanged = { isFocused -> if (isFocused) focusedButtonIndex = index },
+                    onClick = {
+                        if (customButtons != null) {
+                            onCustomButtonClicked?.invoke(index)
+                        } else when (index) {
+                            0 -> if (isWideoMode || isRented) onWatchClicked() else onRentClicked()
+                            1 -> if (isWideoMode) {
+                                com.uxellence.tv.v3.watchlist.WatchlistManager.toggle(item.title, context)
+                            } else onTrailerClicked()
+                        }
+                    }
+                )
+            }
+        }
     }
 
     // Mock data fallbacks for missing fields
@@ -310,19 +346,21 @@ fun MovieDetailScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(
-                    start = if (isWideoMode) sx(40) else sx(80),
+                    start = if (isDemoLive) sx(128) else if (isWideoMode) sx(40) else sx(80),
                     top = if (isWideoMode) 0.dp else sy(168),
                     end = sx(100),
                     bottom = if (isWideoMode) 0.dp else sy(40)
                 ),
             horizontalArrangement = Arrangement.spacedBy(sx(64))
         ) {
-            // LEFT column
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                if (!isWideoMode) {
-                    MoviePoster(posterUrl = item.posterUrl, sx = ::sx, sy = ::sy)
-                } else {
-                    Spacer(modifier = Modifier.width(sx(225)))
+            // LEFT column (plakat/spacer) — pomijana w demo live: treść wyrównana do lewej
+            if (!isDemoLive) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    if (!isWideoMode) {
+                        MoviePoster(posterUrl = item.posterUrl, sx = ::sx, sy = ::sy)
+                    } else {
+                        Spacer(modifier = Modifier.width(sx(225)))
+                    }
                 }
             }
 
@@ -333,35 +371,62 @@ fun MovieDetailScreen(
                     .fillMaxHeight()
                     .let { if (isWideoMode) it.verticalScroll(pageScrollState) else it }
             ) {
-                if (isWideoMode) Spacer(modifier = Modifier.height(sy(168)))
+                // Demo live: treść zaczyna się pod logo w rogu (Figma info_line y=255)
+                if (isWideoMode) Spacer(modifier = Modifier.height(if (isDemoLive) sy(255) else sy(168)))
 
-                if (isWideoMode) {
+                if (isDemoLive) {
+                    // Demo live: info_line (godzina + oznaczenia) PRZYKLEJONE bezpośrednio
+                    // nad tytułem. Cała grupa [info_line + tytuł] wyrównana do DOŁU w
+                    // rezerwacji 2-liniowego tytułu (sy(232) = info_line ~40 + 16 + 2×88):
+                    //  • tytuł 1-liniowy → grupa siedzi nisko, wolne miejsce u góry,
+                    //  • tytuł 2-liniowy → info_line odpychane w górę.
+                    // Dół tytułu (→ metadane/przyciski) zostaje na stałej wysokości.
                     Box(
-                        modifier = Modifier
-                            .size(width = sy(252), height = sy(268))
-                            .padding(bottom = sy(16)),
+                        modifier = Modifier.height(sy(232)),
                         contentAlignment = Alignment.BottomStart
                     ) {
-                        if (!item.channelLogoUrl.isNullOrBlank()) {
-                            AsyncImage(
-                                model = item.channelLogoUrl,
-                                contentDescription = "Channel logo",
-                                contentScale = ContentScale.Fit,
-                                modifier = Modifier.size(sy(252))
+                        Column {
+                            wideoHeaderSlot?.invoke()
+                            Spacer(modifier = Modifier.height(sy(16)))
+                            Text(
+                                text = item.title,
+                                color = Color(0xFFEEEEEE),
+                                fontSize = sy(64).value.sp,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                lineHeight = sy(88).value.sp
                             )
                         }
                     }
+                } else {
+                    if (isWideoMode) {
+                        Box(
+                            modifier = Modifier
+                                .size(width = sy(252), height = sy(268))
+                                .padding(bottom = sy(16)),
+                            contentAlignment = Alignment.BottomStart
+                        ) {
+                            if (!item.channelLogoUrl.isNullOrBlank()) {
+                                AsyncImage(
+                                    model = item.channelLogoUrl,
+                                    contentDescription = "Channel logo",
+                                    contentScale = ContentScale.Fit,
+                                    modifier = Modifier.size(sy(252))
+                                )
+                            }
+                        }
+                    }
+                    Text(
+                        text = item.title,
+                        color = Color(0xFFEEEEEE),
+                        fontSize = sy(64).value.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        lineHeight = sy(88).value.sp
+                    )
                 }
-
-                Text(
-                    text = item.title,
-                    color = Color(0xFFEEEEEE),
-                    fontSize = sy(64).value.sp,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    lineHeight = sy(88).value.sp
-                )
                 Spacer(modifier = Modifier.height(sy(8)))
 
                 MetadataRow(
@@ -375,6 +440,12 @@ fun MovieDetailScreen(
                     sy = ::sy
                 )
                 Spacer(modifier = Modifier.height(sy(32)))
+
+                // Demo live (Figma): PRZYCISKI NAD opisem
+                if (isDemoLive) {
+                    actionButtonsRow()
+                    Spacer(modifier = Modifier.height(sy(32)))
+                }
 
                 if (isWideoMode) {
                     Box(
@@ -464,7 +535,7 @@ fun MovieDetailScreen(
                             try { browseFocusRequester.requestFocus() } catch (_: Exception) {}
                         }
                     }
-                } else Row(
+                } else if (!isDemoLive) Row(    // demo live renderuje przyciski NAD opisem
                     modifier = if (isWideoMode) Modifier else Modifier.padding(bottom = sy(40)),
                     horizontalArrangement = Arrangement.spacedBy(sx(24))
                 ) {
@@ -593,15 +664,29 @@ fun MovieDetailScreen(
                         }
                     }
                     Key.DirectionUp -> {
-                        // WIDEO: UP from any button focuses the description.
-                        if (isWideoMode && !isDescriptionFocused) {
+                        if (isDemoLive) {
+                            // Demo live: przyciski NAD opisem → UP z opisu wraca na przyciski.
+                            // ZAWSZE konsumuj, by fokus nie uciekł poza detal (i nie wyszedł z apki).
+                            if (isDescriptionFocused) {
+                                try { buttonFocusRequesters.getOrNull(0)?.requestFocus() } catch (_: Exception) {}
+                                focusedButtonIndex = 0
+                            }
+                            true
+                        } else if (isWideoMode && !isDescriptionFocused) {
+                            // WIDEO: UP from any button focuses the description (opis nad przyciskami)
                             try { descriptionFocusRequester.requestFocus() } catch (_: Exception) {}
                             true
                         } else false
                     }
                     Key.DirectionDown -> {
-                        // From description (when focused) → first button
-                        if (isDescriptionFocused) {
+                        if (isDemoLive) {
+                            // Demo live: DOWN z przycisku → opis (pod przyciskami). ZAWSZE konsumuj.
+                            if (!isDescriptionFocused) {
+                                try { descriptionFocusRequester.requestFocus() } catch (_: Exception) {}
+                            }
+                            true
+                        } else if (isDescriptionFocused) {
+                            // From description (when focused) → first button
                             buttonFocusRequesters.getOrNull(0)?.requestFocus()
                             focusedButtonIndex = 0
                             true
