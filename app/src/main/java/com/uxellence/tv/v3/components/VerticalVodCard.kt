@@ -49,10 +49,17 @@ fun VerticalVodCard(
     sx: (Int) -> Dp,
     sy: (Int) -> Dp,
     modifier: Modifier = Modifier,
-    onClick: () -> Unit = {}
+    onClick: () -> Unit = {},
+    onLongPress: () -> Unit = {}
 ) {
     val itemWidth = sx(245)
     val itemHeight = sy(425)
+    // Long-press OK → menu kontekstowe (wzorzec z SearchScreen: repeatCount>0 = długie
+    // przytrzymanie). Klik przenosimy na KeyUp, by długi NIE odpalił też onClick.
+    // pressActive: naciśnięcie zaczęło się NA TYM kaflu — bez tego KeyUp od OK, którym
+    // wszedłeś na grid, odpalałby od razu onClick (detal) na świeżo zfokusowanym kaflu.
+    var longPressHandled by remember { mutableStateOf(false) }
+    var pressActive by remember { mutableStateOf(false) }
 
     val scale by animateFloatAsState(
         targetValue = if (isFocused) 1.1f else 1.0f,
@@ -70,14 +77,32 @@ fun VerticalVodCard(
                 if (focusState.isFocused) onFocusChange()
             }
             .onPreviewKeyEvent { event ->
-                if (event.type == KeyEventType.KeyDown &&
-                    (event.key == Key.Enter ||
-                        event.key == Key.NumPadEnter ||
-                        event.key == Key.DirectionCenter)
-                ) {
-                    onClick()
-                    true
-                } else false
+                val isOk = event.key == Key.Enter ||
+                    event.key == Key.NumPadEnter ||
+                    event.key == Key.DirectionCenter
+                when {
+                    !isOk -> false
+                    event.type == KeyEventType.KeyDown -> {
+                        if (event.nativeKeyEvent.repeatCount == 0) {
+                            // początek naciśnięcia NA tym kaflu — czekamy (klik na KeyUp)
+                            pressActive = true
+                            longPressHandled = false
+                        } else if (!longPressHandled) {
+                            // przytrzymanie → menu kontekstowe (raz)
+                            longPressHandled = true
+                            onLongPress()
+                        }
+                        true
+                    }
+                    event.type == KeyEventType.KeyUp -> {
+                        // klik tylko gdy naciśnięcie zaczęło się tutaj i nie było długie
+                        if (pressActive && !longPressHandled) onClick()
+                        pressActive = false
+                        longPressHandled = false
+                        true
+                    }
+                    else -> false
+                }
             }
             .focusable(),
         horizontalAlignment = Alignment.CenterHorizontally,

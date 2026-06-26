@@ -50,8 +50,11 @@ import com.uxellence.tv.v3.components.AbcSearchKeyboard
 import com.uxellence.tv.v3.components.KEY_ABC_TOGGLE
 import com.uxellence.tv.v3.components.KEY_BACKSPACE
 import com.uxellence.tv.v3.components.KEY_SPACE
+import com.uxellence.tv.v3.components.ThumbnailContextMenu
+import com.uxellence.tv.v3.components.ThumbnailMenuItem
 import com.uxellence.tv.v3.components.VerticalVodCard
 import com.uxellence.tv.v3.components.keyboardRows
+import com.uxellence.tv.v3.watchlist.WatchlistManager
 import com.uxellence.tv.v3.version001.VodContent
 import kotlinx.coroutines.launch
 
@@ -279,6 +282,8 @@ fun KinoGridScreen(
     var focusedRow by remember { mutableStateOf(initState.initialRow) }
     var focusedCol by remember { mutableStateOf(initState.initialCol) }
     val gridFocusRequesters = remember { mutableMapOf<Pair<Int, Int>, FocusRequester>() }
+    // Menu kontekstowe (long-press OK na kaflu) — null = zamknięte
+    var contextMenuItem by remember { mutableStateOf<VodContent?>(null) }
     val sortChipFocusRequester = remember { FocusRequester() }
     val categoryChipFocusRequester = remember { FocusRequester() }
     val searchChipFocusRequester = remember { FocusRequester() }
@@ -399,6 +404,8 @@ fun KinoGridScreen(
             .fillMaxSize()
             .background(Color(0xFF281443))  // Dark purple (jak MovieDetailScreen)
             .onPreviewKeyEvent { event ->
+                // Menu kontekstowe otwarte → ma własny fokus i samo łapie klawisze
+                if (contextMenuItem != null) return@onPreviewKeyEvent false
                 if (event.type == KeyEventType.KeyDown) {
                     // Handle dropdown navigation if expanded
                     if (isSortDropdownExpanded || isCategoryDropdownExpanded) {
@@ -723,6 +730,11 @@ fun KinoGridScreen(
                         focusedCol = col
                     },
                     onClick = { onMovieClicked(vodContent) },
+                    onLongPress = {
+                        focusedRow = row
+                        focusedCol = col
+                        contextMenuItem = vodContent
+                    },
                     sx = ::sx,
                     sy = ::sy
                 )
@@ -905,6 +917,60 @@ fun KinoGridScreen(
                 sx = ::sx,
                 sy = ::sy,
                 scaleY = scaleY
+            )
+        }
+
+        // LAYER 6: Menu kontekstowe (long-press OK na kaflu) — floating nad wszystkim,
+        // karetka wskazuje zfokusowany kafel. Kotwiczenie z metryk gridu (kolumny + przypięty
+        // wiersz), nie z LazyGrid internals.
+        contextMenuItem?.let { item ->
+            val menuWidthPx = 460f
+            val contentWPx = 1920f - GRID_LEFT_PADDING - GRID_RIGHT_PADDING
+            val cellWPx = (contentWPx - (gridColumns - 1) * GRID_HORIZONTAL_GAP) / gridColumns
+            val cardCenterPx = GRID_LEFT_PADDING + focusedCol * (cellWPx + GRID_HORIZONTAL_GAP) + cellWPx / 2f
+            val anchorXPx = (cardCenterPx - menuWidthPx / 2f).coerceIn(24f, 1920f - menuWidthPx - 24f)
+            val caretCenterPx = cardCenterPx - anchorXPx
+            val onMine = WatchlistManager.contains(item.title)
+            val menuItems = listOf(
+                ThumbnailMenuItem("Oglądaj") { onMovieClicked(item) },
+                ThumbnailMenuItem(if (onMine) "Usuń z Mojej listy" else "Dodaj do Mojej listy") {
+                    WatchlistManager.toggle(item.title, context)
+                },
+                ThumbnailMenuItem("Wypożycz") {
+                    android.widget.Toast.makeText(
+                        context, "Wypożyczanie: ${item.title} (atrapa)", android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                },
+                ThumbnailMenuItem("Więcej informacji") { onMovieClicked(item) }
+            )
+            ThumbnailContextMenu(
+                items = menuItems,
+                anchorX = (anchorXPx * scaleX).dp,
+                anchorTopY = sy(FOCUSED_ROW_PIN_Y_DP + 392 + 12),
+                caretCenterX = (caretCenterPx * scaleX).dp,
+                menuWidth = (menuWidthPx * scaleX).dp,
+                onDismiss = {
+                    // Najpierw przenieś fokus na kafel (póki menu jeszcze jest), POTEM zamknij —
+                    // bez mignięcia (brak luki bez fokusa, bez clearFocus i bez delay).
+                    try {
+                        gridFocusRequesters[Pair(focusedRow, focusedCol)]?.requestFocus()
+                    } catch (_: Exception) {}
+                    contextMenuItem = null
+                },
+                onNavigate = { dx ->
+                    // Lewo/prawo z otwartym menu: przejdź na kolejny/poprzedni kafel gridu,
+                    // menu zostaje otwarte i „podąża" za nowym materiałem (kotwica + pozycje
+                    // przeliczają się z focusedRow/focusedCol).
+                    val currentIndex = focusedRow * gridColumns + focusedCol
+                    val newIndex = (currentIndex + dx).coerceIn(0, filteredKinoContent.lastIndex)
+                    if (newIndex != currentIndex) {
+                        focusedRow = newIndex / gridColumns
+                        focusedCol = newIndex % gridColumns
+                        contextMenuItem = filteredKinoContent[newIndex]
+                    }
+                },
+                sx = ::sx,
+                sy = ::sy
             )
         }
     }
