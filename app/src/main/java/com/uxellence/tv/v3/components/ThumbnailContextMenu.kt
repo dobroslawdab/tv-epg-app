@@ -146,29 +146,30 @@ fun ThumbnailContextMenu(
                 }
             }
 
-            // Body z pozycjami
+            // Body z pozycjami (wg Figmy 4719:5343: kontener radius 8, padding 8, gap 8;
+            // item padding px24/py16, radius 4)
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(sx(16)))
+                    .clip(RoundedCornerShape(sx(8)))
                     .background(MENU_BG)
-                    .padding(vertical = sy(12), horizontal = sx(12))
+                    .padding(sx(8))
                     .then(
                         if (items.size > maxVisible)
-                            Modifier.heightIn(max = sy(64) * maxVisible).verticalScroll(scroll)
+                            Modifier.heightIn(max = sy(72) * maxVisible).verticalScroll(scroll)
                         else Modifier
                     ),
-                horizontalAlignment = Alignment.CenterHorizontally
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(sy(8))
             ) {
                 items.forEachIndexed { index, item ->
                     val isFocused = index == focusedIndex
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = sy(4))
-                            .clip(RoundedCornerShape(sx(8)))
+                            .clip(RoundedCornerShape(sx(4)))
                             .background(if (isFocused) MENU_FOCUS_PILL else Color.Transparent)
-                            .padding(vertical = sy(10), horizontal = sx(16)),
+                            .padding(horizontal = sx(24), vertical = sy(16)),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(

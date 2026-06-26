@@ -54,6 +54,7 @@ import com.uxellence.tv.v3.components.ThumbnailContextMenu
 import com.uxellence.tv.v3.components.ThumbnailMenuItem
 import com.uxellence.tv.v3.components.VerticalVodCard
 import com.uxellence.tv.v3.components.keyboardRows
+import com.uxellence.tv.v3.rental.RentalManager
 import com.uxellence.tv.v3.watchlist.WatchlistManager
 import com.uxellence.tv.v3.version001.VodContent
 import kotlinx.coroutines.launch
@@ -924,24 +925,36 @@ fun KinoGridScreen(
         // karetka wskazuje zfokusowany kafel. Kotwiczenie z metryk gridu (kolumny + przypięty
         // wiersz), nie z LazyGrid internals.
         contextMenuItem?.let { item ->
-            val menuWidthPx = 460f
+            val menuWidthPx = 352f   // węższe, wg Figmy (item max-w 288 + px24 + p8)
             val contentWPx = 1920f - GRID_LEFT_PADDING - GRID_RIGHT_PADDING
             val cellWPx = (contentWPx - (gridColumns - 1) * GRID_HORIZONTAL_GAP) / gridColumns
             val cardCenterPx = GRID_LEFT_PADDING + focusedCol * (cellWPx + GRID_HORIZONTAL_GAP) + cellWPx / 2f
             val anchorXPx = (cardCenterPx - menuWidthPx / 2f).coerceIn(24f, 1920f - menuWidthPx - 24f)
             val caretCenterPx = cardCenterPx - anchorXPx
-            val onMine = WatchlistManager.contains(item.title)
+            // Pozycje wg Figmy (4719-5340/5360): "Oglądaj" tylko gdy wypożyczony,
+            // inaczej "Wypożycz: {cena}".
+            val rented = RentalManager.isRented(item.title)
+            val onList = WatchlistManager.contains(item.title)
             val menuItems = listOf(
-                ThumbnailMenuItem("Oglądaj") { onMovieClicked(item) },
-                ThumbnailMenuItem(if (onMine) "Usuń z Mojej listy" else "Dodaj do Mojej listy") {
+                if (rented) {
+                    ThumbnailMenuItem("Oglądaj") { onMovieClicked(item) }
+                } else {
+                    ThumbnailMenuItem("Wypożycz: ${item.price?.takeIf { it.isNotBlank() } ?: "19 zł"}") {
+                        RentalManager.rent(item.title, context)
+                        android.widget.Toast.makeText(
+                            context, "Wypożyczono: ${item.title}", android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                },
+                ThumbnailMenuItem("Więcej informacji") { onMovieClicked(item) },
+                ThumbnailMenuItem(if (onList) "Usuń z listy" else "Dodaj Do obejrzenia") {
                     WatchlistManager.toggle(item.title, context)
                 },
-                ThumbnailMenuItem("Wypożycz") {
+                ThumbnailMenuItem("Zobacz zwiastun") {
                     android.widget.Toast.makeText(
-                        context, "Wypożyczanie: ${item.title} (atrapa)", android.widget.Toast.LENGTH_SHORT
+                        context, "Zwiastun: ${item.title} (atrapa)", android.widget.Toast.LENGTH_SHORT
                     ).show()
-                },
-                ThumbnailMenuItem("Więcej informacji") { onMovieClicked(item) }
+                }
             )
             ThumbnailContextMenu(
                 items = menuItems,
