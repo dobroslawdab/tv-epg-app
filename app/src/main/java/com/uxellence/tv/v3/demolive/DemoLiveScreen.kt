@@ -57,6 +57,17 @@ private fun trickThumbUrl(channelId: String?, wallMs: Long): String? = when (cha
 }
 
 /**
+ * Długość pętli materiału kanału live (livesim2 zapętla asset zakotwiczony w epoce).
+ * Pozwala mapować miniaturki CYKLICZNIE: klatka o fazie (wall mod loop) pasuje do
+ * każdego slotu o tej samej fazie — po obejrzeniu jednej pętli taśma ma właściwe
+ * kadry na całym oknie DVR. null = materiał bez pętli (dopasowanie po czasie).
+ */
+private fun liveLoopMs(channelId: String?): Long? = when (channelId) {
+    "safari" -> 10_000L   // ads/namibia_safari_ad: loop 10000 ms (strona /assets livesim2)
+    else -> null
+}
+
+/**
  * Widok wideo demo: TextureView (nie SurfaceView — z-order w Compose) z zachowaniem
  * proporcji obrazu (letterbox przez skalowanie TextureView) + przekazywaniem klawiszy
  * do handlera ekranu (wzorzec z VodPlayerScreen — fokus okna potrafi trafić w View).
@@ -360,9 +371,23 @@ fun DemoLiveScreen(
                     }
                     trickThumbCache[trickUrl]
                 } else {
-                    liveThumbs.minByOrNull { kotlin.math.abs(it.first - slotWall) }
-                        ?.takeIf { kotlin.math.abs(it.first - slotWall) <= 5_000L }
-                        ?.second?.takeIf { !it.isRecycled }
+                    val loop = liveLoopMs(chanId)
+                    if (loop != null) {
+                        // Materiał zapętlony: dopasuj klatkę po FAZIE pętli (dystans
+                        // cykliczny) — działa dla całego okna DVR, także sprzed strojenia
+                        val slotPhase = ((slotWall % loop) + loop) % loop
+                        fun cyclicDist(wall: Long): Long {
+                            val d = kotlin.math.abs((((wall % loop) + loop) % loop) - slotPhase)
+                            return kotlin.math.min(d, loop - d)
+                        }
+                        liveThumbs.minByOrNull { cyclicDist(it.first) }
+                            ?.takeIf { cyclicDist(it.first) <= 1_600L }
+                            ?.second?.takeIf { !it.isRecycled }
+                    } else {
+                        liveThumbs.minByOrNull { kotlin.math.abs(it.first - slotWall) }
+                            ?.takeIf { kotlin.math.abs(it.first - slotWall) <= 5_000L }
+                            ?.second?.takeIf { !it.isRecycled }
+                    }
                 }
                 offset to bmp
             }
