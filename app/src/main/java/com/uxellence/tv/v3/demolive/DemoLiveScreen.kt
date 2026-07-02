@@ -801,7 +801,14 @@ fun DemoLiveScreen(
                 playerInteractionAt = System.currentTimeMillis()
                 when (playerZone) {
                     PlayerZone.BUTTONS -> {
-                        if (tunedSeekPolicy() == DemoSeekPolicy.NONE) {
+                        if (isTunedLiveStream()) {
+                            // Realny live: taśma na osi wall-clock, kursor od bieżącej
+                            // pozycji (live minus cofnięcie w oknie DVR)
+                            playerZone = PlayerZone.STRIP
+                            scrubStartVirtualMs = controller.virtualNow() - liveBehindMs
+                            scrubCursorMs = scrubStartVirtualMs
+                            updateFilmstrip(scrubCursorMs)
+                        } else if (tunedSeekPolicy() == DemoSeekPolicy.NONE) {
                             // Telewizja bez startover — brak przewijania, nie otwieraj taśmy
                             android.widget.Toast.makeText(
                                 context, "Przewijanie niedostępne na tym kanale", android.widget.Toast.LENGTH_SHORT
