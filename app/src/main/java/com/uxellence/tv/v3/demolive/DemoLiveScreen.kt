@@ -24,7 +24,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private const val TAG = "DemoLive"
 private const val SEEK_STEP_MS = 10_000L
@@ -35,6 +38,19 @@ private const val PLAYER_UI_TIMEOUT_MS = 10_000L
 // z realnych formatów kanału w buildStargazeRow().
 private const val STARGAZE_STREAM_URL =
     "https://play.streaming.tivio.studio/channels/MQniU6Lt1LKPU0V3UwJl/index.m3u8"
+// DASH-IF livesim2 — publiczny symulator live (DASH) do testów playerów:
+// tsbd_3600 = okno DVR 1 h; Manifest_thumbs = tor miniatur trick-play
+// (AdaptationSet image/jpeg, kafelek 160x90 co 2 s pod thumbs/{unix/2}.jpg).
+private const val LIVESIM2_STREAM_URL =
+    "https://livesim2.dashif.org/livesim2/tsbd_3600/testpic_2s/Manifest_thumbs.mpd"
+private const val LIVESIM2_THUMB_BASE =
+    "https://livesim2.dashif.org/livesim2/tsbd_3600/testpic_2s/thumbs"
+
+/** URL kafelka trick-play dla kanału (null = kanał bez toru miniatur). */
+private fun trickThumbUrl(channelId: String?, wallMs: Long): String? = when (channelId) {
+    "dashif" -> "$LIVESIM2_THUMB_BASE/${wallMs / 2000}.jpg"   // duration=2s, numeracja od epochy
+    else -> null
+}
 
 /**
  * Widok wideo demo: TextureView (nie SurfaceView — z-order w Compose) z zachowaniem
@@ -152,6 +168,11 @@ fun DemoLiveScreen(
     // dostrojenia — te sloty zostają puste (jak poza DVR na barkerze).
     var videoViewRef by remember { mutableStateOf<DemoVideoView?>(null) }
     val liveThumbs = remember { ArrayDeque<Pair<Long, android.graphics.Bitmap>>() }
+    // Prawdziwe miniaturki trick-play (kanały z torem obrazków, np. DASH-IF livesim2):
+    // cache URL→bitmapa + zbiór trwających pobrań; po fetchu taśma się odświeża.
+    val trickThumbCache = remember { HashMap<String, android.graphics.Bitmap?>() }
+    val trickFetching = remember { mutableSetOf<String>() }
+    val demoScope = rememberCoroutineScope()
     var isPaused by remember { mutableStateOf(false) }
     // Dostrojony kanał: 0 = DEMO TV (gra barker), >0 = realny kanał. Kanał z niepustym
     // streamUrl (np. Stargaze — HLS z Tivio) gra PRAWDZIWE live przez livePlayer;
@@ -272,15 +293,37 @@ fun DemoLiveScreen(
                 dvrStartVirtualMs = controller.dvrStartMs()
             )
         } else if (livePlayer != null) {
-            // Realny stream live: miniaturki ze zrzutów TextureView (ring buffer).
-            // Slot dostaje najbliższą klatkę w tolerancji 5 s; sprzed dostrojenia
-            // klatek nie ma — slot pusty.
+            // Realny stream live. Kanał z torem trick-play (DASH-IF): prawdziwe kafelki
+            // JPEG pobierane po URL (także sprzed dostrojenia!). Bez toru (Stargaze):
+            // fallback — zrzuty TextureView z ring buffera (tylko obejrzany materiał).
+            val chanId = epgRows.getOrNull(tunedChannelIndex)?.channel?.id
             (-3..3).map { i ->
                 val offset = i * SEEK_STEP_MS
                 val slotWall = controller.antennaStartWallMs + centerMs + offset
-                val bmp = liveThumbs.minByOrNull { kotlin.math.abs(it.first - slotWall) }
-                    ?.takeIf { kotlin.math.abs(it.first - slotWall) <= 5_000L }
-                    ?.second?.takeIf { !it.isRecycled }
+                val trickUrl = trickThumbUrl(chanId, slotWall)
+                val bmp = if (trickUrl != null) {
+                    if (!trickThumbCache.containsKey(trickUrl) && trickFetching.add(trickUrl)) {
+                        demoScope.launch(Dispatchers.IO) {
+                            val b = try {
+                                java.net.URL(trickUrl).openStream().use {
+                                    android.graphics.BitmapFactory.decodeStream(it)
+                                }
+                            } catch (_: Exception) { null }
+                            withContext(Dispatchers.Main) {
+                                if (trickThumbCache.size > 200) trickThumbCache.clear()
+                                trickThumbCache[trickUrl] = b
+                                trickFetching.remove(trickUrl)
+                                // odśwież taśmę, jeśli wciąż na niej jesteśmy
+                                if (playerZone == PlayerZone.STRIP) updateFilmstrip(scrubCursorMs)
+                            }
+                        }
+                    }
+                    trickThumbCache[trickUrl]
+                } else {
+                    liveThumbs.minByOrNull { kotlin.math.abs(it.first - slotWall) }
+                        ?.takeIf { kotlin.math.abs(it.first - slotWall) <= 5_000L }
+                        ?.second?.takeIf { !it.isRecycled }
+                }
                 offset to bmp
             }
         } else {
@@ -507,9 +550,53 @@ fun DemoLiveScreen(
         )
     }
 
+    // DASH-IF livesim2: wieczny kanał testowy DASH z oknem DVR 1 h i torem miniatur
+    // trick-play. Ramówka syntetyczna (bloki 30 min) — treść to plansza testowa
+    // z zegarem, więc miniaturki same "pokazują" swój czas (idealne do testów taśmy).
+    fun buildLivesim2Row(): com.uxellence.tv.v3.epg.ChannelEpgRow {
+        val titles = listOf(
+            "Trick-play demo" to "Kafelki miniatur z toru image/jpeg (co 2 s).",
+            "Okno DVR 1 h" to "Przewijanie do godziny wstecz — retencja segmentów po stronie źródła.",
+            "Plansza testowa" to "Wzór DASH-IF z bieżącym czasem — weryfikacja trafności skoków."
+        )
+        val zone = java.time.ZoneId.systemDefault()
+        val start = java.time.LocalDate.now(zone).minusDays(1).atStartOfDay(zone).toInstant()
+        val slotMs = 30L * 60 * 1000
+        val programs = (0 until 96).map { i ->
+            val st = start.plusMillis(slotMs * i)
+            val (title, desc) = titles[i % titles.size]
+            com.uxellence.tv.v3.epg.EpgProgram(
+                channelId = "dashif",
+                title = title,
+                startUtc = st,
+                endUtc = st.plusMillis(slotMs),
+                description = desc,
+                categories = listOf("test", "2026", "DASH-IF", "bez ograniczeń"),
+                iconUrl = null
+            )
+        }
+        val now = java.time.Instant.now()
+        val currentIdx = programs.indexOfFirst { p ->
+            !now.isBefore(p.startUtc) && now.isBefore(p.endUtc)
+        }.coerceAtLeast(0)
+        return com.uxellence.tv.v3.epg.ChannelEpgRow(
+            channel = com.uxellence.tv.v3.channels.TvChannelData(
+                id = "dashif",
+                name = "DASH-IF",
+                streamUrl = LIVESIM2_STREAM_URL,
+                logoUrl = null,
+                epgId = "dashif"
+            ),
+            channelNumber = 125,
+            programs = programs,
+            currentProgramIndex = currentIdx,
+            lazyListState = androidx.compose.foundation.lazy.LazyListState()
+        )
+    }
+
     fun openEpg() {
         val demoRow = buildDemoRow()
-        epgRows = listOf(demoRow, buildStargazeRow()) + realChannelRows
+        epgRows = listOf(demoRow, buildStargazeRow(), buildLivesim2Row()) + realChannelRows
         // Start jak pod Telewizją: pasek 1 kanału (tego, który jest na ekranie)
         epgExpanded = false
         epgChannelIndex = tunedChannelIndex.coerceIn(0, (epgRows.size - 1).coerceAtLeast(0))
