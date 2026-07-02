@@ -283,6 +283,20 @@ fun DemoLiveScreen(
         return SEEK_STEP_MS * multiplier
     }
 
+    /**
+     * PRAWDZIWY czas ścienny bieżącej pozycji odtwarzania live wg osi z manifestu
+     * (windowStartTimeMs + position) — niezależny od zegara urządzenia (emulator
+     * potrafi odjechać po uśpieniu Maca, a livesim2 numeruje kafelki po epochce).
+     */
+    fun livePlaybackWallMs(): Long? {
+        val p = livePlayer ?: return null
+        val t = p.currentTimeline
+        if (t.isEmpty) return null
+        val w = t.getWindow(p.currentMediaItemIndex, com.google.android.exoplayer2.Timeline.Window())
+        if (w.windowStartTimeMs == com.google.android.exoplayer2.C.TIME_UNSET) return null
+        return w.windowStartTimeMs + p.currentPosition
+    }
+
     fun updateFilmstrip(centerMs: Long) {
         filmstripFrames = if (tunedChannelIndex == 0) {
             filmstrip.framesAround(
@@ -297,9 +311,15 @@ fun DemoLiveScreen(
             // JPEG pobierane po URL (także sprzed dostrojenia!). Bez toru (Stargaze):
             // fallback — zrzuty TextureView z ring buffera (tylko obejrzany materiał).
             val chanId = epgRows.getOrNull(tunedChannelIndex)?.channel?.id
+            // Korekta zegara: numer kafelka liczymy z PRAWDZIWEGO czasu treści
+            // (oś manifestu DASH), nie z zegara urządzenia — emulator potrafi
+            // odjechać i wtedy prosiliśmy o kafelki "z przyszłości" (404).
+            val deviceWallAtPlayback =
+                controller.antennaStartWallMs + (controller.virtualNow() - liveBehindMs)
+            val clockDelta = livePlaybackWallMs()?.minus(deviceWallAtPlayback) ?: 0L
             (-3..3).map { i ->
                 val offset = i * SEEK_STEP_MS
-                val slotWall = controller.antennaStartWallMs + centerMs + offset
+                val slotWall = controller.antennaStartWallMs + centerMs + offset + clockDelta
                 val trickUrl = trickThumbUrl(chanId, slotWall)
                 val bmp = if (trickUrl != null) {
                     if (!trickThumbCache.containsKey(trickUrl) && trickFetching.add(trickUrl)) {
@@ -308,13 +328,20 @@ fun DemoLiveScreen(
                                 java.net.URL(trickUrl).openStream().use {
                                     android.graphics.BitmapFactory.decodeStream(it)
                                 }
-                            } catch (_: Exception) { null }
+                            } catch (e: Exception) {
+                                Log.w(TAG, "trick thumb fail: $trickUrl (${e.message})")
+                                null
+                            }
                             withContext(Dispatchers.Main) {
                                 if (trickThumbCache.size > 200) trickThumbCache.clear()
-                                trickThumbCache[trickUrl] = b
+                                // null NIE trafia do cache — kolejny RUCH kursora spróbuje
+                                // ponownie (bez auto-refreshu, żeby fail nie pętlił fetchy)
+                                if (b != null) trickThumbCache[trickUrl] = b
                                 trickFetching.remove(trickUrl)
-                                // odśwież taśmę, jeśli wciąż na niej jesteśmy
-                                if (playerZone == PlayerZone.STRIP) updateFilmstrip(scrubCursorMs)
+                                // odśwież taśmę po sukcesie, jeśli wciąż na niej jesteśmy
+                                if (b != null && playerZone == PlayerZone.STRIP) {
+                                    updateFilmstrip(scrubCursorMs)
+                                }
                             }
                         }
                     }
