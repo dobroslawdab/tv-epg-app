@@ -141,6 +141,8 @@ fun DemoLiveScreen(
 
     var currentVirtualMs by remember { mutableLongStateOf(0L) }
     var liveEdgeMs by remember { mutableLongStateOf(0L) }
+    // Ile ms za live na realnym streamie (0 = na live); do kreski pozycji i "Wróć do live"
+    var liveBehindMs by remember { mutableLongStateOf(0L) }
     var isPaused by remember { mutableStateOf(false) }
     // Dostrojony kanał: 0 = DEMO TV (gra barker), >0 = realny kanał. Kanał z niepustym
     // streamUrl (np. Stargaze — HLS z Tivio) gra PRAWDZIWE live przez livePlayer;
@@ -161,6 +163,23 @@ fun DemoLiveScreen(
         val exo = com.google.android.exoplayer2.ExoPlayer.Builder(context).build()
         exo.setMediaItem(com.google.android.exoplayer2.MediaItem.fromUri(url))
         exo.playWhenReady = true
+        // Okno live jest krótkie (~38 s): po dłuższej pauzie/cofnięciu pozycja wypada
+        // z playlisty → BEHIND_LIVE_WINDOW. Standardowe recovery: resnap do live.
+        exo.addListener(object : com.google.android.exoplayer2.Player.Listener {
+            override fun onPlayerError(error: com.google.android.exoplayer2.PlaybackException) {
+                if (error.errorCode ==
+                    com.google.android.exoplayer2.PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW
+                ) {
+                    Log.i(TAG, "live: behind window → resnap do live edge")
+                    exo.seekToDefaultPosition()
+                    exo.prepare()
+                    exo.play()
+                    isPaused = false
+                } else {
+                    Log.e(TAG, "live playback error: ${error.errorCodeName}")
+                }
+            }
+        })
         exo.prepare()
         livePlayer = exo
         playerRef = exo
@@ -284,6 +303,24 @@ fun DemoLiveScreen(
             !instant.isBefore(p.startUtc) && instant.isBefore(p.endUtc)
         }
         return idx >= 0 && channelBlackout(tunedChannelIndex, idx)
+    }
+
+    // Kanał z realnym streamem live (Stargaze): pauza/seek działają na livePlayer
+    // w obrębie okna DVR strumienia (~38 s u Tivio), nie na osi barkera.
+    fun isTunedLiveStream(): Boolean =
+        tunedChannelIndex != 0 &&
+            epgRows.getOrNull(tunedChannelIndex)?.channel?.streamUrl?.isNotBlank() == true
+
+    /** Seek względny na live (clamp do okna DVR playlisty). */
+    fun liveSeekBy(deltaMs: Long) {
+        val p = livePlayer ?: return
+        val windowMs = p.duration.takeIf { it > 0 } ?: return   // okno jeszcze nieznane
+        val target = (p.currentPosition + deltaMs).coerceIn(0L, windowMs)
+        p.seekTo(target)
+        p.play()
+        isPaused = false
+        playerInteractionAt = System.currentTimeMillis()
+        Log.i(TAG, "liveSeekBy $deltaMs → $target/${windowMs}ms")
     }
 
     // Blok ramówki dostrojonego kanału w pozycji wirtualnej: DEMO TV = sztuczna
@@ -661,27 +698,40 @@ fun DemoLiveScreen(
                         }
                     }
                     PlayerZone.BUTTONS -> when (playerButtonsFocus) {
-                        0 -> {  // Zatrzymaj / Wznów
-                            val p = controller.player
+                        0 -> {  // Zatrzymaj / Wznów — na AKTYWNYM playerze (live lub barker)
+                            val p = if (isTunedLiveStream()) livePlayer else controller.player
                             if (p != null) {
                                 if (p.isPlaying) {
                                     p.pause(); isPaused = true
                                 } else {
                                     p.play(); isPaused = false
                                 }
-                                Log.i(TAG, "Player: zatrzymaj → isPaused=$isPaused")
+                                Log.i(TAG, "Player: zatrzymaj → isPaused=$isPaused (live=${isTunedLiveStream()})")
                             }
                         }
                         1 -> {  // Wróć do live
-                            controller.seekToLiveEdge()
+                            if (isTunedLiveStream()) {
+                                livePlayer?.seekToDefaultPosition()
+                                livePlayer?.play()
+                            } else {
+                                controller.seekToLiveEdge()
+                            }
                             isPaused = false
-                            Log.i(TAG, "Player: wróć do live")
+                            Log.i(TAG, "Player: wróć do live (live=${isTunedLiveStream()})")
                         }
-                        2 -> {  // Zacznij od początku bieżącego bloku ramówki
-                            val block = DemoChannelSchedule.epgBlockAt(controller.currentVirtualPositionMs())
-                            controller.seekToVirtual(block.startVirtualMs)
-                            isPaused = false
-                            Log.i(TAG, "Player: zacznij od początku → ${block.startVirtualMs}ms")
+                        2 -> {  // Zacznij od początku
+                            if (isTunedLiveStream()) {
+                                // Live: początek OKNA DVR strumienia (tyle, ile daje źródło)
+                                livePlayer?.seekTo(0)
+                                livePlayer?.play()
+                                isPaused = false
+                                Log.i(TAG, "Player: od początku okna live")
+                            } else {
+                                val block = DemoChannelSchedule.epgBlockAt(controller.currentVirtualPositionMs())
+                                controller.seekToVirtual(block.startVirtualMs)
+                                isPaused = false
+                                Log.i(TAG, "Player: zacznij od początku → ${block.startVirtualMs}ms")
+                            }
                         }
                         else -> { /* Nagraj / Napisy — atrapy */ }
                     }
@@ -776,6 +826,14 @@ fun DemoLiveScreen(
             openStripWithStep = { direction ->
                 val policy = tunedSeekPolicy()
                 when {
+                    isTunedLiveStream() -> {
+                        // Realny stream live (Stargaze): seek ±10 s w obrębie okna DVR
+                        // playlisty (~38 s) bezpośrednio na livePlayer — bez taśmy STRIP
+                        // (brak materiału do miniatur i osi barkera). UI z paskiem
+                        // pokazuje cofnięcie (biała kreska za live).
+                        liveSeekBy(direction * 10_000L)
+                        if (layer != DemoLayer.PLAYER_UI) openPlayerButtons()
+                    }
                     policy == DemoSeekPolicy.NONE -> {
                         // Telewizja bez startover — brak przewijania
                         android.widget.Toast.makeText(
@@ -896,6 +954,10 @@ fun DemoLiveScreen(
         while (true) {
             delay(500)
             currentVirtualMs = controller.currentVirtualPositionMs()
+            // Cofnięcie względem live na realnym streamie (okno DVR playlisty)
+            liveBehindMs = if (isTunedLiveStream()) {
+                livePlayer?.let { (it.duration - it.currentPosition).coerceAtLeast(0L) } ?: 0L
+            } else 0L
             liveEdgeMs = controller.virtualNow()
             if (++tick % 10 == 0) {
                 val mp = DemoChannelSchedule.materialPositionFor(currentVirtualMs)
@@ -1112,7 +1174,9 @@ fun DemoLiveScreen(
         // poniżej prawdziwy MovieDetailScreen (identyczny z zakładką Wideo).
         // W STRIP materiałem głównym (nagłówek + środkowy segment paska) jest
         // blok POD KURSOREM — przeskok na sąsiedni materiał przepina metadane
-        val uiRefVirtualMs = if (tunedChannelIndex == 0) currentVirtualMs else liveEdgeMs
+        // Realny stream live: pozycja = live minus cofnięcie w oknie DVR (kreska na pasku)
+        val uiRefVirtualMs = if (tunedChannelIndex == 0) currentVirtualMs
+            else (liveEdgeMs - liveBehindMs).coerceAtLeast(0L)
         val uiMainBlock = (if (playerZone == PlayerZone.STRIP) {
             blockForTunedChannel(scrubCursorMs)
         } else {
@@ -1134,8 +1198,11 @@ fun DemoLiveScreen(
             currentVirtualMs = uiRefVirtualMs,
             // Pauza ≠ live: każde odsunięcie od live (seek LUB pauza) pokazuje
             // przycisk "Wróć do live" zamiast statusu "Oglądasz live"
-            isAtLiveEdge = tunedChannelIndex != 0 ||
-                (!isPaused && (liveEdgeMs - currentVirtualMs) < 5_000L),
+            isAtLiveEdge = when {
+                tunedChannelIndex == 0 -> !isPaused && (liveEdgeMs - currentVirtualMs) < 5_000L
+                isTunedLiveStream() -> !isPaused && liveBehindMs < 5_000L
+                else -> true
+            },
             liveEdgeVirtualMs = liveEdgeMs.coerceAtLeast(1L),
             dvrStartVirtualMs = controller.dvrStartMs(),
             scrubCursorMs = scrubCursorMs,
