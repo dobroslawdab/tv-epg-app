@@ -12,6 +12,10 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -117,9 +121,17 @@ fun DemoEpgLayer(
                 FIXED_FOCUS_Y_SINGLE - CHANNEL_ROW_HEIGHT
             }
             val columnState = rememberLazyListState()
+            // Przy OTWARCIU warstwy kolumna ma być od razu na kanale (bez dojeżdżania);
+            // animacja tylko przy nawigacji kanałami, gdy warstwa już widoczna.
+            var columnSynced by remember(isVisible) { mutableStateOf(false) }
             LaunchedEffect(focusedChannelIndex, isVisible) {
                 if (isVisible && focusedChannelIndex in rows.indices) {
-                    columnState.animateScrollToItem(focusedChannelIndex)
+                    if (columnSynced) {
+                        columnState.animateScrollToItem(focusedChannelIndex)
+                    } else {
+                        columnState.scrollToItem(focusedChannelIndex)
+                        columnSynced = true
+                    }
                 }
             }
 

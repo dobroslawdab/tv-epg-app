@@ -650,6 +650,18 @@ fun DemoLiveScreen(
             }
             epgProgramIndex[i] = if (match >= 0) match else row.currentProgramIndex
         }
+        // Zero "dojeżdżania" pasków przy otwarciu (lekcja #12 CLAUDE.md: synchronous
+        // initial state): każdy wiersz dostaje ŚWIEŻY LazyListState zseedowany na
+        // program docelowy — paski są na miejscu od pierwszej klatki, a TIME SYNC
+        // w DemoEpgLayer robi już tylko korekty przy nawigacji po otwartym EPG.
+        epgRows = epgRows.mapIndexed { i, row ->
+            row.copy(
+                lazyListState = androidx.compose.foundation.lazy.LazyListState(
+                    firstVisibleItemIndex = (epgProgramIndex[i] ?: row.currentProgramIndex)
+                        .coerceAtLeast(0)
+                )
+            )
+        }
         epgInteractionAt = System.currentTimeMillis()
         layer = DemoLayer.EPG
     }
