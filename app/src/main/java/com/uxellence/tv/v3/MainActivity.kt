@@ -1178,6 +1178,29 @@ fun TvRoot(
                         )
                         previousScreen = NavigationScreen.KINO_GRID
                         currentScreen = NavigationScreen.MOVIE_DETAIL
+                    },
+                    onRentClicked = { vodContent ->
+                        // Menu kontekstowe "Wypożycz" → ekran zakupu (jak przycisk Wypożycz
+                        // w MovieDetail). Ta sama mapa co onMovieClicked.
+                        kinoGridLastClickedMovieId = vodContent.id
+                        selectedMovieData = VodSlideData(
+                            title = vodContent.title,
+                            genre = vodContent.category,
+                            duration = "",
+                            year = "",
+                            country = "Polska",
+                            ageRating = "13 lat",
+                            description = vodContent.description,
+                            price = vodContent.price ?: "19 zł/48h",
+                            backgroundUrl = vodContent.backdropUrl ?: "",
+                            posterUrl = vodContent.imageUrl,
+                            youtubeUrl = vodContent.youtubeUrl,
+                            isKinoPlay = true,
+                            cast = vodContent.cast
+                        )
+                        cameFromQuickPurchase = false  // BACK/po zakupie → MovieDetail → grid
+                        previousScreen = NavigationScreen.KINO_GRID
+                        currentScreen = NavigationScreen.PURCHASE
                     }
                 )
             }

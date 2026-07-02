@@ -236,7 +236,8 @@ fun KinoGridScreen(
     initialSearchQuery: String = "",
     onMovieClicked: (VodContent) -> Unit = {},
     onCategoryChanged: (String) -> Unit = {},
-    onSearchQueryChanged: (String) -> Unit = {}
+    onSearchQueryChanged: (String) -> Unit = {},
+    onRentClicked: (VodContent) -> Unit = {}  // menu kontekstowe "Wypożycz" → ekran zakupu
 ) {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
@@ -940,10 +941,7 @@ fun KinoGridScreen(
                     ThumbnailMenuItem("Oglądaj") { onMovieClicked(item) }
                 } else {
                     ThumbnailMenuItem("Wypożycz: ${item.price?.takeIf { it.isNotBlank() } ?: "19 zł"}") {
-                        RentalManager.rent(item.title, context)
-                        android.widget.Toast.makeText(
-                            context, "Wypożyczono: ${item.title}", android.widget.Toast.LENGTH_SHORT
-                        ).show()
+                        onRentClicked(item)  // → PurchaseScreen ("Wypożyczam i płacę")
                     }
                 },
                 ThumbnailMenuItem("Więcej informacji") { onMovieClicked(item) },
