@@ -65,6 +65,10 @@ private class DemoVideoView(
         isFocusableInTouchMode = false
     }
 
+    /** Zrzut bieżącej klatki (miniaturki taśmy dla realnego live). */
+    fun captureFrame(): android.graphics.Bitmap? =
+        if (textureView.isAvailable) textureView.getBitmap(320, 180) else null
+
     fun attach(player: com.google.android.exoplayer2.ExoPlayer?) {
         if (attachedPlayer === player) return
         attachedPlayer?.removeListener(videoListener)
@@ -143,6 +147,11 @@ fun DemoLiveScreen(
     var liveEdgeMs by remember { mutableLongStateOf(0L) }
     // Ile ms za live na realnym streamie (0 = na live); do kreski pozycji i "Wróć do live"
     var liveBehindMs by remember { mutableLongStateOf(0L) }
+    // Miniaturki taśmy dla realnego live: ring buffer zrzutów klatek z TextureView
+    // (wallMs → bitmapa), robionych co ~3 s podczas oglądania. Brak materiału sprzed
+    // dostrojenia — te sloty zostają puste (jak poza DVR na barkerze).
+    var videoViewRef by remember { mutableStateOf<DemoVideoView?>(null) }
+    val liveThumbs = remember { ArrayDeque<Pair<Long, android.graphics.Bitmap>>() }
     var isPaused by remember { mutableStateOf(false) }
     // Dostrojony kanał: 0 = DEMO TV (gra barker), >0 = realny kanał. Kanał z niepustym
     // streamUrl (np. Stargaze — HLS z Tivio) gra PRAWDZIWE live przez livePlayer;
@@ -234,6 +243,7 @@ fun DemoLiveScreen(
     var detailChannelLogoUrl by remember { mutableStateOf<String?>(null) }
     var detailChannelName by remember { mutableStateOf("DEMO TV") }
     var detailChannelNumber by remember { mutableIntStateOf(122) }
+    var detailChannelIndex by remember { mutableIntStateOf(0) }  // indeks w epgRows (tuning z detalu)
 
     // Akceleracja seeka (wzorzec z VodPlayerScreen)
     var rapidPressCount by remember { mutableIntStateOf(0) }
@@ -261,6 +271,18 @@ fun DemoLiveScreen(
                 sideCount = 3,
                 dvrStartVirtualMs = controller.dvrStartMs()
             )
+        } else if (livePlayer != null) {
+            // Realny stream live: miniaturki ze zrzutów TextureView (ring buffer).
+            // Slot dostaje najbliższą klatkę w tolerancji 5 s; sprzed dostrojenia
+            // klatek nie ma — slot pusty.
+            (-3..3).map { i ->
+                val offset = i * SEEK_STEP_MS
+                val slotWall = controller.antennaStartWallMs + centerMs + offset
+                val bmp = liveThumbs.minByOrNull { kotlin.math.abs(it.first - slotWall) }
+                    ?.takeIf { kotlin.math.abs(it.first - slotWall) <= 5_000L }
+                    ?.second?.takeIf { !it.isRecycled }
+                offset to bmp
+            }
         } else {
             // Realny kanał: brak materiału w demo — puste sloty z etykietami czasu
             (-3..3).map { i -> (i * SEEK_STEP_MS) to null }
@@ -362,7 +384,8 @@ fun DemoLiveScreen(
         isDemo: Boolean,
         fromEpg: Boolean,
         channelName: String = "DEMO TV",
-        channelNumber: Int = 122
+        channelNumber: Int = 122,
+        channelIndex: Int = 0
     ) {
         val startV = program.startUtc.toEpochMilli() - controller.antennaStartWallMs
         val endV = program.endUtc.toEpochMilli() - controller.antennaStartWallMs
@@ -395,6 +418,7 @@ fun DemoLiveScreen(
         detailChannelLogoUrl = channelLogoUrl
         detailChannelName = channelName
         detailChannelNumber = channelNumber
+        detailChannelIndex = channelIndex
         playerZone = PlayerZone.DETAIL
         playerInteractionAt = System.currentTimeMillis()
         layer = DemoLayer.PLAYER_UI
@@ -629,7 +653,8 @@ fun DemoLiveScreen(
                                 isDemo = isDemo,
                                 fromEpg = true,
                                 channelName = row.channel.name,
-                                channelNumber = row.channelNumber
+                                channelNumber = row.channelNumber,
+                                channelIndex = epgChannelIndex
                             )
                             Log.i(TAG, "EPG select: '${program.title}' (${row.channel.name}) → DETAIL (timing=$detailTiming)")
                         }
@@ -678,7 +703,23 @@ fun DemoLiveScreen(
                 playerInteractionAt = System.currentTimeMillis()
                 when (playerZone) {
                     PlayerZone.STRIP -> {
-                        if (isBlackoutAtVirtual(scrubCursorMs)) {
+                        if (isTunedLiveStream()) {
+                            // OK na taśmie live: przelicz kursor (oś wall-clock) na pozycję
+                            // w oknie playera i skocz; UI znika jak na barkerze
+                            val nowV = controller.virtualNow()
+                            livePlayer?.let { p ->
+                                val windowMs = p.duration.takeIf { it > 0 } ?: 38_000L
+                                val behind = (nowV - scrubCursorMs).coerceIn(0L, windowMs)
+                                p.seekTo((windowMs - behind).coerceAtLeast(0L))
+                                p.play()
+                            }
+                            isPaused = false
+                            rapidPressCount = 0
+                            playerZone = PlayerZone.BUTTONS
+                            playerButtonsFocus = 0
+                            layer = DemoLayer.FULLSCREEN
+                            Log.i(TAG, "STRIP(live) seek → ${scrubCursorMs}ms → FULLSCREEN")
+                        } else if (isBlackoutAtVirtual(scrubCursorMs)) {
                             // Blackout (brak praw) — nie odtwarzaj tego fragmentu
                             android.widget.Toast.makeText(
                                 context, "Tego programu nie można odtworzyć", android.widget.Toast.LENGTH_SHORT
@@ -827,12 +868,20 @@ fun DemoLiveScreen(
                 val policy = tunedSeekPolicy()
                 when {
                     isTunedLiveStream() -> {
-                        // Realny stream live (Stargaze): seek ±10 s w obrębie okna DVR
-                        // playlisty (~38 s) bezpośrednio na livePlayer — bez taśmy STRIP
-                        // (brak materiału do miniatur i osi barkera). UI z paskiem
-                        // pokazuje cofnięcie (biała kreska za live).
-                        liveSeekBy(direction * 10_000L)
-                        if (layer != DemoLayer.PLAYER_UI) openPlayerButtons()
+                        // Realny stream live (Stargaze): taśma STRIP na osi wall-clock,
+                        // kursor ograniczony do okna DVR playlisty (~38 s). Miniaturki
+                        // ze zrzutów klatek robionych podczas oglądania (liveThumbs).
+                        val nowV = controller.virtualNow()
+                        val windowMs = livePlayer?.duration?.takeIf { it > 0 } ?: 38_000L
+                        if (layer != DemoLayer.PLAYER_UI || playerZone != PlayerZone.STRIP) {
+                            scrubStartVirtualMs = nowV - liveBehindMs
+                            openStrip(scrubStartVirtualMs)
+                        }
+                        scrubCursorMs = (scrubCursorMs + getSeekStep() * direction)
+                            .coerceIn(nowV - windowMs, nowV)
+                        updateFilmstrip(scrubCursorMs)
+                        playerInteractionAt = System.currentTimeMillis()
+                        Log.i(TAG, "STRIP(live) ${if (direction > 0) "RIGHT" else "LEFT"} → ${scrubCursorMs}ms")
                     }
                     policy == DemoSeekPolicy.NONE -> {
                         // Telewizja bez startover — brak przewijania
@@ -958,6 +1007,13 @@ fun DemoLiveScreen(
             liveBehindMs = if (isTunedLiveStream()) {
                 livePlayer?.let { (it.duration - it.currentPosition).coerceAtLeast(0L) } ?: 0L
             } else 0L
+            // Miniaturki live: zrzut klatki co ~3 s podczas odtwarzania (ring ~40 szt.)
+            if (isTunedLiveStream() && livePlayer?.isPlaying == true && tick % 6 == 5) {
+                videoViewRef?.captureFrame()?.let { bmp ->
+                    liveThumbs.addLast(System.currentTimeMillis() to bmp)
+                    while (liveThumbs.size > 40) liveThumbs.removeFirst().second.recycle()
+                }
+            }
             liveEdgeMs = controller.virtualNow()
             if (++tick % 10 == 0) {
                 val mp = DemoChannelSchedule.materialPositionFor(currentVirtualMs)
@@ -1080,7 +1136,10 @@ fun DemoLiveScreen(
     val videoLayer = remember {
         movableContentOf { modifier: Modifier ->
             AndroidView(
-                factory = { ctx -> DemoVideoView(ctx) { keyCode -> keyHandler.value(keyCode) } },
+                factory = { ctx ->
+                    DemoVideoView(ctx) { keyCode -> keyHandler.value(keyCode) }
+                        .also { videoViewRef = it }
+                },
                 update = { view -> view.attach(playerRef) },
                 modifier = modifier
             )
@@ -1204,7 +1263,10 @@ fun DemoLiveScreen(
                 else -> true
             },
             liveEdgeVirtualMs = liveEdgeMs.coerceAtLeast(1L),
-            dvrStartVirtualMs = controller.dvrStartMs(),
+            dvrStartVirtualMs = if (isTunedLiveStream()) {
+                // Live: początek okna DVR strumienia (nie oś barkera)
+                (liveEdgeMs - (livePlayer?.duration?.takeIf { it > 0 } ?: 38_000L)).coerceAtLeast(0L)
+            } else controller.dvrStartMs(),
             scrubCursorMs = scrubCursorMs,
             antennaStartWallMs = controller.antennaStartWallMs,
             isPaused = isPaused,
@@ -1258,11 +1320,33 @@ fun DemoLiveScreen(
                                     BlockTiming.FUTURE -> { /* nieosiągalne: FUTURE ma customButtons */ }
                                 }
                             } else {
-                                android.widget.Toast.makeText(
-                                    context,
-                                    "Demo: odtwarzanie działa tylko na kanale DEMO TV",
-                                    android.widget.Toast.LENGTH_SHORT
-                                ).show()
+                                val liveUrl = epgRows.getOrNull(detailChannelIndex)
+                                    ?.channel?.streamUrl.orEmpty()
+                                when {
+                                    liveUrl.isNotBlank() && detailTiming == BlockTiming.CURRENT -> {
+                                        // Kanał z realnym streamem: Oglądaj = dostrój live
+                                        tunedChannelIndex = detailChannelIndex
+                                        controller.player?.pause()
+                                        tuneLive(liveUrl)
+                                        isPaused = false
+                                        openPlayerButtons()
+                                        Log.i(TAG, "DETAIL: Oglądaj (live $detailChannelName) → PLAYER_UI")
+                                    }
+                                    liveUrl.isNotBlank() -> {
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            "Ten program już się skończył — kanał nie ma catchup",
+                                            android.widget.Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                    else -> {
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            "Demo: brak streamu tego kanału",
+                                            android.widget.Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                }
                             }
                         },
                         // Linia "czas + NA ŻYWO" nad tytułem wg Figmy (Detail 5507:5100).
