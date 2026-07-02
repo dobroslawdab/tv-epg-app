@@ -45,6 +45,10 @@ private const val LIVESIM2_STREAM_URL =
     "https://livesim2.dashif.org/livesim2/tsbd_3600/testpic_2s/Manifest_thumbs.mpd"
 private const val LIVESIM2_THUMB_BASE =
     "https://livesim2.dashif.org/livesim2/tsbd_3600/testpic_2s/thumbs"
+// Realny MATERIAŁ wideo jako live (livesim2 zapętla klip: safari w Namibii),
+// avc+aac (gra wszędzie), okno DVR 1 h; bez toru miniatur → taśma ze zrzutów.
+private const val SAFARI_STREAM_URL =
+    "https://livesim2.dashif.org/livesim2/tsbd_3600/ads/namibia_safari_ad/manifest.mpd"
 
 /** URL kafelka trick-play dla kanału (null = kanał bez toru miniatur). */
 private fun trickThumbUrl(channelId: String?, wallMs: Long): String? = when (channelId) {
@@ -630,9 +634,53 @@ fun DemoLiveScreen(
         )
     }
 
+    // Safari: realny MATERIAŁ wideo (klip safari zapętlony przez livesim2 jako live),
+    // DVR 1 h — do testów przewijania na "normalnie wyglądającym" kanale.
+    fun buildSafariRow(): com.uxellence.tv.v3.epg.ChannelEpgRow {
+        val titles = listOf(
+            "Safari w Namibii" to "Dzika przyroda Afryki — zapętlony materiał jako kanał live.",
+            "Na sawannie" to "Zwierzęta w naturalnym środowisku.",
+            "Wieczór na buszu" to "Przyrodniczy przegląd dnia."
+        )
+        val zone = java.time.ZoneId.systemDefault()
+        val start = java.time.LocalDate.now(zone).minusDays(1).atStartOfDay(zone).toInstant()
+        val slotMs = 30L * 60 * 1000
+        val programs = (0 until 96).map { i ->
+            val st = start.plusMillis(slotMs * i)
+            val (title, desc) = titles[i % titles.size]
+            com.uxellence.tv.v3.epg.EpgProgram(
+                channelId = "safari",
+                title = title,
+                startUtc = st,
+                endUtc = st.plusMillis(slotMs),
+                description = desc,
+                categories = listOf("przyroda", "2026", "Namibia", "7 lat"),
+                iconUrl = null
+            )
+        }
+        val now = java.time.Instant.now()
+        val currentIdx = programs.indexOfFirst { p ->
+            !now.isBefore(p.startUtc) && now.isBefore(p.endUtc)
+        }.coerceAtLeast(0)
+        return com.uxellence.tv.v3.epg.ChannelEpgRow(
+            channel = com.uxellence.tv.v3.channels.TvChannelData(
+                id = "safari",
+                name = "Safari",
+                streamUrl = SAFARI_STREAM_URL,
+                logoUrl = null,
+                epgId = "safari"
+            ),
+            channelNumber = 126,
+            programs = programs,
+            currentProgramIndex = currentIdx,
+            lazyListState = androidx.compose.foundation.lazy.LazyListState()
+        )
+    }
+
     fun openEpg() {
         val demoRow = buildDemoRow()
-        epgRows = listOf(demoRow, buildStargazeRow(), buildLivesim2Row()) + realChannelRows
+        epgRows = listOf(demoRow, buildStargazeRow(), buildLivesim2Row(), buildSafariRow()) +
+            realChannelRows
         // Start jak pod Telewizją: pasek 1 kanału (tego, który jest na ekranie)
         epgExpanded = false
         epgChannelIndex = tunedChannelIndex.coerceIn(0, (epgRows.size - 1).coerceAtLeast(0))
