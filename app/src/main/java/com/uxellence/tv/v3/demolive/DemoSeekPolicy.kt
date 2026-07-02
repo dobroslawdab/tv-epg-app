@@ -25,6 +25,8 @@ object DemoSeekPolicyClassifier {
             n.contains("tvn") || n.contains("disney") -> DemoSeekPolicy.BACKWARD_ONLY
             // Kanał informacyjny bez startover (brak przewijania)
             n.contains("news") || n.contains("info") -> DemoSeekPolicy.NONE
+            // Stargaze: realny stream HLS w demo — czyste live, bez DVR/przewijania
+            n.contains("stargaze") -> DemoSeekPolicy.NONE
             else -> DemoSeekPolicy.BOTH
         }
     }

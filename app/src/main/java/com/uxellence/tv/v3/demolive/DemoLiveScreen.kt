@@ -30,6 +30,11 @@ private const val TAG = "DemoLive"
 private const val SEEK_STEP_MS = 10_000L
 private const val EPG_TIMEOUT_MS = 12_000L
 private const val PLAYER_UI_TIMEOUT_MS = 10_000L
+// Stargaze — realny kanał FAST (Tivio Studio, w ofercie Play), stream HLS.
+// Publicznego EPG brak (Tivio API wymaga klucza SDK) → syntetyczna ramówka
+// z realnych formatów kanału w buildStargazeRow().
+private const val STARGAZE_STREAM_URL =
+    "https://play.streaming.tivio.studio/channels/MQniU6Lt1LKPU0V3UwJl/index.m3u8"
 
 /**
  * Widok wideo demo: TextureView (nie SurfaceView — z-order w Compose) z zachowaniem
@@ -63,6 +68,10 @@ private class DemoVideoView(
     fun attach(player: com.google.android.exoplayer2.ExoPlayer?) {
         if (attachedPlayer === player) return
         attachedPlayer?.removeListener(videoListener)
+        // KLUCZOWE przy przełączaniu playerów (barker ⇄ live HLS): odepnij TextureView
+        // od starego playera — inaczej stary trzyma surface i na ekranie zostaje jego
+        // zamrożona klatka, a nowy gra bez obrazu.
+        attachedPlayer?.clearVideoTextureView(textureView)
         attachedPlayer = player
         if (player != null) {
             player.addListener(videoListener)
@@ -133,9 +142,30 @@ fun DemoLiveScreen(
     var currentVirtualMs by remember { mutableLongStateOf(0L) }
     var liveEdgeMs by remember { mutableLongStateOf(0L) }
     var isPaused by remember { mutableStateOf(false) }
-    // Dostrojony kanał: 0 = DEMO TV (gra barker), >0 = realny kanał — w demo nie ma
-    // jego streamu, więc zamiast wideo plansza "Brak live"; UI playera działa tak samo
+    // Dostrojony kanał: 0 = DEMO TV (gra barker), >0 = realny kanał. Kanał z niepustym
+    // streamUrl (np. Stargaze — HLS z Tivio) gra PRAWDZIWE live przez livePlayer;
+    // pozostałe realne kanały pokazują planszę "Brak live". UI playera działa tak samo.
     var tunedChannelIndex by remember { mutableIntStateOf(0) }
+    // Drugi ExoPlayer do realnego live (HLS) — barker (controller.player) zostaje
+    // nietknięty i wraca po przełączeniu na DEMO TV.
+    var livePlayer by remember { mutableStateOf<com.google.android.exoplayer2.ExoPlayer?>(null) }
+
+    /** Przełącz źródło wideo: url=null/blank → barker; inaczej realne live (HLS). */
+    fun tuneLive(url: String?) {
+        livePlayer?.release()
+        livePlayer = null
+        if (url.isNullOrBlank()) {
+            playerRef = controller.player
+            return
+        }
+        val exo = com.google.android.exoplayer2.ExoPlayer.Builder(context).build()
+        exo.setMediaItem(com.google.android.exoplayer2.MediaItem.fromUri(url))
+        exo.playWhenReady = true
+        exo.prepare()
+        livePlayer = exo
+        playerRef = exo
+        Log.i(TAG, "tuneLive → $url")
+    }
 
     // Warstwa EPG: wiersz 0 = DEMO TV (sztuczna ramówka), 1..N = prawdziwe kanały z EPG
     var epgRows by remember { mutableStateOf<List<com.uxellence.tv.v3.epg.ChannelEpgRow>>(emptyList()) }
@@ -239,6 +269,13 @@ fun DemoLiveScreen(
         Log.i(TAG, "Forward seek blocked (policy=${tunedSeekPolicy()})")
     }
 
+    // Blackout (brak praw) — kanały z realnym streamem (Stargaze) nigdy nie mają
+    // blackoutów (wszystko odtwarzalne live); reszta wg deterministycznego klasyfikatora
+    fun channelBlackout(chIdx: Int, progIdx: Int): Boolean {
+        val hasStream = epgRows.getOrNull(chIdx)?.channel?.streamUrl?.isNotBlank() == true
+        return !hasStream && DemoSeekPolicyClassifier.isBlackout(chIdx, progIdx)
+    }
+
     // Blackout (brak praw) programu pod daną pozycją wirtualną na dostrojonym kanale
     fun isBlackoutAtVirtual(virtualMs: Long): Boolean {
         val row = epgRows.getOrNull(tunedChannelIndex) ?: return false
@@ -246,7 +283,7 @@ fun DemoLiveScreen(
         val idx = row.programs.indexOfFirst { p ->
             !instant.isBefore(p.startUtc) && instant.isBefore(p.endUtc)
         }
-        return idx >= 0 && DemoSeekPolicyClassifier.isBlackout(tunedChannelIndex, idx)
+        return idx >= 0 && channelBlackout(tunedChannelIndex, idx)
     }
 
     // Blok ramówki dostrojonego kanału w pozycji wirtualnej: DEMO TV = sztuczna
@@ -361,9 +398,57 @@ fun DemoLiveScreen(
         )
     }
 
+    // Stargaze: realne live (HLS z Tivio) + syntetyczna ramówka z faktycznych
+    // formatów kanału (5 Sposobów Na, Człowiek Absurdalny, ORB News, Sprytne
+    // Babki…) — publicznego XMLTV brak. Bloki 30 min, wczoraj+dziś (spójnie
+    // z realnymi kanałami, żeby TIME SYNC działał też tuż po północy).
+    fun buildStargazeRow(): com.uxellence.tv.v3.epg.ChannelEpgRow {
+        val formats = listOf(
+            "5 Sposobów Na" to "Poradnikowy format twórców internetowych — szybkie sposoby na codzienne wyzwania.",
+            "Człowiek Absurdalny" to "Podcast o absurdach codzienności prosto z internetu.",
+            "ORB News" to "Przegląd najciekawszych wydarzeń ze świata twórców online.",
+            "Sprytne Babki" to "Lifehacki, DIY i triki od znanych twórczyń.",
+            "Stargaze Mix" to "Najlepsze fragmenty tygodnia na Stargaze.",
+            "Kreatorzy" to "Rozmowy z twórcami internetowymi o kulisach ich pracy."
+        )
+        val zone = java.time.ZoneId.systemDefault()
+        val start = java.time.LocalDate.now(zone).minusDays(1).atStartOfDay(zone).toInstant()
+        val slotMs = 30L * 60 * 1000
+        val programs = (0 until 96).map { i ->   // 48 h w blokach 30 min
+            val st = start.plusMillis(slotMs * i)
+            val (title, desc) = formats[i % formats.size]
+            com.uxellence.tv.v3.epg.EpgProgram(
+                channelId = "stargaze",
+                title = title,
+                startUtc = st,
+                endUtc = st.plusMillis(slotMs),
+                description = desc,
+                categories = listOf("rozrywka", "2026", "Polska", "12 lat"),
+                iconUrl = null
+            )
+        }
+        val now = java.time.Instant.now()
+        val currentIdx = programs.indexOfFirst { p ->
+            !now.isBefore(p.startUtc) && now.isBefore(p.endUtc)
+        }.coerceAtLeast(0)
+        return com.uxellence.tv.v3.epg.ChannelEpgRow(
+            channel = com.uxellence.tv.v3.channels.TvChannelData(
+                id = "stargaze",
+                name = "Stargaze",
+                streamUrl = STARGAZE_STREAM_URL,
+                logoUrl = null,
+                epgId = "1123"   // id ramówki wg Play; w epg.xml (jeszcze) go nie ma
+            ),
+            channelNumber = 1123,
+            programs = programs,
+            currentProgramIndex = currentIdx,
+            lazyListState = androidx.compose.foundation.lazy.LazyListState()
+        )
+    }
+
     fun openEpg() {
         val demoRow = buildDemoRow()
-        epgRows = listOf(demoRow) + realChannelRows
+        epgRows = listOf(demoRow, buildStargazeRow()) + realChannelRows
         // Start jak pod Telewizją: pasek 1 kanału (tego, który jest na ekranie)
         epgExpanded = false
         epgChannelIndex = tunedChannelIndex.coerceIn(0, (epgRows.size - 1).coerceAtLeast(0))
@@ -444,7 +529,7 @@ fun DemoLiveScreen(
                 val focusedProgIdx = epgProgramIndex[epgChannelIndex] ?: -1
                 val program = row?.programs?.getOrNull(focusedProgIdx)
                 if (row != null && program != null &&
-                    DemoSeekPolicyClassifier.isBlackout(epgChannelIndex, focusedProgIdx)
+                    channelBlackout(epgChannelIndex, focusedProgIdx)
                 ) {
                     // Blackout (brak praw) — nie da się odtworzyć/dostroić
                     android.widget.Toast.makeText(
@@ -465,11 +550,25 @@ fun DemoLiveScreen(
                             // dostrój kanał i ZWIŃ do paska tylko tego kanału (EPG single).
                             // Player dopiero przy kolejnym OK na tym pasku.
                             tunedChannelIndex = epgChannelIndex
-                            if (epgChannelIndex == 0) {
-                                controller.player?.play()
-                                isPaused = false
-                            } else {
-                                controller.player?.pause()
+                            val tunedUrl = epgRows.getOrNull(epgChannelIndex)?.channel?.streamUrl.orEmpty()
+                            when {
+                                epgChannelIndex == 0 -> {
+                                    // DEMO TV: z powrotem barker
+                                    tuneLive(null)
+                                    controller.player?.play()
+                                    isPaused = false
+                                }
+                                tunedUrl.isNotBlank() -> {
+                                    // Kanał z realnym streamem (Stargaze): graj live HLS
+                                    controller.player?.pause()
+                                    tuneLive(tunedUrl)
+                                    isPaused = false
+                                }
+                                else -> {
+                                    // Realny kanał bez streamu: plansza "Brak live"
+                                    tuneLive(null)
+                                    controller.player?.pause()
+                                }
                             }
                             // Sfokusuj program nadawany teraz na tym kanale (pasek single)
                             val liveIdx = liveProgramIndexFor(tunedChannelIndex)
@@ -784,6 +883,7 @@ fun DemoLiveScreen(
 
     DisposableEffect(Unit) {
         onDispose {
+            livePlayer?.release()
             controller.release()
             filmstrip.release()
         }
@@ -943,10 +1043,13 @@ fun DemoLiveScreen(
             videoLayer(Modifier.fillMaxSize())
         }
 
-        // Realny kanał: w demo nie ma jego streamu — plansza "Brak live" zamiast
-        // wideo (pod warstwami EPG/playera, więc cały flow działa identycznie)
-        if (tunedChannelIndex != 0 && !isDetail) {
-            val tunedRow = epgRows.getOrNull(tunedChannelIndex)
+        // Realny kanał BEZ streamu — plansza "Brak live" zamiast wideo (pod warstwami
+        // EPG/playera). Kanały ze streamUrl (Stargaze) grają prawdziwe live w videoLayer.
+        val tunedRowForOverlay = epgRows.getOrNull(tunedChannelIndex)
+        if (tunedChannelIndex != 0 && !isDetail &&
+            tunedRowForOverlay?.channel?.streamUrl.isNullOrBlank()
+        ) {
+            val tunedRow = tunedRowForOverlay
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -993,7 +1096,7 @@ fun DemoLiveScreen(
             },
             focusedTime = epgFocusedTime,
             isExpanded = epgExpanded,
-            isBlackout = { ch, prog -> DemoSeekPolicyClassifier.isBlackout(ch, prog) },
+            isBlackout = { ch, prog -> channelBlackout(ch, prog) },
             tunedChannelIndex = tunedChannelIndex,
             // Realny kanał nie ma timeshiftu w demo — pozycja oglądania = live
             playbackInstant = java.time.Instant.ofEpochMilli(
