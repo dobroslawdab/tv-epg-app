@@ -181,11 +181,19 @@ fun DemoLiveScreen(
     // Drugi ExoPlayer do realnego live (HLS) — barker (controller.player) zostaje
     // nietknięty i wraca po przełączeniu na DEMO TV.
     var livePlayer by remember { mutableStateOf<com.google.android.exoplayer2.ExoPlayer?>(null) }
+    // Błąd odtwarzania live (DRM/geo/sieć) → plansza "Kanał niedostępny" zamiast
+    // cichego czarnego ekranu; null = gra normalnie
+    var livePlaybackError by remember { mutableStateOf<String?>(null) }
 
-    /** Przełącz źródło wideo: url=null/blank → barker; inaczej realne live (HLS). */
+    /** Przełącz źródło wideo: url=null/blank → barker; inaczej realne live (HLS/DASH). */
     fun tuneLive(url: String?) {
         livePlayer?.release()
         livePlayer = null
+        livePlaybackError = null
+        liveBehindMs = 0L
+        // Miniaturki POPRZEDNIEGO kanału nie mogą wyciec na nowy — czyść ring zrzutów
+        liveThumbs.forEach { it.second.recycle() }
+        liveThumbs.clear()
         if (url.isNullOrBlank()) {
             playerRef = controller.player
             return
@@ -207,6 +215,7 @@ fun DemoLiveScreen(
                     isPaused = false
                 } else {
                     Log.e(TAG, "live playback error: ${error.errorCodeName}")
+                    livePlaybackError = error.errorCodeName
                 }
             }
         })
@@ -1285,12 +1294,12 @@ fun DemoLiveScreen(
             videoLayer(Modifier.fillMaxSize())
         }
 
-        // Realny kanał BEZ streamu — plansza "Brak live" zamiast wideo (pod warstwami
-        // EPG/playera). Kanały ze streamUrl (Stargaze) grają prawdziwe live w videoLayer.
+        // Realny kanał BEZ streamu → "Brak live"; kanał ze streamem, którego NIE DA SIĘ
+        // odtworzyć (DRM/geo/sieć) → "Kanał niedostępny". Plansza pod warstwami
+        // EPG/playera, żeby flow działał identycznie.
         val tunedRowForOverlay = epgRows.getOrNull(tunedChannelIndex)
-        if (tunedChannelIndex != 0 && !isDetail &&
-            tunedRowForOverlay?.channel?.streamUrl.isNullOrBlank()
-        ) {
+        val tunedNoStream = tunedRowForOverlay?.channel?.streamUrl.isNullOrBlank()
+        if (tunedChannelIndex != 0 && !isDetail && (tunedNoStream || livePlaybackError != null)) {
             val tunedRow = tunedRowForOverlay
             Box(
                 modifier = Modifier
@@ -1309,7 +1318,7 @@ fun DemoLiveScreen(
                     )
                     Spacer(Modifier.height(sy(12)))
                     Text(
-                        text = "Brak live",
+                        text = if (tunedNoStream) "Brak live" else "Kanał niedostępny",
                         style = TextStyle(
                             fontSize = demoSp(56, sy),
                             color = Color(0xFFEEEEEE),
@@ -1318,7 +1327,12 @@ fun DemoLiveScreen(
                     )
                     Spacer(Modifier.height(sy(12)))
                     Text(
-                        text = "Transmisja tego kanału jest niedostępna w demo — ramówka, detal i przewijanie działają normalnie",
+                        text = if (tunedNoStream) {
+                            "Transmisja tego kanału jest niedostępna w demo — ramówka, detal i przewijanie działają normalnie"
+                        } else {
+                            "Nie udało się odtworzyć strumienia (${livePlaybackError}) — " +
+                                "prawdopodobnie DRM/geolokalizacja lub sieć. Ramówka i detal działają normalnie"
+                        },
                         style = TextStyle(
                             fontSize = demoSp(20, sy),
                             color = Color(0x99EEEEEE)
