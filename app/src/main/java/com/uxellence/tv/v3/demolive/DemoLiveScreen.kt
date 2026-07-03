@@ -1085,13 +1085,24 @@ fun DemoLiveScreen(
                             openPlayerButtons()
                             Log.i(TAG, "EPG select: '${program.title}' (single) → PLAYER_UI")
                         }
-                        selBarker != null && epgExpanded &&
-                            targetEnd <= controller.virtualNow() -> {
-                            // MINIONY program na kanale barker wybrany z warstwy wielu
-                            // kanałów → dostrój i odtwórz OD POCZĄTKU programu (start-over).
-                            // (TIME SYNC celuje w czas z poprzedniego kanału, więc przy
-                            // krótkich blokach fokus często ląduje na minionym — OK ma
-                            // wtedy przełączać kanał, nie otwierać detal.)
+                        selBarker != null &&
+                            controller.virtualNow() in targetStart until targetEnd -> {
+                            // Program BIEŻĄCY WG ZEGARA na kanale barker, a my w timeshifcie
+                            // (playingNow=false bo pozycja odtwarzania gdzie indziej) →
+                            // WRÓĆ DO LIVE tego kanału. To naturalna droga powrotu z paska.
+                            tunedChannelIndex = epgChannelIndex
+                            tuneBarker(selBarker)   // ready → seekToLiveEdge
+                            val liveIdx = liveProgramIndexFor(tunedChannelIndex)
+                            epgProgramIndex[tunedChannelIndex] = liveIdx
+                            epgRows.getOrNull(tunedChannelIndex)?.programs?.getOrNull(liveIdx)
+                                ?.let { epgFocusedTime = it.startUtc }
+                            epgExpanded = false
+                            epgInteractionAt = System.currentTimeMillis()
+                            Log.i(TAG, "EPG select: wróć do live → ${row.channel.name}")
+                        }
+                        selBarker != null && targetEnd <= controller.virtualNow() -> {
+                            // MINIONY program na kanale barker (expanded LUB pasek single)
+                            // → dostrój i odtwórz OD POCZĄTKU programu (start-over).
                             tunedChannelIndex = epgChannelIndex
                             tuneBarker(selBarker)
                             if (selBarker.ready.value) {
@@ -1134,8 +1145,13 @@ fun DemoLiveScreen(
                 playerInteractionAt = System.currentTimeMillis()
                 when (playerZone) {
                     PlayerZone.BUTTONS -> {
-                        // Pauza ≠ live — przy pauzie slot 1 jest przyciskiem "Wróć do live"
-                        val atLive = tunedChannelIndex != 0 || (!isPaused && controller.isAtLiveEdge())
+                        // Pauza ≠ live — przy pauzie slot 1 jest przyciskiem "Wróć do live".
+                        // Barker: wg pozycji jego kontrolera; live-stream: wg liveBehindMs.
+                        val atLive = when {
+                            activeBarker() != null -> !isPaused && activeCtl().isAtLiveEdge()
+                            isTunedLiveStream() -> !isPaused && liveBehindMs < 5_000L
+                            else -> true
+                        }
                         var newFocus = (playerButtonsFocus + dir).coerceIn(0, 4)
                         if (atLive && newFocus == 1) {
                             // Na live slot 1 to status "Oglądasz live" (niefokusowalny) — przeskocz
