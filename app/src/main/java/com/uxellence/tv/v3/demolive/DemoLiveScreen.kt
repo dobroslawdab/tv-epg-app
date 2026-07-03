@@ -932,12 +932,18 @@ fun DemoLiveScreen(
         // Start jak pod Telewizją: pasek 1 kanału (tego, który jest na ekranie)
         epgExpanded = false
         epgChannelIndex = tunedChannelIndex.coerceIn(0, (epgRows.size - 1).coerceAtLeast(0))
-        // TIME SYNC musi celować w program AKTUALNIE ODTWARZANY (pozycja playbacku,
-        // nie zegar ścienny) — przy timeshifcie to różne programy; bez tego fokus
-        // ląduje poza wycentrowanym kafelkiem i OK otwiera detal zamiast playera
-        val focusRow = epgRows.getOrNull(epgChannelIndex) ?: demoRow
-        val focused = focusRow.programs.getOrNull(focusRow.currentProgramIndex)?.startUtc
-            ?: java.time.Instant.now()
+        // TIME SYNC musi celować w INSTANT AKTUALNIE OGLĄDANY (pozycja playbacku,
+        // nie zegar ścienny i nie START programu) — przy timeshifcie to inny program
+        // niż live, a start programu wskazywałby na kanałach o grubszych blokach
+        // (np. Stargaze 30 min) blok MINIONY: program trwający lądowałby obok
+        // kolumny fokusa zamiast pod spodem.
+        val watchedWallMs = controller.antennaStartWallMs + when {
+            activeBarker() != null -> currentVirtualMs
+            isTunedLiveStream() -> (liveEdgeMs - liveBehindMs).coerceAtLeast(0L)
+            else -> liveEdgeMs
+        }
+        val focused = if (liveEdgeMs > 0L) java.time.Instant.ofEpochMilli(watchedWallMs)
+            else java.time.Instant.now()
         epgFocusedTime = focused
         epgProgramIndex.clear()
         epgRows.forEachIndexed { i, row ->
@@ -1000,8 +1006,18 @@ fun DemoLiveScreen(
                     val cur = epgProgramIndex[epgChannelIndex] ?: row.currentProgramIndex
                     val newIdx = (cur + dir).coerceIn(0, (row.programs.size - 1).coerceAtLeast(0))
                     epgProgramIndex[epgChannelIndex] = newIdx
-                    // TIME SYNC: pozostałe kanały przewiną się do czasu startu fokusowanego programu
-                    row.programs.getOrNull(newIdx)?.let { epgFocusedTime = it.startUtc }
+                    // TIME SYNC: pozostałe kanały przewijają się do fokusowanego programu.
+                    // Program TRWAJĄCY kotwiczymy na "teraz" (nie na starcie) — wtedy
+                    // programy trwające na wszystkich kanałach stoją w jednej kolumnie
+                    // niezależnie od długości bloków; miniony/przyszły — na starcie.
+                    row.programs.getOrNull(newIdx)?.let { p ->
+                        val now = java.time.Instant.ofEpochMilli(
+                            controller.antennaStartWallMs + liveEdgeMs
+                        )
+                        epgFocusedTime =
+                            if (!now.isBefore(p.startUtc) && now.isBefore(p.endUtc)) now
+                            else p.startUtc
+                    }
                 }
                 epgInteractionAt = System.currentTimeMillis()
             },
@@ -1759,10 +1775,15 @@ fun DemoLiveScreen(
             isExpanded = epgExpanded,
             isBlackout = { ch, prog -> channelBlackout(ch, prog) },
             tunedChannelIndex = tunedChannelIndex,
-            // Realny kanał nie ma timeshiftu w demo — pozycja oglądania = live
+            // Pozycja oglądania per typ kanału: barker = playback (timeshift możliwy
+            // na KAŻDYM barkerze, nie tylko DEMO TV), live stream = live minus
+            // cofnięcie w oknie, realny kanał = live (brak timeshiftu w demo)
             playbackInstant = java.time.Instant.ofEpochMilli(
-                controller.antennaStartWallMs +
-                    (if (tunedChannelIndex == 0) currentVirtualMs else liveEdgeMs)
+                controller.antennaStartWallMs + when {
+                    activeBarker() != null -> currentVirtualMs
+                    isTunedLiveStream() -> (liveEdgeMs - liveBehindMs).coerceAtLeast(0L)
+                    else -> liveEdgeMs
+                }
             ),
             nowInstant = java.time.Instant.ofEpochMilli(controller.antennaStartWallMs + liveEdgeMs),
             sx = sx,

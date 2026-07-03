@@ -27,6 +27,7 @@ import androidx.compose.ui.zIndex
 import com.uxellence.tv.v3.epg.ChannelEpgRow
 import com.uxellence.tv.v3.epg.ChannelInfoOverlay
 import com.uxellence.tv.v3.epg.EpgDayItem
+import kotlinx.coroutines.launch
 import java.time.Instant
 
 // Stałe layoutu skopiowane z EpgDayScreen (tam są private) — IDENTYCZNY wygląd
@@ -141,17 +142,33 @@ fun DemoEpgLayer(
             // pozostałe LazyRow nie są skomponowane, więc scrollToItem na nich nie
             // zadziała; po rozwinięciu (DOWN) trzeba zsynchronizować je ponownie,
             // gdy już są w composition (stąd delay na layout świeżych wierszy).
+            // PUŁAPKA: scrollToItem na LazyListState, którego LazyRow NIE jest
+            // skomponowany (tryb 1-kanałowy — widać tylko fokusowany wiersz),
+            // ZAWIESZA korutynę do pierwszego layoutu. Sekwencyjna pętla utykała
+            // na pierwszym nieskomponowanym wierszu i fokusowany kanał o wyższym
+            // indeksie nigdy się nie przewijał (fokus "uciekał" poza ekran).
+            // Dlatego: fokusowany wiersz ZAWSZE pierwszy, każdy scroll w osobnym
+            // launch (zawieszony scroll nie blokuje pozostałych, restart efektu
+            // go anuluje), a wiersze bez layoutu (totalItemsCount == 0) pomijamy
+            // — po ich skomponowaniu efekt i tak odpali się ponownie (klucz
+            // zawiera isExpanded + focusedChannelIndex).
             LaunchedEffect(focusedTime, rows, isVisible, isExpanded, focusedChannelIndex) {
                 if (!isVisible || rows.isEmpty()) return@LaunchedEffect
                 kotlinx.coroutines.delay(32)
-                rows.forEachIndexed { index, channelRow ->
+                val order = listOf(focusedChannelIndex) +
+                    rows.indices.filter { it != focusedChannelIndex }
+                for (index in order) {
+                    val channelRow = rows.getOrNull(index) ?: continue
                     val matchingIndex = channelRow.programs.indexOfFirst { program ->
                         !focusedTime.isBefore(program.startUtc) && focusedTime.isBefore(program.endUtc)
                     }
-                    if (matchingIndex >= 0) {
-                        if (index == focusedChannelIndex) {
+                    if (matchingIndex < 0) continue
+                    if (index == focusedChannelIndex) {
+                        launch {
                             channelRow.lazyListState.animateScrollToItem(matchingIndex, 0)
-                        } else {
+                        }
+                    } else if (channelRow.lazyListState.layoutInfo.totalItemsCount > 0) {
+                        launch {
                             channelRow.lazyListState.scrollToItem(matchingIndex, 0)
                         }
                     }
