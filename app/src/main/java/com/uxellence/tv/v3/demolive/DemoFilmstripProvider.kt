@@ -4,29 +4,27 @@ import android.graphics.Bitmap
 import com.uxellence.tv.v3.epg.FrameCaptureManager
 
 /**
- * DEMO FILMSTRIP PROVIDER — miniaturki na osi wirtualnej kanału demo.
+ * DEMO FILMSTRIP PROVIDER — miniaturki na osi wirtualnej kanału barker.
+ * Jedna instancja = jeden kanał (schedule z N materiałami).
  *
- * Dwie instancje FrameCaptureManager (po jednej na materiał) — pozycje klatek
- * pozostają w naturalnej osi pliku. Slot filmstripa mapowany jest z osi wirtualnej
- * na (materiał, pozycja w pliku) i pobiera najbliższą klatkę z właściwej instancji.
- * PixelCopy nie jest używany — pełna ekstrakcja z lokalnych plików wystarcza.
+ * Po jednej instancji FrameCaptureManager na materiał — pozycje klatek pozostają
+ * w naturalnej osi pliku. Slot filmstripa mapowany jest z osi wirtualnej na
+ * (materiał, pozycja w pliku) i pobiera najbliższą klatkę z właściwej instancji.
  */
-class DemoFilmstripProvider {
+class DemoFilmstripProvider(private val schedule: BarkerSchedule) {
 
-    private val managerA = FrameCaptureManager()
-    private val managerB = FrameCaptureManager()
+    private val managers = List(schedule.items.size) { FrameCaptureManager() }
     private var started = false
 
-    /** Ekstrakcja klatek z obu plików — wołać raz, po przygotowaniu playera. */
-    fun startExtraction(pathA: String, pathB: String) {
+    /** Ekstrakcja klatek ze wszystkich plików — wołać raz, po przygotowaniu playera. */
+    fun startExtraction(paths: List<String>) {
         if (started) return
         started = true
-        val countA = (DemoChannelSchedule.durAMs / 6_500L).toInt()
-            .coerceIn(1, FrameCaptureManager.MAX_FRAMES - 2)
-        val countB = (DemoChannelSchedule.durBMs / 6_500L).toInt()
-            .coerceIn(1, FrameCaptureManager.MAX_FRAMES - 2)
-        managerA.extractKeyFrames(pathA, DemoChannelSchedule.durAMs, count = countA)
-        managerB.extractKeyFrames(pathB, DemoChannelSchedule.durBMs, count = countB)
+        paths.forEachIndexed { i, path ->
+            val count = (schedule.durMs[i] / 6_500L).toInt()
+                .coerceIn(1, FrameCaptureManager.MAX_FRAMES - 2)
+            managers[i].extractKeyFrames(path, schedule.durMs[i], count = count)
+        }
     }
 
     /**
@@ -46,9 +44,8 @@ class DemoFilmstripProvider {
             val bitmap = if (v < dvrStartVirtualMs || v > liveEdgeVirtualMs) {
                 null
             } else {
-                val mp = DemoChannelSchedule.materialPositionFor(v)
-                val manager = if (mp.mediaItemIndex == 0) managerA else managerB
-                manager.getClosestFrame(mp.positionMs)
+                val mp = schedule.materialPositionFor(v)
+                managers[mp.mediaItemIndex].getClosestFrame(mp.positionMs)
             }
             offset to bitmap
         }
@@ -63,12 +60,11 @@ class DemoFilmstripProvider {
         // Barker channel: materiał zapętlony, więc cover znamy też dla bloków
         // przyszłych — pokazuj klatkę dla każdego bloku ramówki
         if (blockStartVirtualMs < 0) return null
-        val mp = DemoChannelSchedule.materialPositionFor(blockStartVirtualMs)
-        val manager = if (mp.mediaItemIndex == 0) managerA else managerB
-        val bitmap = manager.getClosestFrame(mp.positionMs) ?: return null
+        val mp = schedule.materialPositionFor(blockStartVirtualMs)
+        val bitmap = managers[mp.mediaItemIndex].getClosestFrame(mp.positionMs) ?: return null
         val dir = java.io.File(cacheDir, "demo_live")
         dir.mkdirs()
-        val file = java.io.File(dir, "thumb_${blockStartVirtualMs}.png")
+        val file = java.io.File(dir, "thumb_${schedule.hashCode()}_${blockStartVirtualMs}.png")
         if (!file.exists() || file.length() == 0L) {
             runCatching {
                 java.io.FileOutputStream(file).use { out ->
@@ -80,7 +76,6 @@ class DemoFilmstripProvider {
     }
 
     fun release() {
-        managerA.release()
-        managerB.release()
+        managers.forEach { it.release() }
     }
 }

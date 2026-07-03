@@ -143,6 +143,26 @@ private class DemoVideoView(
 }
 
 /**
+ * Kanał barker: schedule + kontroler + filmstrip + stan pobierania (Compose states —
+ * odczyt w kompozycji subskrybuje recompose). Primary (DEMO TV) pobierany na starcie;
+ * pozostałe leniwie przy pierwszym dostrojeniu.
+ */
+private class BarkerBundle(
+    val channelId: String,
+    val name: String,
+    val number: Int,
+    val schedule: BarkerSchedule,
+    context: android.content.Context
+) {
+    val controller = DemoChannelPlayerController(context, schedule)
+    val filmstrip = DemoFilmstripProvider(schedule)
+    val ready = androidx.compose.runtime.mutableStateOf(false)
+    val downloading = androidx.compose.runtime.mutableStateOf(false)
+    val progress = androidx.compose.runtime.mutableIntStateOf(0)
+    val progressLabel = androidx.compose.runtime.mutableStateOf("")
+}
+
+/**
  * DEMO LIVE SCREEN — symulacja barker channel z ramówką (pełny flow):
  *
  *   EPG (start; replika EpgDayScreen) --OK na programie--> PLAYER_UI:BUTTONS
@@ -162,8 +182,110 @@ fun DemoLiveScreen(
     sy: (Int) -> Dp
 ) {
     val context = LocalContext.current
-    val controller = remember { DemoChannelPlayerController(context) }
-    val filmstrip = remember { DemoFilmstripProvider() }
+    // ===== KANAŁY BARKER (lokalne pliki + wspólna oś wall-clock od 9:00) =====
+    // Każdy bundle = schedule (N materiałów) + kontroler + filmstrip. DEMO TV jest
+    // primary (pobierany na starcie, blokuje isReady); pozostałe pobierane LENIWIE
+    // przy pierwszym dostrojeniu (plansza z postępem).
+    val barkers = remember {
+        fun item(
+            url: String, title: String, genre: String, year: String, country: String,
+            age: String, desc: String, cover: String? = null, nominal: Long
+        ) = BarkerSchedule.BarkerItem(url, title, genre, year, country, age, desc, cover, nominal)
+
+        linkedMapOf(
+            "demo" to BarkerBundle(
+                channelId = "demo", name = "DEMO TV", number = 122,
+                schedule = BarkerSchedule(listOf(
+                    item(
+                        "https://archive.org/download/Sintel/sintel-2048-stereo_512kb.mp4",
+                        "Sintel", "fantasy", "2010 r.", "Holandia", "12 lat",
+                        "Samotna wojowniczka Sintel przemierza świat w poszukiwaniu Scales — " +
+                            "małego smoka, którego niegdyś uratowała i wychowała, a który został jej brutalnie " +
+                            "odebrany. Wędrówka przez lodowe pustkowia i mroczne jaskinie wystawi jej " +
+                            "determinację na ostateczną próbę. Nagradzany film studia Blender.",
+                        "https://m.media-amazon.com/images/S/pv-target-images/6faeb35e463ad90c72c97d47d06367ec7bc4d9d0be63659d6c9fb18777cf3b12.png",
+                        888_000L
+                    ),
+                    item(
+                        "https://storage.googleapis.com/exoplayer-test-media-0/BigBuckBunny_320x180.mp4",
+                        "Big Buck Bunny", "animacja", "2008 r.", "Holandia", "7 lat",
+                        "Ogromny, dobroduszny królik budzi się pewnego ranka, by cieszyć się " +
+                            "urokami leśnej polany. Sielankę przerywa trójka złośliwych gryzoni, która dla zabawy " +
+                            "dręczy mniejsze zwierzęta. Gdy ich ofiarą padają ukochane motyle królika, " +
+                            "łagodny olbrzym postanawia dać łobuzom nauczkę.",
+                        "https://m.media-amazon.com/images/M/MV5BMjMzNDM1ZmEtYzRjOC00Nzg5LWFlZTAtMTA1M2I0NDc2Njg3XkEyXkFqcGc@._V1_.jpg",
+                        596_000L
+                    )
+                )),
+                context = context
+            ),
+            "kino" to BarkerBundle(
+                channelId = "kino", name = "Kino", number = 127,
+                schedule = BarkerSchedule(listOf(
+                    item(
+                        "https://archive.org/download/Tears-of-Steel/tears_of_steel_720p.mp4",
+                        "Tears of Steel", "sci-fi", "2012 r.", "Holandia", "12 lat",
+                        "Grupa naukowców i żołnierzy próbuje odzyskać Amsterdam z rąk zbuntowanych " +
+                            "robotów, odtwarzając wydarzenia sprzed lat. Aktorski film studia Blender " +
+                            "łączący zdjęcia na żywo z efektami CGI.",
+                        null, 734_000L
+                    ),
+                    item(
+                        "https://archive.org/download/CosmosLaundromatFirstCycle/Cosmos%20Laundromat%20-%20First%20Cycle%20(1080p).mp4",
+                        "Cosmos Laundromat", "animacja", "2015 r.", "Holandia", "12 lat",
+                        "Samobójczo nastawiony baran Franck dostaje od tajemniczego Victora " +
+                            "propozycję nie do odrzucenia: każde życie, jakie zechce. Surrealistyczna " +
+                            "animacja studia Blender.",
+                        null, 730_000L
+                    )
+                )),
+                context = context
+            ),
+            "kosmos" to BarkerBundle(
+                channelId = "kosmos", name = "Kosmos", number = 128,
+                schedule = BarkerSchedule(listOf(
+                    item(
+                        "https://images-assets.nasa.gov/video/NHQ_2019_0311_Go%20Forward%20to%20the%20Moon/NHQ_2019_0311_Go%20Forward%20to%20the%20Moon~small.mp4",
+                        "Naprzód na Księżyc", "dokument", "2019 r.", "USA", "bez ograniczeń",
+                        "NASA przedstawia program Artemis — plan powrotu ludzi na Księżyc " +
+                            "i pierwszy krok w stronę Marsa. Materiał NASA (domena publiczna).",
+                        null, 218_000L
+                    ),
+                    item(
+                        "https://images-assets.nasa.gov/video/Artemis%20I%20Launches%20to%20the%20Moon%20%28Official%20NASA%20Recap%29/Artemis%20I%20Launches%20to%20the%20Moon%20%28Official%20NASA%20Recap%29~medium.mp4",
+                        "Artemis I — start", "dokument", "2022 r.", "USA", "bez ograniczeń",
+                        "Oficjalne podsumowanie startu misji Artemis I — pierwszego lotu rakiety " +
+                            "SLS i statku Orion w stronę Księżyca. Materiał NASA (domena publiczna).",
+                        null, 205_000L
+                    )
+                )),
+                context = context
+            ),
+            "kids" to BarkerBundle(
+                channelId = "kids", name = "Retro Kids", number = 129,
+                schedule = BarkerSchedule(listOf(
+                    item(
+                        "https://archive.org/download/Popeye_forPresident/Popeye_forPresident_512kb.mp4",
+                        "Popeye for President", "kreskówka", "1956 r.", "USA", "bez ograniczeń",
+                        "Popeye i Bluto rywalizują o głos Olive w wyborach prezydenckich. " +
+                            "Klasyczna kreskówka z domeny publicznej.",
+                        null, 364_000L
+                    ),
+                    item(
+                        "https://archive.org/download/superman_1941/superman_1941_512kb.mp4",
+                        "Superman: The Mad Scientist", "kreskówka", "1941 r.", "USA", "7 lat",
+                        "Pierwszy animowany film o Supermanie — Człowiek ze Stali kontra szalony " +
+                            "naukowiec i jego promień zagłady. Studio Fleischera, domena publiczna.",
+                        null, 620_000L
+                    )
+                )),
+                context = context
+            )
+        )
+    }
+    val demoBundle = barkers.getValue("demo")
+    val controller = demoBundle.controller
+    val filmstrip = demoBundle.filmstrip
 
     var layer by remember { mutableStateOf(DemoLayer.EPG) }
     var isReady by remember { mutableStateOf(false) }
@@ -242,6 +364,67 @@ fun DemoLiveScreen(
 
     // Warstwa EPG: wiersz 0 = DEMO TV (sztuczna ramówka), 1..N = prawdziwe kanały z EPG
     var epgRows by remember { mutableStateOf<List<com.uxellence.tv.v3.epg.ChannelEpgRow>>(emptyList()) }
+
+    // ===== Routing barkerów =====
+    /** Bundle barkera dla wiersza EPG (null = kanał nie-barker: live stream / realny). */
+    fun barkerFor(channelIdx: Int): BarkerBundle? =
+        barkers[epgRows.getOrNull(channelIdx)?.channel?.id]
+
+    /** Bundle barkera aktualnie dostrojonego kanału (null = live/realny). */
+    fun activeBarker(): BarkerBundle? = barkerFor(tunedChannelIndex)
+
+    /** Kontroler osi/playbacku dla dostrojonego kanału (fallback: primary demo). */
+    fun activeCtl(): DemoChannelPlayerController = activeBarker()?.controller ?: controller
+
+    /** Leniwe pobranie materiałów barkera (pierwsze dostrojenie); po sukcesie podpina obraz. */
+    fun ensureBarkerReady(bundle: BarkerBundle) {
+        if (bundle.ready.value || bundle.downloading.value) return
+        bundle.downloading.value = true
+        demoScope.launch {
+            try {
+                val files = ArrayList<java.io.File>()
+                bundle.schedule.items.forEachIndexed { i, it ->
+                    bundle.progressLabel.value = "${it.title} (${i + 1}/${bundle.schedule.items.size})"
+                    files += bundle.controller.downloadToCache(it.url) { p ->
+                        bundle.progress.intValue = p
+                    }
+                }
+                bundle.controller.preparePlayer(files)
+                bundle.filmstrip.startExtraction(files.map { f -> f.absolutePath })
+                bundle.ready.value = true
+                if (activeBarker() === bundle) {
+                    barkers.values.forEach { if (it !== bundle) it.controller.player?.pause() }
+                    playerRef = bundle.controller.player
+                    isPaused = false
+                }
+                Log.i(TAG, "barker ${bundle.channelId} ready")
+            } catch (e: Exception) {
+                Log.e(TAG, "barker ${bundle.channelId} download failed: ${e.message}")
+                bundle.progressLabel.value = "Błąd pobierania — spróbuj ponownie"
+            } finally {
+                bundle.downloading.value = false
+            }
+        }
+    }
+
+    /** Dostrój kanał barker: zwolnij live playera, wznow ten, pauza pozostałych. */
+    fun tuneBarker(bundle: BarkerBundle) {
+        livePlayer?.release()
+        livePlayer = null
+        livePlaybackError = null
+        liveBehindMs = 0L
+        liveThumbs.forEach { it.second.recycle() }
+        liveThumbs.clear()
+        barkers.values.forEach { if (it !== bundle) it.controller.player?.pause() }
+        if (bundle.ready.value) {
+            bundle.controller.player?.play()
+            playerRef = bundle.controller.player
+            isPaused = false
+        } else {
+            playerRef = null   // plansza pobierania zamiast zamrożonej klatki
+            ensureBarkerReady(bundle)
+        }
+    }
     var realChannelRows by remember { mutableStateOf<List<com.uxellence.tv.v3.epg.ChannelEpgRow>>(emptyList()) }
     var epgChannelIndex by remember { mutableIntStateOf(0) }
     // Warstwa EPG jak pod Telewizją: start = pasek 1 kanału (zatunowanego), pierwszy
@@ -322,13 +505,14 @@ fun DemoLiveScreen(
     }
 
     fun updateFilmstrip(centerMs: Long) {
-        filmstripFrames = if (tunedChannelIndex == 0) {
-            filmstrip.framesAround(
+        val barker = barkers[epgRows.getOrNull(tunedChannelIndex)?.channel?.id]
+        filmstripFrames = if (barker != null && barker.ready.value) {
+            barker.filmstrip.framesAround(
                 centerVirtualMs = centerMs,
-                liveEdgeVirtualMs = controller.virtualNow(),
+                liveEdgeVirtualMs = barker.controller.virtualNow(),
                 stepMs = SEEK_STEP_MS,
                 sideCount = 3,
-                dvrStartVirtualMs = controller.dvrStartMs()
+                dvrStartVirtualMs = barker.controller.dvrStartMs()
             )
         } else if (livePlayer != null) {
             // Realny stream live. Kanał z torem trick-play (DASH-IF): prawdziwe kafelki
@@ -408,7 +592,8 @@ fun DemoLiveScreen(
     fun tunedSeekPolicy(): DemoSeekPolicy {
         if (tunedChannelIndex == 0 && demoPolicyOverride != null) return demoPolicyOverride!!
         val name = epgRows.getOrNull(tunedChannelIndex)?.channel?.name ?: ""
-        return DemoSeekPolicyClassifier.policyForChannel(name, isDemoBarker = tunedChannelIndex == 0)
+        // Każdy kanał barker (lokalne pliki) = pełne przewijanie
+        return DemoSeekPolicyClassifier.policyForChannel(name, isDemoBarker = activeBarker() != null)
     }
 
     fun showForwardBlocked() {
@@ -421,6 +606,7 @@ fun DemoLiveScreen(
     // Blackout (brak praw) — kanały z realnym streamem (Stargaze) nigdy nie mają
     // blackoutów (wszystko odtwarzalne live); reszta wg deterministycznego klasyfikatora
     fun channelBlackout(chIdx: Int, progIdx: Int): Boolean {
+        if (barkerFor(chIdx) != null) return false   // barkery: wszystko odtwarzalne
         val hasStream = epgRows.getOrNull(chIdx)?.channel?.streamUrl?.isNotBlank() == true
         return !hasStream && DemoSeekPolicyClassifier.isBlackout(chIdx, progIdx)
     }
@@ -456,16 +642,14 @@ fun DemoLiveScreen(
     // Blok ramówki dostrojonego kanału w pozycji wirtualnej: DEMO TV = sztuczna
     // ramówka (barker), realny kanał = program z prawdziwego EPG przeliczony na
     // oś wirtualną; null = brak programu w EPG o tym czasie (realny kanał)
-    fun blockForTunedChannel(virtualMs: Long): DemoChannelSchedule.EpgBlock? {
-        if (tunedChannelIndex == 0) {
-            return DemoChannelSchedule.epgBlockAt(virtualMs)
-        }
+    fun blockForTunedChannel(virtualMs: Long): BarkerSchedule.EpgBlock? {
+        activeBarker()?.let { return it.schedule.epgBlockAt(virtualMs) }
         val row = epgRows.getOrNull(tunedChannelIndex) ?: return null
         val instant = java.time.Instant.ofEpochMilli(controller.antennaStartWallMs + virtualMs)
         val program = row.programs.firstOrNull { p ->
             !instant.isBefore(p.startUtc) && instant.isBefore(p.endUtc)
         } ?: return null
-        return DemoChannelSchedule.EpgBlock(
+        return BarkerSchedule.EpgBlock(
             title = program.title,
             startVirtualMs = program.startUtc.toEpochMilli() - controller.antennaStartWallMs,
             endVirtualMs = program.endUtc.toEpochMilli() - controller.antennaStartWallMs,
@@ -532,35 +716,43 @@ fun DemoLiveScreen(
         layer = DemoLayer.PLAYER_UI
     }
 
-    // Wiersz DEMO TV: bloki sztucznej ramówki jako EpgProgram (cover = klatka z materiału)
-    fun buildDemoRow(): com.uxellence.tv.v3.epg.ChannelEpgRow {
-        val nowV = controller.currentVirtualPositionMs()
-        val edge = controller.virtualNow()
-        val blocks = DemoChannelSchedule.blocksAround(nowV, before = 3, after = 8)
+    // Wiersz kanału barker: bloki sztucznej ramówki jako EpgProgram (cover = klatka
+    // z materiału, gdy zekstrahowana). Pozycja "oglądana" = playback (gdy gotowy
+    // i dostrojony) albo live edge.
+    fun buildBarkerRow(bundle: BarkerBundle): com.uxellence.tv.v3.epg.ChannelEpgRow {
+        val ctl = bundle.controller
+        val nowV = if (bundle.ready.value && activeBarker() === bundle) {
+            ctl.currentVirtualPositionMs()
+        } else {
+            ctl.virtualNow()
+        }
+        val edge = ctl.virtualNow()
+        val blocks = bundle.schedule.blocksAround(nowV, before = 3, after = 8)
         val programs = blocks.map { b ->
             com.uxellence.tv.v3.epg.EpgProgram(
-                channelId = "demo",
+                channelId = bundle.channelId,
                 title = b.title,
-                startUtc = java.time.Instant.ofEpochMilli(controller.antennaStartWallMs + b.startVirtualMs),
-                endUtc = java.time.Instant.ofEpochMilli(controller.antennaStartWallMs + b.endVirtualMs),
+                startUtc = java.time.Instant.ofEpochMilli(ctl.antennaStartWallMs + b.startVirtualMs),
+                endUtc = java.time.Instant.ofEpochMilli(ctl.antennaStartWallMs + b.endVirtualMs),
                 description = b.description,
                 categories = listOf(b.genre, b.year, b.country, b.age),
-                iconUrl = b.coverUrl ?: filmstrip.thumbUriFor(b.startVirtualMs, edge, context.cacheDir)
+                iconUrl = b.coverUrl
+                    ?: bundle.filmstrip.thumbUriFor(b.startVirtualMs, edge, context.cacheDir)
             )
         }
-        val nowInstant = java.time.Instant.ofEpochMilli(controller.antennaStartWallMs + nowV)
+        val nowInstant = java.time.Instant.ofEpochMilli(ctl.antennaStartWallMs + nowV)
         val currentIdx = programs.indexOfFirst { p ->
             !nowInstant.isBefore(p.startUtc) && nowInstant.isBefore(p.endUtc)
         }.coerceAtLeast(0)
         return com.uxellence.tv.v3.epg.ChannelEpgRow(
             channel = com.uxellence.tv.v3.channels.TvChannelData(
-                id = "demo",
-                name = "DEMO TV",
+                id = bundle.channelId,
+                name = bundle.name,
                 streamUrl = "",
                 logoUrl = null,
-                epgId = "demo"
+                epgId = bundle.channelId
             ),
-            channelNumber = 122,
+            channelNumber = bundle.number,
             programs = programs,
             currentProgramIndex = currentIdx,
             lazyListState = androidx.compose.foundation.lazy.LazyListState()
@@ -703,8 +895,11 @@ fun DemoLiveScreen(
     }
 
     fun openEpg() {
-        val demoRow = buildDemoRow()
-        epgRows = listOf(demoRow, buildStargazeRow(), buildLivesim2Row(), buildSafariRow()) +
+        // Kolejność: barkery (122 DEMO, 127 Kino, 128 Kosmos, 129 Kids), potem kanały
+        // live-stream (Stargaze/DASH-IF/Safari), potem realne z EPG
+        val barkerRows = barkers.values.map { buildBarkerRow(it) }
+        val demoRow = barkerRows.first()
+        epgRows = barkerRows + listOf(buildStargazeRow(), buildLivesim2Row(), buildSafariRow()) +
             realChannelRows
         // Start jak pod Telewizją: pasek 1 kanału (tego, który jest na ekranie)
         epgExpanded = false
@@ -739,11 +934,16 @@ fun DemoLiveScreen(
         layer = DemoLayer.EPG
     }
 
-    // Indeks programu AKTUALNIE OGLĄDANEGO na danym kanale: DEMO TV = program pod
+    // Indeks programu AKTUALNIE OGLĄDANEGO na danym kanale: barker = program pod
     // pozycją odtwarzania (przy timeshifcie miniony), realny kanał = program live
     fun liveProgramIndexFor(channelIdx: Int): Int {
         val row = epgRows.getOrNull(channelIdx) ?: return 0
-        val refMs = if (channelIdx == 0) controller.currentVirtualPositionMs() else controller.virtualNow()
+        val bk = barkerFor(channelIdx)
+        val refMs = if (bk != null && bk.ready.value && channelIdx == tunedChannelIndex) {
+            bk.controller.currentVirtualPositionMs()
+        } else {
+            controller.virtualNow()
+        }
         val instant = java.time.Instant.ofEpochMilli(controller.antennaStartWallMs + refMs)
         val idx = row.programs.indexOfFirst { p ->
             !instant.isBefore(p.startUtc) && instant.isBefore(p.endUtc)
@@ -807,11 +1007,17 @@ fun DemoLiveScreen(
                     epgInteractionAt = System.currentTimeMillis()
                     Log.i(TAG, "EPG select: '${program.title}' blackout → blocked")
                 } else if (row != null && program != null) {
-                    val isDemo = epgChannelIndex == 0
+                    val selBarker = barkerFor(epgChannelIndex)
                     val targetStart = program.startUtc.toEpochMilli() - controller.antennaStartWallMs
                     val targetEnd = program.endUtc.toEpochMilli() - controller.antennaStartWallMs
-                    // "Teraz na żywo": DEMO TV wg pozycji odtwarzania, realne kanały wg zegara
-                    val nowRef = if (isDemo) controller.currentVirtualPositionMs() else controller.virtualNow()
+                    // "Teraz na żywo": barker wg pozycji odtwarzania, realne kanały wg zegara
+                    val nowRef = if (selBarker != null && selBarker.ready.value &&
+                        epgChannelIndex == tunedChannelIndex
+                    ) {
+                        selBarker.controller.currentVirtualPositionMs()
+                    } else {
+                        controller.virtualNow()
+                    }
                     val playingNow = nowRef in targetStart until targetEnd
                     when {
                         playingNow && epgExpanded -> {
@@ -821,22 +1027,20 @@ fun DemoLiveScreen(
                             tunedChannelIndex = epgChannelIndex
                             val tunedUrl = epgRows.getOrNull(epgChannelIndex)?.channel?.streamUrl.orEmpty()
                             when {
-                                epgChannelIndex == 0 -> {
-                                    // DEMO TV: z powrotem barker
-                                    tuneLive(null)
-                                    controller.player?.play()
-                                    isPaused = false
+                                selBarker != null -> {
+                                    // Kanał barker (lokalne pliki, pełny timeshift)
+                                    tuneBarker(selBarker)
                                 }
                                 tunedUrl.isNotBlank() -> {
                                     // Kanał z realnym streamem (Stargaze): graj live HLS
-                                    controller.player?.pause()
+                                    barkers.values.forEach { it.controller.player?.pause() }
                                     tuneLive(tunedUrl)
                                     isPaused = false
                                 }
                                 else -> {
                                     // Realny kanał bez streamu: plansza "Brak live"
                                     tuneLive(null)
-                                    controller.player?.pause()
+                                    barkers.values.forEach { it.controller.player?.pause() }
                                 }
                             }
                             // Sfokusuj program nadawany teraz na tym kanale (pasek single)
@@ -858,7 +1062,7 @@ fun DemoLiveScreen(
                             openDetail(
                                 program = program,
                                 channelLogoUrl = row.channel.logoUrl,
-                                isDemo = isDemo,
+                                isDemo = selBarker != null,
                                 fromEpg = true,
                                 channelName = row.channel.name,
                                 channelNumber = row.channelNumber,
@@ -899,7 +1103,7 @@ fun DemoLiveScreen(
                             showForwardBlocked()
                         } else {
                             scrubCursorMs = (scrubCursorMs + getSeekStep() * dir)
-                                .coerceIn(controller.dvrStartMs(), controller.virtualNow())
+                                .coerceIn(activeCtl().dvrStartMs(), activeCtl().virtualNow())
                             updateFilmstrip(scrubCursorMs)
                             forwardBlockedMsgVisible = false
                         }
@@ -936,7 +1140,7 @@ fun DemoLiveScreen(
                         } else {
                             // OK na taśmie = skok do kursora i ukrycie WSZYSTKICH warstw UI
                             // (czysty player FULLSCREEN, bez paska kontrolek/opisu)
-                            controller.seekToVirtual(scrubCursorMs)
+                            activeCtl().seekToVirtual(scrubCursorMs)
                             isPaused = false
                             rapidPressCount = 0
                             forwardBlockedMsgVisible = false
@@ -948,7 +1152,7 @@ fun DemoLiveScreen(
                     }
                     PlayerZone.BUTTONS -> when (playerButtonsFocus) {
                         0 -> {  // Zatrzymaj / Wznów — na AKTYWNYM playerze (live lub barker)
-                            val p = if (isTunedLiveStream()) livePlayer else controller.player
+                            val p = if (isTunedLiveStream()) livePlayer else activeCtl().player
                             if (p != null) {
                                 if (p.isPlaying) {
                                     p.pause(); isPaused = true
@@ -963,7 +1167,7 @@ fun DemoLiveScreen(
                                 livePlayer?.seekToDefaultPosition()
                                 livePlayer?.play()
                             } else {
-                                controller.seekToLiveEdge()
+                                activeCtl().seekToLiveEdge()
                             }
                             isPaused = false
                             Log.i(TAG, "Player: wróć do live (live=${isTunedLiveStream()})")
@@ -976,8 +1180,9 @@ fun DemoLiveScreen(
                                 isPaused = false
                                 Log.i(TAG, "Player: od początku okna live")
                             } else {
-                                val block = DemoChannelSchedule.epgBlockAt(controller.currentVirtualPositionMs())
-                                controller.seekToVirtual(block.startVirtualMs)
+                                val ctl = activeCtl()
+                                val block = ctl.schedule.epgBlockAt(ctl.currentVirtualPositionMs())
+                                ctl.seekToVirtual(block.startVirtualMs)
                                 isPaused = false
                                 Log.i(TAG, "Player: zacznij od początku → ${block.startVirtualMs}ms")
                             }
@@ -985,19 +1190,25 @@ fun DemoLiveScreen(
                         else -> { /* Nagraj / Napisy — atrapy */ }
                     }
                     PlayerZone.SNIPPET -> {
-                        // OK na skrócie opisu → detal bieżącego programu DEMO TV
-                        val block = DemoChannelSchedule.epgBlockAt(controller.currentVirtualPositionMs())
+                        // OK na skrócie opisu → detal bieżącego programu aktywnego barkera
+                        val bundle = activeBarker() ?: barkers.getValue("demo")
+                        val ctl = bundle.controller
+                        val block = bundle.schedule.epgBlockAt(ctl.currentVirtualPositionMs())
                         val program = com.uxellence.tv.v3.epg.EpgProgram(
-                            channelId = "demo",
+                            channelId = bundle.channelId,
                             title = block.title,
-                            startUtc = java.time.Instant.ofEpochMilli(controller.antennaStartWallMs + block.startVirtualMs),
-                            endUtc = java.time.Instant.ofEpochMilli(controller.antennaStartWallMs + block.endVirtualMs),
+                            startUtc = java.time.Instant.ofEpochMilli(ctl.antennaStartWallMs + block.startVirtualMs),
+                            endUtc = java.time.Instant.ofEpochMilli(ctl.antennaStartWallMs + block.endVirtualMs),
                             description = block.description,
                             categories = listOf(block.genre, block.year, block.country),
                             iconUrl = block.coverUrl
-                                ?: filmstrip.thumbUriFor(block.startVirtualMs, controller.virtualNow(), context.cacheDir)
+                                ?: bundle.filmstrip.thumbUriFor(block.startVirtualMs, ctl.virtualNow(), context.cacheDir)
                         )
-                        openDetail(program, channelLogoUrl = null, isDemo = true, fromEpg = false)
+                        openDetail(
+                            program, channelLogoUrl = null, isDemo = true, fromEpg = false,
+                            channelName = bundle.name, channelNumber = bundle.number,
+                            channelIndex = tunedChannelIndex
+                        )
                         Log.i(TAG, "SNIPPET → DETAIL")
                     }
                     PlayerZone.DETAIL -> {
@@ -1024,7 +1235,7 @@ fun DemoLiveScreen(
                         } else {
                             // Z przycisków na taśmę (kursor startuje z bieżącej pozycji)
                             playerZone = PlayerZone.STRIP
-                            scrubStartVirtualMs = controller.currentVirtualPositionMs()
+                            scrubStartVirtualMs = activeCtl().currentVirtualPositionMs()
                             scrubCursorMs = scrubStartVirtualMs
                             updateFilmstrip(scrubCursorMs)
                         }
@@ -1108,14 +1319,14 @@ fun DemoLiveScreen(
                         // Blokada do przodu — pokaż komunikat, ale wejdź w STRIP (żeby user
                         // widział pasek i mógł przewijać w tył / wrócić do live)
                         if (layer != DemoLayer.PLAYER_UI || playerZone != PlayerZone.STRIP) {
-                            scrubStartVirtualMs = controller.currentVirtualPositionMs()
+                            scrubStartVirtualMs = activeCtl().currentVirtualPositionMs()
                             openStrip(scrubStartVirtualMs)
                         }
                         showForwardBlocked()
                     }
                     else -> {
                         if (layer != DemoLayer.PLAYER_UI || playerZone != PlayerZone.STRIP) {
-                            scrubStartVirtualMs = controller.currentVirtualPositionMs()
+                            scrubStartVirtualMs = activeCtl().currentVirtualPositionMs()
                             openStrip(scrubStartVirtualMs)
                         }
                         scrubCursorMs = (scrubCursorMs + getSeekStep() * direction)
@@ -1132,16 +1343,20 @@ fun DemoLiveScreen(
     }
 
     // ============ SEKWENCJA STARTOWA: download → player → ekstrakcja ============
+    // Primary (DEMO TV) blokuje isReady; pozostałe barkery pobierane leniwie przy
+    // pierwszym dostrojeniu (ensureBarkerReady).
     LaunchedEffect(Unit) {
         try {
-            downloadLabel = "Sintel (1/2)"
-            val fileA = controller.downloadToCache(DemoChannelSchedule.URL_A) { downloadProgress = it }
-            downloadLabel = "Big Buck Bunny (2/2)"
-            downloadProgress = 0
-            val fileB = controller.downloadToCache(DemoChannelSchedule.URL_B) { downloadProgress = it }
-            controller.preparePlayer(fileA, fileB)
+            val files = ArrayList<java.io.File>()
+            demoBundle.schedule.items.forEachIndexed { i, it ->
+                downloadLabel = "${it.title} (${i + 1}/${demoBundle.schedule.items.size})"
+                downloadProgress = 0
+                files += controller.downloadToCache(it.url) { downloadProgress = it }
+            }
+            controller.preparePlayer(files)
             playerRef = controller.player
-            filmstrip.startExtraction(fileA.absolutePath, fileB.absolutePath)
+            filmstrip.startExtraction(files.map { it.absolutePath })
+            demoBundle.ready.value = true
             isReady = true
             openEpg()
             Log.i(TAG, "Demo ready: antennaStart=${controller.antennaStartWallMs}")
@@ -1206,8 +1421,10 @@ fun DemoLiveScreen(
     DisposableEffect(Unit) {
         onDispose {
             livePlayer?.release()
-            controller.release()
-            filmstrip.release()
+            barkers.values.forEach {
+                it.controller.release()
+                it.filmstrip.release()
+            }
         }
     }
 
@@ -1217,7 +1434,7 @@ fun DemoLiveScreen(
         var tick = 0
         while (true) {
             delay(500)
-            currentVirtualMs = controller.currentVirtualPositionMs()
+            currentVirtualMs = activeCtl().currentVirtualPositionMs()
             // Cofnięcie względem live na realnym streamie (okno DVR playlisty)
             liveBehindMs = if (isTunedLiveStream()) {
                 livePlayer?.let { (it.duration - it.currentPosition).coerceAtLeast(0L) } ?: 0L
@@ -1231,8 +1448,9 @@ fun DemoLiveScreen(
             }
             liveEdgeMs = controller.virtualNow()
             if (++tick % 10 == 0) {
-                val mp = DemoChannelSchedule.materialPositionFor(currentVirtualMs)
-                val block = DemoChannelSchedule.epgBlockAt(currentVirtualMs)
+                val sched = activeBarker()?.schedule ?: demoBundle.schedule
+                val mp = sched.materialPositionFor(currentVirtualMs)
+                val block = sched.epgBlockAt(currentVirtualMs)
                 Log.i(
                     TAG,
                     "tick: virtual=${currentVirtualMs}ms edge=${liveEdgeMs}ms " +
@@ -1379,12 +1597,47 @@ fun DemoLiveScreen(
             videoLayer(Modifier.fillMaxSize())
         }
 
+        // Plansza pobierania barkera (leniwy download przy pierwszym dostrojeniu)
+        val overlayBarker = activeBarker()
+        if (overlayBarker != null && !overlayBarker.ready.value && !isDetail) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFF1A0E2E))
+                    .zIndex(5f),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = overlayBarker.name,
+                        style = TextStyle(fontSize = demoSp(28, sy), color = Color(0x99EEEEEE))
+                    )
+                    Spacer(Modifier.height(sy(12)))
+                    Text(
+                        text = "Przygotowuję kanał…",
+                        style = TextStyle(
+                            fontSize = demoSp(44, sy),
+                            color = Color(0xFFEEEEEE),
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                        )
+                    )
+                    Spacer(Modifier.height(sy(12)))
+                    Text(
+                        text = "${overlayBarker.progressLabel.value}  ${overlayBarker.progress.intValue}%",
+                        style = TextStyle(fontSize = demoSp(22, sy), color = Color(0x99EEEEEE))
+                    )
+                }
+            }
+        }
+
         // Realny kanał BEZ streamu → "Brak live"; kanał ze streamem, którego NIE DA SIĘ
         // odtworzyć (DRM/geo/sieć) → "Kanał niedostępny". Plansza pod warstwami
-        // EPG/playera, żeby flow działał identycznie.
+        // EPG/playera, żeby flow działał identycznie. Barkery mają własną planszę wyżej.
         val tunedRowForOverlay = epgRows.getOrNull(tunedChannelIndex)
         val tunedNoStream = tunedRowForOverlay?.channel?.streamUrl.isNullOrBlank()
-        if (tunedChannelIndex != 0 && !isDetail && (tunedNoStream || livePlaybackError != null)) {
+        if (overlayBarker == null && tunedChannelIndex != 0 && !isDetail &&
+            (tunedNoStream || livePlaybackError != null)
+        ) {
             val tunedRow = tunedRowForOverlay
             Box(
                 modifier = Modifier
@@ -1453,14 +1706,14 @@ fun DemoLiveScreen(
         // poniżej prawdziwy MovieDetailScreen (identyczny z zakładką Wideo).
         // W STRIP materiałem głównym (nagłówek + środkowy segment paska) jest
         // blok POD KURSOREM — przeskok na sąsiedni materiał przepina metadane
-        // Realny stream live: pozycja = live minus cofnięcie w oknie DVR (kreska na pasku)
-        val uiRefVirtualMs = if (tunedChannelIndex == 0) currentVirtualMs
+        // Barker: pozycja odtwarzania; realny stream live: live minus cofnięcie w oknie DVR
+        val uiRefVirtualMs = if (activeBarker() != null) currentVirtualMs
             else (liveEdgeMs - liveBehindMs).coerceAtLeast(0L)
         val uiMainBlock = (if (playerZone == PlayerZone.STRIP) {
             blockForTunedChannel(scrubCursorMs)
         } else {
             blockForTunedChannel(uiRefVirtualMs)
-        }) ?: DemoChannelSchedule.epgBlockAt(uiRefVirtualMs)
+        }) ?: demoBundle.schedule.epgBlockAt(uiRefVirtualMs)
         val uiPrevBlock = if (uiMainBlock.startVirtualMs > 0) {
             blockForTunedChannel(uiMainBlock.startVirtualMs - 1)
         } else null
@@ -1478,7 +1731,7 @@ fun DemoLiveScreen(
             // Pauza ≠ live: każde odsunięcie od live (seek LUB pauza) pokazuje
             // przycisk "Wróć do live" zamiast statusu "Oglądasz live"
             isAtLiveEdge = when {
-                tunedChannelIndex == 0 -> !isPaused && (liveEdgeMs - currentVirtualMs) < 5_000L
+                activeBarker() != null -> !isPaused && (liveEdgeMs - currentVirtualMs) < 5_000L
                 isTunedLiveStream() -> !isPaused && liveBehindMs < 5_000L
                 else -> true
             },
@@ -1486,7 +1739,7 @@ fun DemoLiveScreen(
             dvrStartVirtualMs = if (isTunedLiveStream()) {
                 // Live: początek okna DVR strumienia (nie oś barkera)
                 (liveEdgeMs - (livePlayer?.duration?.takeIf { it > 0 } ?: 38_000L)).coerceAtLeast(0L)
-            } else controller.dvrStartMs(),
+            } else activeCtl().dvrStartMs(),
             scrubCursorMs = scrubCursorMs,
             antennaStartWallMs = controller.antennaStartWallMs,
             isPaused = isPaused,
@@ -1525,14 +1778,20 @@ fun DemoLiveScreen(
                             android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
                         },
                         onWatchClicked = {
-                            if (detailIsDemo) {
+                            val detailBarker = barkerFor(detailChannelIndex)
+                            if (detailBarker != null) {
+                                // Kanał barker: dostrój (jeśli inny niż oglądany) i graj
                                 when (detailTiming) {
                                     BlockTiming.CURRENT -> {
+                                        tunedChannelIndex = detailChannelIndex
+                                        tuneBarker(detailBarker)
                                         openPlayerButtons()
-                                        Log.i(TAG, "DETAIL: Oglądaj (bieżący) → PLAYER_UI")
+                                        Log.i(TAG, "DETAIL: Oglądaj (bieżący, ${detailBarker.channelId}) → PLAYER_UI")
                                     }
                                     BlockTiming.PAST -> {
-                                        controller.seekToVirtual(detailStartVirtualMs)
+                                        tunedChannelIndex = detailChannelIndex
+                                        tuneBarker(detailBarker)
+                                        detailBarker.controller.seekToVirtual(detailStartVirtualMs)
                                         isPaused = false
                                         openPlayerButtons()
                                         Log.i(TAG, "DETAIL: Oglądaj od początku → ${detailStartVirtualMs}ms")
@@ -1546,7 +1805,7 @@ fun DemoLiveScreen(
                                     liveUrl.isNotBlank() && detailTiming == BlockTiming.CURRENT -> {
                                         // Kanał z realnym streamem: Oglądaj = dostrój live
                                         tunedChannelIndex = detailChannelIndex
-                                        controller.player?.pause()
+                                        barkers.values.forEach { it.controller.player?.pause() }
                                         tuneLive(liveUrl)
                                         isPaused = false
                                         openPlayerButtons()

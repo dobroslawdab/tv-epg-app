@@ -17,15 +17,19 @@ import java.net.URL
 
 /**
  * DEMO CHANNEL PLAYER CONTROLLER — player "anteny" symulowanego kanału live.
+ * Jedna instancja = jeden kanał barker (schedule z N materiałami).
  *
- * - Playlista ExoPlayer (A, B) + REPEAT_MODE_ALL: przejście do następnego materiału
+ * - Playlista ExoPlayer (N plików) + REPEAT_MODE_ALL: przejście do następnego materiału
  *   następuje przy FAKTYCZNYM końcu pliku (auto transition), nie przy kropce ramówki.
- * - Oś wirtualna zakotwiczona w zegarze ściennym; wejście na ekran = 5 min po
- *   "starcie anteny", żeby od razu był bufor DVR za plecami.
+ * - Oś wirtualna zakotwiczona w zegarze ściennym (wspólny start 9:00 dla wszystkich
+ *   barkerów — patrz BarkerSchedule).
  * - trackedCycle: numer pętli materiałów — inkrementowany WYŁĄCZNIE przy
- *   automatycznym przejściu B→A (REASON_AUTO na index 0); przy seeku ustawiany jawnie.
+ *   automatycznym przejściu ostatni→pierwszy (REASON_AUTO na index 0); przy seeku jawnie.
  */
-class DemoChannelPlayerController(private val context: Context) {
+class DemoChannelPlayerController(
+    private val context: Context,
+    val schedule: BarkerSchedule
+) {
 
     companion object {
         private const val TAG = "DemoLive"
@@ -36,7 +40,7 @@ class DemoChannelPlayerController(private val context: Context) {
     }
 
     /** Barker channel: antena wystartowała dziś o 9:00 (zegar ścienny). */
-    val antennaStartWallMs: Long = DemoChannelSchedule.barkerStartWallMs()
+    val antennaStartWallMs: Long = BarkerSchedule.barkerStartWallMs()
 
     var player: ExoPlayer? = null
         private set
@@ -87,7 +91,11 @@ class DemoChannelPlayerController(private val context: Context) {
             finalFile
         }
 
-    fun preparePlayer(fileA: File, fileB: File) {
+    /** Przygotuj player anteny z listą plików (kolejność = kolejność w schedule). */
+    fun preparePlayer(files: List<File>) {
+        require(files.size == schedule.items.size) {
+            "files(${files.size}) != schedule.items(${schedule.items.size})"
+        }
         val exo = ExoPlayer.Builder(context).build()
         exo.playWhenReady = true
         exo.setSeekParameters(SeekParameters.EXACT)
@@ -105,24 +113,20 @@ class DemoChannelPlayerController(private val context: Context) {
             }
 
             override fun onTimelineChanged(timeline: Timeline, reason: Int) {
-                if (timeline.windowCount >= 2) {
+                if (timeline.windowCount >= schedule.items.size) {
                     val window = Timeline.Window()
-                    val dA = timeline.getWindow(0, window).durationMs
-                    val dB = timeline.getWindow(1, window).durationMs
-                    if (dA > 0 && dB > 0) {
-                        DemoChannelSchedule.durAMs = dA
-                        DemoChannelSchedule.durBMs = dB
-                        Log.i(TAG, "Timeline: durA=${dA}ms durB=${dB}ms")
+                    var allKnown = true
+                    for (i in schedule.items.indices) {
+                        val d = timeline.getWindow(i, window).durationMs
+                        if (d > 0) schedule.durMs[i] = d else allKnown = false
+                    }
+                    if (allKnown) {
+                        Log.i(TAG, "Timeline: dur=${schedule.durMs.joinToString()}ms")
                     }
                 }
             }
         })
-        exo.setMediaItems(
-            listOf(
-                MediaItem.fromUri(Uri.fromFile(fileA)),
-                MediaItem.fromUri(Uri.fromFile(fileB))
-            )
-        )
+        exo.setMediaItems(files.map { MediaItem.fromUri(Uri.fromFile(it)) })
         exo.prepare()
         player = exo
         seekToVirtual(virtualNow())
@@ -137,17 +141,17 @@ class DemoChannelPlayerController(private val context: Context) {
     /** Bieżąca pozycja odtwarzania w osi wirtualnej. */
     fun currentVirtualPositionMs(): Long {
         val p = player ?: return 0L
-        return DemoChannelSchedule.virtualFor(trackedCycle, p.currentMediaItemIndex, p.currentPosition)
+        return schedule.virtualFor(trackedCycle, p.currentMediaItemIndex, p.currentPosition)
     }
 
     /** Seek do pozycji wirtualnej (clamp do okna DVR); przełącza MediaItem jeśli trzeba. */
     fun seekToVirtual(targetVirtualMs: Long) {
         val p = player ?: return
         val clamped = targetVirtualMs.coerceIn(dvrStartMs(), virtualNow())
-        val mp = DemoChannelSchedule.materialPositionFor(clamped)
+        val mp = schedule.materialPositionFor(clamped)
         // Nie seekuj na sam koniec okna (ochrona przed natychmiastową auto-transition
         // i IllegalSeekPositionException przy pozycji > duration okna)
-        val windowDur = if (mp.mediaItemIndex == 0) DemoChannelSchedule.durAMs else DemoChannelSchedule.durBMs
+        val windowDur = schedule.durMs[mp.mediaItemIndex]
         val safePos = mp.positionMs.coerceAtMost((windowDur - 500L).coerceAtLeast(0L))
         trackedCycle = mp.cycle
         p.seekTo(mp.mediaItemIndex, safePos)

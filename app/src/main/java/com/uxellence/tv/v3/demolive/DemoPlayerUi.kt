@@ -75,9 +75,9 @@ enum class BlockTiming { PAST, CURRENT, FUTURE }
 fun DemoPlayerUi(
     isVisible: Boolean,
     zone: PlayerZone,
-    block: DemoChannelSchedule.EpgBlock,
-    prevBlock: DemoChannelSchedule.EpgBlock?,
-    nextBlock: DemoChannelSchedule.EpgBlock?,
+    block: BarkerSchedule.EpgBlock,
+    prevBlock: BarkerSchedule.EpgBlock?,
+    nextBlock: BarkerSchedule.EpgBlock?,
     channel: TvChannelData?,
     channelNumber: Int,
     currentVirtualMs: Long,
@@ -272,7 +272,7 @@ fun DemoPlayerUi(
  */
 @Composable
 private fun PlayerHeader(
-    block: DemoChannelSchedule.EpgBlock,
+    block: BarkerSchedule.EpgBlock,
     channel: TvChannelData?,
     channelNumber: Int,
     modifier: Modifier,
@@ -354,9 +354,9 @@ private fun PlayerHeader(
  */
 @Composable
 private fun DemoFixedBlockBar(
-    block: DemoChannelSchedule.EpgBlock,
-    prevBlock: DemoChannelSchedule.EpgBlock?,
-    nextBlock: DemoChannelSchedule.EpgBlock?,
+    block: BarkerSchedule.EpgBlock,
+    prevBlock: BarkerSchedule.EpgBlock?,
+    nextBlock: BarkerSchedule.EpgBlock?,
     positionMs: Long,
     cursorMs: Long?,
     liveEdgeVirtualMs: Long,
@@ -383,7 +383,7 @@ private fun DemoFixedBlockBar(
         val barY = sy(8)
         val barH = sy(8)
 
-        fun fracIn(b: DemoChannelSchedule.EpgBlock, t: Long): Float =
+        fun fracIn(b: BarkerSchedule.EpgBlock, t: Long): Float =
             ((t - b.startVirtualMs).toFloat() /
                 (b.endVirtualMs - b.startVirtualMs).coerceAtLeast(1L).toFloat()).coerceIn(0f, 1f)
 

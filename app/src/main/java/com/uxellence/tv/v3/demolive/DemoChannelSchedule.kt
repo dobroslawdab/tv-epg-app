@@ -3,40 +3,32 @@ package com.uxellence.tv.v3.demolive
 import java.util.Calendar
 
 /**
- * DEMO BARKER CHANNEL SCHEDULE — czysta logika kanału testowego.
+ * BARKER SCHEDULE — czysta logika symulowanego kanału live (uogólnienie dawnego
+ * DemoChannelSchedule z 2 materiałów na N, wiele instancji = wiele kanałów).
  *
  * Barker channel: ramówka zakotwiczona w ZEGARZE ŚCIENNYM — start dziś o 9:00,
- * materiały A (Sintel ~14:48) i B (Big Buck Bunny ~9:56) grane naprzemiennie
- * w pętli, bloki ramówki rozstawione DOKŁADNIE co długość materiałów (do ~20:00).
- * Wejście o dowolnej godzinie (np. 12:33) trafia w zaplanowany przedział,
- * a czasy bloków zgadzają się z czasami prawdziwego EPG innych kanałów.
+ * materiały grane po kolei w pętli, bloki ramówki rozstawione DOKŁADNIE co długość
+ * materiałów. Wejście o dowolnej godzinie trafia w zaplanowany przedział, a czasy
+ * bloków zgadzają się z czasami prawdziwego EPG innych kanałów.
  *
  * Oś wirtualna: virtualMs = wallClock - barkerStart(9:00). Live edge = virtualNow().
+ * Oś jest WSPÓLNA dla wszystkich barkerów (ten sam start 9:00) — kanały różnią się
+ * wyłącznie materiałami/playbackiem.
  */
-object DemoChannelSchedule {
-    const val URL_A = "https://archive.org/download/Sintel/sintel-2048-stereo_512kb.mp4"
-    const val URL_B = "https://storage.googleapis.com/exoplayer-test-media-0/BigBuckBunny_320x180.mp4"
+class BarkerSchedule(val items: List<BarkerItem>) {
 
-    // Nominalne czasy trwania — doprecyzowywane z Timeline ExoPlayera po STATE_READY
-    @Volatile var durAMs: Long = 888_000L
-    @Volatile var durBMs: Long = 596_000L
-    val materialCycleMs: Long get() = durAMs + durBMs
-
-    const val BARKER_START_HOUR = 9   // start anteny: dziś 9:00
-    const val BARKER_END_HOUR = 20    // koniec ramówki (informacyjnie)
-
-    /** Start barker channel: dziś 9:00 lokalnie (wczoraj 9:00 jeśli teraz przed 9:00). */
-    fun barkerStartWallMs(nowWallMs: Long = System.currentTimeMillis()): Long {
-        val cal = Calendar.getInstance().apply {
-            timeInMillis = nowWallMs
-            set(Calendar.HOUR_OF_DAY, BARKER_START_HOUR)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }
-        if (cal.timeInMillis > nowWallMs) cal.add(Calendar.DAY_OF_YEAR, -1)
-        return cal.timeInMillis
-    }
+    /** Materiał barkera: źródło + metadane bloku ramówki. */
+    data class BarkerItem(
+        val url: String,
+        val title: String,
+        val genre: String,
+        val year: String,
+        val country: String,
+        val age: String,
+        val description: String,
+        val coverUrl: String? = null,     // okładka programu; null = klatka z materiału
+        val nominalDurMs: Long            // doprecyzowywane z Timeline po STATE_READY
+    )
 
     data class MaterialPos(val mediaItemIndex: Int, val positionMs: Long, val cycle: Long)
 
@@ -49,46 +41,53 @@ object DemoChannelSchedule {
         val country: String,
         val age: String,
         val description: String,
-        val coverUrl: String? = null   // okładka programu (EPG/detal); null = klatka z materiału
+        val coverUrl: String? = null
     )
 
-    private val BLOCK_A_META = EpgBlock(
-        title = "Sintel",
-        startVirtualMs = 0L, endVirtualMs = 0L,
-        genre = "fantasy", year = "2010 r.", country = "Holandia", age = "12 lat",
-        coverUrl = "https://m.media-amazon.com/images/S/pv-target-images/6faeb35e463ad90c72c97d47d06367ec7bc4d9d0be63659d6c9fb18777cf3b12.png",
-        description = "Samotna wojowniczka Sintel przemierza świat w poszukiwaniu Scales — " +
-            "małego smoka, którego niegdyś uratowała i wychowała, a który został jej brutalnie " +
-            "odebrany. Wędrówka przez lodowe pustkowia i mroczne jaskinie wystawi jej " +
-            "determinację na ostateczną próbę. Nagradzany film studia Blender."
-    )
+    companion object {
+        const val BARKER_START_HOUR = 9   // start anteny: dziś 9:00
+        const val BARKER_END_HOUR = 20    // koniec ramówki (informacyjnie)
 
-    private val BLOCK_B_META = EpgBlock(
-        title = "Big Buck Bunny",
-        startVirtualMs = 0L, endVirtualMs = 0L,
-        genre = "animacja", year = "2008 r.", country = "Holandia", age = "7 lat",
-        coverUrl = "https://m.media-amazon.com/images/M/MV5BMjMzNDM1ZmEtYzRjOC00Nzg5LWFlZTAtMTA1M2I0NDc2Njg3XkEyXkFqcGc@._V1_.jpg",
-        description = "Ogromny, dobroduszny królik budzi się pewnego ranka, by cieszyć się " +
-            "urokami leśnej polany. Sielankę przerywa trójka złośliwych gryzoni, która dla zabawy " +
-            "dręczy mniejsze zwierzęta. Gdy ich ofiarą padają ukochane motyle królika, " +
-            "łagodny olbrzym postanawia dać łobuzom nauczkę."
-    )
+        /** Start barker channel: dziś 9:00 lokalnie (wczoraj 9:00 jeśli teraz przed 9:00). */
+        fun barkerStartWallMs(nowWallMs: Long = System.currentTimeMillis()): Long {
+            val cal = Calendar.getInstance().apply {
+                timeInMillis = nowWallMs
+                set(Calendar.HOUR_OF_DAY, BARKER_START_HOUR)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }
+            if (cal.timeInMillis > nowWallMs) cal.add(Calendar.DAY_OF_YEAR, -1)
+            return cal.timeInMillis
+        }
+    }
+
+    /** Czasy trwania materiałów — nominalne, nadpisywane z Timeline ExoPlayera. */
+    val durMs = LongArray(items.size) { items[it].nominalDurMs }
+
+    val materialCycleMs: Long get() = durMs.sum()
+
+    private fun prefixMs(index: Int): Long {
+        var acc = 0L
+        for (i in 0 until index) acc += durMs[i]
+        return acc
+    }
 
     /** Mapowanie pozycji wirtualnej → (indeks MediaItem, pozycja w pliku, numer cyklu). */
     fun materialPositionFor(virtualMs: Long): MaterialPos {
         val v = virtualMs.coerceAtLeast(0L)
         val cycle = v / materialCycleMs
-        val inCycle = v % materialCycleMs
-        return if (inCycle < durAMs) {
-            MaterialPos(mediaItemIndex = 0, positionMs = inCycle, cycle = cycle)
-        } else {
-            MaterialPos(mediaItemIndex = 1, positionMs = inCycle - durAMs, cycle = cycle)
+        var inCycle = v % materialCycleMs
+        for (i in durMs.indices) {
+            if (inCycle < durMs[i]) return MaterialPos(i, inCycle, cycle)
+            inCycle -= durMs[i]
         }
+        return MaterialPos(durMs.lastIndex, durMs.last() - 1, cycle)  // krawędź numeryczna
     }
 
     /** Mapowanie odwrotne: (cykl, indeks MediaItem, pozycja w pliku) → pozycja wirtualna. */
     fun virtualFor(cycle: Long, mediaItemIndex: Int, positionMs: Long): Long =
-        cycle * materialCycleMs + (if (mediaItemIndex == 0) positionMs else durAMs + positionMs)
+        cycle * materialCycleMs + prefixMs(mediaItemIndex) + positionMs
 
     /**
      * Blok ramówki obejmujący pozycję wirtualną. Barker channel: blok == materiał,
@@ -97,18 +96,20 @@ object DemoChannelSchedule {
     fun epgBlockAt(virtualMs: Long): EpgBlock {
         val v = virtualMs.coerceAtLeast(0L)
         val cycleStart = (v / materialCycleMs) * materialCycleMs
-        val inCycle = v % materialCycleMs
-        return if (inCycle < durAMs) {
-            BLOCK_A_META.copy(
-                startVirtualMs = cycleStart,
-                endVirtualMs = cycleStart + durAMs
-            )
-        } else {
-            BLOCK_B_META.copy(
-                startVirtualMs = cycleStart + durAMs,
-                endVirtualMs = cycleStart + materialCycleMs
-            )
-        }
+        val mp = materialPositionFor(v)
+        val item = items[mp.mediaItemIndex]
+        val blockStart = cycleStart + prefixMs(mp.mediaItemIndex)
+        return EpgBlock(
+            title = item.title,
+            startVirtualMs = blockStart,
+            endVirtualMs = blockStart + durMs[mp.mediaItemIndex],
+            genre = item.genre,
+            year = item.year,
+            country = item.country,
+            age = item.age,
+            description = item.description,
+            coverUrl = item.coverUrl
+        )
     }
 
     /**
@@ -117,8 +118,7 @@ object DemoChannelSchedule {
      */
     fun blocksAround(virtualMs: Long, before: Int, after: Int): List<EpgBlock> {
         val result = ArrayDeque<EpgBlock>()
-        var block = epgBlockAt(virtualMs)
-        result.add(block)
+        result.add(epgBlockAt(virtualMs))
         repeat(before) {
             val prevStart = result.first().startVirtualMs - 1
             if (prevStart < 0) return@repeat
@@ -137,8 +137,10 @@ object DemoChannelSchedule {
         var k = (fromVirtualMs / materialCycleMs) - 1
         while (k * materialCycleMs <= toVirtualMs) {
             val base = k * materialCycleMs
-            for (boundary in listOf(base, base + durAMs)) {
-                if (boundary in fromVirtualMs..toVirtualMs) result.add(boundary)
+            var acc = base
+            for (i in durMs.indices) {
+                if (acc in fromVirtualMs..toVirtualMs) result.add(acc)
+                acc += durMs[i]
             }
             k++
         }

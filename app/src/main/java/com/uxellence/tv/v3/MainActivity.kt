@@ -1496,7 +1496,7 @@ fun TvRoot(
                 fun sx(px: Int) = (px * scaleX).dp
                 fun sy(px: Int) = (px * scaleY).dp
                 com.uxellence.tv.v3.vodplayer.VodPlayerScreen(
-                    streamUrl = com.uxellence.tv.v3.demolive.DemoChannelSchedule.URL_A,
+                    streamUrl = "https://archive.org/download/Sintel/sintel-2048-stereo_512kb.mp4",
                     title = "Demo: VOD + miniaturki (Sintel)",
                     onBackPressed = { currentScreen = NavigationScreen.HOME },
                     sx = ::sx,
