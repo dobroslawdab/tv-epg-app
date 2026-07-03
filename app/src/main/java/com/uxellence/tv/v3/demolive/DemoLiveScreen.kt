@@ -245,7 +245,7 @@ fun DemoLiveScreen(
                         "Grupa naukowców i żołnierzy próbuje odzyskać Amsterdam z rąk zbuntowanych " +
                             "robotów, odtwarzając wydarzenia sprzed lat. Aktorski film studia Blender " +
                             "łączący zdjęcia na żywo z efektami CGI.",
-                        null, 734_000L
+                        "https://archive.org/services/img/Tears-of-Steel", 734_000L
                     ),
                     item(
                         "https://archive.org/download/CosmosLaundromatFirstCycle/Cosmos%20Laundromat%20-%20First%20Cycle%20(1080p).mp4",
@@ -253,7 +253,7 @@ fun DemoLiveScreen(
                         "Samobójczo nastawiony baran Franck dostaje od tajemniczego Victora " +
                             "propozycję nie do odrzucenia: każde życie, jakie zechce. Surrealistyczna " +
                             "animacja studia Blender.",
-                        null, 730_000L
+                        "https://archive.org/services/img/CosmosLaundromatFirstCycle", 730_000L
                     )
                 )),
                 context = context
@@ -266,14 +266,16 @@ fun DemoLiveScreen(
                         "Naprzód na Księżyc", "dokument", "2019 r.", "USA", "bez ograniczeń",
                         "NASA przedstawia program Artemis — plan powrotu ludzi na Księżyc " +
                             "i pierwszy krok w stronę Marsa. Materiał NASA (domena publiczna).",
-                        null, 218_000L
+                        "https://images-assets.nasa.gov/video/NHQ_2019_0311_Go%20Forward%20to%20the%20Moon/NHQ_2019_0311_Go%20Forward%20to%20the%20Moon~thumb.jpg",
+                        218_000L
                     ),
                     item(
                         "https://images-assets.nasa.gov/video/Artemis%20I%20Launches%20to%20the%20Moon%20%28Official%20NASA%20Recap%29/Artemis%20I%20Launches%20to%20the%20Moon%20%28Official%20NASA%20Recap%29~medium.mp4",
                         "Artemis I — start", "dokument", "2022 r.", "USA", "bez ograniczeń",
                         "Oficjalne podsumowanie startu misji Artemis I — pierwszego lotu rakiety " +
                             "SLS i statku Orion w stronę Księżyca. Materiał NASA (domena publiczna).",
-                        null, 205_000L
+                        "https://images-assets.nasa.gov/video/Artemis%20I%20Launches%20to%20the%20Moon%20%28Official%20NASA%20Recap%29/Artemis%20I%20Launches%20to%20the%20Moon%20%28Official%20NASA%20Recap%29~thumb.jpg",
+                        205_000L
                     )
                 )),
                 context = context
@@ -286,14 +288,14 @@ fun DemoLiveScreen(
                         "Popeye for President", "kreskówka", "1956 r.", "USA", "bez ograniczeń",
                         "Popeye i Bluto rywalizują o głos Olive w wyborach prezydenckich. " +
                             "Klasyczna kreskówka z domeny publicznej.",
-                        null, 364_000L
+                        "https://archive.org/services/img/Popeye_forPresident", 364_000L
                     ),
                     item(
                         "https://archive.org/download/superman_1941/superman_1941_512kb.mp4",
                         "Superman: The Mad Scientist", "kreskówka", "1941 r.", "USA", "7 lat",
                         "Pierwszy animowany film o Supermanie — Człowiek ze Stali kontra szalony " +
                             "naukowiec i jego promień zagłady. Studio Fleischera, domena publiczna.",
-                        null, 620_000L
+                        "https://archive.org/services/img/superman_1941", 620_000L
                     )
                 )),
                 context = context
@@ -800,6 +802,18 @@ fun DemoLiveScreen(
             "Stargaze Mix" to "Najlepsze fragmenty tygodnia na Stargaze.",
             "Kreatorzy" to "Rozmowy z twórcami internetowymi o kulisach ich pracy."
         )
+        // Okładki formatów (mini-EPG): Flickr CC przez Openverse. UWAGA: celowo
+        // NIE Wikimedia — upload.wikimedia.org odrzuca 403-ką User-Agenta
+        // "okhttp/x", którym przedstawia się Coil (miniaturka nigdy się nie
+        // załaduje). Flickr/archive.org/NASA przepuszczają.
+        val covers = mapOf(
+            "5 Sposobów Na" to "https://live.staticflickr.com/1830/42182307225_6817c029cb_b.jpg",
+            "Człowiek Absurdalny" to "https://live.staticflickr.com/2745/4156902882_1c7240c4ae.jpg",
+            "ORB News" to "https://live.staticflickr.com/2628/3810416472_63e04b9136_b.jpg",
+            "Sprytne Babki" to "https://live.staticflickr.com/2018/2272444834_00e8d429c0_b.jpg",
+            "Stargaze Mix" to "https://live.staticflickr.com/140/391656842_5dbdc6ac67_b.jpg",
+            "Kreatorzy" to "https://live.staticflickr.com/3763/33273135505_9054377c10_b.jpg"
+        )
         val zone = java.time.ZoneId.systemDefault()
         val start = java.time.LocalDate.now(zone).minusDays(1).atStartOfDay(zone).toInstant()
         val slotMs = 30L * 60 * 1000
@@ -813,7 +827,7 @@ fun DemoLiveScreen(
                 endUtc = st.plusMillis(slotMs),
                 description = desc,
                 categories = listOf("rozrywka", "2026", "Polska", "12 lat"),
-                iconUrl = null
+                iconUrl = covers[title]
             )
         }
         val now = java.time.Instant.now()
@@ -844,6 +858,12 @@ fun DemoLiveScreen(
             "Okno DVR 1 h" to "Przewijanie do godziny wstecz — retencja segmentów po stronie źródła.",
             "Plansza testowa" to "Wzór DASH-IF z bieżącym czasem — weryfikacja trafności skoków."
         )
+        // Okładki (mini-EPG): Flickr CC — patrz komentarz o UA przy Stargaze
+        val covers = mapOf(
+            "Trick-play demo" to "https://live.staticflickr.com/7422/13668736373_39d525da45_b.jpg",
+            "Okno DVR 1 h" to "https://live.staticflickr.com/7099/7169630025_daa44ae929_b.jpg",
+            "Plansza testowa" to "https://live.staticflickr.com/143/318103681_b984362e94.jpg"
+        )
         val zone = java.time.ZoneId.systemDefault()
         val start = java.time.LocalDate.now(zone).minusDays(1).atStartOfDay(zone).toInstant()
         val slotMs = 30L * 60 * 1000
@@ -857,7 +877,7 @@ fun DemoLiveScreen(
                 endUtc = st.plusMillis(slotMs),
                 description = desc,
                 categories = listOf("test", "2026", "DASH-IF", "bez ograniczeń"),
-                iconUrl = null
+                iconUrl = covers[title]
             )
         }
         val now = java.time.Instant.now()
@@ -887,6 +907,12 @@ fun DemoLiveScreen(
             "Na sawannie" to "Zwierzęta w naturalnym środowisku.",
             "Wieczór na buszu" to "Przyrodniczy przegląd dnia."
         )
+        // Okładki (mini-EPG): Flickr CC — patrz komentarz o UA przy Stargaze
+        val covers = mapOf(
+            "Safari w Namibii" to "https://live.staticflickr.com/2831/11502238866_a643de3ff0_b.jpg",
+            "Na sawannie" to "https://live.staticflickr.com/145/401930619_c6ce5e6f54_b.jpg",
+            "Wieczór na buszu" to "https://live.staticflickr.com/3160/2899305640_727e55cfea.jpg"
+        )
         val zone = java.time.ZoneId.systemDefault()
         val start = java.time.LocalDate.now(zone).minusDays(1).atStartOfDay(zone).toInstant()
         val slotMs = 30L * 60 * 1000
@@ -900,7 +926,7 @@ fun DemoLiveScreen(
                 endUtc = st.plusMillis(slotMs),
                 description = desc,
                 categories = listOf("przyroda", "2026", "Namibia", "7 lat"),
-                iconUrl = null
+                iconUrl = covers[title]
             )
         }
         val now = java.time.Instant.now()
