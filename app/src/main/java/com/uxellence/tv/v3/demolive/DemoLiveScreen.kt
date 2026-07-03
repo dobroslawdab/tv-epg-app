@@ -79,10 +79,21 @@ private class DemoVideoView(
 
     private val textureView = android.view.TextureView(context)
     private var attachedPlayer: com.google.android.exoplayer2.ExoPlayer? = null
+    // Czarna zasłona na czas przełączania playerów: TextureView trzyma ostatnią
+    // klatkę POPRZEDNIEGO kanału aż nowy wyrenderuje pierwszą — bez zasłony widać
+    // stopklatkę starego materiału ("kanał się nie włącza").
+    private val blackCover = android.view.View(context).apply {
+        setBackgroundColor(android.graphics.Color.BLACK)
+        visibility = GONE
+    }
 
     private val videoListener = object : com.google.android.exoplayer2.Player.Listener {
         override fun onVideoSizeChanged(videoSize: com.google.android.exoplayer2.video.VideoSize) {
             applyAspect(videoSize)
+        }
+
+        override fun onRenderedFirstFrame() {
+            blackCover.visibility = GONE
         }
     }
 
@@ -91,6 +102,10 @@ private class DemoVideoView(
         addView(
             textureView,
             LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT, android.view.Gravity.CENTER)
+        )
+        addView(
+            blackCover,
+            LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
         )
         isFocusable = true
         isFocusableInTouchMode = false
@@ -107,6 +122,8 @@ private class DemoVideoView(
         // od starego playera — inaczej stary trzyma surface i na ekranie zostaje jego
         // zamrożona klatka, a nowy gra bez obrazu.
         attachedPlayer?.clearVideoTextureView(textureView)
+        // Zasłoń stopklatkę poprzedniego kanału do pierwszej klatki nowego
+        blackCover.visibility = VISIBLE
         attachedPlayer = player
         if (player != null) {
             player.addListener(videoListener)
@@ -394,6 +411,7 @@ fun DemoLiveScreen(
                 bundle.ready.value = true
                 if (activeBarker() === bundle) {
                     barkers.values.forEach { if (it !== bundle) it.controller.player?.pause() }
+                    bundle.controller.seekToLiveEdge()   // dołącz na żywo, nie na pozycji z prepare
                     playerRef = bundle.controller.player
                     isPaused = false
                 }
@@ -417,7 +435,9 @@ fun DemoLiveScreen(
         liveThumbs.clear()
         barkers.values.forEach { if (it !== bundle) it.controller.player?.pause() }
         if (bundle.ready.value) {
-            bundle.controller.player?.play()
+            // Wejście na kanał = live edge (jak prawdziwa TV) — nie stara pozycja
+            // sprzed pauzy; seek wymusza też natychmiastowy render pierwszej klatki
+            bundle.controller.seekToLiveEdge()
             playerRef = bundle.controller.player
             isPaused = false
         } else {
