@@ -381,6 +381,9 @@ fun DemoLiveScreen(
 
     // Warstwa EPG: wiersz 0 = DEMO TV (sztuczna ramówka), 1..N = prawdziwe kanały z EPG
     var epgRows by remember { mutableStateOf<List<com.uxellence.tv.v3.epg.ChannelEpgRow>>(emptyList()) }
+    // Trigger odświeżenia EPG (openEpg jest zdefiniowane niżej — lokalne funkcje
+    // nie mogą być wołane przed deklaracją, więc ensureBarkerReady bije w licznik)
+    var epgRefreshTick by remember { mutableIntStateOf(0) }
 
     // ===== Routing barkerów =====
     /** Bundle barkera dla wiersza EPG (null = kanał nie-barker: live stream / realny). */
@@ -415,6 +418,11 @@ fun DemoLiveScreen(
                     playerRef = bundle.controller.player
                     isPaused = false
                 }
+                // Realne duracje z Timeline nadpisały nominalne → przelicz bloki ramówki
+                // (inaczej mini-EPG pokazuje granice programów z przybliżonych długości).
+                // Krótka zwłoka: onTimelineChanged przychodzi async po prepare.
+                delay(300)
+                epgRefreshTick++
                 Log.i(TAG, "barker ${bundle.channelId} ready")
             } catch (e: Exception) {
                 Log.e(TAG, "barker ${bundle.channelId} download failed: ${e.message}")
@@ -1077,6 +1085,24 @@ fun DemoLiveScreen(
                             openPlayerButtons()
                             Log.i(TAG, "EPG select: '${program.title}' (single) → PLAYER_UI")
                         }
+                        selBarker != null && epgExpanded &&
+                            targetEnd <= controller.virtualNow() -> {
+                            // MINIONY program na kanale barker wybrany z warstwy wielu
+                            // kanałów → dostrój i odtwórz OD POCZĄTKU programu (start-over).
+                            // (TIME SYNC celuje w czas z poprzedniego kanału, więc przy
+                            // krótkich blokach fokus często ląduje na minionym — OK ma
+                            // wtedy przełączać kanał, nie otwierać detal.)
+                            tunedChannelIndex = epgChannelIndex
+                            tuneBarker(selBarker)
+                            if (selBarker.ready.value) {
+                                selBarker.controller.seekToVirtual(targetStart)
+                            }
+                            epgProgramIndex[tunedChannelIndex] = focusedProgIdx
+                            epgFocusedTime = program.startUtc
+                            epgExpanded = false
+                            epgInteractionAt = System.currentTimeMillis()
+                            Log.i(TAG, "EPG select: tune+startover → ${row.channel.name} '${program.title}'")
+                        }
                         else -> {
                             // Program miniony/przyszły (dowolny kanał) → detal jak na Wideo
                             openDetail(
@@ -1360,6 +1386,11 @@ fun DemoLiveScreen(
             goFullscreen = { layer = DemoLayer.FULLSCREEN },
             exit = { onBackPressed() }
         )
+    }
+
+    // Odświeżenie EPG na żądanie (np. barker ready → realne duracje bloków)
+    LaunchedEffect(epgRefreshTick) {
+        if (epgRefreshTick > 0 && layer == DemoLayer.EPG) openEpg()
     }
 
     // ============ SEKWENCJA STARTOWA: download → player → ekstrakcja ============
