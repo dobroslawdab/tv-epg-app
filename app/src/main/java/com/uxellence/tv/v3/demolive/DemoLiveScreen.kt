@@ -693,8 +693,11 @@ fun DemoLiveScreen(
 
     fun openStrip(initialCursor: Long) {
         playerZone = PlayerZone.STRIP
+        // Clamp jak przy LEFT/RIGHT: kursor sprzed live edge'a (patrz playerUp) —
+        // bez tego środkowy slot taśmy bywa "za live" i dostaje pustą klatkę
         scrubCursorMs = initialCursor
-        updateFilmstrip(initialCursor)
+            .coerceIn(activeCtl().dvrStartMs(), activeCtl().virtualNow())
+        updateFilmstrip(scrubCursorMs)
         playerInteractionAt = System.currentTimeMillis()
         layer = DemoLayer.PLAYER_UI
     }
@@ -1337,9 +1340,14 @@ fun DemoLiveScreen(
                                 context, "Przewijanie niedostępne na tym kanale", android.widget.Toast.LENGTH_SHORT
                             ).show()
                         } else {
-                            // Z przycisków na taśmę (kursor startuje z bieżącej pozycji)
+                            // Z przycisków na taśmę (kursor startuje z bieżącej pozycji).
+                            // CLAMP do okna DVR: pozycja z zegara MEDIÓW potrafi na live
+                            // wyprzedzić wall-clockowy virtualNow() o ułamek sekundy —
+                            // środkowy slot taśmy lądował "za live" i startował pustą
+                            // klatką (LEFT/RIGHT robią ten sam coerceIn, stąd znikała).
                             playerZone = PlayerZone.STRIP
                             scrubStartVirtualMs = activeCtl().currentVirtualPositionMs()
+                                .coerceIn(activeCtl().dvrStartMs(), activeCtl().virtualNow())
                             scrubCursorMs = scrubStartVirtualMs
                             updateFilmstrip(scrubCursorMs)
                         }
