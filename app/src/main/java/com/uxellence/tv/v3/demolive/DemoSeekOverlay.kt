@@ -50,63 +50,63 @@ internal fun DemoFilmstrip(
     sx: (Int) -> Dp,
     sy: (Int) -> Dp
 ) {
-  Column(modifier = Modifier.fillMaxWidth()) {
-    // Tytuły materiałów nad taśmą (Figma 5530-5395): tytuł materiału jest
-    // PRZYPIĘTY do klatki, od której materiał się zaczyna; materiał widoczny
-    // od lewej krawędzi (start poza ekranem) trzyma tytuł przy lewej krawędzi.
-    // Gdy kotwica następnego tytułu nadjeżdża, bieżący tytuł jest przycinany
-    // wielokropkiem do wolnego miejsca.
-    if (blockTitleFor != null && frames.isNotEmpty()) {
-        // Geometria slotów w px designu 1920: taśma wycentrowana, szersza od
-        // ekranu (clipToBounds) — lewy slot częściowo poza kadrem
-        val sideW = 320; val centerW = 480; val gapW = 10
-        val totalW = (frames.size - 1) * sideW + centerW + (frames.size - 1) * gapW
-        val lefts = IntArray(frames.size)
-        var xAcc = (1920 - totalW) / 2
-        for (i in frames.indices) {
-            lefts[i] = xAcc
-            xAcc += (if (i == frames.size / 2) centerW else sideW) + gapW
-        }
-        // Grupy kolejnych slotów tego samego materiału (tylko sloty w oknie DVR)
-        val groups = mutableListOf<Pair<String, Int>>()   // (tytuł, indeks 1. slotu)
-        frames.forEachIndexed { i, (offsetMs, _) ->
-            val v = centerVirtualMs + offsetMs
-            if (v < 0 || v > liveEdgeVirtualMs) return@forEachIndexed
-            val t = blockTitleFor(v) ?: return@forEachIndexed
-            if (groups.isEmpty() || groups.last().first != t) groups.add(t to i)
-        }
-        val edgeMargin = 40
-        Box(modifier = Modifier.fillMaxWidth().height(sy(48))) {
-            groups.forEachIndexed { gi, (title, firstIdx) ->
-                // Sticky: pierwszy widoczny materiał trzyma się lewej krawędzi,
-                // kolejne przypięte do lewej krawędzi swojej pierwszej klatki
-                val x = if (gi == 0) maxOf(edgeMargin, lefts[firstIdx])
-                    else lefts[firstIdx]
-                val nextX = groups.getOrNull(gi + 1)?.let { lefts[it.second] }
-                    ?: (1920 - edgeMargin)
-                val maxW = (minOf(nextX, 1920 - edgeMargin) - x - 32)
-                    .coerceAtLeast(120)
-                Text(
-                    text = title,
-                    color = Color(0xFFEEEEEE),
-                    fontSize = demoSp(36, sy),
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                    modifier = Modifier
-                        .offset(x = sx(x))
-                        .widthIn(max = sx(maxW))
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(sy(16)))
-    }
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .clipToBounds(),
         contentAlignment = Alignment.Center
     ) {
+        // Tytuły materiałów (Figma 5530-5395): PRZYPIĘTE do klatki, od której
+        // materiał się zaczyna; materiał widoczny od lewej (start poza kadrem)
+        // trzyma tytuł przy lewej krawędzi, aż przewiniemy do następnego.
+        // Pasmo tytułów siedzi tuż nad MAŁYMI miniaturkami i jest rysowane
+        // PRZED taśmą — duża środkowa miniatura (wyższa) przykrywa je z-indexem.
+        if (blockTitleFor != null && frames.isNotEmpty()) {
+            // Geometria slotów w px designu 1920: taśma wycentrowana, szersza
+            // od ekranu (clipToBounds) — lewy slot częściowo poza kadrem
+            val sideW = 320; val centerW = 480; val gapW = 10
+            val totalW = (frames.size - 1) * sideW + centerW + (frames.size - 1) * gapW
+            val lefts = IntArray(frames.size)
+            var xAcc = (1920 - totalW) / 2
+            for (i in frames.indices) {
+                lefts[i] = xAcc
+                xAcc += (if (i == frames.size / 2) centerW else sideW) + gapW
+            }
+            // Grupy kolejnych slotów tego samego materiału (tylko sloty w DVR)
+            val groups = mutableListOf<Pair<String, Int>>()   // (tytuł, indeks 1. slotu)
+            frames.forEachIndexed { i, (offsetMs, _) ->
+                val v = centerVirtualMs + offsetMs
+                if (v < 0 || v > liveEdgeVirtualMs) return@forEachIndexed
+                val t = blockTitleFor(v) ?: return@forEachIndexed
+                if (groups.isEmpty() || groups.last().first != t) groups.add(t to i)
+            }
+            val edgeMargin = 40
+            Box(modifier = Modifier.matchParentSize()) {
+                groups.forEachIndexed { gi, (title, firstIdx) ->
+                    // Sticky: pierwszy widoczny materiał trzyma się lewej
+                    // krawędzi, kolejne przypięte do swojej pierwszej klatki
+                    val x = if (gi == 0) maxOf(edgeMargin, lefts[firstIdx])
+                        else lefts[firstIdx]
+                    val nextX = groups.getOrNull(gi + 1)?.let { lefts[it.second] }
+                        ?: (1920 - edgeMargin)
+                    val maxW = (minOf(nextX, 1920 - edgeMargin) - x - 32)
+                        .coerceAtLeast(120)
+                    Text(
+                        text = title,
+                        color = Color(0xFFEEEEEE),
+                        fontSize = demoSp(32, sy),
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            // 12px nad górną krawędzią małych miniatur (180 wys.)
+                            .offset(x = sx(x), y = -sy(180 + 12))
+                            .widthIn(max = sx(maxW))
+                    )
+                }
+            }
+        }
         Row(
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.Bottom,
@@ -175,7 +175,6 @@ internal fun DemoFilmstrip(
             }
         }
     }
-  }
 }
 
 internal fun formatWall(wallMs: Long, withSeconds: Boolean): String {

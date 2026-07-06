@@ -150,15 +150,9 @@ fun DemoPlayerUi(
             )
 
             if (zone == PlayerZone.STRIP) {
-                // Nagłówek u góry; metadane bloku POD KURSOREM (materiał pod kursorem
-                // jest głównym — przeskok na sąsiedni przepina nagłówek i pasek)
-                PlayerHeader(
-                    block = block,
-                    channel = channel,
-                    channelNumber = channelNumber,
-                    modifier = Modifier.padding(top = sy(40)),
-                    sx = sx, sy = sy
-                )
+                // Bez nagłówka u góry (tytuł + logo kanału): w trybie taśmy tytuły
+                // materiałów są przypięte do klatek NA taśmie (Figma 5530-5395),
+                // więc górny nagłówek by je dublował
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
