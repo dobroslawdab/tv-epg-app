@@ -1869,6 +1869,7 @@ fun DemoLiveScreen(
             figmaButtons = useFigmaButtons,
             forwardBlockedMsgVisible = forwardBlockedMsgVisible,
             frames = filmstripFrames,
+            blockTitleFor = { v -> blockForTunedChannel(v)?.title },
             sx = sx,
             sy = sy
         )

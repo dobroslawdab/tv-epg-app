@@ -91,6 +91,7 @@ fun DemoPlayerUi(
     figmaButtons: Boolean = false,  // klawisz "3": ikonowy pasek wg designu Figma
     forwardBlockedMsgVisible: Boolean = false,  // banner blokady przewijania do przodu
     frames: List<Pair<Long, Bitmap?>>,
+    blockTitleFor: ((Long) -> String?)? = null,  // tytuł materiału dla pozycji wirtualnej (taśma)
     sx: (Int) -> Dp,
     sy: (Int) -> Dp
 ) {
@@ -170,6 +171,7 @@ fun DemoPlayerUi(
                         frames = frames,
                         antennaStartWallMs = antennaStartWallMs,
                         showTimeLabels = false,   // czasy są nad paskiem, nie nad miniaturami
+                        blockTitleFor = blockTitleFor,
                         sx = sx, sy = sy
                     )
                     Spacer(modifier = Modifier.height(sy(16)))
