@@ -249,8 +249,9 @@ fun DemoPlayerUi(
                         Text(
                             text = block.description,
                             color = TEXT_SECONDARY,
-                            fontSize = demoSp(22, sy),
-                            lineHeight = demoSp(32, sy),
+                            // Figma: 32px / line-height 48px (1920×1080)
+                            fontSize = demoSp(32, sy),
+                            lineHeight = demoSp(48, sy),
                             maxLines = 3,
                             overflow = if (zone == PlayerZone.SNIPPET) {
                                 TextOverflow.Ellipsis
