@@ -1230,23 +1230,22 @@ fun DemoLiveScreen(
                             rapidPressCount = 0
                             playerZone = PlayerZone.BUTTONS
                             playerButtonsFocus = 0
-                            layer = DemoLayer.FULLSCREEN
-                            Log.i(TAG, "STRIP(live) seek → ${scrubCursorMs}ms → FULLSCREEN")
+                            Log.i(TAG, "STRIP(live) seek → ${scrubCursorMs}ms → BUTTONS")
                         } else if (isBlackoutAtVirtual(scrubCursorMs)) {
                             // Blackout (brak praw) — nie odtwarzaj tego fragmentu
                             demoToast = "Tego programu nie można odtworzyć"
                             Log.i(TAG, "STRIP OK on blackout → blocked")
                         } else {
-                            // OK na taśmie = skok do kursora i ukrycie WSZYSTKICH warstw UI
-                            // (czysty player FULLSCREEN, bez paska kontrolek/opisu)
+                            // OK na taśmie = skok do kursora i POWRÓT NA POZIOM
+                            // PLAYERA (kontrolki widoczne); auto-hide schowa UI
+                            // po chwili bezczynności
                             activeCtl().seekToVirtual(scrubCursorMs)
                             isPaused = false
                             rapidPressCount = 0
                             forwardBlockedMsgVisible = false
-                            playerZone = PlayerZone.BUTTONS  // stan wyjściowy gdy UI wróci
+                            playerZone = PlayerZone.BUTTONS
                             playerButtonsFocus = 0
-                            layer = DemoLayer.FULLSCREEN
-                            Log.i(TAG, "STRIP seek → ${scrubCursorMs}ms → FULLSCREEN (UI ukryte)")
+                            Log.i(TAG, "STRIP seek → ${scrubCursorMs}ms → BUTTONS")
                         }
                     }
                     PlayerZone.BUTTONS -> when (playerButtonsFocus) {
