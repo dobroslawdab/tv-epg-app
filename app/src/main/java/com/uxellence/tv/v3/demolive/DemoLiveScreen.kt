@@ -506,6 +506,9 @@ fun DemoLiveScreen(
         mutableStateOf<DemoRecordingScheduler.ScheduledRecording?>(null)
     }
     var recordingToast by remember { mutableStateOf<Pair<String, String>?>(null) }
+    // Pasek powiadomien dema (995x104 na y=841, wg dostarczonego layoutu) —
+    // zamiast systemowego android.widget.Toast
+    var demoToast by remember { mutableStateOf<String?>(null) }
     remember { DemoRecordingScheduler.init(context); true }
     var detailChannelNumber by remember { mutableIntStateOf(122) }
     var detailChannelIndex by remember { mutableIntStateOf(0) }  // indeks w epgRows (tuning z detalu)
@@ -1081,9 +1084,7 @@ fun DemoLiveScreen(
                     channelBlackout(epgChannelIndex, focusedProgIdx)
                 ) {
                     // Blackout (brak praw) — nie da się odtworzyć/dostroić
-                    android.widget.Toast.makeText(
-                        context, "Tego programu nie można odtworzyć", android.widget.Toast.LENGTH_SHORT
-                    ).show()
+                    demoToast = "Tego programu nie można odtworzyć"
                     epgInteractionAt = System.currentTimeMillis()
                     Log.i(TAG, "EPG select: '${program.title}' blackout → blocked")
                 } else if (row != null && program != null) {
@@ -1166,6 +1167,16 @@ fun DemoLiveScreen(
                             epgInteractionAt = System.currentTimeMillis()
                             Log.i(TAG, "EPG select: tune+startover → ${row.channel.name} '${program.title}'")
                         }
+                        row.channel.streamUrl.isNotBlank() &&
+                            targetEnd <= controller.virtualNow() -> {
+                            // MINIONY program na kanale live (Stargaze itp.): źródło
+                            // trzyma tylko ~30-sekundowe okno segmentów — nie da się
+                            // cofnąć ani odtworzyć od początku (brak catchup)
+                            demoToast = "Przewijanie tego kanału nie jest możliwe — nadawca " +
+                                    "udostępnia tylko bieżący fragment"
+                            epgInteractionAt = System.currentTimeMillis()
+                            Log.i(TAG, "EPG select: miniony na live '${row.channel.name}' → info")
+                        }
                         else -> {
                             // Program miniony/przyszły (dowolny kanał) → detal jak na Wideo
                             openDetail(
@@ -1247,9 +1258,7 @@ fun DemoLiveScreen(
                             Log.i(TAG, "STRIP(live) seek → ${scrubCursorMs}ms → FULLSCREEN")
                         } else if (isBlackoutAtVirtual(scrubCursorMs)) {
                             // Blackout (brak praw) — nie odtwarzaj tego fragmentu
-                            android.widget.Toast.makeText(
-                                context, "Tego programu nie można odtworzyć", android.widget.Toast.LENGTH_SHORT
-                            ).show()
+                            demoToast = "Tego programu nie można odtworzyć"
                             Log.i(TAG, "STRIP OK on blackout → blocked")
                         } else {
                             // OK na taśmie = skok do kursora i ukrycie WSZYSTKICH warstw UI
@@ -1365,9 +1374,7 @@ fun DemoLiveScreen(
                             updateFilmstrip(scrubCursorMs)
                         } else if (tunedSeekPolicy() == DemoSeekPolicy.NONE) {
                             // Telewizja bez startover — brak przewijania, nie otwieraj taśmy
-                            android.widget.Toast.makeText(
-                                context, "Przewijanie niedostępne na tym kanale", android.widget.Toast.LENGTH_SHORT
-                            ).show()
+                            demoToast = "Przewijanie niedostępne na tym kanale"
                         } else {
                             // Z przycisków na taśmę (kursor startuje z bieżącej pozycji).
                             // CLAMP do okna DVR: pozycja z zegara MEDIÓW potrafi na live
@@ -1452,9 +1459,7 @@ fun DemoLiveScreen(
                     }
                     policy == DemoSeekPolicy.NONE -> {
                         // Telewizja bez startover — brak przewijania
-                        android.widget.Toast.makeText(
-                            context, "Przewijanie niedostępne na tym kanale", android.widget.Toast.LENGTH_SHORT
-                        ).show()
+                        demoToast = "Przewijanie niedostępne na tym kanale"
                     }
                     direction > 0 && policy == DemoSeekPolicy.BACKWARD_ONLY -> {
                         // Blokada do przodu — pokaż komunikat, ale wejdź w STRIP (żeby user
@@ -1661,9 +1666,7 @@ fun DemoLiveScreen(
                 DemoSeekPolicy.BACKWARD_ONLY -> DemoSeekPolicy.NONE
                 DemoSeekPolicy.NONE -> DemoSeekPolicy.BOTH
             }
-            android.widget.Toast.makeText(
-                context, "DEMO TV: przewijanie = ${demoPolicyOverride}", android.widget.Toast.LENGTH_SHORT
-            ).show()
+            demoToast = "DEMO TV: przewijanie = ${demoPolicyOverride}"
             Log.i(TAG, "demoPolicyOverride=$demoPolicyOverride")
             true
         } else if (keyCode == android.view.KeyEvent.KEYCODE_3) {
@@ -1672,11 +1675,7 @@ fun DemoLiveScreen(
             val on = DemoPlayerPrefs.toggle(context)
             // odśwież licznik auto-hide, żeby pasek został widoczny i zmiana była od razu widać
             playerInteractionAt = System.currentTimeMillis()
-            android.widget.Toast.makeText(
-                context,
-                if (on) "Przyciski: wersja Figma (ikony)" else "Przyciski: wersja tekstowa",
-                android.widget.Toast.LENGTH_SHORT
-            ).show()
+            demoToast = if (on) "Przyciski: wersja Figma (ikony)" else "Przyciski: wersja tekstowa"
             Log.i(TAG, "useFigmaButtons=$on")
             true
         } else {
@@ -1935,6 +1934,11 @@ fun DemoLiveScreen(
                 sx = sx, sy = sy
             )
         }
+        DemoInfoToast(
+            text = demoToast,
+            onHidden = { demoToast = null },
+            sx = sx, sy = sy
+        )
         recordingToast?.let { (header, recTitle) ->
             DemoRecordingToast(
                 header = header,
@@ -1981,11 +1985,7 @@ fun DemoLiveScreen(
                                     keepLabel = "3 miesiące"
                                 )
                             } else {
-                                android.widget.Toast.makeText(
-                                    context,
-                                    "Przypomnimy o programie: ${slide.title} (atrapa)",
-                                    android.widget.Toast.LENGTH_SHORT
-                                ).show()
+                                demoToast = "Przypomnimy o programie: ${slide.title} (atrapa)"
                             }
                         },
                         onWatchClicked = {
@@ -2023,18 +2023,10 @@ fun DemoLiveScreen(
                                         Log.i(TAG, "DETAIL: Oglądaj (live $detailChannelName) → PLAYER_UI")
                                     }
                                     liveUrl.isNotBlank() -> {
-                                        android.widget.Toast.makeText(
-                                            context,
-                                            "Ten program już się skończył — kanał nie ma catchup",
-                                            android.widget.Toast.LENGTH_SHORT
-                                        ).show()
+                                        demoToast = "Ten program już się skończył — kanał nie ma catchup"
                                     }
                                     else -> {
-                                        android.widget.Toast.makeText(
-                                            context,
-                                            "Demo: brak streamu tego kanału",
-                                            android.widget.Toast.LENGTH_SHORT
-                                        ).show()
+                                        demoToast = "Demo: brak streamu tego kanału"
                                     }
                                 }
                             }
