@@ -105,18 +105,27 @@ fun DemoPlayerUi(
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             // Gradient od dołu — te same stopy i kolor co warstwa EPG (DemoEpgLayer)
+            // Gradient jedzie RAZEM z foldem: przy zejściu na opis (SNIPPET)
+            // kolumna podnosi się o FOLD_OFFSET, więc pas gradientu rośnie
+            // i podnosi się o tyle samo — nagłówek/tytuł nad paskiem postępu
+            // zostaje na ciemnym tle i jest czytelny
+            val gradientLift by animateDpAsState(
+                targetValue = if (zone == PlayerZone.SNIPPET) sy(FOLD_OFFSET) else 0.dp,
+                animationSpec = tween(350),
+                label = "demo_player_gradient_lift"
+            )
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(sy(510))
-                    .offset(y = sy(1080 - 510))
+                    .height(sy(510) + gradientLift)
+                    .offset(y = sy(1080 - 510) - gradientLift)
                     .background(
-                        // Ten sam kolor co pod mini-EPG (#281443), pas 510 przy
-                        // dole; pełne krycie od 60% pasa (~y=876) — kontrolki
-                        // i opis playera leżą na jednolitym tle, bez przebić
+                        // Ten sam kolor co pod mini-EPG (#281443); pełne krycie
+                        // od ~połowy pasa — kontrolki, opis i tytuł na
+                        // jednolitym tle, bez przebić obrazu
                         Brush.verticalGradient(
                             0f to Color(0x00281443),
-                            0.6f to Color(0xFF281443)
+                            0.55f to Color(0xFF281443)
                         )
                     )
             )
