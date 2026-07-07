@@ -147,7 +147,7 @@ internal fun DemoMiniEpgExpanded(
         label = "miniepg_channel_slide",
         modifier = Modifier
             .fillMaxWidth()
-            .offset(y = sy(563))
+            .offset(y = sy(583))
             .zIndex(2f)
     ) { chIdx ->
         // Eyebrow fokusowanego wiersza: dzien tygodnia + data programu (Figma)
