@@ -95,30 +95,38 @@ fun DemoEpgLayer(
 
             // Gradient jak w EpgDayScreen: tryb 1 kanału = subtelny/niższy (0.61→0.82),
             // tryb 3 kanałów = mocniejszy/wyższy (0.45→0.63) dla czytelności listy
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(sy(GRADIENT_HEIGHT))
-                    .offset(y = sy(GRADIENT_TOP))
-                    .background(
-                        // Gradient ciemny #281443 (parametry z Figmy). Pasek
-                        // 1 kanalu: nizej (30%/60%); rozwiniete 3 kanaly:
-                        // gradient podnosi sie wyzej (15%/45%), zeby przykryl
-                        // caly blok kanalow
-                        if (isExpanded) {
+            // Gradient ciemny #281443 (parametry z Figmy).
+            // Pasek 1 kanalu: pas o wysokosci 265 przy dolnej krawedzi;
+            // rozwiniete 3 kanaly: wyzszy (15%/45% z 804), przykrywa caly blok
+            if (isExpanded) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(sy(GRADIENT_HEIGHT))
+                        .offset(y = sy(GRADIENT_TOP))
+                        .background(
                             Brush.verticalGradient(
                                 0.15f to Color(0x00281443),
                                 0.45f to Color(0xFF281443)
                             )
-                        } else {
+                        )
+                        .zIndex(1f)
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(sy(265))
+                        .offset(y = sy(1080 - 265))
+                        .background(
                             Brush.verticalGradient(
-                                0.30f to Color(0x00281443),
-                                0.60f to Color(0xFF281443)
+                                0f to Color(0x00281443),
+                                1f to Color(0xFF281443)
                             )
-                        }
-                    )
-                    .zIndex(1f)
-            )
+                        )
+                        .zIndex(1f)
+                )
+            }
 
             // Mini-EPG wg Figmy: tryb 1 kanału (5530-5603) i rozwinięte
             // 3 kanały (5530-5949). Wiersze rysowane wprost z indeksów programów
