@@ -502,12 +502,17 @@ internal fun DemoMiniEpgChannelRow(
                         )
                 )
             }
-            // Ogon poprzedniego programu (obejrzany — bialy)
+            // Ogon poprzedniego programu: bialy gdy juz wyemitowany
+            // (koniec poprzedniego == start aktywnego), inaczej white40
+            val prevAired = !nowInstant.isBefore(program.startUtc)
             Box(
                 modifier = Modifier
                     .offset(x = sx(0), y = sy((BULLET - barH) / 2))
                     .size(sx(SEGMENT_X - SEG_GAP * 2 - BULLET), sy(barH))
-                    .background(WHITE, RoundedCornerShape(topEnd = sx(6), bottomEnd = sx(6)))
+                    .background(
+                        if (prevAired) WHITE else WHITE40,
+                        RoundedCornerShape(topEnd = sx(6), bottomEnd = sx(6))
+                    )
             )
             Box(
                 modifier = Modifier
@@ -522,13 +527,11 @@ internal fun DemoMiniEpgChannelRow(
                     .size(sx(segW), sy(barH))
                     .background(WHITE40, RoundedCornerShape(sx(6)))
             )
-            // Bialy wskaznik postepu: pozycja odtwarzania gdy kanal ogladany,
-            // inaczej postep LIVE programu (bialy pasek na wskazanym kanale)
-            val progressFrac = when {
-                isWatched -> fracOf(playbackInstant).coerceIn(0f, 1f)
-                focused && isLiveNow -> liveFrac
-                else -> 0f
-            }
+            // Bialy wskaznik postepu: TASMA BIALA DO MOMENTU LIVE — program
+            // miniony = segment caly bialy, live = do pozycji live, przyszly = 0;
+            // na kanale ogladanym — do pozycji odtwarzania
+            val progressFrac = if (isWatched) fracOf(playbackInstant).coerceIn(0f, 1f)
+                else fracOf(nowInstant).coerceIn(0f, 1f)
             val progressW = (progressFrac * segW).toInt()
             if (progressW > 0) {
                 Box(
@@ -552,6 +555,26 @@ internal fun DemoMiniEpgChannelRow(
                     .height(sy(barH))
                     .background(WHITE40, RoundedCornerShape(topStart = sx(6), bottomStart = sx(6)))
             )
+            // ...i jego biale wypelnienie do momentu live (gdy live jest
+            // w nastepnym programie lub dalej — np. po przewinieciu w lewo)
+            if (next != null) {
+                val nextDurMs = Duration.between(next.startUtc, next.endUtc)
+                    .toMillis().coerceAtLeast(1L)
+                val nextFrac = (Duration.between(next.startUtc, nowInstant).toMillis()
+                    .toFloat() / nextDurMs).coerceIn(0f, 1f)
+                val nextFillW = (nextFrac * (1920 - nextBlockX)).toInt()
+                if (nextFillW > 0) {
+                    Box(
+                        modifier = Modifier
+                            .offset(x = sx(nextBlockX), y = sy((BULLET - barH) / 2))
+                            .size(sx(nextFillW), sy(barH))
+                            .background(
+                                WHITE,
+                                RoundedCornerShape(topStart = sx(6), bottomStart = sx(6))
+                            )
+                    )
+                }
+            }
         }
     }
 }
