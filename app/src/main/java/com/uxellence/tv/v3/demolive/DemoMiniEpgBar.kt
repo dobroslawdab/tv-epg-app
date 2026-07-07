@@ -440,6 +440,11 @@ internal fun DemoMiniEpgChannelRow(
                 Box(
                     modifier = Modifier
                         .offset(y = sy(10))
+                        // PULAPKA constraints: rodzic (box paska, h=12) narzuca
+                        // maxHeight i size(48) zostalby ZMIERZONY jako 12 px —
+                        // unbounded pozwala glow miec pelne 48 px z Figmy
+                        // (bleed w dol poza box, align Top)
+                        .wrapContentHeight(align = Alignment.Top, unbounded = true)
                         .size(sx(liveX), sy(48))
                         .background(
                             Brush.verticalGradient(
