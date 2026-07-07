@@ -5,7 +5,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -129,49 +131,58 @@ internal fun DemoMiniEpgExpanded(
         return if (match >= 0) match else r.currentProgramIndex
     }
 
-    val focusedProgram = rows.getOrNull(focusedChannelIndex)
-        ?.programs?.getOrNull(focusedProgramIndexFor(focusedChannelIndex))
-    // Eyebrow fokusowanego wiersza: dzień tygodnia + data programu (Figma)
-    val eyebrow = focusedProgram?.let { p ->
-        val date = p.startUtc.atZone(ZoneId.systemDefault())
-        val day = date.dayOfWeek.getDisplayName(
-            java.time.format.TextStyle.FULL, Locale("pl")
-        ).uppercase(Locale("pl"))
-        "$day, ${date.dayOfMonth}.${"%02d".format(date.monthValue)}"
-    }
-
-    // y=575 + ciasne odstępy 8 (Figma 5530-5949): górny kanał w całości,
-    // fokusowany w środku, DOLNY kanał PRZYCIĘTY dolną krawędzią ekranu
-    Column(
+    // PRZEWIJANIE GORA/DOL: przy zmianie kanalu caly blok 3 wierszy
+    // przesuwa sie pionowo (nowy zestaw wjezdza z kierunku nawigacji),
+    // jak dawne animateScrollToItem na LazyColumn
+    AnimatedContent(
+        targetState = focusedChannelIndex,
+        transitionSpec = {
+            val dir = if (targetState >= initialState) 1 else -1
+            (slideInVertically(tween(250)) { h -> dir * h / 3 } +
+                fadeIn(tween(200))).togetherWith(
+                slideOutVertically(tween(250)) { h -> -dir * h / 3 } +
+                    fadeOut(tween(150))
+            )
+        },
+        label = "miniepg_channel_slide",
         modifier = Modifier
             .fillMaxWidth()
             .offset(y = sy(563))
             .zIndex(2f)
-    ) {
-        for (idx in (focusedChannelIndex - 1)..(focusedChannelIndex + 1)) {
-            val r = rows.getOrNull(idx)
-            if (r == null) {
-                // Brak kanału (skraj listy): pusty slot utrzymuje fokusowany w środku
-                Spacer(modifier = Modifier.height(sy(146)))
-                continue
+    ) { chIdx ->
+        // Eyebrow fokusowanego wiersza: dzien tygodnia + data programu (Figma)
+        val eyebrow = rows.getOrNull(chIdx)
+            ?.programs?.getOrNull(focusedProgramIndexFor(chIdx))?.let { p ->
+                val date = p.startUtc.atZone(ZoneId.systemDefault())
+                val day = date.dayOfWeek.getDisplayName(
+                    java.time.format.TextStyle.FULL, Locale("pl")
+                ).uppercase(Locale("pl"))
+                "$day, ${date.dayOfMonth}.${"%02d".format(date.monthValue)}"
             }
-            DemoMiniEpgChannelRow(
-                row = r,
-                programIndex = programIdxFor(idx),
-                focused = idx == focusedChannelIndex,
-                eyebrow = if (idx == focusedChannelIndex) eyebrow else null,
-                isTunedChannel = idx == tunedChannelIndex,
-                playbackInstant = playbackInstant,
-                nowInstant = nowInstant,
-                isRecording = isRecording,
-                nextBlockX = 1276,
-                sx = sx, sy = sy
-            )
-            // Krok wierszy ~178 px jak w Figmie (tam: wysokosc 184+58 z
-            // ujemnymi marginesami -24/-40); fokusowany jest wyzszy o eyebrow
-            // Po fokusowanym +20: dolny (3.) kanal odsuniety od fokusa
-            // i wypchniety glebiej pod dolna krawedz ekranu
-            Spacer(modifier = Modifier.height(sy(if (idx == focusedChannelIndex) 20 else 32)))
+        Column(modifier = Modifier.fillMaxWidth()) {
+            for (idx in (chIdx - 1)..(chIdx + 1)) {
+                val r = rows.getOrNull(idx)
+                if (r == null) {
+                    // Brak kanalu (skraj listy): pusty slot trzyma fokusowany w srodku
+                    Spacer(modifier = Modifier.height(sy(146)))
+                    continue
+                }
+                DemoMiniEpgChannelRow(
+                    row = r,
+                    programIndex = programIdxFor(idx),
+                    focused = idx == chIdx,
+                    eyebrow = if (idx == chIdx) eyebrow else null,
+                    isTunedChannel = idx == tunedChannelIndex,
+                    playbackInstant = playbackInstant,
+                    nowInstant = nowInstant,
+                    isRecording = isRecording,
+                    nextBlockX = 1276,
+                    sx = sx, sy = sy
+                )
+                // Po fokusowanym +20: dolny (3.) kanal odsuniety od fokusa
+                // i wypchniety glebiej pod dolna krawedz ekranu
+                Spacer(modifier = Modifier.height(sy(if (idx == chIdx) 20 else 32)))
+            }
         }
     }
 }
