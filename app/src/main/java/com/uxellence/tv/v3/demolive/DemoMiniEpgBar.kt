@@ -267,7 +267,7 @@ internal fun DemoMiniEpgChannelRow(
                             .background(Color(0x33000000))
                             .then(
                                 if (focused) Modifier.border(
-                                    sx(3), AQUA, RoundedCornerShape(sx(4))
+                                    sx(6), AQUA, RoundedCornerShape(sx(4))
                                 ) else Modifier
                             )
                     ) {
