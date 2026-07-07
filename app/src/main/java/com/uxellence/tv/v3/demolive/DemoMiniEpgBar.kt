@@ -1,5 +1,12 @@
 package com.uxellence.tv.v3.demolive
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -162,7 +169,9 @@ internal fun DemoMiniEpgExpanded(
             )
             // Krok wierszy ~178 px jak w Figmie (tam: wysokosc 184+58 z
             // ujemnymi marginesami -24/-40); fokusowany jest wyzszy o eyebrow
-            Spacer(modifier = Modifier.height(sy(if (idx == focusedChannelIndex) 0 else 32)))
+            // Po fokusowanym +20: dolny (3.) kanal odsuniety od fokusa
+            // i wypchniety glebiej pod dolna krawedz ekranu
+            Spacer(modifier = Modifier.height(sy(if (idx == focusedChannelIndex) 20 else 32)))
         }
     }
 }
@@ -244,183 +253,207 @@ internal fun DemoMiniEpgChannelRow(
             }
             Spacer(modifier = Modifier.width(sx(40)))
 
-            // ===== Karta aktywnego programu (w=908) =====
-            Column(modifier = Modifier.width(sx(908))) {
-                if (focused) {
-                    Text(
-                        text = eyebrow ?: "",
-                        color = AQUA,
-                        fontSize = demoSp(20, sy),
-                        lineHeight = demoSp(28, sy),
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.alpha(if (eyebrow != null) 1f else 0f)
+            // ===== Karta programu + nastepny: EFEKT PRZEWIJANIA TASMY =====
+            // Jak w dawnej LazyRow: przy LEWO/PRAWO karta zjezdza w bok,
+            // a nowa wjezdza z kierunku nawigacji (slide + fade)
+            AnimatedContent(
+                targetState = programIndex,
+                transitionSpec = {
+                    val dir = if (targetState >= initialState) 1 else -1
+                    (slideInHorizontally(tween(250)) { w -> dir * w / 2 } +
+                        fadeIn(tween(200))).togetherWith(
+                        slideOutHorizontally(tween(250)) { w -> -dir * w / 2 } +
+                            fadeOut(tween(150))
                     )
-                    Spacer(modifier = Modifier.height(sy(4)))
-                }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.height(sy(bodyH))
-                ) {
-                    // Okładka 208×116 (fokus: aqua ramka jak w Figmie 5530-5949)
-                    Box(
-                        modifier = Modifier
-                            .size(sx(208), sy(116))
-                            .clip(RoundedCornerShape(sx(4)))
-                            .background(Color(0x33000000))
-                            .then(
-                                if (focused) Modifier.border(
-                                    sx(6), AQUA, RoundedCornerShape(sx(4))
-                                ) else Modifier
-                            )
-                    ) {
-                        if (!program.iconUrl.isNullOrBlank()) {
-                            AsyncImage(
-                                model = program.iconUrl,
-                                contentDescription = null,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize()
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.width(sx(24)))
-                    Column {
-                        // info_line: czasy + markery
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = "${formatWall(program.startUtc.toEpochMilli(), false)} – " +
-                                    formatWall(program.endUtc.toEpochMilli(), false),
-                                color = WHITE,
-                                fontSize = demoSp(24, sy),
-                                lineHeight = demoSp(32, sy),
-                                fontWeight = FontWeight.Medium
-                            )
-                            if (isLiveNow && focused) {
-                                Spacer(modifier = Modifier.width(sx(16)))
-                                Box(
-                                    modifier = Modifier
-                                        .size(sx(88), sy(24))
-                                        .background(WHITE, RoundedCornerShape(sx(4))),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = "NA ŻYWO",
-                                        color = PURPLE,
-                                        fontSize = demoSp(16, sy),
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-                            if (isLiveNow) {
-                                Spacer(modifier = Modifier.width(sx(12)))
-                                // startover: białe kółko 32 z ikoną
-                                Box(
-                                    modifier = Modifier
-                                        .size(sx(32), sy(32))
-                                        .background(WHITE, CircleShape),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    androidx.compose.foundation.Image(
-                                        painter = painterResource(
-                                            com.uxellence.tv.v3.R.drawable.demo_ic_startover
-                                        ),
-                                        contentDescription = null,
-                                        colorFilter = androidx.compose.ui.graphics.ColorFilter
-                                            .tint(PURPLE),
-                                        modifier = Modifier.size(sx(24), sy(24))
-                                    )
-                                }
-                            }
-                            if (isRecording(program.title, program.startUtc)) {
-                                Spacer(modifier = Modifier.width(sx(12)))
-                                // recording dot: WYŁĄCZNIE gdy zlecono nagrywanie
-                                Box(
-                                    modifier = Modifier
-                                        .size(sx(24), sy(24))
-                                        .border(sx(2), RED, CircleShape),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(sx(12), sy(12))
-                                            .background(RED, CircleShape)
-                                    )
-                                }
-                            }
-                        }
-                        // Tytuł 48/64, 1 linia
+                },
+                label = "miniepg_program_slide"
+            ) { animIdx ->
+                val program = row.programs.getOrNull(animIdx)
+                val next = row.programs.getOrNull(animIdx + 1)
+                val isLiveNow = program != null &&
+                    !nowInstant.isBefore(program.startUtc) &&
+                    nowInstant.isBefore(program.endUtc)
+                if (program != null) Row(verticalAlignment = Alignment.CenterVertically) {
+            // ===== Karta aktywnego programu (w=908) =====
+                Column(modifier = Modifier.width(sx(908))) {
+                    if (focused) {
                         Text(
-                            text = program.title,
-                            color = WHITE,
-                            fontSize = demoSp(48, sy),
-                            lineHeight = demoSp(64, sy),
-                            fontWeight = FontWeight.Medium,
-                            letterSpacing = -demoSp(1, sy) * 0.96f,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.width(sx(684))
+                            text = eyebrow ?: "",
+                            color = AQUA,
+                            fontSize = demoSp(20, sy),
+                            lineHeight = demoSp(28, sy),
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.alpha(if (eyebrow != null) 1f else 0f)
                         )
-                        if (focused) {
-                            Spacer(modifier = Modifier.height(sy(8)))
-                            // Metadane + znaczki KRRiT (tylko wiersz fokusowany)
+                        Spacer(modifier = Modifier.height(sy(4)))
+                    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.height(sy(bodyH))
+                    ) {
+                        // Okładka 208×116 (fokus: aqua ramka jak w Figmie 5530-5949)
+                        Box(
+                            modifier = Modifier
+                                .size(sx(208), sy(116))
+                                .clip(RoundedCornerShape(sx(4)))
+                                .background(Color(0x33000000))
+                                .then(
+                                    if (focused) Modifier.border(
+                                        sx(6), AQUA, RoundedCornerShape(sx(4))
+                                    ) else Modifier
+                                )
+                        ) {
+                            if (!program.iconUrl.isNullOrBlank()) {
+                                AsyncImage(
+                                    model = program.iconUrl,
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(sx(24)))
+                        Column {
+                            // info_line: czasy + markery
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                val meta = program.categories.filter { it.isNotBlank() }.take(3)
-                                meta.forEachIndexed { i, m ->
-                                    if (i > 0) MetaDivider(sx, sy)
-                                    Text(
-                                        text = m,
-                                        color = WHITE80,
-                                        fontSize = demoSp(20, sy),
-                                        lineHeight = demoSp(28, sy),
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                                if (meta.isNotEmpty()) MetaDivider(sx, sy)
-                                listOf("S", "W", "N", "P").forEachIndexed { i, letter ->
-                                    if (i > 0) Spacer(modifier = Modifier.width(sx(20)))
+                                Text(
+                                    text = "${formatWall(program.startUtc.toEpochMilli(), false)} – " +
+                                        formatWall(program.endUtc.toEpochMilli(), false),
+                                    color = WHITE,
+                                    fontSize = demoSp(24, sy),
+                                    lineHeight = demoSp(32, sy),
+                                    fontWeight = FontWeight.Medium
+                                )
+                                if (isLiveNow && focused) {
+                                    Spacer(modifier = Modifier.width(sx(16)))
                                     Box(
                                         modifier = Modifier
-                                            .size(sx(20), sy(20))
-                                            .border(sx(2), WHITE80, RoundedCornerShape(sx(4))),
+                                            .size(sx(88), sy(24))
+                                            .background(WHITE, RoundedCornerShape(sx(4))),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Text(
-                                            text = letter,
-                                            color = WHITE80,
-                                            fontSize = demoSp(13, sy),
+                                            text = "NA ŻYWO",
+                                            color = PURPLE,
+                                            fontSize = demoSp(16, sy),
                                             fontWeight = FontWeight.Bold
                                         )
+                                    }
+                                }
+                                if (isLiveNow) {
+                                    Spacer(modifier = Modifier.width(sx(12)))
+                                    // startover: białe kółko 32 z ikoną
+                                    Box(
+                                        modifier = Modifier
+                                            .size(sx(32), sy(32))
+                                            .background(WHITE, CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        androidx.compose.foundation.Image(
+                                            painter = painterResource(
+                                                com.uxellence.tv.v3.R.drawable.demo_ic_startover
+                                            ),
+                                            contentDescription = null,
+                                            colorFilter = androidx.compose.ui.graphics.ColorFilter
+                                                .tint(PURPLE),
+                                            modifier = Modifier.size(sx(24), sy(24))
+                                        )
+                                    }
+                                }
+                                if (isRecording(program.title, program.startUtc)) {
+                                    Spacer(modifier = Modifier.width(sx(12)))
+                                    // recording dot: WYŁĄCZNIE gdy zlecono nagrywanie
+                                    Box(
+                                        modifier = Modifier
+                                            .size(sx(24), sy(24))
+                                            .border(sx(2), RED, CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(sx(12), sy(12))
+                                                .background(RED, CircleShape)
+                                        )
+                                    }
+                                }
+                            }
+                            // Tytuł 48/64, 1 linia
+                            Text(
+                                text = program.title,
+                                color = WHITE,
+                                fontSize = demoSp(48, sy),
+                                lineHeight = demoSp(64, sy),
+                                fontWeight = FontWeight.Medium,
+                                letterSpacing = -demoSp(1, sy) * 0.96f,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.width(sx(684))
+                            )
+                            if (focused) {
+                                Spacer(modifier = Modifier.height(sy(8)))
+                                // Metadane + znaczki KRRiT (tylko wiersz fokusowany)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    val meta = program.categories.filter { it.isNotBlank() }.take(3)
+                                    meta.forEachIndexed { i, m ->
+                                        if (i > 0) MetaDivider(sx, sy)
+                                        Text(
+                                            text = m,
+                                            color = WHITE80,
+                                            fontSize = demoSp(20, sy),
+                                            lineHeight = demoSp(28, sy),
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                    if (meta.isNotEmpty()) MetaDivider(sx, sy)
+                                    listOf("S", "W", "N", "P").forEachIndexed { i, letter ->
+                                        if (i > 0) Spacer(modifier = Modifier.width(sx(20)))
+                                        Box(
+                                            modifier = Modifier
+                                                .size(sx(20), sy(20))
+                                                .border(sx(2), WHITE80, RoundedCornerShape(sx(4))),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = letter,
+                                                color = WHITE80,
+                                                fontSize = demoSp(13, sy),
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
                                     }
                                 }
                             }
                         }
                     }
                 }
-            }
 
-            // ===== Nastepny program (40%): x = nextBlockX, POKRYWA sie ze
-            // swoim segmentem na timeline =====
-            if (next != null) {
-                Spacer(modifier = Modifier.width(sx((nextBlockX - 1228).coerceAtLeast(16))))
-                Column(modifier = Modifier.alpha(0.4f)) {
-                    Text(
-                        text = "${formatWall(next.startUtc.toEpochMilli(), false)} – " +
-                            formatWall(next.endUtc.toEpochMilli(), false),
-                        color = WHITE,
-                        fontSize = demoSp(24, sy),
-                        lineHeight = demoSp(32, sy),
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text(
-                        text = next.title,
-                        color = WHITE,
-                        fontSize = demoSp(48, sy),
-                        lineHeight = demoSp(64, sy),
-                        fontWeight = FontWeight.Medium,
-                        letterSpacing = -demoSp(1, sy) * 0.96f,
-                        maxLines = 1,
-                        overflow = TextOverflow.Clip,
-                        softWrap = false
-                    )
+                // ===== Nastepny program (40%): x = nextBlockX, POKRYWA sie ze
+                // swoim segmentem na timeline =====
+                if (next != null) {
+                    Spacer(modifier = Modifier.width(sx((nextBlockX - 1228).coerceAtLeast(16))))
+                    Column(modifier = Modifier.alpha(0.4f)) {
+                        Text(
+                            text = "${formatWall(next.startUtc.toEpochMilli(), false)} – " +
+                                formatWall(next.endUtc.toEpochMilli(), false),
+                            color = WHITE,
+                            fontSize = demoSp(24, sy),
+                            lineHeight = demoSp(32, sy),
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = next.title,
+                            color = WHITE,
+                            fontSize = demoSp(48, sy),
+                            lineHeight = demoSp(64, sy),
+                            fontWeight = FontWeight.Medium,
+                            letterSpacing = -demoSp(1, sy) * 0.96f,
+                            maxLines = 1,
+                            overflow = TextOverflow.Clip,
+                            softWrap = false
+                        )
+                    }
+                }
+
                 }
             }
         }
