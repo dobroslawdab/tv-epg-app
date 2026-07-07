@@ -96,14 +96,14 @@ fun DemoEpgLayer(
             // Gradient jak w EpgDayScreen: tryb 1 kanału = subtelny/niższy (0.61→0.82),
             // tryb 3 kanałów = mocniejszy/wyższy (0.45→0.63) dla czytelności listy
             // Gradient ciemny #281443 (parametry z Figmy).
-            // Pasek 1 kanalu: pas o wysokosci 400 przy dolnej krawedzi;
+            // Pasek 1 kanalu: pas o wysokosci 510 przy dolnej krawedzi;
             // rozwiniete 3 kanaly: wyzszy (15%/45% z 804), przykrywa caly blok
             if (isExpanded) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(sy(GRADIENT_HEIGHT))
-                        .offset(y = sy(GRADIENT_TOP))
+                        .height(sy(GRADIENT_HEIGHT - 200))
+                        .offset(y = sy(GRADIENT_TOP + 200))
                         .background(
                             Brush.verticalGradient(
                                 0.15f to Color(0x00281443),
@@ -116,8 +116,8 @@ fun DemoEpgLayer(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(sy(400))
-                        .offset(y = sy(1080 - 400))
+                        .height(sy(510))
+                        .offset(y = sy(1080 - 510))
                         .background(
                             Brush.verticalGradient(
                                 0f to Color(0x00281443),
