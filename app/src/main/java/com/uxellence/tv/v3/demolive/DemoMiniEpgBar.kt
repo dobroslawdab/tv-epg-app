@@ -134,18 +134,19 @@ internal fun DemoMiniEpgExpanded(
         "$day, ${date.dayOfMonth}.${"%02d".format(date.monthValue)}"
     }
 
+    // y=575 + ciasne odstępy 8 (Figma 5530-5949): górny kanał w całości,
+    // fokusowany w środku, DOLNY kanał PRZYCIĘTY dolną krawędzią ekranu
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .offset(y = sy(470))
+            .offset(y = sy(575))
             .zIndex(2f)
-            .clipToBounds()
     ) {
         for (idx in (focusedChannelIndex - 1)..(focusedChannelIndex + 1)) {
             val r = rows.getOrNull(idx)
             if (r == null) {
                 // Brak kanału (skraj listy): pusty slot utrzymuje fokusowany w środku
-                Spacer(modifier = Modifier.height(sy(160)))
+                Spacer(modifier = Modifier.height(sy(146)))
                 continue
             }
             DemoMiniEpgChannelRow(
@@ -159,7 +160,7 @@ internal fun DemoMiniEpgExpanded(
                 isRecording = isRecording,
                 sx = sx, sy = sy
             )
-            Spacer(modifier = Modifier.height(sy(20)))
+            Spacer(modifier = Modifier.height(sy(8)))
         }
     }
 }
@@ -390,8 +391,11 @@ internal fun DemoMiniEpgChannelRow(
             }
 
             // ===== Następny program (40%) =====
+            // Gap 339 od karty aktywnej (Figma): tytuł następnego zaczyna się
+            // na x=1567 — dokładnie tam, gdzie jego segment na timeline
+            // (kropka 1536 + przerwa), więc tytuł i pasek się POKRYWAJĄ
             if (next != null) {
-                Spacer(modifier = Modifier.width(sx(339 - 224)))
+                Spacer(modifier = Modifier.width(sx(339)))
                 Column(modifier = Modifier.alpha(0.4f)) {
                     Text(
                         text = "${formatWall(next.startUtc.toEpochMilli(), false)} – " +

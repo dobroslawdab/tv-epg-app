@@ -101,19 +101,13 @@ fun DemoEpgLayer(
                     .height(sy(GRADIENT_HEIGHT))
                     .offset(y = sy(GRADIENT_TOP))
                     .background(
-                        if (isExpanded) {
-                            Brush.verticalGradient(
-                                0.45f to Color(0x0048227C),
-                                0.63f to Color(0xFF48227C)
-                            )
-                        } else {
-                            // Gradient pod mini-EPG barem wg parametrów z Figmy:
-                            // linear #281443, stop 30% alpha 0 → stop 60% alpha 100
-                            Brush.verticalGradient(
-                                0.30f to Color(0x00281443),
-                                0.60f to Color(0xFF281443)
-                            )
-                        }
+                        // Gradient pod mini-EPG wg parametrów z Figmy — ten sam
+                        // (ciemny #281443) dla paska 1 kanału i rozwiniętych 3:
+                        // linear, stop 30% alpha 0 → stop 60% alpha 100
+                        Brush.verticalGradient(
+                            0.30f to Color(0x00281443),
+                            0.60f to Color(0xFF281443)
+                        )
                     )
                     .zIndex(1f)
             )
