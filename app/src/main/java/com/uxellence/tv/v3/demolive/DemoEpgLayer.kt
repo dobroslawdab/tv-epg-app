@@ -118,69 +118,9 @@ fun DemoEpgLayer(
                     .zIndex(1f)
             )
 
-            // Viewport: 1 kanał (start) albo 3 kanały (po rozwinięciu) — jak EpgDayScreen
-            val viewportHeight = if (isExpanded) VIEWPORT_HEIGHT_MULTI else VIEWPORT_HEIGHT_SINGLE
-            val viewportOffset = if (isExpanded) {
-                FIXED_FOCUS_Y_MULTI - (2 * CHANNEL_ROW_HEIGHT) - ROW_GAP
-            } else {
-                FIXED_FOCUS_Y_SINGLE - CHANNEL_ROW_HEIGHT
-            }
-            val columnState = rememberLazyListState()
-            // Przy OTWARCIU warstwy kolumna ma być od razu na kanale (bez dojeżdżania);
-            // animacja tylko przy nawigacji kanałami, gdy warstwa już widoczna.
-            var columnSynced by remember(isVisible) { mutableStateOf(false) }
-            LaunchedEffect(focusedChannelIndex, isVisible) {
-                if (isVisible && focusedChannelIndex in rows.indices) {
-                    if (columnSynced) {
-                        columnState.animateScrollToItem(focusedChannelIndex)
-                    } else {
-                        columnState.scrollToItem(focusedChannelIndex)
-                        columnSynced = true
-                    }
-                }
-            }
-
-            // TIME SYNC jak w EpgDayScreen: wszystkie kanały przewijają się do programu
-            // emitowanego o focusedTime — czasówki między wierszami się zgadzają.
-            // Klucz zawiera isExpanded + focusedChannelIndex: w trybie 1-kanałowym
-            // pozostałe LazyRow nie są skomponowane, więc scrollToItem na nich nie
-            // zadziała; po rozwinięciu (DOWN) trzeba zsynchronizować je ponownie,
-            // gdy już są w composition (stąd delay na layout świeżych wierszy).
-            // PUŁAPKA: scrollToItem na LazyListState, którego LazyRow NIE jest
-            // skomponowany (tryb 1-kanałowy — widać tylko fokusowany wiersz),
-            // ZAWIESZA korutynę do pierwszego layoutu. Sekwencyjna pętla utykała
-            // na pierwszym nieskomponowanym wierszu i fokusowany kanał o wyższym
-            // indeksie nigdy się nie przewijał (fokus "uciekał" poza ekran).
-            // Dlatego: fokusowany wiersz ZAWSZE pierwszy, każdy scroll w osobnym
-            // launch (zawieszony scroll nie blokuje pozostałych, restart efektu
-            // go anuluje), a wiersze bez layoutu (totalItemsCount == 0) pomijamy
-            // — po ich skomponowaniu efekt i tak odpali się ponownie (klucz
-            // zawiera isExpanded + focusedChannelIndex).
-            LaunchedEffect(focusedTime, rows, isVisible, isExpanded, focusedChannelIndex) {
-                if (!isVisible || rows.isEmpty()) return@LaunchedEffect
-                kotlinx.coroutines.delay(32)
-                val order = listOf(focusedChannelIndex) +
-                    rows.indices.filter { it != focusedChannelIndex }
-                for (index in order) {
-                    val channelRow = rows.getOrNull(index) ?: continue
-                    val matchingIndex = channelRow.programs.indexOfFirst { program ->
-                        !focusedTime.isBefore(program.startUtc) && focusedTime.isBefore(program.endUtc)
-                    }
-                    if (matchingIndex < 0) continue
-                    if (index == focusedChannelIndex) {
-                        launch {
-                            channelRow.lazyListState.animateScrollToItem(matchingIndex, 0)
-                        }
-                    } else if (channelRow.lazyListState.layoutInfo.totalItemsCount > 0) {
-                        launch {
-                            channelRow.lazyListState.scrollToItem(matchingIndex, 0)
-                        }
-                    }
-                }
-            }
-            // Tryb 1 kanału: mini-EPG bar wg Figmy 5530-5603 (karta aktywnego
-            // programu + następny wyszarzony + segmentowany timeline z glow).
-            // Tryb 3 kanałów: kafelkowa lista jak w EpgDayScreen (bez zmian).
+            // Mini-EPG wg Figmy: tryb 1 kanału (5530-5603) i rozwinięte
+            // 3 kanały (5530-5949). Wiersze rysowane wprost z indeksów programów
+            // (bez LazyRow/scrolli — TIME SYNC to czysty layout, nie animacje).
             if (!isExpanded) {
                 DemoMiniEpgBar(
                     row = rows.getOrNull(focusedChannelIndex),
@@ -192,97 +132,17 @@ fun DemoEpgLayer(
                     sx = sx, sy = sy
                 )
             } else {
-            LazyColumn(
-                state = columnState,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(sy(viewportHeight))
-                    .offset(y = sy(viewportOffset))
-                    .zIndex(2f),
-                // Tryb 1 kanału: bez paddingu (widać tylko fokusowany pasek);
-                // tryb 3 kanałów: padding na pierwszy/ostatni kanał
-                contentPadding = if (isExpanded) {
-                    PaddingValues(
-                        top = sy(CHANNEL_ROW_HEIGHT + ROW_GAP),
-                        bottom = sy(CHANNEL_ROW_HEIGHT + ROW_GAP)
-                    )
-                } else PaddingValues(0.dp),
-                verticalArrangement = Arrangement.spacedBy(sy(ROW_GAP))
-            ) {
-                itemsIndexed(rows) { channelIndex, channelRow ->
-                    val isFocusedChannel = channelIndex == focusedChannelIndex
-                    val focusedProgramIndex = focusedProgramIndexFor(channelIndex)
-
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(sy(CHANNEL_ROW_HEIGHT))
-                            .alpha(if (isFocusedChannel) 1f else 0.5f)
-                    ) {
-                        ChannelInfoOverlay(
-                            channel = channelRow.channel,
-                            channelNumber = channelRow.channelNumber,
-                            modifier = Modifier
-                                .align(Alignment.CenterStart)
-                                .padding(start = sx(CHANNEL_INFO_X))
-                                .zIndex(3f),
-                            sx = sx,
-                            sy = sy
-                        )
-
-                        LazyRow(
-                            state = channelRow.lazyListState,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .align(Alignment.CenterStart),
-                            contentPadding = PaddingValues(
-                                start = sx(FOCUSED_X),
-                                end = sx(END_PADDING)
-                            ),
-                            horizontalArrangement = Arrangement.spacedBy(sx(ITEM_GAP))
-                        ) {
-                            itemsIndexed(channelRow.programs) { programIndex, program ->
-                                // Live teraz (zegar ścienny) → ciemniejsze tło kafelka
-                                val isLiveNow = !nowInstant.isBefore(program.startUtc) &&
-                                    nowInstant.isBefore(program.endUtc)
-                                // Oglądany teraz: zatunowany kanał + program obejmujący
-                                // POZYCJĘ ODTWARZANIA (przy timeshifcie to program miniony)
-                                val isWatchedNow = channelIndex == tunedChannelIndex &&
-                                    !playbackInstant.isBefore(program.startUtc) &&
-                                    playbackInstant.isBefore(program.endUtc)
-                                // Timeshift: oglądanie cofnięte względem live → pasek pokazuje
-                                // pozycję oglądania (aqua) i punkt live (biała kropka)
-                                val isTimeshifted = isWatchedNow &&
-                                    java.time.Duration.between(playbackInstant, nowInstant)
-                                        .toMillis() > 5_000L
-                                val programSpanMs = java.time.Duration
-                                    .between(program.startUtc, program.endUtc)
-                                    .toMillis().coerceAtLeast(1L).toFloat()
-                                val watchProgress = if (isTimeshifted) {
-                                    (java.time.Duration.between(program.startUtc, playbackInstant)
-                                        .toMillis().toFloat() / programSpanMs).coerceIn(0f, 1f)
-                                } else null
-                                val liveDotAt = if (isTimeshifted && isLiveNow) {
-                                    (java.time.Duration.between(program.startUtc, nowInstant)
-                                        .toMillis().toFloat() / programSpanMs).coerceIn(0f, 1f)
-                                } else null
-                                EpgDayItem(
-                                    program = program,
-                                    isFocused = isFocusedChannel && programIndex == focusedProgramIndex,
-                                    focusedTime = focusedTime,
-                                    liveNowBackground = isLiveNow,
-                                    isWatchedNow = isWatchedNow,
-                                    watchProgress = watchProgress,
-                                    liveDotAt = liveDotAt,
-                                    isBlackout = isBlackout(channelIndex, programIndex),
-                                    sx = sx,
-                                    sy = sy
-                                )
-                            }
-                        }
-                    }
-                }
-            }
+                DemoMiniEpgExpanded(
+                    rows = rows,
+                    focusedChannelIndex = focusedChannelIndex,
+                    focusedProgramIndexFor = focusedProgramIndexFor,
+                    focusedTime = focusedTime,
+                    tunedChannelIndex = tunedChannelIndex,
+                    playbackInstant = playbackInstant,
+                    nowInstant = nowInstant,
+                    isRecording = isRecording,
+                    sx = sx, sy = sy
+                )
             }
         }
     }
