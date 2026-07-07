@@ -174,6 +174,19 @@ fun DemoEpgLayer(
                     }
                 }
             }
+            // Tryb 1 kanału: mini-EPG bar wg Figmy 5530-5603 (karta aktywnego
+            // programu + następny wyszarzony + segmentowany timeline z glow).
+            // Tryb 3 kanałów: kafelkowa lista jak w EpgDayScreen (bez zmian).
+            if (!isExpanded) {
+                DemoMiniEpgBar(
+                    row = rows.getOrNull(focusedChannelIndex),
+                    programIndex = focusedProgramIndexFor(focusedChannelIndex),
+                    isTunedChannel = focusedChannelIndex == tunedChannelIndex,
+                    playbackInstant = playbackInstant,
+                    nowInstant = nowInstant,
+                    sx = sx, sy = sy
+                )
+            } else {
             LazyColumn(
                 state = columnState,
                 modifier = Modifier
@@ -264,6 +277,7 @@ fun DemoEpgLayer(
                         }
                     }
                 }
+            }
             }
         }
     }
