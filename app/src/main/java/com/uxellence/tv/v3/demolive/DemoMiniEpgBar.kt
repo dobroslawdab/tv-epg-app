@@ -479,10 +479,22 @@ internal fun DemoMiniEpgChannelRow(
         val bulletD = BULLET
         val segW = nextBlockX - SEG_GAP * 2 - BULLET - SEGMENT_X
         Box(modifier = Modifier.fillMaxWidth().height(sy(BULLET))) {
-            val liveFrac = fracOf(nowInstant).coerceIn(0f, 1f)
-            val liveX = if (!nowInstant.isBefore(program.startUtc)) {
-                SEGMENT_X + (liveFrac * segW).toInt()
-            } else 0
+            // Pozycja live na osi taśmy — DOKŁADNIE tam, dokąd sięga biały
+            // pasek: w segmencie aktywnym, w segmencie następnego, a gdy live
+            // jest jeszcze dalej — do (i poza) prawą krawędź ekranu
+            val liveX = when {
+                nowInstant.isBefore(program.startUtc) -> 0
+                nowInstant.isBefore(program.endUtc) ->
+                    SEGMENT_X + (fracOf(nowInstant).coerceIn(0f, 1f) * segW).toInt()
+                next != null && nowInstant.isBefore(next.endUtc) -> {
+                    val nextDurMs = Duration.between(next.startUtc, next.endUtc)
+                        .toMillis().coerceAtLeast(1L)
+                    val f = (Duration.between(next.startUtc, nowInstant).toMillis()
+                        .toFloat() / nextDurMs).coerceIn(0f, 1f)
+                    nextBlockX + (f * (1920 - nextBlockX)).toInt()
+                }
+                else -> 1920
+            }
             // LIVE glow tylko na wierszu fokusowanym: aqua przy pasku, gasnie w dol
             if (focused && liveX > 0) {
                 Box(
