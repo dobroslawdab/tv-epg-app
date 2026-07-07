@@ -157,10 +157,12 @@ internal fun DemoMiniEpgExpanded(
                 playbackInstant = playbackInstant,
                 nowInstant = nowInstant,
                 isRecording = isRecording,
-                nextBlockX = 1277,
+                nextBlockX = 1276,
                 sx = sx, sy = sy
             )
-            Spacer(modifier = Modifier.height(sy(8)))
+            // Krok wierszy ~178 px jak w Figmie (tam: wysokosc 184+58 z
+            // ujemnymi marginesami -24/-40); fokusowany jest wyzszy o eyebrow
+            Spacer(modifier = Modifier.height(sy(if (idx == focusedChannelIndex) 0 else 32)))
         }
     }
 }
@@ -195,7 +197,7 @@ internal fun DemoMiniEpgChannelRow(
         (Duration.between(program.startUtc, instant).toMillis().toFloat() / durMs)
 
     val contentAlpha = if (focused) 1f else 0.5f
-    val bodyH = if (focused) 134 else 118
+    val bodyH = 134   // Figma: body 134 na wszystkich wierszach
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
@@ -427,8 +429,10 @@ internal fun DemoMiniEpgChannelRow(
         // rysuje sie POZA layoutem (bleed w dol, bez clipa) i chowa sie POD
         // kolejny wiersz Column (rysowany pozniej), wiec NIE rozpycha
         // odstepow miedzy kanalami =====
-        val barH = if (focused) 8 else 4
-        val bulletD = if (focused) BULLET else 8
+        // Figma 5530-5949: pasek h=8 i kropki 12 na WSZYSTKICH kanalach
+        // (niefokusowane przygasza tylko opacity wiersza)
+        val barH = 8
+        val bulletD = BULLET
         val segW = nextBlockX - SEG_GAP * 2 - BULLET - SEGMENT_X
         Box(modifier = Modifier.fillMaxWidth().height(sy(BULLET))) {
             val liveFrac = fracOf(nowInstant).coerceIn(0f, 1f)
