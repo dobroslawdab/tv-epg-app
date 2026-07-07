@@ -478,6 +478,15 @@ internal fun DemoMiniEpgChannelRow(
         val barH = 8
         val bulletD = BULLET
         val segW = nextBlockX - SEG_GAP * 2 - BULLET - SEGMENT_X
+        // ODNIESIENIE TASMY: na kanale ogladanym w timeshifcie (>=15 s za live)
+        // biale wypelnienia pokazuja stan NA MOMENT OGLADANIA (pozycja
+        // odtwarzania) — po start-over minionego materialu segmenty kolejnych
+        // materialow sa PUSTE, jak wtedy gdy byly nadawane. Na live i na
+        // pozostalych kanalach odniesieniem jest zegar (live). Glow zawsze
+        // wskazuje live.
+        val refInstant = if (isTunedChannel &&
+            Duration.between(playbackInstant, nowInstant).toMillis() >= 15_000L
+        ) playbackInstant else nowInstant
         Box(modifier = Modifier.fillMaxWidth().height(sy(BULLET))) {
             // Pozycja live na osi taśmy — DOKŁADNIE tam, dokąd sięga biały
             // pasek: w segmencie aktywnym, w segmencie następnego, a gdy live
@@ -516,7 +525,7 @@ internal fun DemoMiniEpgChannelRow(
             }
             // Ogon poprzedniego programu: bialy gdy juz wyemitowany
             // (koniec poprzedniego == start aktywnego), inaczej white40
-            val prevAired = !nowInstant.isBefore(program.startUtc)
+            val prevAired = !refInstant.isBefore(program.startUtc)
             Box(
                 modifier = Modifier
                     .offset(x = sx(0), y = sy((BULLET - barH) / 2))
@@ -539,19 +548,9 @@ internal fun DemoMiniEpgChannelRow(
                     .size(sx(segW), sy(barH))
                     .background(WHITE40, RoundedCornerShape(sx(6)))
             )
-            // Bialy wskaznik postepu: TASMA BIALA DO MOMENTU LIVE — program
-            // miniony = segment caly bialy, live = do pozycji live, przyszly = 0;
-            // na kanale ogladanym — do pozycji odtwarzania. UWAGA: gdy ogladamy
-            // NA live, playback zawsze wisi 1-10 s za zegarem (latencja) i pasek
-            // rozjezdzal sie z glow — przy odchyleniu <15 s snapujemy do live,
-            // zeby pasek i glow konczyly sie DOKLADNIE w tym samym X
-            val progressFrac = if (isWatched &&
-                Duration.between(playbackInstant, nowInstant).toMillis() >= 15_000L
-            ) {
-                fracOf(playbackInstant).coerceIn(0f, 1f)   // timeshift: pozycja odtwarzania
-            } else {
-                fracOf(nowInstant).coerceIn(0f, 1f)        // na live / inne kanaly: live
-            }
+            // Bialy wskaznik postepu do refInstant: miniony = caly bialy,
+            // biezacy = do live (lub pozycji ogladania w timeshifcie), przyszly = 0
+            val progressFrac = fracOf(refInstant).coerceIn(0f, 1f)
             val progressW = (progressFrac * segW).toInt()
             if (progressW > 0) {
                 Box(
@@ -580,7 +579,7 @@ internal fun DemoMiniEpgChannelRow(
             if (next != null) {
                 val nextDurMs = Duration.between(next.startUtc, next.endUtc)
                     .toMillis().coerceAtLeast(1L)
-                val nextFrac = (Duration.between(next.startUtc, nowInstant).toMillis()
+                val nextFrac = (Duration.between(next.startUtc, refInstant).toMillis()
                     .toFloat() / nextDurMs).coerceIn(0f, 1f)
                 val nextFillW = (nextFrac * (1920 - nextBlockX)).toInt()
                 if (nextFillW > 0) {

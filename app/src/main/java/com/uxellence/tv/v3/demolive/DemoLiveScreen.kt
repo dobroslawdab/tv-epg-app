@@ -1153,35 +1153,6 @@ fun DemoLiveScreen(
                             epgInteractionAt = System.currentTimeMillis()
                             Log.i(TAG, "EPG select: wróć do live → ${row.channel.name}")
                         }
-                        selBarker != null && targetEnd <= controller.virtualNow() -> {
-                            // MINIONY program na kanale barker (expanded LUB pasek single)
-                            // → dostrój i odtwórz OD POCZĄTKU programu (start-over).
-                            tunedChannelIndex = epgChannelIndex
-                            tuneBarker(selBarker)
-                            if (selBarker.ready.value) {
-                                selBarker.controller.seekToVirtual(targetStart)
-                            }
-                            epgProgramIndex[tunedChannelIndex] = focusedProgIdx
-                            epgFocusedTime = program.startUtc
-                            epgExpanded = false
-                            epgInteractionAt = System.currentTimeMillis()
-                            Log.i(TAG, "EPG select: tune+startover → ${row.channel.name} '${program.title}'")
-                        }
-                        row.channel.streamUrl.isNotBlank() &&
-                            targetEnd <= controller.virtualNow() -> {
-                            // MINIONY program na kanale live (Stargaze itp.): brak
-                            // catchup, ale OK wprowadza NORMALNIE do playera (kanał
-                            // gra live) — komunikat o braku przewijania pojawi się
-                            // dopiero przy PRÓBIE przewijania (LEWO/PRAWO/taśma)
-                            if (tunedChannelIndex != epgChannelIndex) {
-                                tunedChannelIndex = epgChannelIndex
-                                barkers.values.forEach { it.controller.player?.pause() }
-                                tuneLive(row.channel.streamUrl)
-                                isPaused = false
-                            }
-                            openPlayerButtons()
-                            Log.i(TAG, "EPG select: miniony na live '${row.channel.name}' → PLAYER_UI")
-                        }
                         else -> {
                             // Program miniony/przyszły (dowolny kanał) → detal jak na Wideo
                             openDetail(
