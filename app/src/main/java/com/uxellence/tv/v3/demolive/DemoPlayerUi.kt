@@ -48,7 +48,7 @@ private const val BAR_MAIN_W = 1230
 private const val BAR_GAP = 16
 // Fold opisu: w BUTTONS kolumna zsunięta w dół (opis częściowo pod ekranem),
 // fokus na opisie (SNIPPET) podnosi ją tak, by opis był widoczny w całości
-private const val FOLD_OFFSET = 150
+private const val FOLD_OFFSET = 200
 
 /** Strefy fokusu zunifikowanego UI playera. */
 enum class PlayerZone { BUTTONS, STRIP, SNIPPET, DETAIL }
@@ -108,13 +108,15 @@ fun DemoPlayerUi(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(sy(804))
-                    .offset(y = sy(276))
+                    .height(sy(510))
+                    .offset(y = sy(1080 - 510))
                     .background(
-                        // Ten sam ciemny kolor co gradient mini-EPG (#281443)
+                        // Ten sam kolor co pod mini-EPG (#281443), pas 510 przy
+                        // dole; pełne krycie od 60% pasa (~y=876) — kontrolki
+                        // i opis playera leżą na jednolitym tle, bez przebić
                         Brush.verticalGradient(
-                            0.45f to Color(0x00281443),
-                            0.63f to Color(0xFF281443)
+                            0f to Color(0x00281443),
+                            0.6f to Color(0xFF281443)
                         )
                     )
             )
@@ -481,18 +483,8 @@ private fun DemoFixedBlockBar(
             }
         }
 
-        // Biała kreska aktualnego odtwarzania (pozycja playera).
-        val posX = xOf(positionMs)
-        if (posX != null) {
-            Box(
-                modifier = Modifier
-                    .offset(x = posX - sy(2), y = dotCenterY - sy(11))
-                    .width(sy(4))
-                    .height(sy(22))
-                    .clip(RoundedCornerShape(sy(2)))
-                    .background(Color(0xFFEEEEEE))
-            )
-        }
+        // (biała pionowa kreska pozycji odtwarzania USUNIĘTA — pozycję live
+        // wskazuje LIVE glow, a pozycję przewijania kropka kursora)
 
         // Kursor przewijania (STRIP): biała kropka na linii.
         val cursorX = cursorMs?.let { xOf(it) }
