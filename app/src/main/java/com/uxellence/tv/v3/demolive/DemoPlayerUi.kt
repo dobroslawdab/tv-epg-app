@@ -111,9 +111,10 @@ fun DemoPlayerUi(
                     .height(sy(804))
                     .offset(y = sy(276))
                     .background(
+                        // Ten sam ciemny kolor co gradient mini-EPG (#281443)
                         Brush.verticalGradient(
-                            0.45f to Color(0x0048227C),
-                            0.63f to Color(0xFF48227C)
+                            0.45f to Color(0x00281443),
+                            0.63f to Color(0xFF281443)
                         )
                     )
             )

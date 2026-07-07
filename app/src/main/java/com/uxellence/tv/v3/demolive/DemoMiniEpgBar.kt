@@ -138,7 +138,7 @@ internal fun DemoMiniEpgExpanded(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .offset(y = sy(640))
+            .offset(y = sy(660))
             .zIndex(2f)
     ) {
         for (idx in (focusedChannelIndex - 1)..(focusedChannelIndex + 1)) {
