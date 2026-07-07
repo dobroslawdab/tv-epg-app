@@ -541,9 +541,17 @@ internal fun DemoMiniEpgChannelRow(
             )
             // Bialy wskaznik postepu: TASMA BIALA DO MOMENTU LIVE — program
             // miniony = segment caly bialy, live = do pozycji live, przyszly = 0;
-            // na kanale ogladanym — do pozycji odtwarzania
-            val progressFrac = if (isWatched) fracOf(playbackInstant).coerceIn(0f, 1f)
-                else fracOf(nowInstant).coerceIn(0f, 1f)
+            // na kanale ogladanym — do pozycji odtwarzania. UWAGA: gdy ogladamy
+            // NA live, playback zawsze wisi 1-10 s za zegarem (latencja) i pasek
+            // rozjezdzal sie z glow — przy odchyleniu <15 s snapujemy do live,
+            // zeby pasek i glow konczyly sie DOKLADNIE w tym samym X
+            val progressFrac = if (isWatched &&
+                Duration.between(playbackInstant, nowInstant).toMillis() >= 15_000L
+            ) {
+                fracOf(playbackInstant).coerceIn(0f, 1f)   // timeshift: pozycja odtwarzania
+            } else {
+                fracOf(nowInstant).coerceIn(0f, 1f)        // na live / inne kanaly: live
+            }
             val progressW = (progressFrac * segW).toInt()
             if (progressW > 0) {
                 Box(

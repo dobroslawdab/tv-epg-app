@@ -1169,13 +1169,18 @@ fun DemoLiveScreen(
                         }
                         row.channel.streamUrl.isNotBlank() &&
                             targetEnd <= controller.virtualNow() -> {
-                            // MINIONY program na kanale live (Stargaze itp.): źródło
-                            // trzyma tylko ~30-sekundowe okno segmentów — nie da się
-                            // cofnąć ani odtworzyć od początku (brak catchup)
-                            demoToast = "Przewijanie tego kanału nie jest możliwe — nadawca " +
-                                    "udostępnia tylko bieżący fragment"
-                            epgInteractionAt = System.currentTimeMillis()
-                            Log.i(TAG, "EPG select: miniony na live '${row.channel.name}' → info")
+                            // MINIONY program na kanale live (Stargaze itp.): brak
+                            // catchup, ale OK wprowadza NORMALNIE do playera (kanał
+                            // gra live) — komunikat o braku przewijania pojawi się
+                            // dopiero przy PRÓBIE przewijania (LEWO/PRAWO/taśma)
+                            if (tunedChannelIndex != epgChannelIndex) {
+                                tunedChannelIndex = epgChannelIndex
+                                barkers.values.forEach { it.controller.player?.pause() }
+                                tuneLive(row.channel.streamUrl)
+                                isPaused = false
+                            }
+                            openPlayerButtons()
+                            Log.i(TAG, "EPG select: miniony na live '${row.channel.name}' → PLAYER_UI")
                         }
                         else -> {
                             // Program miniony/przyszły (dowolny kanał) → detal jak na Wideo
@@ -1365,16 +1370,18 @@ fun DemoLiveScreen(
                 playerInteractionAt = System.currentTimeMillis()
                 when (playerZone) {
                     PlayerZone.BUTTONS -> {
-                        if (isTunedLiveStream()) {
+                        if (tunedSeekPolicy() == DemoSeekPolicy.NONE) {
+                            // Kanał bez przewijania (np. Stargaze, okno ~30 s):
+                            // komunikat przy PRÓBIE wejścia na taśmę
+                            demoToast = "Przewijanie tego kanału nie jest możliwe — " +
+                                "nadawca udostępnia tylko bieżący fragment"
+                        } else if (isTunedLiveStream()) {
                             // Realny live: taśma na osi wall-clock, kursor od bieżącej
                             // pozycji (live minus cofnięcie w oknie DVR)
                             playerZone = PlayerZone.STRIP
                             scrubStartVirtualMs = controller.virtualNow() - liveBehindMs
                             scrubCursorMs = scrubStartVirtualMs
                             updateFilmstrip(scrubCursorMs)
-                        } else if (tunedSeekPolicy() == DemoSeekPolicy.NONE) {
-                            // Telewizja bez startover — brak przewijania, nie otwieraj taśmy
-                            demoToast = "Przewijanie niedostępne na tym kanale"
                         } else {
                             // Z przycisków na taśmę (kursor startuje z bieżącej pozycji).
                             // CLAMP do okna DVR: pozycja z zegara MEDIÓW potrafi na live
@@ -1441,6 +1448,11 @@ fun DemoLiveScreen(
             openStripWithStep = { direction ->
                 val policy = tunedSeekPolicy()
                 when {
+                    policy == DemoSeekPolicy.NONE -> {
+                        // Kanał bez przewijania — komunikat przy PRÓBIE przewijania
+                        demoToast = "Przewijanie tego kanału nie jest możliwe — " +
+                            "nadawca udostępnia tylko bieżący fragment"
+                    }
                     isTunedLiveStream() -> {
                         // Realny stream live (Stargaze): taśma STRIP na osi wall-clock,
                         // kursor ograniczony do okna DVR playlisty (~38 s). Miniaturki
@@ -1456,10 +1468,6 @@ fun DemoLiveScreen(
                         updateFilmstrip(scrubCursorMs)
                         playerInteractionAt = System.currentTimeMillis()
                         Log.i(TAG, "STRIP(live) ${if (direction > 0) "RIGHT" else "LEFT"} → ${scrubCursorMs}ms")
-                    }
-                    policy == DemoSeekPolicy.NONE -> {
-                        // Telewizja bez startover — brak przewijania
-                        demoToast = "Przewijanie niedostępne na tym kanale"
                     }
                     direction > 0 && policy == DemoSeekPolicy.BACKWARD_ONLY -> {
                         // Blokada do przodu — pokaż komunikat, ale wejdź w STRIP (żeby user
