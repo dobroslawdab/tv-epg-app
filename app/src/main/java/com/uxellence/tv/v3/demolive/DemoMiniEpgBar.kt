@@ -312,8 +312,9 @@ internal fun DemoMiniEpgBar(
             val liveX = if (!nowInstant.isBefore(program.startUtc)) {
                 SEGMENT_X + (liveFrac * SEGMENT_W).toInt()
             } else 0
-            // LIVE indicator glow: od lewej krawędzi do pozycji live, h=48,
-            // gradient pionowy transparent → aqua 60% (pod paskiem)
+            // LIVE indicator glow: od lewej krawędzi do pozycji live, h=48.
+            // Aqua NA GÓRZE (tuż pod paskiem), gaśnie ku dołowi — wskazuje,
+            // dokąd sięga live na osi paska
             if (liveX > 0) {
                 Box(
                     modifier = Modifier
@@ -321,8 +322,8 @@ internal fun DemoMiniEpgBar(
                         .size(sx(liveX), sy(48))
                         .background(
                             Brush.verticalGradient(
-                                0f to Color(0x005AECD3),
-                                1f to Color(0x995AECD3)
+                                0f to Color(0x995AECD3),
+                                1f to Color(0x005AECD3)
                             )
                         )
                 )

@@ -500,6 +500,13 @@ fun DemoLiveScreen(
     var detailEndWallMs by remember { mutableLongStateOf(0L) }
     var detailChannelLogoUrl by remember { mutableStateOf<String?>(null) }
     var detailChannelName by remember { mutableStateOf("DEMO TV") }
+    // Flow nagrywania (Figma "Nagrywanie serii"): kandydat zlecenia (modal
+    // otwarty gdy != null) + toast potwierdzenia (nagłówek, tytuł)
+    var recordingCandidate by remember {
+        mutableStateOf<DemoRecordingScheduler.ScheduledRecording?>(null)
+    }
+    var recordingToast by remember { mutableStateOf<Pair<String, String>?>(null) }
+    remember { DemoRecordingScheduler.init(context); true }
     var detailChannelNumber by remember { mutableIntStateOf(122) }
     var detailChannelIndex by remember { mutableIntStateOf(0) }  // indeks w epgRows (tuning z detalu)
 
@@ -1294,7 +1301,29 @@ fun DemoLiveScreen(
                                 Log.i(TAG, "Player: zacznij od początku → ${block.startVirtualMs}ms")
                             }
                         }
-                        else -> { /* Nagraj / Napisy — atrapy */ }
+                        3 -> {  // Nagraj (REC): modal zlecenia dla bieżącego programu
+                            val block = blockForTunedChannel(
+                                if (activeBarker() != null) currentVirtualMs
+                                else (liveEdgeMs - liveBehindMs).coerceAtLeast(0L)
+                            )
+                            if (block != null) {
+                                val row = epgRows.getOrNull(tunedChannelIndex)
+                                recordingCandidate = DemoRecordingScheduler.ScheduledRecording(
+                                    title = block.title,
+                                    subTitle = listOf(block.genre, block.year)
+                                        .filter { it.isNotBlank() }.joinToString(", "),
+                                    channelId = row?.channel?.id ?: "",
+                                    channelName = row?.channel?.name ?: "DEMO TV",
+                                    startUtcMs = controller.antennaStartWallMs + block.startVirtualMs,
+                                    endUtcMs = controller.antennaStartWallMs + block.endVirtualMs,
+                                    imageUrl = block.coverUrl,
+                                    isSeries = false,
+                                    keepLabel = "3 miesiące"
+                                )
+                                Log.i(TAG, "REC → modal nagrywania: '${block.title}'")
+                            }
+                        }
+                        else -> { /* Napisy — atrapa */ }
                     }
                     PlayerZone.SNIPPET -> {
                         // OK na skrócie opisu → detal bieżącego programu aktywnego barkera
@@ -1704,6 +1733,9 @@ fun DemoLiveScreen(
             .background(Color.Black)
             .focusRequester(rootFocus)
             .onPreviewKeyEvent { event ->
+                // Modal nagrywania otwarty: nie przechwytuj — modal (zfokusowany)
+                // sam obsługuje i konsumuje wszystkie klawisze
+                if (recordingCandidate != null) return@onPreviewKeyEvent false
                 if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                 keyHandler.value(event.nativeKeyEvent.keyCode)
             }
@@ -1820,6 +1852,9 @@ fun DemoLiveScreen(
                 }
             ),
             nowInstant = java.time.Instant.ofEpochMilli(controller.antennaStartWallMs + liveEdgeMs),
+            isRecording = { title, startUtc ->
+                DemoRecordingScheduler.isScheduled(title, startUtc.toEpochMilli())
+            },
             sx = sx,
             sy = sy
         )
@@ -1874,6 +1909,42 @@ fun DemoLiveScreen(
             sy = sy
         )
 
+        // ===== FLOW NAGRYWANIA (Figma "Nagrywanie serii") =====
+        // Modal zlecenia (zIndex 30, nad detalami) + toast potwierdzenia.
+        // Zlecone nagrania: DemoRecordingScheduler → MOJE → Nagrania (Zaplanowane)
+        recordingCandidate?.let { cand ->
+            DemoRecordingModal(
+                title = cand.title,
+                subtitle = cand.subTitle,
+                keepLabel = cand.keepLabel,
+                onRecordEpisode = {
+                    DemoRecordingScheduler.schedule(context, cand.copy(isSeries = false))
+                    val started = cand.startUtcMs <= System.currentTimeMillis()
+                    recordingToast = (if (started) "Rozpoczęto nagrywanie odcinka:"
+                        else "Zlecono nagrywanie odcinka:") to cand.title
+                    recordingCandidate = null
+                    Log.i(TAG, "REC: zlecono odcinek '${cand.title}'")
+                },
+                onRecordSeries = {
+                    DemoRecordingScheduler.schedule(context, cand.copy(isSeries = true))
+                    recordingToast = "Zlecono nagrywanie serii:" to cand.title
+                    recordingCandidate = null
+                    Log.i(TAG, "REC: zlecono serię '${cand.title}'")
+                },
+                onDismiss = { recordingCandidate = null },
+                sx = sx, sy = sy
+            )
+        }
+        recordingToast?.let { (header, recTitle) ->
+            DemoRecordingToast(
+                header = header,
+                title = recTitle,
+                visible = true,
+                onHidden = { recordingToast = null },
+                sx = sx, sy = sy
+            )
+        }
+
         if (isDetail) {
             val slide = detailSlide
             if (slide != null) {
@@ -1893,12 +1964,29 @@ fun DemoLiveScreen(
                             listOf("Nagraj", "Przypomnij")
                         } else null,
                         onCustomButtonClicked = { index ->
-                            val msg = if (index == 0) {
-                                "Nagranie zaplanowane: ${slide.title} (atrapa)"
+                            if (index == 0) {
+                                // Nagraj (program przyszły) → modal zlecenia nagrania
+                                // (flow Figma "Nagrywanie serii"); zlecone trafia do
+                                // MOJE → Nagrania (Zaplanowane)
+                                recordingCandidate = DemoRecordingScheduler.ScheduledRecording(
+                                    title = slide.title,
+                                    subTitle = slide.genre,
+                                    channelId = epgRows.getOrNull(detailChannelIndex)
+                                        ?.channel?.id ?: "",
+                                    channelName = detailChannelName,
+                                    startUtcMs = detailStartWallMs,
+                                    endUtcMs = detailEndWallMs,
+                                    imageUrl = slide.backgroundUrl.ifBlank { null },
+                                    isSeries = false,
+                                    keepLabel = "3 miesiące"
+                                )
                             } else {
-                                "Przypomnimy o programie: ${slide.title} (atrapa)"
+                                android.widget.Toast.makeText(
+                                    context,
+                                    "Przypomnimy o programie: ${slide.title} (atrapa)",
+                                    android.widget.Toast.LENGTH_SHORT
+                                ).show()
                             }
-                            android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
                         },
                         onWatchClicked = {
                             val detailBarker = barkerFor(detailChannelIndex)

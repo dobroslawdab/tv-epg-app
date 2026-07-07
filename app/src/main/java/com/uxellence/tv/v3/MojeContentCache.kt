@@ -61,6 +61,36 @@ object MojeContentCache {
             return kinoPlayMovies.filter { it.title in rentedTitles }
         }
 
+        // "ZAPLANOWANE" ma na początku zlecenia użytkownika z demo live (flow
+        // "Nagrywanie serii") — dynamiczne jak Wypożyczone, więc bez cache;
+        // reszta wiersza to dotychczasowe mocki (stały ogon z cache poniżej).
+        if (channelName == "ZAPLANOWANE") {
+            android.util.Log.i(
+                "DemoRec",
+                "ZAPLANOWANE row: user entries = " +
+                    com.uxellence.tv.v3.demolive.DemoRecordingScheduler.recordings.value.size
+            )
+            val user = com.uxellence.tv.v3.demolive.DemoRecordingScheduler
+                .recordings.value.values
+                .sortedBy { it.startUtcMs }
+                .map { r ->
+                    VodContent(
+                        id = "user_rec_${r.title}_${r.startUtcMs}",
+                        title = r.title,
+                        description = r.subTitle,
+                        category = if (r.isSeries) "Seria" else "Zaplanowane",
+                        imageUrl = r.imageUrl ?: "",
+                        channelLogoUrl = "",
+                        link = "",
+                        price = null
+                    )
+                }
+            val mocks = channelContentCache.getOrPut(channelName) {
+                VodDataCache.getVodContentList().shuffled().take(10)
+            }
+            return user + mocks
+        }
+
         // "Do obejrzenia" is dynamic too — driven by WatchlistManager. Each tap on the
         // "Do obejrzenia" button on a WIDEO MovieDetail toggles a movie's title here.
         if (channelName == "Do obejrzenia") {

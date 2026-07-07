@@ -90,14 +90,42 @@ class RecordingRepository private constructor(private val context: Context) {
             ?.map { RecordingContent.Series(it) }
             ?: emptyList()
 
+        // Zlecenia użytkownika z makiety demo live (flow "Nagrywanie serii")
+        val userScheduled = userScheduledRecordings().map { RecordingContent.Individual(it) }
+
         // Merge and sort by most recent
-        return (individual + series).sortedByDescending {
+        return (userScheduled + individual + series).sortedByDescending {
             when (it) {
                 is RecordingContent.Individual -> it.recording.startUtc
                 is RecordingContent.Series -> it.bundle.lastRecordedDate ?: Instant.EPOCH
             }
         }
     }
+
+    /**
+     * Nagrania zlecone przez użytkownika w makiecie demo live (DemoRecordingScheduler,
+     * flow Figma "Nagrywanie serii") zmapowane na model Recording — dzięki temu
+     * zlecenie z playera trafia do sekcji MOJE → Nagrania (Zaplanowane).
+     */
+    private fun userScheduledRecordings(): List<Recording> =
+        com.uxellence.tv.v3.demolive.DemoRecordingScheduler.recordings.value.values.map { r ->
+            Recording(
+                id = "user_${r.title}_${r.startUtcMs}",
+                title = r.title,
+                description = r.subTitle.ifBlank { null },
+                subTitle = r.subTitle.ifBlank { null },
+                channelId = r.channelId,
+                channelName = r.channelName,
+                channelLogoUrl = null,
+                startUtc = Instant.ofEpochMilli(r.startUtcMs),
+                endUtc = Instant.ofEpochMilli(r.endUtcMs),
+                imageUrl = r.imageUrl,
+                categories = if (r.isSeries) listOf("serial") else listOf("film"),
+                status = RecordingStatus.SCHEDULED,
+                seriesId = null,
+                watchProgress = 0f
+            )
+        }
 
     /**
      * Get only individual recordings (movies) for "Pojedyncze nagrania"
@@ -126,10 +154,11 @@ class RecordingRepository private constructor(private val context: Context) {
      */
     suspend fun getScheduledRecordings(): List<Recording> {
         refreshCacheIfNeeded()
-        return cachedRecordings
+        val mock = cachedRecordings
             ?.filter { it.status == RecordingStatus.SCHEDULED }
-            ?.sortedBy { it.startUtc }
             ?: emptyList()
+        // Zlecenia użytkownika (demo live) na początku listy Zaplanowane
+        return (userScheduledRecordings() + mock).sortedBy { it.startUtc }
     }
 
     /**

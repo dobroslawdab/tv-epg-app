@@ -55,6 +55,9 @@ class MainActivity : ComponentActivity() {
         // Load persisted rentals (so isRented + countdown are correct from first frame)
         com.uxellence.tv.v3.rental.RentalManager.init(this)
         com.uxellence.tv.v3.watchlist.WatchlistManager.init(this)
+        // Zlecone nagrania z makiety demo live (flow "Nagrywanie serii") —
+        // init tutaj, żeby MOJE → Nagrania widziało je bez otwierania demo
+        com.uxellence.tv.v3.demolive.DemoRecordingScheduler.init(this)
         // Initialize ChannelManager with TV channels database
         ChannelManager.initialize(this)
         // Initialize ConfigManager - load cached config from Supabase

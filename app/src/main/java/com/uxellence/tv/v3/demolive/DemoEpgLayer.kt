@@ -67,6 +67,8 @@ fun DemoEpgLayer(
     tunedChannelIndex: Int,     // kanał na ekranie — jego oglądany program dostaje playkę
     playbackInstant: Instant,   // pozycja oglądania (przy timeshifcie cofnięta względem live)
     nowInstant: Instant,        // zegar ścienny = live; program live-now ma ciemniejsze tło
+    // Kropka nagrywania na mini-EPG: tylko programy ze zleconym nagraniem
+    isRecording: (title: String, startUtc: Instant) -> Boolean = { _, _ -> false },
     sx: (Int) -> Dp,
     sy: (Int) -> Dp
 ) {
@@ -105,9 +107,11 @@ fun DemoEpgLayer(
                                 0.63f to Color(0xFF48227C)
                             )
                         } else {
+                            // Gradient pod mini-EPG barem wg parametrów z Figmy:
+                            // linear #281443, stop 30% alpha 0 → stop 60% alpha 100
                             Brush.verticalGradient(
-                                0.61f to Color(0x0048227C),
-                                0.82f to Color(0xFF48227C)
+                                0.30f to Color(0x00281443),
+                                0.60f to Color(0xFF281443)
                             )
                         }
                     )
@@ -184,6 +188,7 @@ fun DemoEpgLayer(
                     isTunedChannel = focusedChannelIndex == tunedChannelIndex,
                     playbackInstant = playbackInstant,
                     nowInstant = nowInstant,
+                    isRecording = isRecording,
                     sx = sx, sy = sy
                 )
             } else {

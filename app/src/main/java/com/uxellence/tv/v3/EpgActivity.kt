@@ -69,6 +69,11 @@ class EpgActivity : ComponentActivity() {
         // Initialize ChannelManager with TV channels database
         ChannelManager.initialize(this)
 
+        // Zlecone nagrania z makiety demo live (flow "Nagrywanie serii") —
+        // init tutaj (EpgActivity to realny entry point), żeby MOJE → Nagrania
+        // widziało zlecenia bez otwierania demo
+        com.uxellence.tv.v3.demolive.DemoRecordingScheduler.init(this)
+
         // Register BroadcastReceiver for HOME button events from AccessibilityService
         val filter = IntentFilter(HomeButtonAccessibilityService.HOME_PRESSED_ACTION)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
