@@ -78,7 +78,6 @@ internal fun DemoMiniEpgBar(
             .offset(y = sy(807))
             // Nad gradientem warstwy EPG (gradient ma zIndex 1)
             .zIndex(2f)
-            .clipToBounds()
     ) {
         DemoMiniEpgChannelRow(
             row = row,
@@ -139,7 +138,7 @@ internal fun DemoMiniEpgExpanded(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .offset(y = sy(575))
+            .offset(y = sy(640))
             .zIndex(2f)
     ) {
         for (idx in (focusedChannelIndex - 1)..(focusedChannelIndex + 1)) {
@@ -158,6 +157,7 @@ internal fun DemoMiniEpgExpanded(
                 playbackInstant = playbackInstant,
                 nowInstant = nowInstant,
                 isRecording = isRecording,
+                nextBlockX = 1277,
                 sx = sx, sy = sy
             )
             Spacer(modifier = Modifier.height(sy(8)))
@@ -176,6 +176,11 @@ internal fun DemoMiniEpgChannelRow(
     playbackInstant: Instant,
     nowInstant: Instant,
     isRecording: (title: String, startUtc: Instant) -> Boolean,
+    // X bloku nastepnego programu (design px): pasek 1 kanalu = 1567 (Figma
+    // 5530-5603, next uciety prawa krawedzia), rozwiniete 3 kanaly = 1277
+    // (Figma 5530-5949, next w calosci widoczny). Segment aktywnego programu
+    // konczy sie przerwa+kropka tuz przed nim.
+    nextBlockX: Int = 1567,
     sx: (Int) -> Dp,
     sy: (Int) -> Dp
 ) {
@@ -390,12 +395,10 @@ internal fun DemoMiniEpgChannelRow(
                 }
             }
 
-            // ===== Następny program (40%) =====
-            // Gap 339 od karty aktywnej (Figma): tytuł następnego zaczyna się
-            // na x=1567 — dokładnie tam, gdzie jego segment na timeline
-            // (kropka 1536 + przerwa), więc tytuł i pasek się POKRYWAJĄ
+            // ===== Nastepny program (40%): x = nextBlockX, POKRYWA sie ze
+            // swoim segmentem na timeline =====
             if (next != null) {
-                Spacer(modifier = Modifier.width(sx(339)))
+                Spacer(modifier = Modifier.width(sx((nextBlockX - 1228).coerceAtLeast(16))))
                 Column(modifier = Modifier.alpha(0.4f)) {
                     Text(
                         text = "${formatWall(next.startUtc.toEpochMilli(), false)} – " +
@@ -420,16 +423,19 @@ internal fun DemoMiniEpgChannelRow(
             }
         }
 
-        // ===== Timeline: fokus h=58 (bar 8 + glow 48), inne h=20 (bar 4) =====
+        // ===== Timeline: box ma wysokosc SAMEGO paska (12 px) — glow
+        // rysuje sie POZA layoutem (bleed w dol, bez clipa) i chowa sie POD
+        // kolejny wiersz Column (rysowany pozniej), wiec NIE rozpycha
+        // odstepow miedzy kanalami =====
         val barH = if (focused) 8 else 4
         val bulletD = if (focused) BULLET else 8
-        val boxH = if (focused) 58 else 20
-        Box(modifier = Modifier.fillMaxWidth().height(sy(boxH))) {
+        val segW = nextBlockX - SEG_GAP * 2 - BULLET - SEGMENT_X
+        Box(modifier = Modifier.fillMaxWidth().height(sy(BULLET))) {
             val liveFrac = fracOf(nowInstant).coerceIn(0f, 1f)
             val liveX = if (!nowInstant.isBefore(program.startUtc)) {
-                SEGMENT_X + (liveFrac * SEGMENT_W).toInt()
+                SEGMENT_X + (liveFrac * segW).toInt()
             } else 0
-            // LIVE glow tylko na wierszu fokusowanym: aqua przy pasku, gaśnie w dół
+            // LIVE glow tylko na wierszu fokusowanym: aqua przy pasku, gasnie w dol
             if (focused && liveX > 0) {
                 Box(
                     modifier = Modifier
@@ -443,7 +449,7 @@ internal fun DemoMiniEpgChannelRow(
                         )
                 )
             }
-            // Ogon poprzedniego programu (obejrzany — biały)
+            // Ogon poprzedniego programu (obejrzany — bialy)
             Box(
                 modifier = Modifier
                     .offset(x = sx(0), y = sy((BULLET - barH) / 2))
@@ -460,31 +466,35 @@ internal fun DemoMiniEpgChannelRow(
             Box(
                 modifier = Modifier
                     .offset(x = sx(SEGMENT_X), y = sy((BULLET - barH) / 2))
-                    .size(sx(SEGMENT_W), sy(barH))
+                    .size(sx(segW), sy(barH))
                     .background(WHITE40, RoundedCornerShape(sx(6)))
             )
-            if (isWatched) {
-                val watchedW = (fracOf(playbackInstant).coerceIn(0f, 1f) * SEGMENT_W).toInt()
-                if (watchedW > 0) {
-                    Box(
-                        modifier = Modifier
-                            .offset(x = sx(SEGMENT_X), y = sy((BULLET - barH) / 2))
-                            .size(sx(watchedW), sy(barH))
-                            .background(WHITE, RoundedCornerShape(sx(6)))
-                    )
-                }
+            // Bialy wskaznik postepu: pozycja odtwarzania gdy kanal ogladany,
+            // inaczej postep LIVE programu (bialy pasek na wskazanym kanale)
+            val progressFrac = when {
+                isWatched -> fracOf(playbackInstant).coerceIn(0f, 1f)
+                focused && isLiveNow -> liveFrac
+                else -> 0f
+            }
+            val progressW = (progressFrac * segW).toInt()
+            if (progressW > 0) {
+                Box(
+                    modifier = Modifier
+                        .offset(x = sx(SEGMENT_X), y = sy((BULLET - barH) / 2))
+                        .size(sx(progressW), sy(barH))
+                        .background(WHITE, RoundedCornerShape(sx(6)))
+                )
             }
             Box(
                 modifier = Modifier
-                    .offset(x = sx(SEGMENT_X + SEGMENT_W + SEG_GAP), y = sy((BULLET - bulletD) / 2))
+                    .offset(x = sx(SEGMENT_X + segW + SEG_GAP), y = sy((BULLET - bulletD) / 2))
                     .size(sx(bulletD), sy(bulletD))
                     .background(WHITE, CircleShape)
             )
-            // Segment następnego programu — do prawej krawędzi
+            // Segment nastepnego programu — od nextBlockX do prawej krawedzi
             Box(
                 modifier = Modifier
-                    .offset(x = sx(SEGMENT_X + SEGMENT_W + SEG_GAP * 2 + BULLET),
-                        y = sy((BULLET - barH) / 2))
+                    .offset(x = sx(nextBlockX), y = sy((BULLET - barH) / 2))
                     .fillMaxWidth()
                     .height(sy(barH))
                     .background(WHITE40, RoundedCornerShape(topStart = sx(6), bottomStart = sx(6)))
