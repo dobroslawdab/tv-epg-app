@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -39,23 +41,33 @@ internal fun DemoInfoToast(
         onHidden()
     }
     Box(modifier = Modifier.fillMaxSize().zIndex(40f)) {
+        // Figma 5588-5095: Toast — tło black 90%, radius 32, border 4
+        // white60, padding 48/32, tekst Manrope Medium 28/40 wycentrowany
         Box(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .offset(y = sy(841))
-                .size(sx(995), sy(104))
-                .background(Color(0xE6000000))
-                .border(sx(4), Color(0x99EEEEEE)),
+                .widthIn(max = sx(995))
+                .heightIn(min = sy(104))
+                .background(
+                    Color(0xE6000000),
+                    androidx.compose.foundation.shape.RoundedCornerShape(sx(32))
+                )
+                .border(
+                    sx(4), Color(0x99EEEEEE),
+                    androidx.compose.foundation.shape.RoundedCornerShape(sx(32))
+                )
+                .padding(horizontal = sx(48), vertical = sy(32)),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = text,
                 color = Color(0xFFEEEEEE),
                 fontSize = demoSp(28, sy),
+                lineHeight = demoSp(40, sy),
                 fontWeight = FontWeight.Medium,
                 textAlign = TextAlign.Center,
-                maxLines = 2,
-                modifier = Modifier.padding(horizontal = sx(40))
+                maxLines = 2
             )
         }
     }
