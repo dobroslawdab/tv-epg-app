@@ -92,6 +92,9 @@ fun DemoPlayerUi(
     forwardBlockedMsgVisible: Boolean = false,  // banner blokady przewijania do przodu
     frames: List<Pair<Long, Bitmap?>>,
     blockTitleFor: ((Long) -> String?)? = null,  // tytuł materiału dla pozycji wirtualnej (taśma)
+    // Klawisz "8": kafelek "Przechodzisz do…" zamiast tytułów nad taśmą
+    scrubNextTile: Boolean = false,
+    blockMetaFor: ((Long) -> String?)? = null,
     sx: (Int) -> Dp,
     sy: (Int) -> Dp
 ) {
@@ -178,6 +181,8 @@ fun DemoPlayerUi(
                         antennaStartWallMs = antennaStartWallMs,
                         showTimeLabels = false,   // czasy są nad paskiem, nie nad miniaturami
                         blockTitleFor = blockTitleFor,
+                        nextTileMode = scrubNextTile,
+                        blockMetaFor = blockMetaFor,
                         sx = sx, sy = sy
                     )
                     Spacer(modifier = Modifier.height(sy(16)))

@@ -47,6 +47,11 @@ internal fun DemoFilmstrip(
     antennaStartWallMs: Long,
     showTimeLabels: Boolean = true,   // false: czasy pokazuje pasek postępu (design)
     blockTitleFor: ((Long) -> String?)? = null,  // tytuły materiałów nad taśmą (Figma 5530-5395)
+    // Wariant "kafelek przejścia" (klawisz 8, Figma 5530-5267): pierwszy slot
+    // nowego materiału to karta "Przechodzisz do…" zamiast miniaturki,
+    // a tytuły NAD taśmą są wyłączone
+    nextTileMode: Boolean = false,
+    blockMetaFor: ((Long) -> String?)? = null,   // metadane materiału (kafelek)
     sx: (Int) -> Dp,
     sy: (Int) -> Dp
 ) {
@@ -61,7 +66,7 @@ internal fun DemoFilmstrip(
         // trzyma tytuł przy lewej krawędzi, aż przewiniemy do następnego.
         // Pasmo tytułów siedzi tuż nad MAŁYMI miniaturkami i jest rysowane
         // PRZED taśmą — duża środkowa miniatura (wyższa) przykrywa je z-indexem.
-        if (blockTitleFor != null && frames.isNotEmpty()) {
+        if (!nextTileMode && blockTitleFor != null && frames.isNotEmpty()) {
             // Geometria slotów w px designu 1920: taśma wycentrowana, szersza
             // od ekranu (clipToBounds) — lewy slot częściowo poza kadrem
             val sideW = 320; val centerW = 480; val gapW = 10
@@ -128,6 +133,15 @@ internal fun DemoFilmstrip(
                     return@forEachIndexed
                 }
 
+                // Kafelek przejścia: slot jest PIERWSZYM slotem nowego materiału
+                // (tytuł inny niż w slocie po lewej), oba w oknie DVR
+                val isTransitionTile = nextTileMode && blockTitleFor != null && index > 0 &&
+                    run {
+                        val prevV = centerVirtualMs + frames[index - 1].first
+                        val curT = blockTitleFor(slotVirtualMs)
+                        val prevT = blockTitleFor(prevV)
+                        prevV >= 0 && curT != null && prevT != null && curT != prevT
+                    }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     if (showTimeLabels) {
                         Text(
@@ -160,7 +174,42 @@ internal fun DemoFilmstrip(
                             ),
                         contentAlignment = Alignment.Center
                     ) {
-                        if (bitmap != null && !bitmap.isRecycled) {
+                        if (isTransitionTile) {
+                            // Karta "Przechodzisz do…" (Figma 5530-5267): ciemny
+                            // kafelek z tytułem i metadanymi następnego materiału
+                            Column(
+                                verticalArrangement = Arrangement.Center,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(Color(0xF2352052))
+                                    .padding(horizontal = sx(24))
+                            ) {
+                                Text(
+                                    text = "Przechodzisz do",
+                                    color = Color(0xCCEEEEEE),
+                                    fontSize = demoSp(if (isCenter) 22 else 16, sy)
+                                )
+                                Spacer(modifier = Modifier.height(sy(8)))
+                                Text(
+                                    text = blockTitleFor?.invoke(slotVirtualMs) ?: "",
+                                    color = Color(0xFFEEEEEE),
+                                    fontSize = demoSp(if (isCenter) 30 else 21, sy),
+                                    lineHeight = demoSp(if (isCenter) 38 else 27, sy),
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 2,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                )
+                                val meta = blockMetaFor?.invoke(slotVirtualMs)
+                                if (!meta.isNullOrBlank()) {
+                                    Spacer(modifier = Modifier.height(sy(8)))
+                                    Text(
+                                        text = meta,
+                                        color = Color(0x99EEEEEE),
+                                        fontSize = demoSp(if (isCenter) 20 else 14, sy)
+                                    )
+                                }
+                            }
+                        } else if (bitmap != null && !bitmap.isRecycled) {
                             Image(
                                 bitmap = bitmap.asImageBitmap(),
                                 contentDescription = null,

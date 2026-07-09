@@ -1647,6 +1647,15 @@ fun DemoLiveScreen(
             demoToast = "DEMO TV: przewijanie = ${demoPolicyOverride}"
             Log.i(TAG, "demoPolicyOverride=$demoPolicyOverride")
             true
+        } else if (keyCode == android.view.KeyEvent.KEYCODE_8) {
+            // DEMO: wariant pokazania ZMIANY MATERIAŁU na taśmie przewijania
+            // (badanie A/B): tytuły nad kafelkami ⇄ kafelek "Przechodzisz do…"
+            val on = DemoPlayerPrefs.toggleScrubNextTile(context)
+            playerInteractionAt = System.currentTimeMillis()
+            demoToast = if (on) "Zmiana materiału: kafelek na taśmie (Przechodzisz do…)"
+                else "Zmiana materiału: tytuły nad miniaturkami"
+            Log.i(TAG, "scrubNextTile=$on")
+            true
         } else if (keyCode == android.view.KeyEvent.KEYCODE_3) {
             // DEMO: przełącz wygląd paska przycisków playera (tekstowy ⇄ ikonowy wg Figmy).
             // Zapis trwały w DemoPlayerPrefs — utrzymuje się aż do ponownego "3".
@@ -1882,6 +1891,12 @@ fun DemoLiveScreen(
             forwardBlockedMsgVisible = forwardBlockedMsgVisible,
             frames = filmstripFrames,
             blockTitleFor = { v -> blockForTunedChannel(v)?.title },
+            scrubNextTile = DemoPlayerPrefs.scrubNextTile.value,
+            blockMetaFor = { v ->
+                blockForTunedChannel(v)?.let { b ->
+                    listOf(b.genre, b.year).filter { it.isNotBlank() }.joinToString(", ")
+                }
+            },
             sx = sx,
             sy = sy
         )

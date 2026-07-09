@@ -17,17 +17,33 @@ import androidx.compose.runtime.mutableStateOf
 object DemoPlayerPrefs {
     private const val PREFS = "demo_player_prefs"
     private const val KEY_FIGMA_BUTTONS = "use_figma_buttons"
+    private const val KEY_SCRUB_NEXT_TILE = "scrub_next_tile"
 
     val useFigmaButtons = mutableStateOf(false)
+    // Klawisz "8": sposób pokazania zmiany materiału na taśmie przewijania
+    //  - false = tytuły materiałów NAD kafelkami (Figma 5530-5395)
+    //  - true  = KAFELEK "Przechodzisz do…" między miniaturkami (Figma 5530-5267)
+    val scrubNextTile = mutableStateOf(false)
     private var loaded = false
 
     /** Wczytaj zapamiętany stan (idempotentne — robi to tylko raz na proces). */
     fun load(context: Context) {
         if (loaded) return
-        useFigmaButtons.value = context.applicationContext
+        val prefs = context.applicationContext
             .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getBoolean(KEY_FIGMA_BUTTONS, false)
+        useFigmaButtons.value = prefs.getBoolean(KEY_FIGMA_BUTTONS, false)
+        scrubNextTile.value = prefs.getBoolean(KEY_SCRUB_NEXT_TILE, false)
         loaded = true
+    }
+
+    /** Przełącz wariant przejścia materiałów na taśmie (klawisz "8"). */
+    fun toggleScrubNextTile(context: Context): Boolean {
+        val newValue = !scrubNextTile.value
+        scrubNextTile.value = newValue
+        context.applicationContext
+            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putBoolean(KEY_SCRUB_NEXT_TILE, newValue).apply()
+        return newValue
     }
 
     /** Przełącz i zapisz. Zwraca nowy stan. */
