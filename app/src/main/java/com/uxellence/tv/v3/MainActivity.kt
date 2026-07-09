@@ -1498,18 +1498,22 @@ fun TvRoot(
                 val scaleY = demoConfig.screenHeightDp / 1080f
                 fun sx(px: Int) = (px * scaleX).dp
                 fun sy(px: Int) = (px * scaleY).dp
-                // Player pojedynczego zwiastuna (bez poprzedni/następny materiał):
-                // Jurassic World Odrodzenie — trailer zremuxowany z DASH (redcdn)
-                // do progressive MP4 na Supabase Storage (bucket trailers).
-                // Przewijanie = STOPKLATKA + przegląd klatek (VodPlayerScreen
-                // pauzuje wideo przy wejściu w seek).
-                com.uxellence.tv.v3.vodplayer.VodPlayerScreen(
+                // Player pojedynczego zwiastuna wyglądający 1:1 jak player
+                // z „Demo: kanał live" (DemoPlayerUi: OK=kontrolki, GÓRA=taśma,
+                // DÓŁ=opis, LEWO/PRAWO=przewijanie ze STOPKLATKĄ), bez
+                // poprzedniego/następnego materiału. Trailer: progressive MP4
+                // (remux z DASH redcdn) na Supabase Storage (bucket trailers).
+                com.uxellence.tv.v3.demolive.DemoVodPlayerScreen(
                     streamUrl = "https://kexrkaqxoadxugnnbnjh.supabase.co/storage/v1/object/public/trailers/jurassic_world_odrodzenie_trailer.mp4",
-                    title = "Jurassic World: Odrodzenie — zwiastun",
+                    title = "Jurassic World: Odrodzenie",
+                    description = "Nowa era. Zespół specjalistów wyrusza na wyprawę " +
+                        "do zakazanej strefy, by pozyskać DNA prehistorycznych " +
+                        "gigantów — misja szybko wymyka się spod kontroli. Zwiastun.",
+                    genre = "zwiastun",
+                    year = "2025 r.",
                     onBackPressed = { currentScreen = NavigationScreen.HOME },
                     sx = ::sx,
-                    sy = ::sy,
-                    fullFilmstrip = true
+                    sy = ::sy
                 )
             }
             NavigationScreen.SLIDER -> {

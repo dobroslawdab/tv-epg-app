@@ -283,8 +283,9 @@ private fun PlayerHeader(
                     .padding(start = sx(LEFT_X)),
                 sx = sx, sy = sy
             )
-        } else {
-            // Fallback zanim warstwa EPG zbuduje wiersze kanałów
+        } else if (channelNumber > 0) {
+            // Fallback zanim warstwa EPG zbuduje wiersze kanałów;
+            // channelNumber == 0 (player VOD) = bez badge'a w ogóle
             Box(
                 modifier = Modifier
                     .align(Alignment.CenterStart)
