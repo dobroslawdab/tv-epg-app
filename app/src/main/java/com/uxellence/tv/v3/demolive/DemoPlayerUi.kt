@@ -168,17 +168,28 @@ fun DemoPlayerUi(
                         sx = sx, sy = sy
                     )
                     Spacer(modifier = Modifier.height(sy(16)))
-                    DemoFixedBlockBar(
-                        block = block,
-                        prevBlock = prevBlock,
-                        nextBlock = nextBlock,
-                        positionMs = currentVirtualMs,
-                        cursorMs = scrubCursorMs,
-                        liveEdgeVirtualMs = liveEdgeVirtualMs,
-                        antennaStartWallMs = antennaStartWallMs,
-                        showTimes = true,
-                        sx = sx, sy = sy
-                    )
+                    if (vodButtons) {
+                        // Player VOD: pasek TYLKO odtwarzanego materiału, czasy
+                        // elapsed (lewo) / pozostało (prawo) liczone od KURSORA
+                        DemoVodProgressBar(
+                            positionMs = currentVirtualMs,
+                            durationMs = liveEdgeVirtualMs,
+                            cursorMs = scrubCursorMs,
+                            sx = sx, sy = sy
+                        )
+                    } else {
+                        DemoFixedBlockBar(
+                            block = block,
+                            prevBlock = prevBlock,
+                            nextBlock = nextBlock,
+                            positionMs = currentVirtualMs,
+                            cursorMs = scrubCursorMs,
+                            liveEdgeVirtualMs = liveEdgeVirtualMs,
+                            antennaStartWallMs = antennaStartWallMs,
+                            showTimes = true,
+                            sx = sx, sy = sy
+                        )
+                    }
                     // Wariant ikonowy: w trybie przewijania (STRIP) chowamy ikonki playera,
                     // a pasek postępu obniżamy w miejsce kontrolek (sam pasek na dole).
                     // Wariant tekstowy: pasek + rząd przycisków jak dotąd.
@@ -211,17 +222,27 @@ fun DemoPlayerUi(
                         sx = sx, sy = sy
                     )
                     Spacer(modifier = Modifier.height(sy(18)))
-                    DemoFixedBlockBar(
-                        block = block,
-                        prevBlock = prevBlock,
-                        nextBlock = nextBlock,
-                        positionMs = currentVirtualMs,
-                        cursorMs = null,
-                        liveEdgeVirtualMs = liveEdgeVirtualMs,
-                        antennaStartWallMs = antennaStartWallMs,
-                        showTimes = true,   // poziom kontrolek: ta sama linia czasu (kropki + czasy pod linią)
-                        sx = sx, sy = sy
-                    )
+                    if (vodButtons) {
+                        // Player VOD: sam materiał, elapsed/pozostało
+                        DemoVodProgressBar(
+                            positionMs = currentVirtualMs,
+                            durationMs = liveEdgeVirtualMs,
+                            cursorMs = null,
+                            sx = sx, sy = sy
+                        )
+                    } else {
+                        DemoFixedBlockBar(
+                            block = block,
+                            prevBlock = prevBlock,
+                            nextBlock = nextBlock,
+                            positionMs = currentVirtualMs,
+                            cursorMs = null,
+                            liveEdgeVirtualMs = liveEdgeVirtualMs,
+                            antennaStartWallMs = antennaStartWallMs,
+                            showTimes = true,   // poziom kontrolek: ta sama linia czasu (kropki + czasy pod linią)
+                            sx = sx, sy = sy
+                        )
+                    }
                     Spacer(modifier = Modifier.height(sy(24)))
                     Box(modifier = Modifier.padding(start = sx(MAIN_X))) {
                         if (figmaButtons) PlayerButtonsRowFigma(isPaused, buttonsFocusIndex, isAtLiveEdge, vodButtons, sx, sy)
@@ -814,6 +835,86 @@ private fun FigmaControlItem(
                     .align(Alignment.TopCenter)
                     .padding(top = sy(116))
                     .wrapContentWidth(unbounded = true)
+            )
+        }
+    }
+}
+
+
+/**
+ * Pasek postępu playera VOD (zwiastun): TYLKO segment odtwarzanego materiału
+ * (bez poprzedniego/następnego), pod linią czasy: po lewej ile MINĘŁO,
+ * po prawej ile ZOSTAŁO. Podczas przewijania (cursorMs != null) czasy
+ * liczone od kursora, a na linii stoi biała kropka kursora.
+ */
+@Composable
+internal fun DemoVodProgressBar(
+    positionMs: Long,
+    durationMs: Long,
+    cursorMs: Long?,
+    sx: (Int) -> Dp,
+    sy: (Int) -> Dp
+) {
+    val dur = durationMs.coerceAtLeast(1L)
+    val refMs = (cursorMs ?: positionMs).coerceIn(0L, dur)
+    fun fmt(ms: Long): String {
+        val totalSec = (ms / 1000).coerceAtLeast(0L)
+        val m = totalSec / 60
+        val sec = totalSec % 60
+        return "%d:%02d".format(m, sec)
+    }
+    val barW = 1230
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Box(modifier = Modifier.width(sx(barW)).height(sy(16))) {
+            // Tło segmentu materiału
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .width(sx(barW))
+                    .height(sy(8))
+                    .clip(RoundedCornerShape(sy(4)))
+                    .background(Color(0x66EEEEEE))
+            )
+            // Wypełnienie do pozycji odtwarzania
+            val fillW = ((positionMs.coerceIn(0L, dur).toFloat() / dur) * barW).toInt()
+            if (fillW > 0) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .width(sx(fillW))
+                        .height(sy(8))
+                        .clip(RoundedCornerShape(sy(4)))
+                        .background(Color(0xFFEEEEEE))
+                )
+            }
+            // Kropka kursora przewijania
+            if (cursorMs != null) {
+                val cx = ((cursorMs.coerceIn(0L, dur).toFloat() / dur) * barW).toInt()
+                Box(
+                    modifier = Modifier
+                        .offset(x = sx(cx) - sy(8), y = sy(0))
+                        .size(sy(16))
+                        .background(Color(0xFFEEEEEE), CircleShape)
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(sy(6)))
+        Row(modifier = Modifier.width(sx(barW))) {
+            Text(
+                text = fmt(refMs),
+                color = if (cursorMs != null) AQUA else TEXT_PRIMARY,
+                fontSize = demoSp(20, sy),
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.weight(1f))
+            Text(
+                text = "-" + fmt(dur - refMs),
+                color = Color(0x99EEEEEE),
+                fontSize = demoSp(20, sy),
+                fontWeight = FontWeight.Medium
             )
         }
     }
