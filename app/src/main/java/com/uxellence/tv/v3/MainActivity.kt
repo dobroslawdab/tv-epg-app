@@ -1498,9 +1498,14 @@ fun TvRoot(
                 val scaleY = demoConfig.screenHeightDp / 1080f
                 fun sx(px: Int) = (px * scaleX).dp
                 fun sy(px: Int) = (px * scaleY).dp
+                // Player pojedynczego zwiastuna (bez poprzedni/następny materiał):
+                // Jurassic World Odrodzenie — trailer zremuxowany z DASH (redcdn)
+                // do progressive MP4 na Supabase Storage (bucket trailers).
+                // Przewijanie = STOPKLATKA + przegląd klatek (VodPlayerScreen
+                // pauzuje wideo przy wejściu w seek).
                 com.uxellence.tv.v3.vodplayer.VodPlayerScreen(
-                    streamUrl = "https://archive.org/download/Sintel/sintel-2048-stereo_512kb.mp4",
-                    title = "Demo: VOD + miniaturki (Sintel)",
+                    streamUrl = "https://kexrkaqxoadxugnnbnjh.supabase.co/storage/v1/object/public/trailers/jurassic_world_odrodzenie_trailer.mp4",
+                    title = "Jurassic World: Odrodzenie — zwiastun",
                     onBackPressed = { currentScreen = NavigationScreen.HOME },
                     sx = ::sx,
                     sy = ::sy,
