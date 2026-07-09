@@ -93,6 +93,8 @@ fun DemoPlayerUi(
     blockTitleFor: ((Long) -> String?)? = null,  // tytuł materiału dla pozycji wirtualnej (taśma)
     // Klawisz "8": kafelek "Przechodzisz do…" zamiast tytułów nad taśmą
     scrubNextTile: Boolean = false,
+    // Player VOD (zwiastun): kontrolki bez LIVE i REC — [pauza, od początku, napisy]
+    vodButtons: Boolean = false,
     blockMetaFor: ((Long) -> String?)? = null,
     sx: (Int) -> Dp,
     sy: (Int) -> Dp
@@ -183,7 +185,7 @@ fun DemoPlayerUi(
                     if (!figmaButtons) {
                         Spacer(modifier = Modifier.height(sy(20)))
                         Box(modifier = Modifier.padding(start = sx(MAIN_X))) {
-                            PlayerButtonsRow(isPaused, buttonsFocusIndex, isAtLiveEdge, sx, sy)
+                            PlayerButtonsRow(isPaused, buttonsFocusIndex, isAtLiveEdge, vodButtons, sx, sy)
                         }
                     }
                 }
@@ -222,8 +224,8 @@ fun DemoPlayerUi(
                     )
                     Spacer(modifier = Modifier.height(sy(24)))
                     Box(modifier = Modifier.padding(start = sx(MAIN_X))) {
-                        if (figmaButtons) PlayerButtonsRowFigma(isPaused, buttonsFocusIndex, isAtLiveEdge, sx, sy)
-                        else PlayerButtonsRow(isPaused, buttonsFocusIndex, isAtLiveEdge, sx, sy)
+                        if (figmaButtons) PlayerButtonsRowFigma(isPaused, buttonsFocusIndex, isAtLiveEdge, vodButtons, sx, sy)
+                        else PlayerButtonsRow(isPaused, buttonsFocusIndex, isAtLiveEdge, vodButtons, sx, sy)
                     }
                     Spacer(modifier = Modifier.height(sy(28)))
                     // Opis: ramka zawsze zajmuje miejsce (transparentna gdy bez fokusu),
@@ -550,12 +552,20 @@ private fun PlayerButtonsRow(
     isPaused: Boolean,
     focusedIndex: Int,
     isAtLiveEdge: Boolean,
+    vodButtons: Boolean,
     sx: (Int) -> Dp,
     sy: (Int) -> Dp
 ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         PlayerButton(if (isPaused) "▶  Wznów" else "⏸  Zatrzymaj", focusedIndex == 0, sx, sy)
         Spacer(modifier = Modifier.width(sx(16)))
+        if (vodButtons) {
+            // Player VOD (zwiastun): bez LIVE i bez Nagraj
+            PlayerButton("↺  Zacznij od początku", focusedIndex == 1, sx, sy)
+            Spacer(modifier = Modifier.width(sx(16)))
+            PlayerButton("⚙  Napisy, dźwięk, jakość", focusedIndex == 2, sx, sy)
+            return
+        }
         if (isAtLiveEdge) {
             // Status, nie przycisk — fokus go omija
             Row(
@@ -742,17 +752,24 @@ private fun PlayerButtonsRowFigma(
     isPaused: Boolean,
     focusedIndex: Int,
     isAtLiveEdge: Boolean,
+    vodButtons: Boolean,
     sx: (Int) -> Dp,
     sy: (Int) -> Dp
 ) {
     Row(verticalAlignment = Alignment.Top) {
         FigmaControlItem(R.drawable.demo_ic_pause, if (isPaused) "Wznów" else "Zatrzymaj", focusedIndex == 0, sx, sy)
-        // Na live edge: sama ikonka LIVE bez podpisu "Oglądasz live", niefokusowalna
-        // (w wariancie ikonowym ikona wystarcza za status)
-        FigmaControlItem(R.drawable.demo_ic_live, "Wróć do live", !isAtLiveEdge && focusedIndex == 1, sx, sy)
-        FigmaControlItem(R.drawable.demo_ic_startover, "Zacznij od początku", focusedIndex == 2, sx, sy)
-        FigmaControlItem(R.drawable.demo_ic_rec, "Nagraj", focusedIndex == 3, sx, sy)
-        FigmaControlItem(R.drawable.demo_ic_settings, "Napisy, dźwięk, jakość", focusedIndex == 4, sx, sy)
+        if (vodButtons) {
+            // Player VOD (zwiastun): bez LIVE i bez Nagraj
+            FigmaControlItem(R.drawable.demo_ic_startover, "Zacznij od początku", focusedIndex == 1, sx, sy)
+            FigmaControlItem(R.drawable.demo_ic_settings, "Napisy, dźwięk, jakość", focusedIndex == 2, sx, sy)
+        } else {
+            // Na live edge: sama ikonka LIVE bez podpisu "Oglądasz live", niefokusowalna
+            // (w wariancie ikonowym ikona wystarcza za status)
+            FigmaControlItem(R.drawable.demo_ic_live, "Wróć do live", !isAtLiveEdge && focusedIndex == 1, sx, sy)
+            FigmaControlItem(R.drawable.demo_ic_startover, "Zacznij od początku", focusedIndex == 2, sx, sy)
+            FigmaControlItem(R.drawable.demo_ic_rec, "Nagraj", focusedIndex == 3, sx, sy)
+            FigmaControlItem(R.drawable.demo_ic_settings, "Napisy, dźwięk, jakość", focusedIndex == 4, sx, sy)
+        }
     }
 }
 

@@ -7,6 +7,12 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.zIndex
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -193,6 +199,8 @@ fun DemoVodPlayerScreen(
 
     fun handleKey(keyCode: Int): Boolean {
         val p = player ?: return false
+        // Detal (MovieDetailScreen) ma własny fokus i klawisze — nie przechwytuj
+        if (layer == DemoLayer.PLAYER_UI && playerZone == PlayerZone.DETAIL) return false
         interactionAt = System.currentTimeMillis()
         if (keyCode == android.view.KeyEvent.KEYCODE_3) {
             val on = DemoPlayerPrefs.toggle(context)
@@ -209,7 +217,7 @@ fun DemoVodPlayerScreen(
             else -> when (playerZone) {
                 PlayerZone.BUTTONS -> when (keyCode) {
                     android.view.KeyEvent.KEYCODE_DPAD_LEFT -> { buttonsFocus = (buttonsFocus - 1).coerceAtLeast(0); true }
-                    android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> { buttonsFocus = (buttonsFocus + 1).coerceAtMost(4); true }
+                    android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> { buttonsFocus = (buttonsFocus + 1).coerceAtMost(2); true }
                     android.view.KeyEvent.KEYCODE_DPAD_UP -> { openStrip(); true }
                     android.view.KeyEvent.KEYCODE_DPAD_DOWN -> { playerZone = PlayerZone.SNIPPET; true }
                     android.view.KeyEvent.KEYCODE_DPAD_CENTER, android.view.KeyEvent.KEYCODE_ENTER -> {
@@ -218,16 +226,21 @@ fun DemoVodPlayerScreen(
                                 if (p.isPlaying) { p.pause(); isPaused = true }
                                 else { p.play(); isPaused = false }
                             }
-                            2 -> {  // Zacznij od początku
+                            1 -> {  // Zacznij od początku
                                 p.seekTo(0); p.play(); isPaused = false
                             }
-                            else -> { /* live/REC/Napisy — atrapy w demie VOD */ }
+                            else -> { /* Napisy — atrapa w demie VOD */ }
                         }
                         true
                     }
                     else -> false
                 }
                 PlayerZone.STRIP -> when (keyCode) {
+                    android.view.KeyEvent.KEYCODE_DPAD_DOWN -> {
+                        // Z miniaturek W DÓŁ na player: wznowienie od stopklatki
+                        p.play(); isPaused = false
+                        openButtons(); true
+                    }
                     android.view.KeyEvent.KEYCODE_DPAD_LEFT -> {
                         scrubCursorMs = (scrubCursorMs - SEEK_STEP_MS).coerceAtLeast(0L)
                         updateFilmstrip(scrubCursorMs); true
@@ -246,6 +259,11 @@ fun DemoVodPlayerScreen(
                 }
                 PlayerZone.SNIPPET -> when (keyCode) {
                     android.view.KeyEvent.KEYCODE_DPAD_UP -> { playerZone = PlayerZone.BUTTONS; true }
+                    android.view.KeyEvent.KEYCODE_DPAD_CENTER,
+                    android.view.KeyEvent.KEYCODE_ENTER -> {
+                        // OK na tekście → DETAL (jak w demo live, z PIP)
+                        playerZone = PlayerZone.DETAIL; true
+                    }
                     else -> keyCode == android.view.KeyEvent.KEYCODE_DPAD_DOWN
                 }
                 else -> false
@@ -259,6 +277,10 @@ fun DemoVodPlayerScreen(
     }
     BackHandler(enabled = true) {
         when {
+            layer == DemoLayer.PLAYER_UI && playerZone == PlayerZone.DETAIL -> {
+                playerZone = PlayerZone.SNIPPET
+                interactionAt = System.currentTimeMillis()
+            }
             layer == DemoLayer.PLAYER_UI && playerZone == PlayerZone.STRIP -> {
                 // BACK z taśmy: wznowienie od miejsca stopklatki, kontrolki
                 player?.play(); isPaused = false
@@ -285,15 +307,24 @@ fun DemoVodPlayerScreen(
             }
             .focusable()
     ) {
-        // Wideo (TextureView jak w demo live)
-        player?.let { p ->
-            AndroidView(
-                factory = { ctx ->
-                    android.view.TextureView(ctx).also { p.setVideoTextureView(it) }
-                },
-                update = { tv -> p.setVideoTextureView(tv) },
-                modifier = Modifier.fillMaxSize()
-            )
+        // Jeden widok wideo renderowany z dwóch pozycji (movableContentOf,
+        // jak demo live): fullscreen POD warstwami albo PIP NAD detalem
+        val isDetail = layer == DemoLayer.PLAYER_UI && playerZone == PlayerZone.DETAIL
+        val videoLayer = remember {
+            movableContentOf { modifier: Modifier ->
+                player?.let { p ->
+                    AndroidView(
+                        factory = { ctx ->
+                            android.view.TextureView(ctx).also { p.setVideoTextureView(it) }
+                        },
+                        update = { tv -> p.setVideoTextureView(tv) },
+                        modifier = modifier
+                    )
+                }
+            }
+        }
+        if (!isDetail) {
+            videoLayer(Modifier.fillMaxSize())
         }
 
         // Plansza pobierania
@@ -329,7 +360,7 @@ fun DemoVodPlayerScreen(
             description = description
         )
         DemoPlayerUi(
-            isVisible = layer == DemoLayer.PLAYER_UI,
+            isVisible = layer == DemoLayer.PLAYER_UI && playerZone != PlayerZone.DETAIL,
             zone = playerZone,
             block = block,
             prevBlock = null,       // pojedynczy materiał — bez sąsiadów
@@ -345,12 +376,60 @@ fun DemoVodPlayerScreen(
             isAtLiveEdge = true,    // VOD: bez przycisku "Wróć do live"
             buttonsFocusIndex = if (playerZone == PlayerZone.BUTTONS) buttonsFocus else -1,
             figmaButtons = useFigmaButtons,
+            vodButtons = true,
             frames = filmstripFrames,
             blockTitleFor = { title },
             scrubNextTile = DemoPlayerPrefs.scrubNextTile.value,
             blockMetaFor = { listOf(genre, year).filter { it.isNotBlank() }.joinToString(", ") },
             sx = sx, sy = sy
         )
+
+        if (isDetail) {
+            // PRAWDZIWY MovieDetailScreen jak w demo live + PIP z żywym wideo
+            Box(modifier = Modifier.fillMaxSize().zIndex(14f)) {
+                com.uxellence.tv.v3.moviedetail.MovieDetailScreen(
+                    item = com.uxellence.tv.v3.VodSlideData(
+                        title = title,
+                        genre = genre,
+                        duration = "${(durationMs / 60_000L).coerceAtLeast(1)} min",
+                        year = year,
+                        country = "",
+                        ageRating = "12 lat",
+                        description = description,
+                        price = "",
+                        backgroundUrl = "",
+                        posterUrl = ""
+                    ),
+                    onBackPressed = { /* BACK obsługuje BackHandler */ },
+                    onWatchClicked = {
+                        // Oglądaj = zwiastun od początku, powrót na kontrolki
+                        player?.seekTo(0); player?.play(); isPaused = false
+                        openButtons()
+                    },
+                    wideoHeaderSlot = {
+                        DemoDetailInfoLine(
+                            timeRange = "Zwiastun • " +
+                                "${(durationMs / 60_000L).coerceAtLeast(1)} min",
+                            isLive = false,
+                            canStartOver = true,
+                            sx = sx, sy = sy
+                        )
+                    }
+                )
+                // PIP: to samo wideo w prawym dolnym rogu (Figma Detail 5507:5100)
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(end = sx(32), bottom = sy(32))
+                        .width(sx(572))
+                        .height(sy(336))
+                        .zIndex(15f)
+                        .clip(RoundedCornerShape(sx(32)))
+                ) {
+                    videoLayer(Modifier.fillMaxSize())
+                }
+            }
+        }
 
         DemoInfoToast(
             text = demoToast,
