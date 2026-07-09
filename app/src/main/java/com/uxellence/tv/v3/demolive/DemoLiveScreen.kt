@@ -481,8 +481,6 @@ fun DemoLiveScreen(
     // oraz timestamp ostatniej próby przewinięcia do przodu na kanale BACKWARD_ONLY
     // (wyzwala zanikający komunikat „Przewijanie do przodu nie jest dostępne")
     var scrubStartVirtualMs by remember { mutableLongStateOf(0L) }
-    var forwardBlockedAt by remember { mutableLongStateOf(0L) }
-    var forwardBlockedMsgVisible by remember { mutableStateOf(false) }
     // DEMO: override polityki przewijania DEMO TV (klawisz "2") — by pokazać
     // blokady na żywym wideo (jedyny kanał z materiałem). null = klasyfikacja auto
     var demoPolicyOverride by remember { mutableStateOf<DemoSeekPolicy?>(null) }
@@ -637,8 +635,9 @@ fun DemoLiveScreen(
     }
 
     fun showForwardBlocked() {
-        forwardBlockedAt = System.currentTimeMillis()
-        forwardBlockedMsgVisible = true
+        // Ten sam pasek powiadomień (995×104 na y=841) i forma co komunikat
+        // o niedostępnym przewijaniu — zamiast osobnego banneru na górze
+        demoToast = "Przewijanie tego programu do przodu nie jest dostępne"
         playerInteractionAt = System.currentTimeMillis()
         Log.i(TAG, "Forward seek blocked (policy=${tunedSeekPolicy()})")
     }
@@ -1206,7 +1205,6 @@ fun DemoLiveScreen(
                             scrubCursorMs = (scrubCursorMs + getSeekStep() * dir)
                                 .coerceIn(activeCtl().dvrStartMs(), activeCtl().virtualNow())
                             updateFilmstrip(scrubCursorMs)
-                            forwardBlockedMsgVisible = false
                         }
                     }
                     PlayerZone.SNIPPET, PlayerZone.DETAIL -> { /* brak nawigacji poziomej */ }
@@ -1242,7 +1240,6 @@ fun DemoLiveScreen(
                             activeCtl().seekToVirtual(scrubCursorMs)
                             isPaused = false
                             rapidPressCount = 0
-                            forwardBlockedMsgVisible = false
                             playerZone = PlayerZone.BUTTONS
                             playerButtonsFocus = 0
                             Log.i(TAG, "STRIP seek → ${scrubCursorMs}ms → BUTTONS")
@@ -1404,7 +1401,6 @@ fun DemoLiveScreen(
                             controller.seekToLiveEdge()
                             isPaused = false
                         }
-                        forwardBlockedMsgVisible = false
                         playerZone = PlayerZone.BUTTONS
                         playerButtonsFocus = 0
                     }
@@ -1613,14 +1609,6 @@ fun DemoLiveScreen(
     // gaśnie i nie wraca do poprzedniej pozycji). Wyjście ze STRIP tylko akcją
     // użytkownika: OK (skok), WSTECZ (powrót do oglądanej treści) lub dalsze
     // przewijanie. Brak auto-exit po czasie.
-
-    // Komunikat „Przewijanie do przodu nie jest dostępne" znika po ~3 s
-    LaunchedEffect(forwardBlockedAt) {
-        if (forwardBlockedMsgVisible) {
-            delay(3_000)
-            forwardBlockedMsgVisible = false
-        }
-    }
 
     // ============ UI ============
     // Wspólny handler klawiszy — używany przez Compose root Box ORAZ przez
@@ -1888,7 +1876,6 @@ fun DemoLiveScreen(
             isPaused = isPaused,
             buttonsFocusIndex = if (playerZone == PlayerZone.BUTTONS) playerButtonsFocus else -1,
             figmaButtons = useFigmaButtons,
-            forwardBlockedMsgVisible = forwardBlockedMsgVisible,
             frames = filmstripFrames,
             blockTitleFor = { v -> blockForTunedChannel(v)?.title },
             scrubNextTile = DemoPlayerPrefs.scrubNextTile.value,

@@ -89,7 +89,6 @@ fun DemoPlayerUi(
     isAtLiveEdge: Boolean,      // na live: status "Oglądasz live" zamiast "Wróć do live"
     buttonsFocusIndex: Int,     // 0..4; -1 gdy fokus poza przyciskami
     figmaButtons: Boolean = false,  // klawisz "3": ikonowy pasek wg designu Figma
-    forwardBlockedMsgVisible: Boolean = false,  // banner blokady przewijania do przodu
     frames: List<Pair<Long, Bitmap?>>,
     blockTitleFor: ((Long) -> String?)? = null,  // tytuł materiału dla pozycji wirtualnej (taśma)
     // Klawisz "8": kafelek "Przechodzisz do…" zamiast tytułów nad taśmą
@@ -133,25 +132,6 @@ fun DemoPlayerUi(
                     )
             )
 
-            // Komunikat blokady przewijania do przodu (TVN/Disney) — wg wytycznych
-            // zachowanie nie zmienia się, tylko informujemy że forward jest niedostępny
-            if (forwardBlockedMsgVisible) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .padding(top = sy(120))
-                        .clip(RoundedCornerShape(sx(8)))
-                        .background(Color(0xCC1A0E2E))
-                        .padding(horizontal = sx(28), vertical = sy(14))
-                ) {
-                    Text(
-                        text = "Przewijanie tego programu do przodu nie jest dostępne",
-                        color = TEXT_PRIMARY,
-                        fontSize = demoSp(22, sy),
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-            }
 
             // Zegar ścienny (prawy górny róg, jak w designie)
             Text(
