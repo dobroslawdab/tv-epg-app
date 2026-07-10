@@ -235,8 +235,7 @@ internal fun DemoRecordingToast(
                 )
                 Spacer(modifier = Modifier.height(sy(16)))
                 Text(
-                    text = "Żeby znaleźć to nagranie, wciśnij na pilocie ⌂ i przejdź " +
-                        "do sekcji Nagrania na ekranie głównym.",
+                    text = "Nagranie znajdziesz w zakładce Moje w menu górnym.",
                     color = WHITE60,
                     fontSize = demoSp(20, sy),
                     lineHeight = demoSp(28, sy)
