@@ -83,6 +83,19 @@ object VodDataCache {
     // captured Compose focus while it was visible.
     val kinoPlayRefocusTrigger: MutableState<Int> = mutableStateOf(0)
 
+    // Skrót "Oglądaj telewizję" (Start/Odkrywaj) otwiera Demo: kanał live —
+    // trigger obserwowany w MainActivity (nawigacja między ekranami)
+    val openDemoLiveTrigger: MutableState<Int> = mutableStateOf(0)
+
+    // true = demo live otwarte ze skrótu Start/Odkrywaj → BACK wraca do
+    // TopMenu; false = otwarte z menu deweloperskiego → BACK wraca do HOME
+    var demoLiveOpenedFromShortcut: Boolean = false
+
+    // Sekcja TopMenu, z której otwarto ChannelGrid skrótem (np. "ODKRYWAJ") —
+    // czytana jednorazowo przez MainActivity przy nawigacji, żeby BACK wracał
+    // na właściwą zakładkę (callback grid-u nie ma parametru sekcji)
+    var pendingChannelGridSourceSection: String? = null
+
     // Same mechanism for the MOJE tab — used when MovieDetail closes and user originally
     // navigated to MovieDetail from MOJE→Wypożyczone (poster click). MojeChannelsScreen's
     // outer Box watches this and re-grabs keyboard focus; without it, BACK from MovieDetail

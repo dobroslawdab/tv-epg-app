@@ -177,6 +177,14 @@ fun ChannelGridScreen(
             .fillMaxSize()
             .background(Color(0xFF48227C))  // Same as TopMenuScreen2 - solid purple
             .onPreviewKeyEvent { event ->
+                // BACK KeyUp: konsumuj zawsze — akcja idzie na KeyDown, a KeyUp
+                // po przełączeniu ekranu trafiałby do nowej kompozycji i domyślny
+                // handler aktywności zamykałby całą aplikację
+                if ((event.key == Key.Back || event.key == Key.Escape) &&
+                    event.type == KeyEventType.KeyUp
+                ) {
+                    return@onPreviewKeyEvent true
+                }
                 if (event.type == KeyEventType.KeyDown) {
                     when (event.key) {
                         Key.Back, Key.Escape -> {
@@ -455,6 +463,14 @@ private fun ChannelListCard(
                 if (focusState.isFocused) onFocusChange()
             }
             .onPreviewKeyEvent { event ->
+                // BACK KeyUp: konsumuj zawsze — akcja idzie na KeyDown, a KeyUp
+                // po przełączeniu ekranu trafiałby do nowej kompozycji i domyślny
+                // handler aktywności zamykałby całą aplikację
+                if ((event.key == Key.Back || event.key == Key.Escape) &&
+                    event.type == KeyEventType.KeyUp
+                ) {
+                    return@onPreviewKeyEvent true
+                }
                 if (event.type == KeyEventType.KeyDown &&
                     (event.key == Key.Enter || event.key == Key.DirectionCenter)) {
                     onClick()

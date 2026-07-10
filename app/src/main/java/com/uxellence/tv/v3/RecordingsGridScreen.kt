@@ -221,6 +221,14 @@ fun RecordingsGridScreen(
             .fillMaxSize()
             .background(Color(0xFF281443))  // Same as start pages
             .onPreviewKeyEvent { event ->
+                // BACK KeyUp: konsumuj zawsze — akcja idzie na KeyDown, a KeyUp
+                // po przełączeniu ekranu trafiałby do nowej kompozycji i domyślny
+                // handler aktywności zamykałby całą aplikację
+                if ((event.key == Key.Back || event.key == Key.Escape) &&
+                    event.type == KeyEventType.KeyUp
+                ) {
+                    return@onPreviewKeyEvent true
+                }
                 if (event.type == KeyEventType.KeyDown) {
                     // Handle dropdown navigation if expanded
                     if (isSortDropdownExpanded || isFilterDropdownExpanded) {
@@ -746,6 +754,14 @@ private fun FigmaDropdownChip(
             .focusRequester(focusRequester)
             .onFocusChanged { if (it.isFocused) onFocusChange() }
             .onPreviewKeyEvent { event ->
+                // BACK KeyUp: konsumuj zawsze — akcja idzie na KeyDown, a KeyUp
+                // po przełączeniu ekranu trafiałby do nowej kompozycji i domyślny
+                // handler aktywności zamykałby całą aplikację
+                if ((event.key == Key.Back || event.key == Key.Escape) &&
+                    event.type == KeyEventType.KeyUp
+                ) {
+                    return@onPreviewKeyEvent true
+                }
                 if (event.type == KeyEventType.KeyDown &&
                     (event.key == Key.Enter || event.key == Key.DirectionCenter)
                 ) {
@@ -826,6 +842,14 @@ private fun FullScreenPicker(
                 )
             )
             .onPreviewKeyEvent { event ->
+                // BACK KeyUp: konsumuj zawsze — akcja idzie na KeyDown, a KeyUp
+                // po przełączeniu ekranu trafiałby do nowej kompozycji i domyślny
+                // handler aktywności zamykałby całą aplikację
+                if ((event.key == Key.Back || event.key == Key.Escape) &&
+                    event.type == KeyEventType.KeyUp
+                ) {
+                    return@onPreviewKeyEvent true
+                }
                 if (event.type == KeyEventType.KeyDown) {
                     when (event.key) {
                         Key.DirectionUp -> {
@@ -922,6 +946,14 @@ private fun PillOption(
             .focusRequester(focusRequester)
             .onFocusChanged { if (it.isFocused) onFocusChange() }
             .onPreviewKeyEvent { event ->
+                // BACK KeyUp: konsumuj zawsze — akcja idzie na KeyDown, a KeyUp
+                // po przełączeniu ekranu trafiałby do nowej kompozycji i domyślny
+                // handler aktywności zamykałby całą aplikację
+                if ((event.key == Key.Back || event.key == Key.Escape) &&
+                    event.type == KeyEventType.KeyUp
+                ) {
+                    return@onPreviewKeyEvent true
+                }
                 if (event.type == KeyEventType.KeyDown &&
                     (event.key == Key.Enter || event.key == Key.DirectionCenter)
                 ) {
@@ -1042,6 +1074,14 @@ private fun FigmaButton(
             .focusRequester(focusRequester)
             .onFocusChanged { if (it.isFocused) onFocusChange() }
             .onPreviewKeyEvent { event ->
+                // BACK KeyUp: konsumuj zawsze — akcja idzie na KeyDown, a KeyUp
+                // po przełączeniu ekranu trafiałby do nowej kompozycji i domyślny
+                // handler aktywności zamykałby całą aplikację
+                if ((event.key == Key.Back || event.key == Key.Escape) &&
+                    event.type == KeyEventType.KeyUp
+                ) {
+                    return@onPreviewKeyEvent true
+                }
                 if (event.type == KeyEventType.KeyDown &&
                     (event.key == Key.Enter || event.key == Key.DirectionCenter)
                 ) {

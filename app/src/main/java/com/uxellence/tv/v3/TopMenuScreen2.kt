@@ -4074,6 +4074,7 @@ private fun FullPageContent(
                         onUserNavigated = onUserNavigated,
                         onNavigateToChannelGrid = onNavigateToChannelGrid,
                         onNavigateToVodGrid = onNavigateToVodGrid,
+                        onNavigateToRecordingsGrid = onNavigateToRecordingsGrid,
                         onNavigateToEpgDay = onNavigateToEpgDay,
                         onNavigateToOlympics = onNavigateToOlympics,
                         appIconsData = emptyMap(),
@@ -4943,6 +4944,7 @@ private fun OdkrywajScreenContent(
     onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> },
     onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> },
     onNavigateToOlympics: (content: List<VodContent>, sourceSection: String) -> Unit = { _, _ -> },
     appIconsData: Map<String, List<TvChannel>> = emptyMap(),
@@ -4976,6 +4978,7 @@ private fun OdkrywajScreenContent(
         onNavigateToChannelGrid = onNavigateToChannelGrid,
         onNavigateToVodGrid = onNavigateToVodGrid,
         onNavigateToKinoGrid = onNavigateToKinoGrid,
+        onNavigateToRecordingsGrid = onNavigateToRecordingsGrid,
         onNavigateToEpgDay = onNavigateToEpgDay,
         onNavigateToOlympics = onNavigateToOlympics,
         appIconsData = appIconsData,
@@ -5059,6 +5062,7 @@ private fun OdkrywajChannelsScreen(
     onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> },
     onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> },
     onNavigateToOlympics: (content: List<VodContent>, sourceSection: String) -> Unit = { _, _ -> },
     appIconsData: Map<String, List<TvChannel>> = emptyMap(),
@@ -5281,7 +5285,7 @@ private fun OdkrywajChannelsScreen(
             ShortcutItem("3", "Do\nobejrzenia", ShortcutIcon.VectorIcon(R.drawable.ic_do_obejrzenia)),
             ShortcutItem("4", "Netflix", ShortcutIcon.VectorIcon(R.drawable.netflix_logo)),
             ShortcutItem("5", "Disney+", ShortcutIcon.VectorIcon(R.drawable.disney_plus_logo)),
-            ShortcutItem("6", "Igrzyska\nZimowe", ShortcutIcon.VectorIcon(R.drawable.ic_olympics_2026))
+            ShortcutItem("6", "Mistrzostwa\nFIFA 2026", ShortcutIcon.VectorIcon(R.drawable.ic_fifa_2026))
         )
     }
 
@@ -5480,6 +5484,7 @@ private fun OdkrywajChannelsScreen(
             onNavigateToChannelGrid = onNavigateToChannelGrid,
             onNavigateToVodGrid = onNavigateToVodGrid,
             onNavigateToKinoGrid = onNavigateToKinoGrid,
+            onNavigateToRecordingsGrid = onNavigateToRecordingsGrid,
             onNavigateToEpgDay = onNavigateToEpgDay,
             onNavigateToOlympics = { onNavigateToOlympics(olympicsContent, "ODKRYWAJ") },
             appIconsData = appIconsData,
@@ -7945,6 +7950,8 @@ private fun ShortcutCardV4(
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     onFocusChange: (Boolean) -> Unit
 ) {
+    // Context do uruchamiania zewnętrznych aplikacji (Netflix/Disney+)
+    val shortcutContext = androidx.compose.ui.platform.LocalContext.current
     // Figma specs: 222x244px card
     val cardWidth = sx(222)
     val cardHeight = sy(244)
@@ -7976,10 +7983,10 @@ private fun ShortcutCardV4(
                             android.util.Log.d("SHORTCUT_V4", "Nawigacja do EpgDay - Program telewizyjny")
                             onNavigateToEpgDay("", null, 0, "TELEWIZJA")
                         }
-                        // ODKRYWAJ: Oglądaj telewizję -> EPG
+                        // ODKRYWAJ: Oglądaj telewizję -> DEMO: kanał live
                         plainTitle.contains("telewizję", ignoreCase = true) -> {
-                            android.util.Log.d("SHORTCUT_V4", "Nawigacja do EpgDay - Oglądaj telewizję")
-                            onNavigateToEpgDay("", null, 0, "ODKRYWAJ")
+                            android.util.Log.d("SHORTCUT_V4", "Nawigacja do Demo live - Oglądaj telewizję")
+                            VodDataCache.openDemoLiveTrigger.value++
                         }
                         // TELEWIZJA: Widok listy kanałów -> Lista kanałów
                         plainTitle.contains("Widok listy", ignoreCase = true) -> {
@@ -8008,6 +8015,8 @@ private fun ShortcutCardV4(
                         }
                         // Moja lista kanałów (navigate to channel grid)
                         plainTitle.contains("lista kanałów", ignoreCase = true) -> {
+                            // BACK z gridu ma wrócić na Start/Odkrywaj, nie na Telewizję
+                            VodDataCache.pendingChannelGridSourceSection = "ODKRYWAJ"
                             onNavigateToChannelGrid(
                                 "Moja lista kanałów",
                                 "Wszystkie",
@@ -8015,21 +8024,25 @@ private fun ShortcutCardV4(
                                 appIconsData["Moja lista kanałów"]
                             )
                         }
-                        // Do obejrzenia
+                        // Do obejrzenia — REALNA lista użytkownika (WatchlistManager),
+                        // ten sam zestaw co MOJE → Do obejrzenia
                         plainTitle.contains("obejrzenia", ignoreCase = true) -> {
                             val vodList = VodDataCache.getVodContentList()
-                            val randomFilms = vodList.shuffled().take(20)
-                            onNavigateToVodGrid("Do obejrzenia", randomFilms, "ODKRYWAJ")
+                            val watchlist = com.uxellence.tv.v3.watchlist.WatchlistManager
+                                .items.value
+                                .mapNotNull { t -> vodList.firstOrNull { it.title == t } }
+                            onNavigateToVodGrid("Do obejrzenia", watchlist, "ODKRYWAJ")
                         }
-                        // Netflix
+                        // Netflix — uruchom aplikację; brak → karta w sklepie Play
                         plainTitle.contains("Netflix", ignoreCase = true) -> {
-                            android.util.Log.d("SHORTCUT_V4", "Launching Netflix...")
+                            launchAppOrStore(shortcutContext, "com.netflix.ninja")
                         }
-                        // Disney+
+                        // Disney+ — uruchom aplikację; brak → karta w sklepie Play
                         plainTitle.contains("Disney", ignoreCase = true) -> {
-                            android.util.Log.d("SHORTCUT_V4", "Launching Disney+...")
+                            launchAppOrStore(shortcutContext, "com.disney.disneyplus")
                         }
-                        // Igrzyska Olimpijskie
+                        // Wydarzenie sportowe (Mistrzostwa FIFA 2026 / Igrzyska)
+                        plainTitle.contains("FIFA", ignoreCase = true) ||
                         plainTitle.contains("Igrzyska", ignoreCase = true) ||
                         plainTitle.contains("Olimpijskie", ignoreCase = true) ||
                         plainTitle.contains("Olimpiada", ignoreCase = true) ||
@@ -10556,6 +10569,12 @@ fun handleOdkrywajNavigation(
                 return false
             }
 
+            // Row 1 (Skróty) - delegate to ShortcutCardV4 (karta ma własny
+            // handler klików: demo live / nagrania / grid / aplikacje / FIFA)
+            if (focusedRowIndex == 1) {
+                return false
+            }
+
             // For content rows: find the focused item and navigate to VOD player
             val channelName = channels.getOrNull(focusedRowIndex) ?: return false
             val rowContent = gridContent[channelName] ?: return false
@@ -11850,6 +11869,7 @@ fun OdkrywajChannelRowsLayout(
     onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> },
     onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> },
     onNavigateToOlympics: () -> Unit = {},  // Navigate to Olympics page with pre-loaded content
     appIconsData: Map<String, List<TvChannel>> = emptyMap(),
@@ -11918,6 +11938,7 @@ fun OdkrywajChannelRowsLayout(
                     onNavigateToChannelGrid = onNavigateToChannelGrid,
                     onNavigateToVodGrid = onNavigateToVodGrid,
                     onNavigateToKinoGrid = onNavigateToKinoGrid,
+                    onNavigateToRecordingsGrid = onNavigateToRecordingsGrid,
                     onNavigateToEpgDay = onNavigateToEpgDay,
                     onNavigateToOlympics = onNavigateToOlympics,
                     appIconsData = appIconsData,
@@ -12052,6 +12073,7 @@ fun OdkrywajUnifiedChannelRow(
     onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
     onNavigateToVodGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
+    onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> },
     onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> },
     onNavigateToOlympics: () -> Unit = {},  // Navigate to Olympics page
     appIconsData: Map<String, List<TvChannel>> = emptyMap(),
@@ -12272,10 +12294,7 @@ fun OdkrywajUnifiedChannelRow(
                             onNavigateToChannelGrid = onNavigateToChannelGrid,
                             onNavigateToVodGrid = onNavigateToVodGrid,
                             onNavigateToKinoGrid = onNavigateToKinoGrid,
-                            onNavigateToRecordingsGrid = { title, section ->
-                                // Navigate to recordings - needs to be passed from parent
-                                android.util.Log.d("SHORTCUTS_V4", "Navigate to recordings: $title")
-                            },
+                            onNavigateToRecordingsGrid = onNavigateToRecordingsGrid,
                             onNavigateToEpgDay = onNavigateToEpgDay,
                             onNavigateToOlympics = onNavigateToOlympics,
                             appIconsData = appIconsData,
@@ -23287,3 +23306,39 @@ private fun handleAccountNavigation(
     }
 }
 
+
+
+/**
+ * Uruchom aplikację (leanback → zwykły launcher intent), a gdy nie jest
+ * zainstalowana — otwórz jej kartę w sklepie Play (fallback: przeglądarka).
+ */
+private fun launchAppOrStore(context: android.content.Context, packageName: String) {
+    val pm = context.packageManager
+    val launch = pm.getLeanbackLaunchIntentForPackage(packageName)
+        ?: pm.getLaunchIntentForPackage(packageName)
+    try {
+        if (launch != null) {
+            context.startActivity(launch)
+        } else {
+            context.startActivity(
+                android.content.Intent(
+                    android.content.Intent.ACTION_VIEW,
+                    android.net.Uri.parse("market://details?id=$packageName")
+                )
+            )
+        }
+    } catch (e: Exception) {
+        try {
+            context.startActivity(
+                android.content.Intent(
+                    android.content.Intent.ACTION_VIEW,
+                    android.net.Uri.parse("https://play.google.com/store/apps/details?id=$packageName")
+                )
+            )
+        } catch (e2: Exception) {
+            android.widget.Toast.makeText(
+                context, "Nie można otworzyć aplikacji ani sklepu", android.widget.Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+}

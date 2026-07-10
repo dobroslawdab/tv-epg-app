@@ -346,6 +346,24 @@ fun TvRoot(
     val context = LocalContext.current
     val repository = remember { EpgRepository.getInstance(context) }
     var currentScreen by remember { mutableStateOf(startScreen) }
+
+    // Fallback BACK (najniższy priorytet — zarejestrowany PRZED BackHandlerami
+    // ekranów): ekrany obsługują BACK na KeyDown w onPreviewKeyEvent; po
+    // przełączeniu ekranu zabłąkany KeyUp trafia w okno bez fokusu i domyślna
+    // obsługa aktywności zamykałaby całą makietę. Wyjście z apki = tylko HOME.
+    androidx.activity.compose.BackHandler(enabled = true) { }
+
+    // Skrót "Oglądaj telewizję" (Start/Odkrywaj) → Demo: kanał live
+    val demoLiveTrigger = VodDataCache.openDemoLiveTrigger.value
+    LaunchedEffect(demoLiveTrigger) {
+        if (demoLiveTrigger > 0) {
+            // Konsumuj trigger — singleton przeżywa zamknięcie aktywności
+            // i bez zerowania ponowny start apki wpadałby prosto w demo
+            VodDataCache.openDemoLiveTrigger.value = 0
+            VodDataCache.demoLiveOpenedFromShortcut = true
+            currentScreen = NavigationScreen.DEMO_LIVE
+        }
+    }
     var previousScreen by remember { mutableStateOf(NavigationScreen.HOME) }
     var selectedChannelName by remember { mutableStateOf<String?>(null) }
 
@@ -653,7 +671,9 @@ fun TvRoot(
                     },
                     onNavigateToChannelGrid = { title, category, filter, channelList ->
                         channelGridSourceScreen = NavigationScreen.TOP_MENU2
-                        channelGridSourceSection = savedTelewizjaSection ?: "TELEWIZJA"
+                        channelGridSourceSection = VodDataCache.pendingChannelGridSourceSection
+                            ?: savedTelewizjaSection ?: "TELEWIZJA"
+                        VodDataCache.pendingChannelGridSourceSection = null
                         channelGridTitle = title
                         channelGridCategory = category
                         channelGridFilter = filter
@@ -1487,7 +1507,12 @@ fun TvRoot(
                 fun sx(px: Int) = (px * scaleX).dp
                 fun sy(px: Int) = (px * scaleY).dp
                 com.uxellence.tv.v3.demolive.DemoLiveScreen(
-                    onBackPressed = { currentScreen = NavigationScreen.HOME },
+                    onBackPressed = {
+                        currentScreen = if (VodDataCache.demoLiveOpenedFromShortcut) {
+                            VodDataCache.demoLiveOpenedFromShortcut = false
+                            NavigationScreen.TOP_MENU2
+                        } else NavigationScreen.HOME
+                    },
                     sx = ::sx,
                     sy = ::sy
                 )

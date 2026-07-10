@@ -109,12 +109,15 @@ fun OlympicsEventScreen(
             .fillMaxSize()
             .background(BACKGROUND_COLOR)
             .onPreviewKeyEvent { event ->
+                // BACK: konsumuj OBIE fazy (Down wykonuje akcję, Up też musi być
+                // zjedzony) — po przełączeniu ekranu na KeyDown, KeyUp doleciałby
+                // do nowej kompozycji i domyślny handler zamknąłby aktywność
+                if (event.key == Key.Back || event.key == Key.Escape) {
+                    if (event.type == KeyEventType.KeyDown) onBackPressed()
+                    return@onPreviewKeyEvent true
+                }
                 if (event.type == KeyEventType.KeyDown) {
                     when (event.key) {
-                        Key.Back, Key.Escape -> {
-                            onBackPressed()
-                            true
-                        }
                         Key.DirectionUp -> {
                             if (focusedRow > 0) {
                                 focusedRow--
@@ -217,10 +220,10 @@ fun OlympicsEventScreen(
                         .fillMaxWidth()
                         .padding(bottom = sy(40))  // Space between header and first row of cards
                 ) {
-                    // Olympics 2026 Milano-Cortina logo
-                    AsyncImage(
-                        model = OLYMPICS_LOGO_URL,
-                        contentDescription = "Winter Olympics 2026 Milano-Cortina Logo",
+                    // Logo Mistrzostw Świata FIFA 2026 (lokalny asset)
+                    androidx.compose.foundation.Image(
+                        painter = androidx.compose.ui.res.painterResource(R.drawable.ic_fifa_2026),
+                        contentDescription = "FIFA World Cup 2026 Logo",
                         modifier = Modifier
                             .width(sx(LOGO_WIDTH))
                             .height(sy(LOGO_HEIGHT)),
@@ -229,9 +232,9 @@ fun OlympicsEventScreen(
 
                     Spacer(modifier = Modifier.height(sy(16)))
 
-                    // Title: "Igrzyska olimpijskie"
+                    // Title: "Mistrzostwa FIFA 2026"
                     Text(
-                        text = "Igrzyska olimpijskie",
+                        text = "Mistrzostwa FIFA 2026",
                         fontSize = (64 * scaleX).sp,
                         fontWeight = FontWeight.Medium,
                         color = TEXT_COLOR,
@@ -242,8 +245,8 @@ fun OlympicsEventScreen(
 
                     // Description
                     Text(
-                        text = "Zimowe Igrzyska Olimpijskie 2026 odbywają się w Milano-Cortina we Włoszech. " +
-                               "Znajdziesz tu wszystkie transmisje i relacje z najważniejszych wydarzeń sportowych.",
+                        text = "Mistrzostwa Świata FIFA 2026 odbywają się w Kanadzie, Meksyku i USA. " +
+                               "Znajdziesz tu wszystkie transmisje i relacje z najważniejszych meczów turnieju.",
                         fontSize = (28 * scaleX).sp,
                         fontWeight = FontWeight.Medium,
                         color = TEXT_COLOR,

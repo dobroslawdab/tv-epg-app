@@ -191,6 +191,10 @@ fun VodGridScreen(
     // Wywoływane gdy user kliknie "Szukaj w całym serwisie" w empty state.
     onGlobalSearch: (String) -> Unit = {}
 ) {
+    // Dispatcher-owy BACK: przy PUSTYM gridzie (np. pusta watchlista) nie ma
+    // fokusowalnych elementów, więc onPreviewKeyEvent nie dostaje klawiszy —
+    // bez tego handlera BACK nie miałby jak wyjść z ekranu
+    androidx.activity.compose.BackHandler(enabled = true) { onBackPressed() }
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
     val density = LocalDensity.current
@@ -339,6 +343,14 @@ fun VodGridScreen(
             .fillMaxSize()
             .background(Color(0xFF281443))
             .onPreviewKeyEvent { event ->
+                // BACK KeyUp: konsumuj zawsze — akcja idzie na KeyDown, a KeyUp
+                // po przełączeniu ekranu trafiałby do nowej kompozycji i domyślny
+                // handler aktywności zamykałby całą aplikację
+                if ((event.key == Key.Back || event.key == Key.Escape) &&
+                    event.type == KeyEventType.KeyUp
+                ) {
+                    return@onPreviewKeyEvent true
+                }
                 if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
 
                 if (isSortDropdownExpanded || isCategoryDropdownExpanded) {
@@ -657,7 +669,11 @@ fun VodGridScreen(
                         Spacer(modifier = Modifier.height(sy(50)))
                         if (!searchActive) {
                             Text(
-                                text = selectedCategory,  // chip label as header (Wszystkie / Viaplay Filmy / ...)
+                                // Chip label jako nagłówek; dla prefiltrowanych wejść
+                                // (np. skrót "Do obejrzenia") chip "Wszystkie" pokazuje
+                                // tytuł ekranu — treść i tak jest już zawężona
+                                text = if (selectedCategory == "Wszystkie" && screenTitle != "Lista Wideo")
+                                    screenTitle else selectedCategory,
                                 fontSize = (40 * sy(1).value / 1).sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFFDBDBDB),
@@ -939,6 +955,14 @@ private fun FigmaDropdownChip(
             .focusRequester(focusRequester)
             .onFocusChanged { if (it.isFocused) onFocusChange() }
             .onPreviewKeyEvent { event ->
+                // BACK KeyUp: konsumuj zawsze — akcja idzie na KeyDown, a KeyUp
+                // po przełączeniu ekranu trafiałby do nowej kompozycji i domyślny
+                // handler aktywności zamykałby całą aplikację
+                if ((event.key == Key.Back || event.key == Key.Escape) &&
+                    event.type == KeyEventType.KeyUp
+                ) {
+                    return@onPreviewKeyEvent true
+                }
                 if (event.type == KeyEventType.KeyDown &&
                     (event.key == Key.Enter || event.key == Key.DirectionCenter)
                 ) {
@@ -1013,6 +1037,14 @@ private fun FullScreenPicker(
                 )
             )
             .onPreviewKeyEvent { event ->
+                // BACK KeyUp: konsumuj zawsze — akcja idzie na KeyDown, a KeyUp
+                // po przełączeniu ekranu trafiałby do nowej kompozycji i domyślny
+                // handler aktywności zamykałby całą aplikację
+                if ((event.key == Key.Back || event.key == Key.Escape) &&
+                    event.type == KeyEventType.KeyUp
+                ) {
+                    return@onPreviewKeyEvent true
+                }
                 if (event.type == KeyEventType.KeyDown) {
                     when (event.key) {
                         Key.DirectionUp -> {
@@ -1097,6 +1129,14 @@ private fun PillOption(
             .focusRequester(focusRequester)
             .onFocusChanged { if (it.isFocused) onFocusChange() }
             .onPreviewKeyEvent { event ->
+                // BACK KeyUp: konsumuj zawsze — akcja idzie na KeyDown, a KeyUp
+                // po przełączeniu ekranu trafiałby do nowej kompozycji i domyślny
+                // handler aktywności zamykałby całą aplikację
+                if ((event.key == Key.Back || event.key == Key.Escape) &&
+                    event.type == KeyEventType.KeyUp
+                ) {
+                    return@onPreviewKeyEvent true
+                }
                 if (event.type == KeyEventType.KeyDown &&
                     (event.key == Key.Enter || event.key == Key.DirectionCenter)
                 ) {
