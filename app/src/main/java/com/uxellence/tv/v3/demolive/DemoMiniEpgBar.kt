@@ -9,6 +9,10 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -16,6 +20,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -327,6 +332,30 @@ internal fun DemoMiniEpgChannelRow(
                         Column {
                             // info_line: czasy + markery
                             Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (isWatched) {
+                                    // MIGAJĄCA playka przy materiale obecnie
+                                    // oglądanym (jak na dawnej warstwie kafelkowej)
+                                    val blink = rememberInfiniteTransition(
+                                        label = "miniepg_play_blink"
+                                    )
+                                    val blinkAlpha by blink.animateFloat(
+                                        initialValue = 1f,
+                                        targetValue = 0.25f,
+                                        animationSpec = infiniteRepeatable(
+                                            animation = tween(650),
+                                            repeatMode = RepeatMode.Reverse
+                                        ),
+                                        label = "miniepg_play_alpha"
+                                    )
+                                    Text(
+                                        text = "▶",
+                                        color = AQUA,
+                                        fontSize = demoSp(22, sy),
+                                        modifier = Modifier
+                                            .alpha(blinkAlpha)
+                                            .padding(end = sx(12))
+                                    )
+                                }
                                 Text(
                                     text = "${formatWall(program.startUtc.toEpochMilli(), false)} – " +
                                         formatWall(program.endUtc.toEpochMilli(), false),
