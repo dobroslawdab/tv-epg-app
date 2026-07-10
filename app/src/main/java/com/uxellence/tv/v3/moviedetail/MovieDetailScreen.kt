@@ -171,7 +171,7 @@ fun MovieDetailScreen(
     // Request focus on first button when screen loads
     LaunchedEffect(Unit) {
         delay(100)
-        buttonFocusRequesters.getOrNull(0)?.requestFocus()
+        runCatching { buttonFocusRequesters.getOrNull(0)?.requestFocus() }
     }
 
     // After exiting browse mode, refocus on "Oglądaj" (button index 0) — the canonical
@@ -187,7 +187,7 @@ fun MovieDetailScreen(
             delay(50)  // let the Row + FocusRequesters reattach after browseMode flip
             focusedButtonIndex = 0
             try {
-                buttonFocusRequesters.getOrNull(0)?.requestFocus()
+                runCatching { buttonFocusRequesters.getOrNull(0)?.requestFocus() }
             } catch (_: Exception) {}
         }
     }
@@ -620,7 +620,7 @@ fun MovieDetailScreen(
                             }
                             focusedButtonIndex > 0 -> {
                                 focusedButtonIndex--
-                                buttonFocusRequesters.getOrNull(focusedButtonIndex)?.requestFocus()
+                                runCatching { buttonFocusRequesters.getOrNull(focusedButtonIndex)?.requestFocus() }
                                 true
                             }
                             onNavigatePrev != null -> {
@@ -650,7 +650,7 @@ fun MovieDetailScreen(
                             }
                             focusedButtonIndex < buttons.size - 1 -> {
                                 focusedButtonIndex++
-                                buttonFocusRequesters.getOrNull(focusedButtonIndex)?.requestFocus()
+                                runCatching { buttonFocusRequesters.getOrNull(focusedButtonIndex)?.requestFocus() }
                                 true
                             }
                             onNavigateNext != null -> {
@@ -668,7 +668,7 @@ fun MovieDetailScreen(
                             // Demo live: przyciski NAD opisem → UP z opisu wraca na przyciski.
                             // ZAWSZE konsumuj, by fokus nie uciekł poza detal (i nie wyszedł z apki).
                             if (isDescriptionFocused) {
-                                try { buttonFocusRequesters.getOrNull(0)?.requestFocus() } catch (_: Exception) {}
+                                try { runCatching { buttonFocusRequesters.getOrNull(0)?.requestFocus() } } catch (_: Exception) {}
                                 focusedButtonIndex = 0
                             }
                             true
@@ -687,7 +687,7 @@ fun MovieDetailScreen(
                             true
                         } else if (isDescriptionFocused) {
                             // From description (when focused) → first button
-                            buttonFocusRequesters.getOrNull(0)?.requestFocus()
+                            runCatching { buttonFocusRequesters.getOrNull(0)?.requestFocus() }
                             focusedButtonIndex = 0
                             true
                         } else false

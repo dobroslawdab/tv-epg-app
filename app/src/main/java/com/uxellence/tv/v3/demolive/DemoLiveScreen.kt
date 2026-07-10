@@ -1958,11 +1958,24 @@ fun DemoLiveScreen(
                         onBackPressed = { /* BACK obsługuje BackHandler (dispatcher) */ },
                         // Program PRZYSZŁY: nie da się go oglądać — [Nagraj, Przypomnij];
                         // miniony/bieżący: standardowe [Oglądaj, Do obejrzenia]
-                        customButtons = if (detailTiming == BlockTiming.FUTURE) {
-                            val scheduled = DemoRecordingScheduler
-                                .isScheduled(slide.title, detailStartWallMs)
-                            listOf(if (scheduled) "Anuluj nagranie" else "Nagraj", "Przypomnij")
-                        } else null,
+                        customButtons = when {
+                            detailTiming == BlockTiming.FUTURE -> {
+                                val scheduled = DemoRecordingScheduler
+                                    .isScheduled(slide.title, detailStartWallMs)
+                                listOf(
+                                    if (scheduled) "Anuluj nagranie" else "Nagraj",
+                                    "Przypomnij"
+                                )
+                            }
+                            detailTiming == BlockTiming.PAST &&
+                                barkerFor(detailChannelIndex) == null -> {
+                                // Program MINIONY na kanale bez catchupu (np.
+                                // Stargaze): nie da się go obejrzeć ponownie —
+                                // BEZ przycisków Oglądaj / Do obejrzenia
+                                emptyList()
+                            }
+                            else -> null
+                        },
                         onCustomButtonClicked = { index ->
                             if (index == 0 && DemoRecordingScheduler
                                     .isScheduled(slide.title, detailStartWallMs)
