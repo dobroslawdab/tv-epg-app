@@ -55,7 +55,7 @@ import java.util.Locale
  * Wymiary 1:1 z designu 1920×1080 (skalowanie sx/sy):
  *  - numer kanału 64×40 (border white40), logo/nazwa 184 szer., gap 40
  *  - okładka 208×116, tytuł 48/64 ls −0.96 (1 linia), czasy 24/32
- *  - NA ŻYWO 88×24 (białe tło, purpurowy tekst 16), startover 32, rec 24
+ *  - markery: startover 32, kropka nagrywania 24 (bez labelki NA ŻYWO)
  *  - segment aktywnego programu: x=320, szerokość 1200; przerwa 16+12+16
  */
 private val AQUA = Color(0xFF5AECD3)
@@ -364,22 +364,9 @@ internal fun DemoMiniEpgChannelRow(
                                     lineHeight = demoSp(32, sy),
                                     fontWeight = FontWeight.Medium
                                 )
-                                if (isLiveNow && focused) {
-                                    Spacer(modifier = Modifier.width(sx(16)))
-                                    Box(
-                                        modifier = Modifier
-                                            .size(sx(88), sy(24))
-                                            .background(WHITE, RoundedCornerShape(sx(4))),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = "NA ŻYWO",
-                                            color = PURPLE,
-                                            fontSize = demoSp(16, sy),
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                }
+                                // Bez labelki "NA ŻYWO" przy trwającym programie:
+                                // ta etykieta oznacza TRANSMISJE na żywo (np. mecze),
+                                // a nie sam fakt, że materiał aktualnie leci
                                 if (isLiveNow) {
                                     Spacer(modifier = Modifier.width(sx(12)))
                                     // startover: białe kółko 32 z ikoną
