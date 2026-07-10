@@ -420,7 +420,9 @@ internal fun DemoMiniEpgChannelRow(
                                 Spacer(modifier = Modifier.height(sy(8)))
                                 // Metadane + znaczki KRRiT (tylko wiersz fokusowany)
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    val meta = program.categories.filter { it.isNotBlank() }.take(3)
+                                    // Metadane z KATEGORIĄ WIEKOWĄ (ostatnia pozycja, np. "7 lat")
+                                // — bez znaczków KRRiT (S W N P)
+                                val meta = program.categories.filter { it.isNotBlank() }.take(4)
                                     meta.forEachIndexed { i, m ->
                                         if (i > 0) MetaDivider(sx, sy)
                                         Text(
@@ -430,23 +432,6 @@ internal fun DemoMiniEpgChannelRow(
                                             lineHeight = demoSp(28, sy),
                                             fontWeight = FontWeight.Bold
                                         )
-                                    }
-                                    if (meta.isNotEmpty()) MetaDivider(sx, sy)
-                                    listOf("S", "W", "N", "P").forEachIndexed { i, letter ->
-                                        if (i > 0) Spacer(modifier = Modifier.width(sx(20)))
-                                        Box(
-                                            modifier = Modifier
-                                                .size(sx(20), sy(20))
-                                                .border(sx(2), WHITE80, RoundedCornerShape(sx(4))),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Text(
-                                                text = letter,
-                                                color = WHITE80,
-                                                fontSize = demoSp(13, sy),
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                        }
                                     }
                                 }
                             }
