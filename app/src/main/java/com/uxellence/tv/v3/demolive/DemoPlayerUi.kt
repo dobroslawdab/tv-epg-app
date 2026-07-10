@@ -95,6 +95,8 @@ fun DemoPlayerUi(
     scrubNextTile: Boolean = false,
     // Player VOD (zwiastun): kontrolki bez LIVE i REC — [pauza, od początku, napisy]
     vodButtons: Boolean = false,
+    // Bieżący program ma już ZLECONE nagranie → REC pokazuje "Anuluj nagranie"
+    recScheduled: Boolean = false,
     blockMetaFor: ((Long) -> String?)? = null,
     sx: (Int) -> Dp,
     sy: (Int) -> Dp
@@ -196,7 +198,7 @@ fun DemoPlayerUi(
                     if (!figmaButtons) {
                         Spacer(modifier = Modifier.height(sy(20)))
                         Box(modifier = Modifier.padding(start = sx(MAIN_X))) {
-                            PlayerButtonsRow(isPaused, buttonsFocusIndex, isAtLiveEdge, vodButtons, sx, sy)
+                            PlayerButtonsRow(isPaused, buttonsFocusIndex, isAtLiveEdge, vodButtons, recScheduled, sx, sy)
                         }
                     }
                 }
@@ -245,8 +247,8 @@ fun DemoPlayerUi(
                     }
                     Spacer(modifier = Modifier.height(sy(24)))
                     Box(modifier = Modifier.padding(start = sx(MAIN_X))) {
-                        if (figmaButtons) PlayerButtonsRowFigma(isPaused, buttonsFocusIndex, isAtLiveEdge, vodButtons, sx, sy)
-                        else PlayerButtonsRow(isPaused, buttonsFocusIndex, isAtLiveEdge, vodButtons, sx, sy)
+                        if (figmaButtons) PlayerButtonsRowFigma(isPaused, buttonsFocusIndex, isAtLiveEdge, vodButtons, recScheduled, sx, sy)
+                        else PlayerButtonsRow(isPaused, buttonsFocusIndex, isAtLiveEdge, vodButtons, recScheduled, sx, sy)
                     }
                     Spacer(modifier = Modifier.height(sy(28)))
                     // Opis: ramka zawsze zajmuje miejsce (transparentna gdy bez fokusu),
@@ -574,6 +576,7 @@ private fun PlayerButtonsRow(
     focusedIndex: Int,
     isAtLiveEdge: Boolean,
     vodButtons: Boolean,
+    recScheduled: Boolean,
     sx: (Int) -> Dp,
     sy: (Int) -> Dp
 ) {
@@ -612,7 +615,8 @@ private fun PlayerButtonsRow(
         Spacer(modifier = Modifier.width(sx(16)))
         PlayerButton("↺  Zacznij od początku", focusedIndex == 2, sx, sy)
         Spacer(modifier = Modifier.width(sx(16)))
-        PlayerButton("REC  Nagraj", focusedIndex == 3, sx, sy)
+        PlayerButton(if (recScheduled) "REC  Anuluj nagranie" else "REC  Nagraj",
+            focusedIndex == 3, sx, sy)
         Spacer(modifier = Modifier.width(sx(16)))
         PlayerButton("⚙  Napisy, dźwięk, jakość", focusedIndex == 4, sx, sy)
     }
@@ -774,6 +778,7 @@ private fun PlayerButtonsRowFigma(
     focusedIndex: Int,
     isAtLiveEdge: Boolean,
     vodButtons: Boolean,
+    recScheduled: Boolean,
     sx: (Int) -> Dp,
     sy: (Int) -> Dp
 ) {
@@ -788,7 +793,8 @@ private fun PlayerButtonsRowFigma(
             // (w wariancie ikonowym ikona wystarcza za status)
             FigmaControlItem(R.drawable.demo_ic_live, "Wróć do live", !isAtLiveEdge && focusedIndex == 1, sx, sy)
             FigmaControlItem(R.drawable.demo_ic_startover, "Zacznij od początku", focusedIndex == 2, sx, sy)
-            FigmaControlItem(R.drawable.demo_ic_rec, "Nagraj", focusedIndex == 3, sx, sy)
+            FigmaControlItem(R.drawable.demo_ic_rec,
+                if (recScheduled) "Anuluj nagranie" else "Nagraj", focusedIndex == 3, sx, sy)
             FigmaControlItem(R.drawable.demo_ic_settings, "Napisy, dźwięk, jakość", focusedIndex == 4, sx, sy)
         }
     }

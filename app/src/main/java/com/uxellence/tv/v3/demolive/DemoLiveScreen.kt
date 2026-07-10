@@ -1282,12 +1282,22 @@ fun DemoLiveScreen(
                                 Log.i(TAG, "Player: zacznij od początku → ${block.startVirtualMs}ms")
                             }
                         }
-                        3 -> {  // Nagraj (REC): modal zlecenia dla bieżącego programu
+                        3 -> {  // Nagraj (REC) / Anuluj nagranie dla bieżącego programu
                             val block = blockForTunedChannel(
                                 if (activeBarker() != null) currentVirtualMs
                                 else (liveEdgeMs - liveBehindMs).coerceAtLeast(0L)
                             )
-                            if (block != null) {
+                            val blockStartWall = block?.let {
+                                controller.antennaStartWallMs + it.startVirtualMs
+                            }
+                            if (block != null && blockStartWall != null &&
+                                DemoRecordingScheduler.isScheduled(block.title, blockStartWall)
+                            ) {
+                                // Zlecone → ANULUJ nagranie
+                                DemoRecordingScheduler.cancel(context, block.title, blockStartWall)
+                                demoToast = "Anulowano nagrywanie: ${block.title}"
+                                Log.i(TAG, "REC → anulowano nagranie '${block.title}'")
+                            } else if (block != null) {
                                 val row = epgRows.getOrNull(tunedChannelIndex)
                                 recordingCandidate = DemoRecordingScheduler.ScheduledRecording(
                                     title = block.title,
@@ -1878,6 +1888,10 @@ fun DemoLiveScreen(
             figmaButtons = useFigmaButtons,
             frames = filmstripFrames,
             blockTitleFor = { v -> blockForTunedChannel(v)?.title },
+            recScheduled = DemoRecordingScheduler.isScheduled(
+                uiMainBlock.title,
+                controller.antennaStartWallMs + uiMainBlock.startVirtualMs
+            ),
             scrubNextTile = DemoPlayerPrefs.scrubNextTile.value,
             blockMetaFor = { v ->
                 blockForTunedChannel(v)?.let { b ->
@@ -1945,10 +1959,18 @@ fun DemoLiveScreen(
                         // Program PRZYSZŁY: nie da się go oglądać — [Nagraj, Przypomnij];
                         // miniony/bieżący: standardowe [Oglądaj, Do obejrzenia]
                         customButtons = if (detailTiming == BlockTiming.FUTURE) {
-                            listOf("Nagraj", "Przypomnij")
+                            val scheduled = DemoRecordingScheduler
+                                .isScheduled(slide.title, detailStartWallMs)
+                            listOf(if (scheduled) "Anuluj nagranie" else "Nagraj", "Przypomnij")
                         } else null,
                         onCustomButtonClicked = { index ->
-                            if (index == 0) {
+                            if (index == 0 && DemoRecordingScheduler
+                                    .isScheduled(slide.title, detailStartWallMs)
+                            ) {
+                                // Zlecone → ANULUJ nagranie (przycisk zmienia się z powrotem)
+                                DemoRecordingScheduler.cancel(context, slide.title, detailStartWallMs)
+                                demoToast = "Anulowano nagrywanie: ${slide.title}"
+                            } else if (index == 0) {
                                 // Nagraj (program przyszły) → modal zlecenia nagrania
                                 // (flow Figma "Nagrywanie serii"); zlecone trafia do
                                 // MOJE → Nagrania (Zaplanowane)
