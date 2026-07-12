@@ -34,6 +34,7 @@ import kotlinx.coroutines.delay
 data class ThumbnailMenuItem(
     val label: String,
     val destructive: Boolean = false,
+    val iconRes: Int? = null,   // opcjonalna ikonka przed labelem (np. plus)
     val onClick: () -> Unit
 )
 
@@ -175,17 +176,33 @@ fun ThumbnailContextMenu(
                             .padding(horizontal = sx(24), vertical = sy(16)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = item.label,
-                            color = when {
-                                item.destructive -> MENU_TEXT_DESTRUCTIVE
-                                else -> MENU_TEXT
-                            },
-                            fontSize = (24 * sx(1).value / 1).sp,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.Center,
-                            maxLines = 1
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            item.iconRes?.let { icon ->
+                                androidx.compose.foundation.Image(
+                                    painter = androidx.compose.ui.res.painterResource(icon),
+                                    contentDescription = null,
+                                    colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(
+                                        if (item.destructive) MENU_TEXT_DESTRUCTIVE else MENU_TEXT
+                                    ),
+                                    modifier = Modifier.size(sx(28))
+                                )
+                                Spacer(modifier = Modifier.width(sx(12)))
+                            }
+                            Text(
+                                text = item.label,
+                                color = when {
+                                    item.destructive -> MENU_TEXT_DESTRUCTIVE
+                                    else -> MENU_TEXT
+                                },
+                                fontSize = (24 * sx(1).value / 1).sp,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center,
+                                maxLines = 1
+                            )
+                        }
                     }
                 }
 

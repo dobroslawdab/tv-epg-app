@@ -1179,12 +1179,14 @@ private fun ChannelListCard(
     isFocused: Boolean,
     focusRequester: FocusRequester,
     onFocusChange: () -> Unit,
+    onLongPress: () -> Unit = {},   // długie OK → menu kontekstowe
     onClick: () -> Unit = {},
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     displayNumber: Int? = null,  // Custom number to display (null = use channel.channelNumber)
     useZeroPadding: Boolean = true  // true = "01", false = "1"
 ) {
+    var channelCardLongHandled by remember { mutableStateOf(false) }
     Column(
         modifier = Modifier
             .size(sx(TELEWIZJA_CHANNEL_LIST_CARD_WIDTH), sy(TELEWIZJA_CHANNEL_LIST_CARD_HEIGHT))  // Figma: 208x208
@@ -1200,10 +1202,24 @@ private fun ChannelListCard(
                 if (focusState.isFocused) onFocusChange()
             }
             .onPreviewKeyEvent { event ->
-                if (event.type == KeyEventType.KeyDown &&
-                    (event.key == Key.Enter || event.key == Key.DirectionCenter)) {
-                    android.util.Log.d("CHANNEL_LIST_CLICK", "OK pressed on channel: ${channel.name}")
-                    onClick()
+                // Krótki OK = KeyUp; długi = menu kontekstowe (wzorzec VerticalVodCard)
+                if (event.key == Key.Enter || event.key == Key.DirectionCenter ||
+                    event.key == Key.NumPadEnter
+                ) {
+                    if (event.type == KeyEventType.KeyDown) {
+                        if (event.nativeKeyEvent.repeatCount == 0) {
+                            channelCardLongHandled = false
+                        } else if (!channelCardLongHandled) {
+                            channelCardLongHandled = true
+                            onLongPress()
+                        }
+                    } else if (event.type == KeyEventType.KeyUp) {
+                        if (!channelCardLongHandled) {
+                            android.util.Log.d("CHANNEL_LIST_CLICK", "OK pressed on channel: ${channel.name}")
+                            onClick()
+                        }
+                        channelCardLongHandled = false
+                    }
                     true
                 } else {
                     false
@@ -5996,6 +6012,12 @@ private fun TelewizjaChannelsScreen(
     // Simple restoration flag to block Auto-focus during restoration
     var restorationInProgress by remember { mutableStateOf(false) }
     var wasRestoration by remember { mutableStateOf(false) }  // Permanent block for auto-focus after restoration
+
+    // ===== Menu kontekstowe (long-press OK) =====
+    // Kanał (app-icons): Oglądaj / Moja lista kanałów (+). Program (Popularne
+    // teraz): Oglądaj / Nagraj od początku. Drugi element pary = akcja Oglądaj.
+    var tvCtxChannel by remember { mutableStateOf<Pair<TvChannel, () -> Unit>?>(null) }
+    var tvCtxProgram by remember { mutableStateOf<Pair<VodContent, () -> Unit>?>(null) }
     var isInitialized by remember { mutableStateOf(false) }
 
     // ✅ INITIALIZATION: ALWAYS set to true (no conditions) - enables navigation
@@ -6313,6 +6335,10 @@ private fun TelewizjaChannelsScreen(
                 .fillMaxSize()
                 .background(Color(0xFF281443))
                 .onPreviewKeyEvent { event ->
+                    // Menu kontekstowe otwarte: obsługuje się samo (fokus + gating)
+                    if (tvCtxChannel != null || tvCtxProgram != null) {
+                        return@onPreviewKeyEvent false
+                    }
                     // EPG section toggle moved to global shortcuts (Key "3")
                     // Regular navigation (handleTelewizjaNavigation)
                     handleTelewizjaNavigation(
@@ -6336,6 +6362,10 @@ private fun TelewizjaChannelsScreen(
                 .focusable()
         ) {
             TelewizjaChannelRowsLayout(
+                tvCtxChannel = tvCtxChannel,
+                onTvCtxChannelChange = { tvCtxChannel = it },
+                tvCtxProgram = tvCtxProgram,
+                onTvCtxProgramChange = { tvCtxProgram = it },
                 channels = channels,
                 channelTypes = channelTypes,
                 gridContent = gridContent,
@@ -12885,6 +12915,11 @@ fun TelewizjaChannelRowsLayout(
     onChannelContentFocusChange: (Int, Int) -> Unit,
     onChannelClick: (String) -> Unit = {},
     lazyListStates: Map<Int, LazyListState>,
+    // Menu kontekstowe (hoist ze screenu — blokada klawiszy siedzi w root handlerze)
+    tvCtxChannel: Pair<TvChannel, () -> Unit>? = null,
+    onTvCtxChannelChange: (Pair<TvChannel, () -> Unit>?) -> Unit = {},
+    tvCtxProgram: Pair<VodContent, () -> Unit>? = null,
+    onTvCtxProgramChange: (Pair<VodContent, () -> Unit>?) -> Unit = {},
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     livePlayer: ExoPlayer? = null,
@@ -12910,6 +12945,7 @@ fun TelewizjaChannelRowsLayout(
     mojaListaChannels: List<TvChannel> = emptyList(),  // NEW: for "Kategorie EPG" channel numbers/logos
     isMyListCreated: Boolean = false  // NEW: for zero-padding (01-09) when true
 ) {
+    val ctxMenuContext = androidx.compose.ui.platform.LocalContext.current
     Box(modifier = Modifier.fillMaxSize()) {
         channels.forEachIndexed { rowIndex, channelName ->
             val rowContent = gridContent[channelName] ?: emptyList()
@@ -12961,7 +12997,9 @@ fun TelewizjaChannelRowsLayout(
                     onToggleMyList = onToggleMyList,  // NEW: pass toggle callback
                     appIconsData = appIconsData,
                     mojaListaChannels = mojaListaChannels,  // NEW: pass for "Kategorie EPG" channel numbers/logos
-                    isMyListCreated = isMyListCreated  // NEW: for zero-padding (01-09)
+                    isMyListCreated = isMyListCreated,  // NEW: for zero-padding (01-09)
+                    onChannelLongPress = { ch, watch -> onTvCtxChannelChange(ch to watch) },
+                    onProgramLongPress = { prog, watch -> onTvCtxProgramChange(prog to watch) }
                 )
             }
         }
@@ -13038,6 +13076,89 @@ fun TelewizjaChannelRowsLayout(
                 )
             }
         }
+
+        // ===== MENU KONTEKSTOWE KANAŁU (app-icons): Oglądaj / Moja lista kanałów (+) =====
+        // Kafel 208 na x=380 (fixed-focus), wiersz fokusowany Y=270 → menu pod kaflem
+        tvCtxChannel?.let { (tvChannel, watch) ->
+            val menuItems = listOf(
+                com.uxellence.tv.v3.components.ThumbnailMenuItem("Oglądaj") { watch() },
+                com.uxellence.tv.v3.components.ThumbnailMenuItem(
+                    "Moja lista kanałów",
+                    iconRes = R.drawable.ic_add_to_watch
+                ) {
+                    android.widget.Toast.makeText(
+                        ctxMenuContext,
+                        "Dodano do Mojej listy kanałów: ${tvChannel.name}",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                }
+            )
+            com.uxellence.tv.v3.components.ThumbnailContextMenu(
+                items = menuItems,
+                anchorX = sx(380 + 104 - 176),
+                anchorTopY = sy(TELEWIZJA_FIXED_FOCUS_Y + 208 + 60),
+                caretCenterX = sx(176),
+                menuWidth = sx(352),
+                onDismiss = {
+                    onTvCtxChannelChange(null)
+                    try {
+                        channelFocusRequesters[Pair(focusedRowIndex, 0)]?.requestFocus()
+                    } catch (_: Exception) {}
+                },
+                sx = sx,
+                sy = sy
+            )
+        }
+
+        // ===== MENU KONTEKSTOWE PROGRAMU (Popularne teraz): Oglądaj / Nagraj od początku =====
+        // Kafel horizontal 368×207, zjazd miniaturek +290 → dół ~767, menu pod nim
+        tvCtxProgram?.let { (program, watch) ->
+            val menuItems = listOf(
+                com.uxellence.tv.v3.components.ThumbnailMenuItem("Oglądaj") { watch() },
+                com.uxellence.tv.v3.components.ThumbnailMenuItem("Nagraj od początku") {
+                    // Realne zlecenie do makietowego schedulera (MOJE → Nagrania).
+                    // Id EPG: "epg_Polsat_News_1783850400" → kanał + start (epoch s)
+                    val parts = program.id.removePrefix("epg_").split("_")
+                    val startSec = parts.lastOrNull()?.toLongOrNull()
+                    val channelName = parts.dropLast(1).joinToString(" ").ifBlank { "TV" }
+                    val startMs = (startSec ?: (System.currentTimeMillis() / 1000)) * 1000
+                    com.uxellence.tv.v3.demolive.DemoRecordingScheduler.schedule(
+                        ctxMenuContext,
+                        com.uxellence.tv.v3.demolive.DemoRecordingScheduler.ScheduledRecording(
+                            title = program.title,
+                            subTitle = program.category,
+                            channelId = channelName,
+                            channelName = channelName,
+                            startUtcMs = startMs,
+                            endUtcMs = startMs + 2 * 60 * 60 * 1000,
+                            imageUrl = program.imageUrl,
+                            isSeries = false,
+                            keepLabel = "3 miesiące"
+                        )
+                    )
+                    android.widget.Toast.makeText(
+                        ctxMenuContext,
+                        "Nagrywam od początku: ${program.title} — znajdziesz w Moje → Nagrania",
+                        android.widget.Toast.LENGTH_LONG
+                    ).show()
+                }
+            )
+            com.uxellence.tv.v3.components.ThumbnailContextMenu(
+                items = menuItems,
+                anchorX = sx(380 + 184 - 176),
+                anchorTopY = sy(TELEWIZJA_FIXED_FOCUS_Y + 290 + 207 + 12),
+                caretCenterX = sx(176),
+                menuWidth = sx(352),
+                onDismiss = {
+                    onTvCtxProgramChange(null)
+                    try {
+                        channelFocusRequesters[Pair(focusedRowIndex, 0)]?.requestFocus()
+                    } catch (_: Exception) {}
+                },
+                sx = sx,
+                sy = sy
+            )
+        }
     }
 }
 
@@ -13077,6 +13198,10 @@ fun TelewizjaUnifiedChannelRow(
     onNavigateToKinoGrid: (title: String, prefiltered: List<VodContent>?, sourceSection: String) -> Unit = { _, _, _ -> },
     onNavigateToRecordingsGrid: (title: String, sourceSection: String) -> Unit = { _, _ -> },
     onNavigateToOlympics: () -> Unit = {},  // Navigate to Olympics page
+    // Long-press OK: menu kontekstowe — kanał (app-icons) / program (horizontal).
+    // Drugi argument = akcja "Oglądaj" (ten sam efekt co krótki klik).
+    onChannelLongPress: (TvChannel, () -> Unit) -> Unit = { _, _ -> },
+    onProgramLongPress: (VodContent, () -> Unit) -> Unit = { _, _ -> },
     onToggleMyList: () -> Unit = {},  // NEW: Callback for "Utwórz/Edytuj Moją listę kanałów"
     appIconsData: Map<String, List<TvChannel>> = emptyMap(),
     mojaListaChannels: List<TvChannel> = emptyList(),  // NEW: for "Kategorie EPG" channel numbers/logos
@@ -13334,6 +13459,12 @@ fun TelewizjaUnifiedChannelRow(
                                     android.util.Log.d("TELEWIZJA_CLICK", "Row name: '$channel', Derived epgId: '$epgId'")
                                     android.util.Log.d("TELEWIZJA_CLICK", "Passing: channelId='$channel' (row), itemId='$epgId' (epgId), scrollPos=0, sectionId='$sectionId'")
                                     onNavigateToEpgDay(channel, epgId, 0, sectionId)  // Pass row name as channelId, epgId as itemId
+                                },
+                                onLongPress = {
+                                    val epgId = tvChannel.epgId ?: tvChannel.name
+                                    onChannelLongPress(tvChannel) {
+                                        onNavigateToEpgDay(channel, epgId, 0, sectionId)
+                                    }
                                 },
                                 sx = sx,
                                 sy = sy,
@@ -13682,6 +13813,17 @@ fun TelewizjaUnifiedChannelRow(
                                         val target = rowContent.getOrNull(visIdx) ?: vodContent
                                         android.util.Log.d("TELEWIZJA_CLICK", "Opening EPG Day Test from $channel: itemId=${target.id}, scroll=$visIdx, section=$sectionId")
                                         onNavigateToEpgDay(channel, target.id, visIdx, sectionId)  // ID-based: channelId, itemId, scrollPosition
+                                    },
+                                    onLongPress = {
+                                        // Menu kontekstowe programów — tylko "Popularne teraz"
+                                        if (channel == "Popularne teraz") {
+                                            val visIdx = effectiveFocusIndex
+                                                .coerceIn(0, (rowContent.size - 1).coerceAtLeast(0))
+                                            val target = rowContent.getOrNull(visIdx) ?: vodContent
+                                            onProgramLongPress(target) {
+                                                onNavigateToEpgDay(channel, target.id, visIdx, sectionId)
+                                            }
+                                        }
                                     }
                                 )
                             }
@@ -18085,12 +18227,14 @@ private fun ContentCard(
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     lazyListState: LazyListState,
+    onLongPress: () -> Unit = {},   // długie OK → menu kontekstowe
     onClick: () -> Unit = {},
     showChannelNumber: Boolean = true,
     showChannelLogo: Boolean = true,       // false → ukryj logo kanału w lewym dolnym rogu (np. APLIKACJE)
     trailerUrl: String? = null,            // gdy podany i karta focused — po 2s odpala trailer overlay
     trailerStartPositionMs: Long = 0L      // od jakiej sekundy odpalić trailer
 ) {
+    var contentCardLongHandled by remember { mutableStateOf(false) }
     val baseWidth = sx(368)
     val baseHeight = sy(208)
 
@@ -18138,9 +18282,22 @@ private fun ContentCard(
             .focusRequester(focusRequester)
             .onFocusChanged { if (it.isFocused) onFocusChange() }
             .onPreviewKeyEvent { event ->
-                if (event.type == KeyEventType.KeyDown &&
-                    (event.key == Key.Enter || event.key == Key.DirectionCenter)) {
-                    onClick()
+                // Krótki OK = KeyUp; długi (repeatCount>0) = onLongPress — wzorzec
+                // VerticalVodCard; long nigdy nie odpala onClick
+                if (event.key == Key.Enter || event.key == Key.DirectionCenter ||
+                    event.key == Key.NumPadEnter
+                ) {
+                    if (event.type == KeyEventType.KeyDown) {
+                        if (event.nativeKeyEvent.repeatCount == 0) {
+                            contentCardLongHandled = false
+                        } else if (!contentCardLongHandled) {
+                            contentCardLongHandled = true
+                            onLongPress()
+                        }
+                    } else if (event.type == KeyEventType.KeyUp) {
+                        if (!contentCardLongHandled) onClick()
+                        contentCardLongHandled = false
+                    }
                     true
                 } else {
                     false
@@ -20996,12 +21153,78 @@ private fun WideoChannelsScreen(
         isInitialized = true
     }
 
+    // ===== Menu kontekstowe kafla (long-press OK): Oglądaj / Dodaj do obejrzenia =====
+    var wideoCtxItem by remember { mutableStateOf<VodContent?>(null) }
+    var wideoEnterLongHandled by remember { mutableStateOf(false) }
+
+    // Item wskazywany wizualnie w fokusowanym wierszu — ta sama logika co gałąź
+    // Enter w handleWideoChannelsNavigation (effective index z offsetu scrolla)
+    fun wideoFocusedItem(): VodContent? {
+        if (focusedRowIndex == 1 || focusedRowIndex == 4) return null
+        if (focusedColIndex < 0) return null
+        val channelName = channels.getOrNull(focusedRowIndex - 1) ?: return null
+        val rowContent = gridContent[channelName].orEmpty()
+        if (rowContent.isEmpty()) return null
+        val lazyListState = lazyListStates[focusedRowIndex] ?: return null
+        val approxItemPx = 368 + 20
+        val effectiveIndex = lazyListState.firstVisibleItemIndex +
+            if (lazyListState.firstVisibleItemScrollOffset > approxItemPx / 2) 1 else 0
+        return rowContent.getOrNull(effectiveIndex.coerceIn(0, rowContent.size - 1))
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF281443))
             .focusRequester(rootBoxFocusRequester)
             .onPreviewKeyEvent { event ->
+                // Menu kontekstowe otwarte: obsługuje się samo (fokus + gating)
+                if (wideoCtxItem != null) return@onPreviewKeyEvent false
+
+                // LONG-PRESS OK na kaflu wiersza (wzorzec Kino Play): KeyDown r=0
+                // czekaj, r>0 → menu, KeyUp bez long → klik (stara ścieżka handlera
+                // przez syntetyczne wywołanie poniżej)
+                val isEnterKey = event.key == Key.Enter ||
+                    event.key == Key.NumPadEnter || event.key == Key.DirectionCenter
+                if (isEnterKey) {
+                    val item = wideoFocusedItem()
+                    if (item != null) {
+                        if (event.type == KeyEventType.KeyDown) {
+                            if (event.nativeKeyEvent.repeatCount == 0) {
+                                wideoEnterLongHandled = false
+                            } else if (!wideoEnterLongHandled) {
+                                wideoEnterLongHandled = true
+                                android.util.Log.d("WIDEO_NAV", "Long-press OK on '${item.title}' → context menu")
+                                wideoCtxItem = item
+                            }
+                            return@onPreviewKeyEvent true
+                        }
+                        if (event.type == KeyEventType.KeyUp) {
+                            if (!wideoEnterLongHandled) {
+                                onNavigateToMovieDetail(
+                                    VodSlideData(
+                                        title = item.title,
+                                        genre = item.category,
+                                        duration = "",
+                                        year = "",
+                                        country = "Polska",
+                                        ageRating = "13 lat",
+                                        description = item.description,
+                                        price = item.price ?: "",
+                                        backgroundUrl = item.imageUrl,
+                                        posterUrl = item.imageUrl,
+                                        youtubeUrl = item.youtubeUrl,
+                                        isKinoPlay = false,
+                                        channelLogoUrl = item.channelLogoUrl
+                                    )
+                                )
+                            }
+                            wideoEnterLongHandled = false
+                            return@onPreviewKeyEvent true
+                        }
+                    }
+                }
+
                 handleWideoChannelsNavigation(
                     event = event,
                     focusedRowIndex = focusedRowIndex,
@@ -21061,6 +21284,66 @@ private fun WideoChannelsScreen(
             sliderVersion = sliderVersion,
             globalFocusState = globalFocusState
         )
+
+        // ===== MENU KONTEKSTOWE (long-press OK): Oglądaj / Dodaj do obejrzenia =====
+        // Kafel horizontal 368×207 na x=380; wiersz fokusowany Y=340 + zjazd 290
+        // → dół kafla 837, menu (2 pozycje ~160) mieści się nad dolną krawędzią
+        wideoCtxItem?.let { item ->
+            val onList = com.uxellence.tv.v3.watchlist.WatchlistManager.contains(item.title)
+            val menuItems = listOf(
+                com.uxellence.tv.v3.components.ThumbnailMenuItem("Oglądaj") {
+                    onNavigateToMovieDetail(
+                        VodSlideData(
+                            title = item.title,
+                            genre = item.category,
+                            duration = "",
+                            year = "",
+                            country = "Polska",
+                            ageRating = "13 lat",
+                            description = item.description,
+                            price = item.price ?: "",
+                            backgroundUrl = item.imageUrl,
+                            posterUrl = item.imageUrl,
+                            youtubeUrl = item.youtubeUrl,
+                            isKinoPlay = false,
+                            channelLogoUrl = item.channelLogoUrl
+                        )
+                    )
+                },
+                com.uxellence.tv.v3.components.ThumbnailMenuItem(
+                    if (onList) "Usuń z listy" else "Dodaj Do obejrzenia",
+                    iconRes = if (onList) null else R.drawable.ic_add_to_watch
+                ) {
+                    com.uxellence.tv.v3.watchlist.WatchlistManager.toggle(item.title, context)
+                }
+            )
+            com.uxellence.tv.v3.components.ThumbnailContextMenu(
+                items = menuItems,
+                anchorX = sx(380 + 184 - 176),
+                anchorTopY = sy(340 + 290 + 207 + 12),
+                caretCenterX = sx(176),
+                menuWidth = sx(352),
+                onDismiss = {
+                    wideoCtxItem = null
+                    try { rootBoxFocusRequester.requestFocus() } catch (_: Exception) {}
+                },
+                onNavigate = { dx ->
+                    val channelName = channels.getOrNull(focusedRowIndex - 1)
+                    val rowContent = channelName?.let { gridContent[it] }.orEmpty()
+                    val listState = lazyListStates[focusedRowIndex]
+                    if (listState != null && rowContent.isNotEmpty()) {
+                        val newIndex = (listState.firstVisibleItemIndex + dx)
+                            .coerceIn(0, rowContent.lastIndex)
+                        if (newIndex != listState.firstVisibleItemIndex) {
+                            coroutineScope.launch { listState.scrollToItem(newIndex) }
+                            wideoCtxItem = rowContent[newIndex]
+                        }
+                    }
+                },
+                sx = sx,
+                sy = sy
+            )
+        }
     }
 }
 

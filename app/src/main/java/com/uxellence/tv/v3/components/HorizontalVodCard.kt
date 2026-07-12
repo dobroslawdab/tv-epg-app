@@ -49,9 +49,15 @@ fun HorizontalVodCard(
     sx: (Int) -> Dp,
     sy: (Int) -> Dp,
     onClick: () -> Unit = {},
+    onLongPress: () -> Unit = {},   // długie OK → menu kontekstowe (0 = wyłączone)
     channelNumber: String? = null,  // Optional channel number badge
     modifier: Modifier = Modifier
 ) {
+    // Rozdział krótkiego OK (KeyUp) od długiego (KeyDown repeatCount>0) —
+    // wzorzec VerticalVodCard; long NIGDY nie odpala onClick
+    var longPressHandled by androidx.compose.runtime.remember {
+        androidx.compose.runtime.mutableStateOf(false)
+    }
     // Adjusted for 4 columns: 425x239px (16:9 ratio preserved)
     // 1920 - 160 (L+R padding) - 60 (3 gaps × 20) = 1700 / 4 = 425
     val itemWidth = sx(425)
@@ -72,9 +78,20 @@ fun HorizontalVodCard(
             .focusRequester(focusRequester)
             .onFocusChanged { if (it.isFocused) onFocusChange() }
             .onPreviewKeyEvent { event ->
-                if (event.type == KeyEventType.KeyDown &&
-                    (event.key == Key.Enter || event.key == Key.DirectionCenter)) {
-                    onClick()
+                if (event.key == Key.Enter || event.key == Key.DirectionCenter ||
+                    event.key == Key.NumPadEnter
+                ) {
+                    if (event.type == KeyEventType.KeyDown) {
+                        if (event.nativeKeyEvent.repeatCount == 0) {
+                            longPressHandled = false
+                        } else if (!longPressHandled) {
+                            longPressHandled = true
+                            onLongPress()
+                        }
+                    } else if (event.type == KeyEventType.KeyUp) {
+                        if (!longPressHandled) onClick()
+                        longPressHandled = false
+                    }
                     true
                 } else {
                     false

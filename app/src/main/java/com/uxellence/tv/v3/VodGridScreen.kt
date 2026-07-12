@@ -196,6 +196,9 @@ fun VodGridScreen(
     // bez tego handlera BACK nie miałby jak wyjść z ekranu
     androidx.activity.compose.BackHandler(enabled = true) { onBackPressed() }
     val context = LocalContext.current
+
+    // Menu kontekstowe kafla (long-press OK) — Wideo: Oglądaj / Dodaj do obejrzenia
+    var contextMenuItem by remember { mutableStateOf<VodContent?>(null) }
     val configuration = LocalConfiguration.current
     val density = LocalDensity.current
 
@@ -351,6 +354,10 @@ fun VodGridScreen(
                 ) {
                     return@onPreviewKeyEvent true
                 }
+                // Menu kontekstowe otwarte: wszystkie klawisze obsługuje samo menu
+                // (własny fokus + input-gating) — nic nie przecieka do gridu
+                if (contextMenuItem != null) return@onPreviewKeyEvent false
+
                 if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
 
                 if (isSortDropdownExpanded || isCategoryDropdownExpanded) {
@@ -707,6 +714,7 @@ fun VodGridScreen(
                             // siblings with LEFT/RIGHT on the buttons row.
                             onMovieClicked(vodContent, filteredVodContent, index)
                         },
+                        onLongPress = { contextMenuItem = vodContent },
                         sx = ::sx,
                         sy = ::sy
                     )
@@ -902,6 +910,54 @@ fun VodGridScreen(
                 sx = ::sx,
                 sy = ::sy,
                 scaleY = scaleY
+            )
+        }
+
+        // LAYER 7: Menu kontekstowe (long-press OK na kaflu) — Oglądaj / watchlista.
+        // Kotwiczenie z metryk gridu (jak KinoGridScreen): karta 425×239, pin Y=240.
+        contextMenuItem?.let { item ->
+            val menuWidthPx = 352f
+            val contentWPx = 1920f - GRID_LEFT_PADDING - GRID_RIGHT_PADDING
+            val cellWPx = (contentWPx - (GRID_COLUMNS - 1) * GRID_HORIZONTAL_GAP) / GRID_COLUMNS
+            val cardCenterPx = GRID_LEFT_PADDING + focusedCol * (cellWPx + GRID_HORIZONTAL_GAP) + cellWPx / 2f
+            val anchorXPx = (cardCenterPx - menuWidthPx / 2f).coerceIn(24f, 1920f - menuWidthPx - 24f)
+            val caretCenterPx = cardCenterPx - anchorXPx
+            val onList = com.uxellence.tv.v3.watchlist.WatchlistManager.contains(item.title)
+            val menuItems = listOf(
+                com.uxellence.tv.v3.components.ThumbnailMenuItem("Oglądaj") {
+                    val idx = filteredVodContent.indexOfFirst { it.id == item.id }
+                    onMovieClicked(item, filteredVodContent, idx.coerceAtLeast(0))
+                },
+                com.uxellence.tv.v3.components.ThumbnailMenuItem(
+                    if (onList) "Usuń z listy" else "Dodaj Do obejrzenia",
+                    iconRes = if (onList) null else com.uxellence.tv.v3.R.drawable.ic_add_to_watch
+                ) {
+                    com.uxellence.tv.v3.watchlist.WatchlistManager.toggle(item.title, context)
+                }
+            )
+            com.uxellence.tv.v3.components.ThumbnailContextMenu(
+                items = menuItems,
+                anchorX = (anchorXPx * scaleX).dp,
+                anchorTopY = sy(FOCUSED_ROW_PIN_Y_DP + 239 + 12),
+                caretCenterX = (caretCenterPx * scaleX).dp,
+                menuWidth = (menuWidthPx * scaleX).dp,
+                onDismiss = {
+                    try {
+                        gridFocusRequesters[Pair(focusedRow, focusedCol)]?.requestFocus()
+                    } catch (_: Exception) {}
+                    contextMenuItem = null
+                },
+                onNavigate = { dx ->
+                    val currentIndex = focusedRow * gridColumns + focusedCol
+                    val newIndex = (currentIndex + dx).coerceIn(0, filteredVodContent.lastIndex)
+                    if (newIndex != currentIndex) {
+                        focusedRow = newIndex / gridColumns
+                        focusedCol = newIndex % gridColumns
+                        contextMenuItem = filteredVodContent[newIndex]
+                    }
+                },
+                sx = ::sx,
+                sy = ::sy
             )
         }
     }
