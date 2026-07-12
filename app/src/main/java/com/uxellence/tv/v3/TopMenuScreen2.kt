@@ -14840,6 +14840,7 @@ private fun VodWithChannels(
             .focusable()
     ) {
         VodLayoutWithSlider(
+            focusedRowLift = if (kinoCtxItem != null) 190 else 0,
             focusedRowIndex = focusedRowIndex,
             focusedColIndex = focusedColIndex,
             channels = channels,
@@ -14911,11 +14912,14 @@ private fun VodWithChannels(
             )
             com.uxellence.tv.v3.components.ThumbnailContextMenu(
                 items = menuItems,
-                anchorX = sx(380 + 200 + 24),
-                anchorTopY = sy(VOD_FIXED_FOCUS_Y + 290),
-                caretCenterX = sx(0),
+                // POD plakatem, wyśrodkowane (plakat x=380..580): wiersz przy otwartym
+                // menu podjeżdża o 190 (focusedRowLift), więc plakat kończy się na
+                // 340+290-190+280 = 720 — menu (~290) mieści się nad dolną krawędzią
+                anchorX = sx(380 + 100 - 176),
+                anchorTopY = sy(VOD_FIXED_FOCUS_Y + 290 - 190 + 280 + 12),
+                caretCenterX = sx(176),
                 menuWidth = sx(352),
-                showCaret = false,
+                showCaret = true,
                 onDismiss = {
                     kinoCtxItem = null
                     // Fokus wraca na KONTENER (lekcja #11) — handler znów dostaje
@@ -14965,7 +14969,8 @@ private fun VodLayoutWithSlider(
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     sliderVersion: Int = 1,
     v4ButtonIndex: Int = 0,  // V4 slider button index (0 = Wypożycz, 1 = Dowiedz się więcej)
-    sliderRowIndex: Int = 1  // V1 (Wypożyczone above slider) shifts slider to row 2
+    sliderRowIndex: Int = 1,  // V1 (Wypożyczone above slider) shifts slider to row 2
+    focusedRowLift: Int = 0  // menu kontekstowe: podniesienie fokusowanego wiersza
 ) {
     // Load KINO_PLAY slider items from Supabase
     val supabaseReady = VodDataCache.isSupabaseInitialized()
@@ -15060,6 +15065,7 @@ private fun VodLayoutWithSlider(
                 .zIndex(10f)
         ) {
             VodChannelRows(
+                focusedRowLift = focusedRowLift,
                 channels = channels,
                 gridContent = gridContent,
                 focusedRowIndex = focusedRowIndex,
@@ -17626,7 +17632,10 @@ private fun VodChannelRows(
     lazyListStates: Map<Int, LazyListState>,
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
-    sliderRowIndex: Int = 1  // V1 = 2 (slider sits BELOW Wypożyczone Kino on row 1)
+    sliderRowIndex: Int = 1,  // V1 = 2 (slider sits BELOW Wypożyczone Kino on row 1)
+    // Menu kontekstowe otwarte: fokusowany wiersz podjeżdża w górę, żeby menu
+    // zmieściło się POD plakatem nad dolną krawędzią ekranu
+    focusedRowLift: Int = 0
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         channels.forEachIndexed { channelIndex, channelName ->
@@ -17652,10 +17661,15 @@ private fun VodChannelRows(
                 sliderRowIndex = sliderRowIndex
             )
 
+            val liftedTargetY = if (focusedRowLift > 0 && actualRowIndex == focusedRowIndex) {
+                targetY - sy(focusedRowLift)
+            } else {
+                targetY
+            }
             val channelYOffset by animateDpAsState(
-                targetValue = targetY,
+                targetValue = liftedTargetY,
                 animationSpec = tween(
-                    durationMillis = 350, // Sync z miniatures (było 500ms)
+                    durationMillis = 250,
                     easing = androidx.compose.animation.core.EaseInOutCubic // Match miniatures easing
                 ),
                 label = "vod_channel_y_offset_$channelIndex"
