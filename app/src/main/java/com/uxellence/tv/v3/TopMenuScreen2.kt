@@ -6173,18 +6173,27 @@ private fun TelewizjaChannelsScreen(
                 focusAttempts++
             }
 
-            // Request focus on the element
+            // Request focus on the element — z RETRY: po scrollToItem FocusRequester
+            // z mapy przepina się na widoczną kartę dopiero po rekompozycji, więc
+            // pierwszy strzał potrafi trafić w odmontowany node (cichy brak fokusa,
+            // martwe strzałki mimo poprawnego wskaźnika)
             channelFocusRequesters[Pair(row, col)]?.let { focusRequester ->
-                try {
-                    android.util.Log.d("TELEWIZJA_FOCUS", "🎯 Requesting focus on element ($row, $col)")
-                    focusRequester.requestFocus()
-
-                    // Give UI time to stabilize before user can navigate
-                    kotlinx.coroutines.delay(100)
-
+                var focused = false
+                for (attempt in 0 until 5) {
+                    kotlinx.coroutines.delay(if (attempt == 0) 120 else 100)
+                    try {
+                        android.util.Log.d("TELEWIZJA_FOCUS", "🎯 Requesting focus on element ($row, $col), attempt $attempt")
+                        focusRequester.requestFocus()
+                        focused = true
+                        break
+                    } catch (e: Exception) {
+                        android.util.Log.w("TELEWIZJA_FOCUS", "requestFocus attempt $attempt failed: ${e.message}")
+                    }
+                }
+                if (focused) {
                     android.util.Log.d("TELEWIZJA_FOCUS", "=== RESTORATION COMPLETED === channelId=${focusState.channelId}, itemId=${focusState.itemId}")
-                } catch (e: Exception) {
-                    android.util.Log.e("TELEWIZJA_FOCUS", "❌ Failed to restore focus: ${e.message}", e)
+                } else {
+                    android.util.Log.e("TELEWIZJA_FOCUS", "❌ Failed to restore focus after retries")
                 }
             } ?: run {
                 android.util.Log.w("TELEWIZJA_FOCUS", "⚠️ FocusRequester not found for ($row, $col) after ${focusAttempts * 50}ms")
@@ -12669,7 +12678,12 @@ fun OdkrywajUnifiedChannelRow(
                             val isItemFocused = rowIndex == focusedRowIndex &&
                                     colIndex == effectiveFocusIndex &&
                                     focusedColIndex == 0
-                            val focusRequester = channelFocusRequesters[Pair(rowIndex, colIndex)] ?: FocusRequester()
+                            // Focus window — patrz collection-slider (FR na widocznej karcie)
+                            val focusRequester = if (colIndex == effectiveFocusIndex) {
+                                channelFocusRequesters[Pair(rowIndex, 0)] ?: FocusRequester()
+                            } else {
+                                FocusRequester()
+                            }
                             val postFocusPad = rememberPostFocusedCardPadding(
                                 isPrevCardFocused = rowIndex == focusedRowIndex && focusedColIndex == 0 &&
                                         colIndex == effectiveFocusIndex + 1,
@@ -13403,7 +13417,14 @@ fun TelewizjaUnifiedChannelRow(
                             val isItemFocused = rowIndex == focusedRowIndex &&
                                     colIndex == lazyListState.firstVisibleItemIndex &&
                                     focusedColIndex == 0
-                            val focusRequester = channelFocusRequesters[Pair(rowIndex, colIndex)] ?: FocusRequester()
+                            // Focus window: FR z mapy (row,0) przypięty do karty AKTUALNIE
+                            // widocznej (fixed-focus) — nie do itemu 0, który po przewinięciu
+                            // taśmy bywa odmontowany i requestFocus przy restore padał w ciszy
+                            val focusRequester = if (colIndex == lazyListState.firstVisibleItemIndex) {
+                                channelFocusRequesters[Pair(rowIndex, 0)] ?: FocusRequester()
+                            } else {
+                                FocusRequester()
+                            }
 
                             // Get corresponding mojaListaChannel for this position
                             val mojaListaChannel = mojaListaChannels.getOrNull(colIndex)
@@ -13603,7 +13624,12 @@ fun TelewizjaUnifiedChannelRow(
                             val isItemFocused = rowIndex == focusedRowIndex &&
                                     colIndex == effectiveFocusIndex &&
                                     focusedColIndex == 0
-                            val focusRequester = channelFocusRequesters[Pair(rowIndex, colIndex)] ?: FocusRequester()
+                            // Focus window — patrz collection-slider (FR na widocznej karcie)
+                            val focusRequester = if (colIndex == effectiveFocusIndex) {
+                                channelFocusRequesters[Pair(rowIndex, 0)] ?: FocusRequester()
+                            } else {
+                                FocusRequester()
+                            }
                             val postFocusPad = rememberPostFocusedCardPadding(
                                 isPrevCardFocused = rowIndex == focusedRowIndex && focusedColIndex == 0 &&
                                         colIndex == effectiveFocusIndex + 1,
