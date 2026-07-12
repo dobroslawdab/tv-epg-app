@@ -594,13 +594,11 @@ fun SearchScreen(
                                     }
                                     return@onPreviewKeyEvent true
                                 }
-                                // Mode 0 only: navigate keyboard rows; from last row → categories.
+                                // Mode 0 only: navigate keyboard rows; kategorie pod
+                                // klawiaturą wyłączone — ostatni rząd trzyma fokus.
                                 if (kbRow < kbRows.size - 1) {
                                     keyboardRow = kbRow + 1
                                     keyboardCol = kbCol.coerceIn(0, kbRows[keyboardRow].size - 1)
-                                } else {
-                                    focusArea = FOCUS_CATEGORIES
-                                    categoryIndex = 0
                                 }
                             }
                             FOCUS_CATEGORIES -> {
@@ -1011,33 +1009,9 @@ fun SearchScreen(
                         }
                     }
 
-                    // === CATEGORIES (vertical list, V1 only, focusable) ===
-                    // Layout: one item per line, full-width inside the keyboard
-                    // panel. Idle items render as text only on the page background;
-                    // the focused item gets the same aqua background as a focused
-                    // keyboard key.
-                    Spacer(modifier = Modifier.height(sy(28)))
-                    Column(verticalArrangement = Arrangement.spacedBy(sy(2))) {
-                        SEARCH_CATEGORIES.forEachIndexed { idx, label ->
-                            val isCatFocused = focusArea == FOCUS_CATEGORIES && idx == categoryIndex
-                            val bg = if (isCatFocused) COLOR_FOCUS_BORDER else androidx.compose.ui.graphics.Color.Transparent
-                            val fg = if (isCatFocused) COLOR_BG else COLOR_TEXT_PRIMARY
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .background(bg, RoundedCornerShape(sx(8)))
-                                    .padding(horizontal = sx(12), vertical = sy(8))
-                            ) {
-                                Text(
-                                    text = label,
-                                    color = fg,
-                                    fontSize = (18 * sx(1).value).sp,
-                                    fontFamily = ManropeFamily,
-                                    fontWeight = if (isCatFocused) FontWeight.Bold else FontWeight.Medium
-                                )
-                            }
-                        }
-                    }
+                    // === CATEGORIES — WYŁĄCZONE (2026-07): lista kategorii pod
+                    // klawiaturą nie jest pokazywana; wejście fokusem zablokowane
+                    // w handlerze DOWN (ostatni rząd klawiatury zatrzymuje fokus).
                 }
 
                 // === CHANNELS PANEL (slides left when focused, scrolls vertically) ===
