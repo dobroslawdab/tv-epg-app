@@ -2463,6 +2463,12 @@ private fun DevTogglesModal(
             "Wypożyczone",
             "Wyczyść ($rentalCount)",
             { com.uxellence.tv.v3.rental.RentalManager.clearAll(ctx) }
+        ),
+        Triple(
+            "Hint long-press (Kino Play)",
+            if (com.uxellence.tv.v3.demolive.DemoPlayerPrefs.longPressHintBubble.value)
+                "v2: dymek pod miniaturą" else "v1: toast (Figma 4100-1747)",
+            { com.uxellence.tv.v3.demolive.DemoPlayerPrefs.toggleLongPressHint(ctx) }
         )
     )
     var selectedIndex by remember { mutableStateOf(0) }
@@ -14805,6 +14811,11 @@ private fun VodWithChannels(
     var kinoCtxItem by remember { mutableStateOf<VodContent?>(null) }
     var kinoEnterLongHandled by remember { mutableStateOf(false) }
 
+    // Podpowiedź long-press: pokazywana gdy fokus staje na PIERWSZEJ miniaturce
+    // wiersza (badania: v1 toast Figma 4100-1747 vs v2 dymek — dev modal "0");
+    // auto-hide po 4 s, znika przy otwarciu menu / zejściu z pierwszego kafla
+    var hintVisibleRow by remember { mutableStateOf(-1) }
+
     // Item wskazywany WIZUALNIE w fokusowanym wierszu (fixed-focus model:
     // firstVisibleItemIndex + focusedColIndex) — ta sama logika co gałąź Enter
     // w handleVodNavigation
@@ -15047,6 +15058,98 @@ private fun VodWithChannels(
             v4ButtonIndex = v4ButtonIndex,
             sliderRowIndex = sliderRowIndex
         )
+
+        // ===== PODPOWIEDŹ LONG-PRESS (pierwsza miniaturka wiersza) =====
+        val hintChannelIdx = if (sliderRowIndex == 2 && focusedRowIndex == 1) 0 else focusedRowIndex - 2
+        val hintOnFirstTile = focusedRowIndex != sliderRowIndex && focusedColIndex == 0 &&
+            (lazyListStates[hintChannelIdx]?.firstVisibleItemIndex ?: 1) == 0 &&
+            kinoFocusedItem() != null
+        LaunchedEffect(focusedRowIndex, focusedColIndex, hintOnFirstTile) {
+            if (hintOnFirstTile) {
+                hintVisibleRow = focusedRowIndex
+                kotlinx.coroutines.delay(4000)
+                hintVisibleRow = -1
+            } else {
+                hintVisibleRow = -1
+            }
+        }
+        if (kinoCtxItem == null && hintOnFirstTile && hintVisibleRow == focusedRowIndex) {
+            if (!com.uxellence.tv.v3.demolive.DemoPlayerPrefs.longPressHintBubble.value) {
+                // v1: DOKŁADNIE ten sam pasek powiadomień co komunikat o braku
+                // przewijania w demo live (DemoInfoToast, stałe miejsce y=841)
+                com.uxellence.tv.v3.demolive.DemoInfoToast(
+                    text = "Przytrzymaj dłużej OK, aby zobaczyć więcej opcji",
+                    onHidden = { hintVisibleRow = -1 },
+                    autoHideMs = 4_000L,
+                    sx = sx,
+                    sy = sy
+                )
+            }
+            // Pod fokusowanym plakatem (fixed-focus: x=380..580, dół 340+290+280=910)
+            Box(
+                modifier = Modifier
+                    .offset(y = sy(922))
+                    .width(sx(960)),
+                contentAlignment = Alignment.TopCenter
+            ) {
+                if (com.uxellence.tv.v3.demolive.DemoPlayerPrefs.longPressHintBubble.value) {
+                    // v2: biały dymek z karetką i badge OK
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        androidx.compose.foundation.Canvas(
+                            modifier = Modifier.size(sx(28), sy(14))
+                        ) {
+                            val path = androidx.compose.ui.graphics.Path().apply {
+                                moveTo(size.width / 2f, 0f)
+                                lineTo(size.width, size.height)
+                                lineTo(0f, size.height)
+                                close()
+                            }
+                            drawPath(path, Color(0xFFEEEEEE))
+                        }
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier
+                                .background(Color(0xFFEEEEEE), RoundedCornerShape(sx(16)))
+                                .padding(horizontal = sx(28), vertical = sy(16))
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "Przytrzymaj dłużej ",
+                                    color = Color(0xFF48227C),
+                                    fontSize = sy(24).value.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .size(sx(34))
+                                        .background(Color(0xFF111111), CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "OK",
+                                        color = Color(0xFFEEEEEE),
+                                        fontSize = sy(14).value.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                                Text(
+                                    text = ",",
+                                    color = Color(0xFF48227C),
+                                    fontSize = sy(24).value.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            Text(
+                                text = "aby zobaczyć więcej opcji",
+                                color = Color(0xFF48227C),
+                                fontSize = sy(24).value.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+        }
 
         // ===== MENU KONTEKSTOWE (long-press OK na plakacie) =====
         // Pozycja: OBOK fokusowanego plakatu (fixed-focus: x=380, szer. 200; wiersz
