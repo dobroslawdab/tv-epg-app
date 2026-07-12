@@ -666,7 +666,9 @@ fun EpgGuide.programsForTvnToday(now: Instant = Instant.now()): List<EpgProgram>
 @Composable
 fun MiniPlayer(
     modifier: Modifier = Modifier,
-    streamUrl: String = "https://storage.googleapis.com/exoplayer-test-media-1/gen-3/screens/dizzee_lancaster_frag_bunny_spl_2500.mp4"
+    // PIP live: TVP1 (pierwszy kanał z listy ChannelManagera); parametr
+    // zostaje jako fallback gdyby lista nie miała kanałów
+    streamUrl: String? = null
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val configuration = LocalConfiguration.current
@@ -675,10 +677,22 @@ fun MiniPlayer(
     // Dopasuj wysokość do sekcji opisu programu
     val targetHeight = sy(320)
     val targetWidth = targetHeight * (16f / 9f)
+    // Live URL pierwszego kanału (TVP1 HD) — jak przy wejściu w Telewizję live
+    val liveUrl = remember {
+        streamUrl ?: run {
+            if (!com.uxellence.tv.v3.channels.ChannelManager.isInitialized()) {
+                try {
+                    com.uxellence.tv.v3.channels.ChannelManager.initialize(context)
+                } catch (_: Exception) { }
+            }
+            com.uxellence.tv.v3.channels.ChannelManager
+                .getAllChannels(includeUnavailable = false)
+                .firstOrNull()?.streamUrl
+        }
+    }
     val player = remember {
         ExoPlayer.Builder(context).build().apply {
-            val item = MediaItem.fromUri(streamUrl)
-            setMediaItem(item)
+            liveUrl?.let { setMediaItem(MediaItem.fromUri(it)) }
             playWhenReady = true
             volume = 0f
             prepare()
@@ -693,11 +707,12 @@ fun MiniPlayer(
         .background(Color.Black, RoundedCornerShape(16.dp))
         .clip(RoundedCornerShape(16.dp))
     ) {
+        // TextureView zamiast PlayerView: SurfaceView w Compose ma problemy
+        // z z-orderem (czarny prostokąt) — patrz CLAUDE.md "Known Issues"
         AndroidView(
             factory = { ctx ->
-                PlayerView(ctx).apply {
-                    useController = false
-                    this.player = player
+                android.view.TextureView(ctx).also { textureView ->
+                    player.setVideoTextureView(textureView)
                 }
             },
             modifier = Modifier.fillMaxSize()
