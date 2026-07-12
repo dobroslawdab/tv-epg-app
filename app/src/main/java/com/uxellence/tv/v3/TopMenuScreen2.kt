@@ -4106,7 +4106,11 @@ private fun FullPageContent(
                         sx = sx,
                         sy = sy,
                         onNavigateToEpg = onNavigateToEpg,
-                        onNavigateToEpgDay = onNavigateToEpgDay,
+                        onNavigateToEpgDay = { ch, item, scroll, sec ->
+                            // Zakładka TV: live otwieramy playerem DEMO (nie EpgDay)
+                            VodDataCache.epgDayViaDemoLive = true
+                            onNavigateToEpgDay(ch, item, scroll, sec)
+                        },
                         onNavigateToOlympics = onNavigateToOlympics,
                         onFocusRestored = onFocusRestored,
                         restoredTelewizjaFocus = restoredTelewizjaFocus,

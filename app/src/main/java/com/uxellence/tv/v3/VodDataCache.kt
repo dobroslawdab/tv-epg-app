@@ -108,6 +108,10 @@ object VodDataCache {
     // "Pakiety telewizyjne" (row 2) zamiast na sliderze; konsumowane 1x
     var pendingPakietyFocusTvRow: Boolean = false
 
+    // true = onNavigateToEpgDay wywołane z ZAKŁADKI TELEWIZJA — MainActivity
+    // otwiera wtedy player demo live zamiast produkcyjnego EpgDay; 1x-użytek
+    var epgDayViaDemoLive: Boolean = false
+
     // Same mechanism for the MOJE tab — used when MovieDetail closes and user originally
     // navigated to MovieDetail from MOJE→Wypożyczone (poster click). MojeChannelsScreen's
     // outer Box watches this and re-grabs keyboard focus; without it, BACK from MovieDetail

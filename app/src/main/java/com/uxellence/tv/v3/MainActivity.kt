@@ -569,7 +569,8 @@ fun TvRoot(
     LaunchedEffect(currentScreen) {
         if (currentScreen != NavigationScreen.TOP_MENU2 &&
             currentScreen != NavigationScreen.EPG_DAY &&
-            currentScreen != NavigationScreen.EPG
+            currentScreen != NavigationScreen.EPG &&
+            currentScreen != NavigationScreen.DEMO_LIVE
         ) {
             savedTelewizjaFocus = null
             savedTelewizjaSection = null
@@ -666,7 +667,17 @@ fun TvRoot(
                         savedTelewizjaSection = sectionId
                         previousScreen = currentScreen
                         isEpgDayFromStartup = false
-                        currentScreen = NavigationScreen.EPG_DAY
+                        if (VodDataCache.epgDayViaDemoLive) {
+                            // Zakładka TV: zamiast produkcyjnego playera (EpgDay)
+                            // odpalamy player demo live; BACK wraca do TopMenu
+                            // na zakładkę Telewizja
+                            VodDataCache.epgDayViaDemoLive = false
+                            VodDataCache.demoLiveOpenedFromShortcut = true
+                            savedTelewizjaSection = "TELEWIZJA"
+                            currentScreen = NavigationScreen.DEMO_LIVE
+                        } else {
+                            currentScreen = NavigationScreen.EPG_DAY
+                        }
                     },
                     onNavigateToStartupMode = {
                         previousScreen = NavigationScreen.TOP_MENU2
