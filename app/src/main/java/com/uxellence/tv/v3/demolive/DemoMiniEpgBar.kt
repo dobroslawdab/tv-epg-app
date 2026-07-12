@@ -248,14 +248,11 @@ internal fun DemoMiniEpgChannelRow(
                 modifier = Modifier.size(sx(184), sy(120)),
                 contentAlignment = Alignment.Center
             ) {
-                if (!row.channel.logoUrl.isNullOrBlank()) {
-                    AsyncImage(
-                        model = row.channel.logoUrl,
-                        contentDescription = null,
-                        contentScale = ContentScale.Fit,
-                        modifier = Modifier.size(sx(110), sy(110))
-                    )
-                } else {
+                // Jak w zakładce Telewizja (EpgDayScreen.ChannelInfoOverlay):
+                // logo z fallbackiem na NAZWĘ kanału, gdy logo się nie ładuje —
+                // realne kanały live mają logoUrl, ale obrazek bywa nieosiągalny
+                // i bez fallbacku kolumna kanału zostawała pusta
+                val channelNameText: @Composable () -> Unit = {
                     Text(
                         text = row.channel.name,
                         color = WHITE,
@@ -265,6 +262,28 @@ internal fun DemoMiniEpgChannelRow(
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                         overflow = TextOverflow.Ellipsis
                     )
+                }
+                if (!row.channel.logoUrl.isNullOrBlank()) {
+                    coil.compose.SubcomposeAsyncImage(
+                        model = row.channel.logoUrl,
+                        contentDescription = "Logo ${row.channel.name}",
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier.size(sx(110), sy(110)),
+                        loading = {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) { channelNameText() }
+                        },
+                        error = {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) { channelNameText() }
+                        }
+                    )
+                } else {
+                    channelNameText()
                 }
             }
             Spacer(modifier = Modifier.width(sx(40)))
