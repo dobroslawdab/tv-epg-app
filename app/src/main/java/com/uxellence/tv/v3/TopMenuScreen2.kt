@@ -1658,6 +1658,20 @@ fun TopMenuScreen2(
         }
     }
 
+    // Skrót "Pakiety telewizyjne" (Telewizja) → sekcja PAKIETY z fokusem na
+    // kanale "Pakiety telewizyjne"; trigger konsumowany po odpaleniu
+    val pakietyTrigger = VodDataCache.openPakietyTrigger.value
+    LaunchedEffect(pakietyTrigger) {
+        if (pakietyTrigger > 0) {
+            VodDataCache.openPakietyTrigger.value = 0
+            VodDataCache.pendingPakietyFocusTvRow = true
+            globalFocusState.value = GlobalFocusManager.transitionToContent(
+                globalFocusState.value,
+                "PAKIETY"
+            )
+        }
+    }
+
     // Haze state for blur effect under menu
     val hazeState = remember { HazeState() }
 
@@ -5874,7 +5888,7 @@ private fun TelewizjaChannelsScreen(
             ShortcutItem("3", "Widok listy\nkanałów", ShortcutIcon.VectorIcon(R.drawable.ic_channel_grid)),
             ShortcutItem("4", "Nagrania", ShortcutIcon.VectorIcon(R.drawable.ic_recordings_tv)),
             ShortcutItem("5", "Pakiety\ntelewizyjne", ShortcutIcon.VectorIcon(R.drawable.ic_tv_packages)),
-            ShortcutItem("6", "Igrzyska\nOlimpijskie", ShortcutIcon.VectorIcon(R.drawable.ic_olympics_2026)),
+            ShortcutItem("6", "Mistrzostwa\nFIFA 2026", ShortcutIcon.VectorIcon(R.drawable.ic_fifa_2026)),
             ShortcutItem("7", "Polsat Viasat\nNature", ShortcutIcon.VectorIcon(R.drawable.ic_viasat_nature))
         )
     }
@@ -7978,10 +7992,10 @@ private fun ShortcutCardV4(
                     android.util.Log.d("SHORTCUT_V4", "=== Enter/OK pressed for: ${shortcut.title} ===")
                     val plainTitle = shortcut.title.replace("\n", " ")
                     when {
-                        // TELEWIZJA: Program telewizyjny -> EPG
+                        // TELEWIZJA: Program telewizyjny -> TV Guide (EPG grid)
                         plainTitle.contains("Program", ignoreCase = true) && plainTitle.contains("telewizyjny", ignoreCase = true) -> {
-                            android.util.Log.d("SHORTCUT_V4", "Nawigacja do EpgDay - Program telewizyjny")
-                            onNavigateToEpgDay("", null, 0, "TELEWIZJA")
+                            android.util.Log.d("SHORTCUT_V4", "Nawigacja do TV Guide - Program telewizyjny")
+                            VodDataCache.openTvGuideTrigger.value++
                         }
                         // ODKRYWAJ: Oglądaj telewizję -> DEMO: kanał live
                         plainTitle.contains("telewizję", ignoreCase = true) -> {
@@ -8002,10 +8016,10 @@ private fun ShortcutCardV4(
                         plainTitle.contains("Nagrania", ignoreCase = true) -> {
                             onNavigateToRecordingsGrid("Zarządzaj nagraniami", "TELEWIZJA")
                         }
-                        // TELEWIZJA: Pakiety telewizyjne
+                        // TELEWIZJA: Pakiety telewizyjne -> sekcja PAKIETY (kanał TV)
                         plainTitle.contains("Pakiety", ignoreCase = true) && plainTitle.contains("telewizyjne", ignoreCase = true) -> {
-                            android.util.Log.d("SHORTCUT_V4", "Nawigacja do pakietów TV")
-                            // TODO: Navigate to TV packages screen
+                            android.util.Log.d("SHORTCUT_V4", "Nawigacja do sekcji PAKIETY")
+                            VodDataCache.openPakietyTrigger.value++
                         }
                         // Utwórz/Edytuj Moją listę kanałów (toggle state)
                         plainTitle.contains("listę kanałów", ignoreCase = true) &&
@@ -10619,7 +10633,7 @@ val telewizjaShortcutsV2 = listOf(
     ShortcutItem("2", "Widok listy\nkanałów", ShortcutIcon.VectorIcon(R.drawable.ic_channel_grid)),
     ShortcutItem("3", "Nagrania", ShortcutIcon.VectorIcon(R.drawable.ic_recordings_tv)),
     ShortcutItem("4", "Pakiety\ntelewizyjne", ShortcutIcon.VectorIcon(R.drawable.ic_tv_packages)),
-    ShortcutItem("5", "Igrzyska\nOlimpijskie", ShortcutIcon.VectorIcon(R.drawable.ic_olympics_2026)),
+    ShortcutItem("5", "Mistrzostwa\nFIFA 2026", ShortcutIcon.VectorIcon(R.drawable.ic_fifa_2026)),
     ShortcutItem("6", "Polsat Viasat\nNature", ShortcutIcon.VectorIcon(R.drawable.ic_viasat_nature))
 )
 
@@ -21935,8 +21949,16 @@ private fun PakietyWithHeroScreen(
     }
 
     LaunchedEffect(Unit) {
-        focusedRowIndex = 1
-        focusedColIndex = 0
+        // Wejście ze skrótu "Pakiety telewizyjne" (Telewizja) startuje od razu
+        // na kanale "Pakiety telewizyjne" (row 2) zamiast na sliderze
+        if (VodDataCache.pendingPakietyFocusTvRow) {
+            VodDataCache.pendingPakietyFocusTvRow = false
+            focusedRowIndex = 2
+            focusedColIndex = 0
+        } else {
+            focusedRowIndex = 1
+            focusedColIndex = 0
+        }
         // Take Compose focus to the root box so the navigation handler receives
         // keys (otherwise menu keeps focus and steals UP/DOWN).
         kotlinx.coroutines.delay(50)

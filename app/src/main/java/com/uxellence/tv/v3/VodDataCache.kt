@@ -96,6 +96,18 @@ object VodDataCache {
     // na właściwą zakładkę (callback grid-u nie ma parametru sekcji)
     var pendingChannelGridSourceSection: String? = null
 
+    // Skrót "Program telewizyjny" (Telewizja) → TV Guide (NavigationScreen.EPG);
+    // obserwowany w TvRoot, konsumowany po odpaleniu
+    val openTvGuideTrigger: MutableState<Int> = mutableStateOf(0)
+
+    // Skrót "Pakiety telewizyjne" (Telewizja) → sekcja PAKIETY w TopMenu;
+    // obserwowany w TopMenuScreen2 (tam żyje globalFocusState)
+    val openPakietyTrigger: MutableState<Int> = mutableStateOf(0)
+
+    // true = wejście do PAKIETY ma startować z fokusem na kanale
+    // "Pakiety telewizyjne" (row 2) zamiast na sliderze; konsumowane 1x
+    var pendingPakietyFocusTvRow: Boolean = false
+
     // Same mechanism for the MOJE tab — used when MovieDetail closes and user originally
     // navigated to MovieDetail from MOJE→Wypożyczone (poster click). MojeChannelsScreen's
     // outer Box watches this and re-grabs keyboard focus; without it, BACK from MovieDetail

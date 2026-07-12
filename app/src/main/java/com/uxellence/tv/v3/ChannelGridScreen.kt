@@ -175,7 +175,7 @@ fun ChannelGridScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFF48227C))  // Same as TopMenuScreen2 - solid purple
+            .background(Color(0xFF281443))  // Ciemny fiolet jak zakładka TV (gradient-purple-dark)
             .onPreviewKeyEvent { event ->
                 // BACK KeyUp: konsumuj zawsze — akcja idzie na KeyDown, a KeyUp
                 // po przełączeniu ekranu trafiałby do nowej kompozycji i domyślny
@@ -353,9 +353,9 @@ fun ChannelGridScreen(
                 .zIndex(5f)  // Above content (0f), below filters (10f)
                 .background(
                     brush = Brush.verticalGradient(
-                        0.0f to Color(0xFF48227C),    // 0%: Solid purple at top
-                        0.3f to Color(0xFF48227C),    // 30%: Still solid purple
-                        0.6f to Color(0x0048227C),    // 60%: Transparent purple
+                        0.0f to Color(0xFF281443),    // 0%: Solid dark purple at top
+                        0.3f to Color(0xFF281443),    // 30%: Still solid dark purple
+                        0.6f to Color(0x00281443),    // 60%: Transparent dark purple
                         startY = 0f,
                         endY = sy(GRADIENT_OVERLAY_HEIGHT).value
                     )

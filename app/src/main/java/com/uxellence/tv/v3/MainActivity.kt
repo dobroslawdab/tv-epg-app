@@ -423,6 +423,18 @@ fun TvRoot(
     // Save TOP_MENU2 section for smart BACK navigation: "TELEWIZJA", "MOJE", etc.
     var savedTelewizjaSection by remember { mutableStateOf<String?>(null) }
 
+    // Skrót "Program telewizyjny" (Telewizja) → TV Guide (EPG); BACK z EPG
+    // wraca przez previousScreen do TopMenu na zakładkę Telewizja
+    val tvGuideTrigger = VodDataCache.openTvGuideTrigger.value
+    LaunchedEffect(tvGuideTrigger) {
+        if (tvGuideTrigger > 0) {
+            VodDataCache.openTvGuideTrigger.value = 0
+            savedTelewizjaSection = "TELEWIZJA"
+            previousScreen = NavigationScreen.TOP_MENU2
+            currentScreen = NavigationScreen.EPG
+        }
+    }
+
     // Set przez VodGridScreen/KinoGridScreen empty state ("Szukaj w całym serwisie")
     // → MainActivity przełącza na TOP_MENU2/SEARCH z preseed query. Resetowane do null
     // po jednorazowym przekazaniu, żeby kolejne wejścia w SEARCH nie były pre-fillowane.
@@ -553,8 +565,12 @@ fun TvRoot(
     }
 
     // Clear saved focus and section when leaving TOP_MENU2
+    // (EPG = TV Guide też zachowuje sekcję — BACK wraca na zakładkę Telewizja)
     LaunchedEffect(currentScreen) {
-        if (currentScreen != NavigationScreen.TOP_MENU2 && currentScreen != NavigationScreen.EPG_DAY) {
+        if (currentScreen != NavigationScreen.TOP_MENU2 &&
+            currentScreen != NavigationScreen.EPG_DAY &&
+            currentScreen != NavigationScreen.EPG
+        ) {
             savedTelewizjaFocus = null
             savedTelewizjaSection = null
         }
