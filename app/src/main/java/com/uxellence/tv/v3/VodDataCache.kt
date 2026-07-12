@@ -112,6 +112,11 @@ object VodDataCache {
     // otwiera wtedy player demo live zamiast produkcyjnego EpgDay; 1x-użytek
     var epgDayViaDemoLive: Boolean = false
 
+    // Kanał startowy dla demo live (klik w kartę "Teraz w TV" na zakładce TV):
+    // itemId kliknięcia, np. "epg_Polsat_News_1783848600" — DemoLiveScreen
+    // dopasowuje go do realnego kanału i tunuje po załadowaniu wierszy; 1x-użytek
+    var demoLiveInitialChannelKey: String? = null
+
     // Same mechanism for the MOJE tab — used when MovieDetail closes and user originally
     // navigated to MovieDetail from MOJE→Wypożyczone (poster click). MojeChannelsScreen's
     // outer Box watches this and re-grabs keyboard focus; without it, BACK from MovieDetail

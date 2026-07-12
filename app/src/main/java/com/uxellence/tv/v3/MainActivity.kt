@@ -673,6 +673,7 @@ fun TvRoot(
                             // na zakładkę Telewizja
                             VodDataCache.epgDayViaDemoLive = false
                             VodDataCache.demoLiveOpenedFromShortcut = true
+                            VodDataCache.demoLiveInitialChannelKey = itemId
                             savedTelewizjaSection = "TELEWIZJA"
                             currentScreen = NavigationScreen.DEMO_LIVE
                         } else {

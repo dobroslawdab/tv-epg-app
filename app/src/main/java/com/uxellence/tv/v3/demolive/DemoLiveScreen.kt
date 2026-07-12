@@ -1547,6 +1547,48 @@ fun DemoLiveScreen(
             }
             realChannelRows = rows
             Log.i(TAG, "Real EPG rows loaded: ${rows.size}")
+
+            // Kanał startowy z zakładki TV (karta "Teraz w TV"): dopasuj klucz
+            // kliknięcia (np. "epg_Polsat_News_1783848600") do realnego kanału
+            // i dostrój PRZED openEpg — pasek single wystartuje na tym kanale.
+            val initialKey = com.uxellence.tv.v3.VodDataCache.demoLiveInitialChannelKey
+            if (!initialKey.isNullOrBlank()) {
+                com.uxellence.tv.v3.VodDataCache.demoLiveInitialChannelKey = null
+                // "epg_Polsat_News_1783848600" → "Polsat News"
+                val norm = initialKey.removePrefix("epg_")
+                    .substringBeforeLast('_').replace('_', ' ').trim()
+                fun candidates(ch: com.uxellence.tv.v3.channels.TvChannelData) =
+                    listOfNotNull(ch.epgId, ch.name, ch.id)
+                // Dwa przebiegi: najpierw dopasowanie DOKŁADNE (inaczej "Polsat
+                // News" złapałby też "Polsat News Polityka"), potem zawieranie
+                var idx = rows.indexOfFirst { r ->
+                    candidates(r.channel).any {
+                        it.equals(initialKey, true) || it.equals(norm, true)
+                    }
+                }
+                if (idx < 0) idx = rows.indexOfFirst { r ->
+                    candidates(r.channel).any {
+                        norm.contains(it, true) || it.contains(norm, true)
+                    }
+                }
+                if (idx >= 0) {
+                    // Wiersze EPG: barkery + 3 kanały live-stream + realne
+                    tunedChannelIndex = barkers.size + 3 + idx
+                    val url = rows[idx].channel.streamUrl
+                    if (url.isNotBlank()) {
+                        barkers.values.forEach { it.controller.player?.pause() }
+                        tuneLive(url)
+                        isPaused = false
+                    } else {
+                        tuneLive(null)
+                        barkers.values.forEach { it.controller.player?.pause() }
+                    }
+                    Log.i(TAG, "Initial channel '$norm' → ${rows[idx].channel.name} (row ${tunedChannelIndex})")
+                } else {
+                    Log.i(TAG, "Initial channel '$norm' not matched — DEMO TV")
+                }
+            }
+
             if (layer == DemoLayer.EPG) openEpg()  // odśwież widok o realne kanały
         } catch (e: Exception) {
             Log.e(TAG, "Real EPG load failed: ${e.message}")
