@@ -14618,6 +14618,51 @@ private fun VodWithChannels(
     // chain below.
     val rootBoxFocusRequester = remember { FocusRequester() }
 
+    // ===== Menu kontekstowe kafla (long-press OK) — jak na gridzie Kino Play =====
+    var kinoCtxItem by remember { mutableStateOf<VodContent?>(null) }
+    var kinoEnterLongHandled by remember { mutableStateOf(false) }
+
+    // Item wskazywany WIZUALNIE w fokusowanym wierszu (fixed-focus model:
+    // firstVisibleItemIndex + focusedColIndex) — ta sama logika co gałąź Enter
+    // w handleVodNavigation
+    fun kinoFocusedItem(): VodContent? {
+        if (focusedColIndex < 0) return null
+        val channelIdx = if (sliderRowIndex == 2 && focusedRowIndex == 1) 0 else focusedRowIndex - 2
+        val channelName = channels.getOrNull(channelIdx) ?: return null
+        val rowContent = gridContent[channelName] ?: return null
+        if (rowContent.isEmpty()) return null
+        val itemIndex = (lazyListStates[channelIdx]?.firstVisibleItemIndex ?: 0) + focusedColIndex
+        return rowContent.getOrNull(itemIndex)
+    }
+
+    // Wspólne otwarcie MovieDetail (krótki OK + "Więcej informacji"/"Oglądaj" z menu)
+    val openKinoDetail: (VodContent) -> Unit = { vodContent ->
+        val channelIdx = if (sliderRowIndex == 2 && focusedRowIndex == 1) 0 else focusedRowIndex - 2
+        val firstVisible = lazyListStates[channelIdx]?.firstVisibleItemIndex ?: 0
+        VodDataCache.savedKinoPlayFocus = VodDataCache.SavedKinoFocus(
+            row = focusedRowIndex,
+            col = focusedColIndex,
+            listFirstVisible = firstVisible
+        )
+        onNavigateToMovieDetail(
+            VodSlideData(
+                title = vodContent.title,
+                genre = vodContent.category,
+                duration = "",
+                year = "",
+                country = "Polska",
+                ageRating = "13 lat",
+                description = vodContent.description,
+                price = vodContent.price ?: "19 zł/48h",
+                backgroundUrl = vodContent.backdropUrl ?: "",
+                posterUrl = vodContent.imageUrl,
+                youtubeUrl = vodContent.youtubeUrl,
+                isKinoPlay = true,
+                cast = vodContent.cast
+            )
+        )
+    }
+
     // OVERLAY-MODE refocus: fired by MainActivity when MovieDetail closes back onto a
     // still-mounted KINO_PLAY tab. focusedRowIndex/focusedColIndex AND lazyListStates
     // (=channel scroll positions) are still intact — what we lost is Compose's actual
@@ -14698,6 +14743,39 @@ private fun VodWithChannels(
             .background(Color(0xFF281443))
             .focusRequester(rootBoxFocusRequester)
             .onPreviewKeyEvent { event ->
+                // Menu kontekstowe otwarte: nie przechwytuj — ThumbnailContextMenu ma
+                // własny fokus i input-gating (wszystkie klawisze konsumuje samo)
+                if (kinoCtxItem != null) return@onPreviewKeyEvent false
+
+                // LONG-PRESS OK na plakacie (wzorzec VerticalVodCard z gridu):
+                // KeyDown r=0 → czekaj; KeyDown r>0 → menu; KeyUp bez long → klik.
+                // Slider / CategoryIcon / puste wiersze idą starą ścieżką (handler).
+                val isEnterKey = event.key == Key.Enter ||
+                    event.key == Key.NumPadEnter || event.key == Key.DirectionCenter
+                if (isEnterKey && focusedRowIndex != sliderRowIndex) {
+                    val item = kinoFocusedItem()
+                    if (item != null) {
+                        if (event.type == KeyEventType.KeyDown) {
+                            if (event.nativeKeyEvent.repeatCount == 0) {
+                                kinoEnterLongHandled = false
+                            } else if (!kinoEnterLongHandled) {
+                                kinoEnterLongHandled = true
+                                android.util.Log.d("VOD_NAV", "Long-press OK on '${item.title}' → context menu")
+                                kinoCtxItem = item
+                            }
+                            return@onPreviewKeyEvent true
+                        }
+                        if (event.type == KeyEventType.KeyUp) {
+                            if (!kinoEnterLongHandled) {
+                                android.util.Log.d("VOD_NAV", "OK (short) on '${item.title}' → MovieDetailScreen")
+                                openKinoDetail(item)
+                            }
+                            kinoEnterLongHandled = false
+                            return@onPreviewKeyEvent true
+                        }
+                    }
+                }
+
                 handleVodNavigation(
                     event = event,
                     focusedRowIndex = focusedRowIndex,
@@ -14785,6 +14863,86 @@ private fun VodWithChannels(
             v4ButtonIndex = v4ButtonIndex,
             sliderRowIndex = sliderRowIndex
         )
+
+        // ===== MENU KONTEKSTOWE (long-press OK na plakacie) =====
+        // Pozycja: OBOK fokusowanego plakatu (fixed-focus: x=380, szer. 200; wiersz
+        // fokusowany na Y=340 + zjazd miniaturek 290) — pod plakatem brak miejsca
+        // (340+290+280 ≈ 910), więc menu staje po prawej, wyrównane do góry plakatu.
+        kinoCtxItem?.let { item ->
+            val rented = com.uxellence.tv.v3.rental.RentalManager.isRented(item.title)
+            val onList = com.uxellence.tv.v3.watchlist.WatchlistManager.contains(item.title)
+            val menuItems = listOf(
+                if (rented) {
+                    com.uxellence.tv.v3.components.ThumbnailMenuItem("Oglądaj") { openKinoDetail(item) }
+                } else {
+                    com.uxellence.tv.v3.components.ThumbnailMenuItem(
+                        "Wypożycz: ${item.price?.takeIf { it.isNotBlank() } ?: "19 zł"}"
+                    ) {
+                        onNavigateToPurchase(
+                            VodSlideData(
+                                title = item.title,
+                                genre = item.category,
+                                duration = "",
+                                year = "",
+                                country = "Polska",
+                                ageRating = "13 lat",
+                                description = item.description,
+                                price = item.price ?: "19 zł/48h",
+                                backgroundUrl = item.backdropUrl ?: "",
+                                posterUrl = item.imageUrl,
+                                youtubeUrl = item.youtubeUrl,
+                                isKinoPlay = true,
+                                cast = item.cast
+                            )
+                        )
+                    }
+                },
+                com.uxellence.tv.v3.components.ThumbnailMenuItem("Więcej informacji") { openKinoDetail(item) },
+                com.uxellence.tv.v3.components.ThumbnailMenuItem(
+                    if (onList) "Usuń z listy" else "Dodaj Do obejrzenia"
+                ) {
+                    com.uxellence.tv.v3.watchlist.WatchlistManager.toggle(item.title, context)
+                },
+                com.uxellence.tv.v3.components.ThumbnailMenuItem("Zobacz zwiastun") {
+                    android.widget.Toast.makeText(
+                        context, "Zwiastun: ${item.title} (atrapa)", android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                }
+            )
+            com.uxellence.tv.v3.components.ThumbnailContextMenu(
+                items = menuItems,
+                anchorX = sx(380 + 200 + 24),
+                anchorTopY = sy(VOD_FIXED_FOCUS_Y + 290),
+                caretCenterX = sx(0),
+                menuWidth = sx(352),
+                showCaret = false,
+                onDismiss = {
+                    kinoCtxItem = null
+                    // Fokus wraca na KONTENER (lekcja #11) — handler znów dostaje
+                    // klawisze, wskaźnik wizualny zostaje na tym samym plakacie
+                    try { rootBoxFocusRequester.requestFocus() } catch (_: Exception) {}
+                },
+                onNavigate = { dx ->
+                    // Lewo/prawo z otwartym menu: przewiń taśmę o 1 — menu "podąża"
+                    // za nowym materiałem (fixed-focus: wizualny fokus = firstVisible)
+                    val channelIdx = if (sliderRowIndex == 2 && focusedRowIndex == 1) 0
+                        else focusedRowIndex - 2
+                    val listState = lazyListStates[channelIdx]
+                    val channelName = channels.getOrNull(channelIdx)
+                    val rowContent = channelName?.let { gridContent[it] } ?: emptyList()
+                    if (listState != null && rowContent.isNotEmpty()) {
+                        val newIndex = (listState.firstVisibleItemIndex + dx)
+                            .coerceIn(0, rowContent.lastIndex)
+                        if (newIndex != listState.firstVisibleItemIndex) {
+                            coroutineScope.launch { listState.scrollToItem(newIndex) }
+                            kinoCtxItem = rowContent[newIndex]
+                        }
+                    }
+                },
+                sx = sx,
+                sy = sy
+            )
+        }
     }
 }
 

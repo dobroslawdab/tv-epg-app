@@ -63,6 +63,9 @@ fun ThumbnailContextMenu(
     menuWidth: Dp,
     onDismiss: () -> Unit,
     onNavigate: (dx: Int) -> Unit = {},  // lewo/prawo: przejście po kaflach gridu (menu zostaje)
+    // false = menu pozycjonowane OBOK kafla (np. wiersze na zakładce Kino Play,
+    // gdzie pod plakatem brak miejsca) — karetka wskazywałaby pustkę
+    showCaret: Boolean = true,
     sx: (Int) -> Dp,
     sy: (Int) -> Dp
 ) {
@@ -130,7 +133,7 @@ fun ThumbnailContextMenu(
             // Karetka wskazująca kafel (trójkąt ostrzem do góry)
             val caretW = sx(28)
             val caretH = sy(14)
-            Box(modifier = Modifier.fillMaxWidth().height(caretH)) {
+            if (showCaret) Box(modifier = Modifier.fillMaxWidth().height(caretH)) {
                 Canvas(
                     modifier = Modifier
                         .offset(x = (caretCenterX - caretW / 2))
