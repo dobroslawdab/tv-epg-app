@@ -6006,6 +6006,18 @@ private fun TelewizjaChannelsScreen(
 
     // ✅ ID-BASED RESTORATION: Uses unique IDs instead of positions
     LaunchedEffect(restoredTelewizjaFocus) {
+        // ŚWIEŻY odczyt listy wiersza "Kategorie EPG": epgCategoriesPrograms to
+        // zwykły val (remember-derived) przechwycony przez efekt W CHWILI STARTU —
+        // po doładowaniu danych efekt dalej widziałby PUSTĄ listę i restore padał
+        // fałszywym TIMEOUT. Delegat (by remember) czyta bieżący stan; permutacja
+        // odwzorowuje gridContent["Kategorie EPG"].
+        fun kategorieEpgLive(): List<VodContent> {
+            val base = epgCategoriesProgramsAll.take(epgCategoriesVisibleCount)
+            return if (isMyListCreated && base.size >= 9) listOf(
+                base[5], base[2], base[1], base[0], base[3], base[4],
+                base[6], base[7], base[8]
+            ) else base
+        }
         restoredTelewizjaFocus?.let { focusState ->
             android.util.Log.d("TELEWIZJA_FOCUS", "=== ID-BASED RESTORATION STARTED === channelId=${focusState.channelId}, itemId=${focusState.itemId}, scrollPos=${focusState.scrollPosition}")
             restorationInProgress = true
@@ -6087,7 +6099,7 @@ private fun TelewizjaChannelsScreen(
 
             // Verify content is ready based on what we need (use live state)
             val content = when (focusState.channelId) {
-                "Kategorie EPG" -> epgCategoriesPrograms  // 9 live TV channels from JSON
+                "Kategorie EPG" -> kategorieEpgLive()  // 9 live TV channels (świeży odczyt)
                 "Teraz w TV" -> terazWTvPrograms
                 "FILMY" -> najczesciejMovies
                 "SERIALE" -> serialePrograms
@@ -6211,6 +6223,16 @@ private fun TelewizjaChannelsScreen(
             focusedColIndex = 0
             kotlinx.coroutines.delay(50)
             channelFocusRequesters[Pair(firstFocusableRow, 0)]?.requestFocus()
+        }
+        // wasRestoration blokuje TYLKO spóźniony fire po restore (clear
+        // savedTelewizjaFocus po 5 s przełącza shouldAutoFocus na true, gdy
+        // user wciąż siedzi na przywróconej karcie). Gdy user wraca do MENU
+        // (shouldAutoFocus=false), blokadę zdejmujemy — inaczej każde kolejne
+        // zejście DOWN zostawiało fizyczny fokus w menu (martwe strzałki,
+        // "fokus wraca dopiero po zmianie zakładki").
+        if (!shouldAutoFocus && wasRestoration) {
+            android.util.Log.d("TELEWIZJA_FOCUS", "wasRestoration cleared — next menu→content entry will auto-focus")
+            wasRestoration = false
         }
     }
 
@@ -13392,8 +13414,15 @@ fun TelewizjaUnifiedChannelRow(
                                 focusRequester = focusRequester,
                                 onFocusChange = { onChannelContentFocusChange(rowIndex, 0) },  // Fixed focus model: always col=0
                                 onClick = {
-                                    android.util.Log.d("TELEWIZJA_CLICK", "Opening EPG Day Test from $channel: itemId=${vodContent.id}, scroll=${lazyListState.firstVisibleItemIndex}, section=$sectionId")
-                                    onNavigateToEpgDay(channel, vodContent.id, lazyListState.firstVisibleItemIndex, sectionId)  // ID-based: channelId, itemId, scrollPosition
+                                    // Klik wg WIZUALNEGO fokusu (firstVisibleItemIndex) —
+                                    // fizyczny fokus Compose siedzi na jednej karcie
+                                    // (fixed-focus model) i vodContent z lambdy items()
+                                    // wskazywałby zawsze pierwszą kartę
+                                    val visIdx = lazyListState.firstVisibleItemIndex
+                                        .coerceIn(0, (rowContent.size - 1).coerceAtLeast(0))
+                                    val target = rowContent.getOrNull(visIdx) ?: vodContent
+                                    android.util.Log.d("TELEWIZJA_CLICK", "Opening EPG Day Test from $channel: itemId=${target.id}, scroll=$visIdx, section=$sectionId")
+                                    onNavigateToEpgDay(channel, target.id, visIdx, sectionId)  // ID-based: channelId, itemId, scrollPosition
                                 },
                                 sx = sx,
                                 sy = sy,
@@ -13592,8 +13621,12 @@ fun TelewizjaUnifiedChannelRow(
                                     sy = sy,
                                     lazyListState = lazyListState,
                                     onClick = {
-                                        android.util.Log.d("TELEWIZJA_CLICK", "Opening EPG Day Test from $channel: itemId=${vodContent.id}, scroll=${lazyListState.firstVisibleItemIndex}, section=$sectionId")
-                                        onNavigateToEpgDay(channel, vodContent.id, lazyListState.firstVisibleItemIndex, sectionId)  // ID-based: channelId, itemId, scrollPosition
+                                        // Klik wg WIZUALNEGO fokusu (patrz collection-slider wyżej)
+                                        val visIdx = effectiveFocusIndex
+                                            .coerceIn(0, (rowContent.size - 1).coerceAtLeast(0))
+                                        val target = rowContent.getOrNull(visIdx) ?: vodContent
+                                        android.util.Log.d("TELEWIZJA_CLICK", "Opening EPG Day Test from $channel: itemId=${target.id}, scroll=$visIdx, section=$sectionId")
+                                        onNavigateToEpgDay(channel, target.id, visIdx, sectionId)  // ID-based: channelId, itemId, scrollPosition
                                     }
                                 )
                             }
@@ -18531,6 +18564,12 @@ private fun CollectionSliderCard(
                                 controllerHideOnTouch = true
                                 hideController()
                                 setShowBuffering(com.google.android.exoplayer2.ui.PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
+                                // PlayerView jest domyślnie focusable — kradł fokus
+                                // D-pada karcie (martwe strzałki, klik trafiał w złą
+                                // kartę, po BACK fokus w limbo)
+                                isFocusable = false
+                                isFocusableInTouchMode = false
+                                descendantFocusability = android.view.ViewGroup.FOCUS_BLOCK_DESCENDANTS
                             }
                         },
                         modifier = Modifier.fillMaxSize()
