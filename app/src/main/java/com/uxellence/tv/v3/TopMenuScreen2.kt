@@ -12946,6 +12946,7 @@ fun TelewizjaChannelRowsLayout(
     isMyListCreated: Boolean = false  // NEW: for zero-padding (01-09) when true
 ) {
     val ctxMenuContext = androidx.compose.ui.platform.LocalContext.current
+    val ctxMenuScope = rememberCoroutineScope()
     Box(modifier = Modifier.fillMaxSize()) {
         channels.forEachIndexed { rowIndex, channelName ->
             val rowContent = gridContent[channelName] ?: emptyList()
@@ -13105,6 +13106,27 @@ fun TelewizjaChannelRowsLayout(
                         channelFocusRequesters[Pair(focusedRowIndex, 0)]?.requestFocus()
                     } catch (_: Exception) {}
                 },
+                onNavigate = { dx ->
+                    // Lewo/prawo z otwartym menu: kolejny/poprzedni kanał wiersza
+                    // (app-icons: wizualny fokus = focusedColIndex, nie scroll)
+                    val rowName = channels.getOrNull(focusedRowIndex)
+                    val rowChannels = rowName?.let { appIconsData[it] }.orEmpty()
+                    if (rowChannels.isNotEmpty()) {
+                        val newCol = (focusedColIndex + dx).coerceIn(0, rowChannels.lastIndex)
+                        if (newCol != focusedColIndex) {
+                            val newChannel = rowChannels[newCol]
+                            onChannelContentFocusChange(focusedRowIndex, newCol)
+                            ctxMenuScope.launch {
+                                lazyListStates[focusedRowIndex]?.scrollToItem(newCol)
+                            }
+                            val epgId = newChannel.epgId ?: newChannel.name
+                            val rn = rowName ?: "TELEWIZJA"
+                            onTvCtxChannelChange(newChannel to {
+                                onNavigateToEpgDay(rn, epgId, 0, rn)
+                            })
+                        }
+                    }
+                },
                 sx = sx,
                 sy = sy
             )
@@ -13154,6 +13176,25 @@ fun TelewizjaChannelRowsLayout(
                     try {
                         channelFocusRequesters[Pair(focusedRowIndex, 0)]?.requestFocus()
                     } catch (_: Exception) {}
+                },
+                onNavigate = { dx ->
+                    // Lewo/prawo z otwartym menu: przewiń taśmę o 1 — menu podąża
+                    // za nowym programem (fixed-focus: wizualny fokus = firstVisible)
+                    val rowName = channels.getOrNull(focusedRowIndex)
+                    val rowContent = rowName?.let { gridContent[it] }.orEmpty()
+                    val listState = lazyListStates[focusedRowIndex]
+                    if (listState != null && rowContent.isNotEmpty()) {
+                        val newIndex = (listState.firstVisibleItemIndex + dx)
+                            .coerceIn(0, rowContent.lastIndex)
+                        if (newIndex != listState.firstVisibleItemIndex) {
+                            val target = rowContent[newIndex]
+                            val rn = rowName ?: "TELEWIZJA"
+                            ctxMenuScope.launch { listState.scrollToItem(newIndex) }
+                            onTvCtxProgramChange(target to {
+                                onNavigateToEpgDay(rn, target.id, newIndex, rn)
+                            })
+                        }
+                    }
                 },
                 sx = sx,
                 sy = sy
