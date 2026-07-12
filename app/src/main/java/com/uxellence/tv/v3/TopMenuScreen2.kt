@@ -6191,6 +6191,26 @@ private fun TelewizjaChannelsScreen(
                     }
                 }
                 if (focused) {
+                    // Domknięcie pozycji taśmy: auto-reset przy mouncie potrafi
+                    // wystartować ANIMOWANE przewijanie do 0 i wygrać wyścig z naszym
+                    // scrollToItem — a gdy taśma cofa się pod fokusowaną kartą, karta
+                    // wypada z viewportu, odmontowuje się i FOKUS GINIE (klawisze lecą
+                    // do menu). Pętla scroll+refocus domyka oba skutki wyścigu.
+                    if (col == 0 && targetItemIndex > 0) {
+                        repeat(3) {
+                            kotlinx.coroutines.delay(200)
+                            lazyListStates[row]?.let { listState ->
+                                try {
+                                    if (listState.firstVisibleItemIndex != targetItemIndex) {
+                                        listState.scrollToItem(targetItemIndex)
+                                        kotlinx.coroutines.delay(80)   // rekompozycja przepina FR
+                                        channelFocusRequesters[Pair(row, col)]?.requestFocus()
+                                        android.util.Log.d("TELEWIZJA_FOCUS", "📜 Re-anchored strip to index $targetItemIndex + refocus")
+                                    }
+                                } catch (_: Exception) { }
+                            }
+                        }
+                    }
                     android.util.Log.d("TELEWIZJA_FOCUS", "=== RESTORATION COMPLETED === channelId=${focusState.channelId}, itemId=${focusState.itemId}")
                 } else {
                     android.util.Log.e("TELEWIZJA_FOCUS", "❌ Failed to restore focus after retries")
@@ -6230,8 +6250,17 @@ private fun TelewizjaChannelsScreen(
             android.util.Log.d("TELEWIZJA_FOCUS", "🎯 Auto-focus from menu: Setting ($firstFocusableRow, 0)")
             focusedRowIndex = firstFocusableRow
             focusedColIndex = 0
-            kotlinx.coroutines.delay(50)
-            channelFocusRequesters[Pair(firstFocusableRow, 0)]?.requestFocus()
+            // Retry: FR bywa chwilowo nieprzypięty (rekompozycja karty przy
+            // starcie autoplay) — pojedynczy strzał potrafił zostawić fokus
+            // w próżni (martwe strzałki do zmiany zakładki)
+            for (attempt in 0 until 4) {
+                kotlinx.coroutines.delay(if (attempt == 0) 50 else 150)
+                val ok = runCatching {
+                    channelFocusRequesters[Pair(firstFocusableRow, 0)]?.requestFocus()
+                }.isSuccess
+                if (ok) break
+                android.util.Log.w("TELEWIZJA_FOCUS", "auto-focus attempt $attempt failed")
+            }
         }
         // wasRestoration blokuje TYLKO spóźniony fire po restore (clear
         // savedTelewizjaFocus po 5 s przełącza shouldAutoFocus na true, gdy
