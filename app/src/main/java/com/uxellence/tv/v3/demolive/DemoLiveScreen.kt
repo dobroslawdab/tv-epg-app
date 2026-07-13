@@ -2079,8 +2079,10 @@ fun DemoLiveScreen(
                                         tuneBarker(detailBarker)
                                         detailBarker.controller.seekToVirtual(detailStartVirtualMs)
                                         isPaused = false
-                                        openPlayerButtons()
-                                        Log.i(TAG, "DETAIL: Oglądaj od początku → ${detailStartVirtualMs}ms")
+                                        // Materiał z przeszłości: od razu CZYSTY OBRAZ —
+                                        // bez pasków/kontrolek (user wywołuje UI sam: OK/strzałki)
+                                        layer = DemoLayer.FULLSCREEN
+                                        Log.i(TAG, "DETAIL: Oglądaj od początku → ${detailStartVirtualMs}ms (FULLSCREEN)")
                                     }
                                     BlockTiming.FUTURE -> { /* nieosiągalne: FUTURE ma customButtons */ }
                                 }
