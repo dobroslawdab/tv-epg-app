@@ -116,6 +116,7 @@ private class DemoVideoView(
         if (textureView.isAvailable) textureView.getBitmap(320, 180) else null
 
     fun attach(player: com.google.android.exoplayer2.ExoPlayer?) {
+        android.util.Log.i("DemoLive", "VideoView.attach: same=${attachedPlayer === player} new=${player?.hashCode()}")
         if (attachedPlayer === player) return
         attachedPlayer?.removeListener(videoListener)
         // KLUCZOWE przy przełączaniu playerów (barker ⇄ live HLS): odepnij TextureView
@@ -169,9 +170,10 @@ private class BarkerBundle(
     val name: String,
     val number: Int,
     val schedule: BarkerSchedule,
-    context: android.content.Context
+    context: android.content.Context,
+    dvrWindowMs: Long = 3_600_000L
 ) {
-    val controller = DemoChannelPlayerController(context, schedule)
+    val controller = DemoChannelPlayerController(context, schedule, dvrWindowMs)
     val filmstrip = DemoFilmstripProvider(schedule)
     val ready = androidx.compose.runtime.mutableStateOf(false)
     val downloading = androidx.compose.runtime.mutableStateOf(false)
@@ -300,7 +302,21 @@ fun DemoLiveScreen(
                 )),
                 context = context
             )
-        )
+        ).also { map ->
+            // Kanał z NAGRANIA realnej anteny (TVP1 Retro): paczka program_NN.mp4
+            // + manifest.json wgrana przez adb push (tools/record_tvp1.sh) do
+            // getExternalFilesDir()/tvp1rec. Brak paczki = kanał nie powstaje.
+            RecordedChannelLoader.load(context)?.let { rec ->
+                map["tvp1rec"] = BarkerBundle(
+                    channelId = "tvp1rec",
+                    name = rec.name,
+                    number = 130,
+                    schedule = BarkerSchedule(rec.items),
+                    context = context,
+                    dvrWindowMs = 24L * 3_600_000L   // przewijanie po całym nagraniu
+                )
+            }
+        }
     }
     val demoBundle = barkers.getValue("demo")
     val controller = demoBundle.controller
@@ -1102,6 +1118,8 @@ fun DemoLiveScreen(
                 val row = epgRows.getOrNull(epgChannelIndex)
                 val focusedProgIdx = epgProgramIndex[epgChannelIndex] ?: -1
                 val program = row?.programs?.getOrNull(focusedProgIdx)
+                Log.i(TAG, "epgSelect: ch=$epgChannelIndex '${row?.channel?.name}' progIdx=$focusedProgIdx " +
+                    "prog='${program?.title}' expanded=$epgExpanded rows=${epgRows.size}")
                 if (row != null && program != null &&
                     channelBlackout(epgChannelIndex, focusedProgIdx)
                 ) {

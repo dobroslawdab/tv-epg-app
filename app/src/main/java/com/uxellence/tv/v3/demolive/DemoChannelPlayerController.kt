@@ -28,15 +28,16 @@ import java.net.URL
  */
 class DemoChannelPlayerController(
     private val context: Context,
-    val schedule: BarkerSchedule
+    val schedule: BarkerSchedule,
+    // Okno DVR (ile wstecz od live edge można się cofnąć). Default: godzina —
+    // jak dotąd. Kanał z nagrania anteny (TVP1 Retro) dostaje pełną dobę,
+    // żeby przewijać się po CAŁYM nagranym materiale.
+    private val dvrWindowMs: Long = 3_600_000L
 ) {
 
     companion object {
         private const val TAG = "DemoLive"
         private const val LIVE_EDGE_TOLERANCE_MS = 5_000L
-        // Okno DVR: godzina wstecz od live edge — obejmuje poprzedni materiał,
-        // a pasek przewijania pozostaje czytelny (barker gra od 9:00)
-        private const val DVR_WINDOW_MS = 3_600_000L
     }
 
     /** Barker channel: antena wystartowała dziś o 9:00 (zegar ścienny). */
@@ -53,6 +54,16 @@ class DemoChannelPlayerController(
      */
     suspend fun downloadToCache(url: String, onProgress: (Int) -> Unit): File =
         withContext(Dispatchers.IO) {
+            // Lokalny plik (kanał z nagrania — RecordedChannelLoader): nic nie
+            // pobieramy, plik jest już na urządzeniu (getExternalFilesDir)
+            if (url.startsWith("file:")) {
+                val local = File(url.removePrefix("file://"))
+                if (!local.exists() || local.length() == 0L) {
+                    throw java.io.IOException("Brak lokalnego pliku nagrania: $local")
+                }
+                onProgress(100)
+                return@withContext local
+            }
             val dir = File(context.cacheDir, "demo_live")
             dir.mkdirs()
             val finalFile = File(dir, "demo_${url.hashCode()}.mp4")
@@ -136,7 +147,7 @@ class DemoChannelPlayerController(
     fun virtualNow(): Long = System.currentTimeMillis() - antennaStartWallMs
 
     /** Początek okna DVR (60 min wstecz od live edge, nie wcześniej niż start anteny). */
-    fun dvrStartMs(): Long = (virtualNow() - DVR_WINDOW_MS).coerceAtLeast(0L)
+    fun dvrStartMs(): Long = (virtualNow() - dvrWindowMs).coerceAtLeast(0L)
 
     /** Bieżąca pozycja odtwarzania w osi wirtualnej. */
     fun currentVirtualPositionMs(): Long {
