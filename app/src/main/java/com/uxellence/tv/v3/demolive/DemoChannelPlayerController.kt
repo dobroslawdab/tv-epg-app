@@ -154,6 +154,11 @@ class DemoChannelPlayerController(
         val windowDur = schedule.durMs[mp.mediaItemIndex]
         val safePos = mp.positionMs.coerceAtMost((windowDur - 500L).coerceAtLeast(0L))
         trackedCycle = mp.cycle
+        // Po stop()/błędzie player ląduje w IDLE — seekTo+play bez prepare()
+        // NIC nie wznawia (objaw: przełączysz kanał i obraz stoi / czarny)
+        if (p.playbackState == com.google.android.exoplayer2.Player.STATE_IDLE) {
+            p.prepare()
+        }
         p.seekTo(mp.mediaItemIndex, safePos)
         p.play()
         Log.i(TAG, "seekToVirtual($targetVirtualMs → $clamped) = item=${mp.mediaItemIndex} pos=${safePos}ms cycle=${mp.cycle}")

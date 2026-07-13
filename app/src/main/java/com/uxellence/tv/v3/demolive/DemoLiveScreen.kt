@@ -379,6 +379,29 @@ fun DemoLiveScreen(
         livePlayer = exo
         playerRef = exo
         Log.i(TAG, "tuneLive → $url")
+        // WATCHDOG: realny stream potrafi utknąć w buforowaniu BEZ błędu (sieć/DNS)
+        // — czarna zasłona czeka na pierwszą klatkę w nieskończoność ("kanał się
+        // nie włącza"). Po 6 s bez READY ponawiamy prepare; po kolejnych 8 s
+        // pokazujemy istniejącą planszę "Kanał niedostępny".
+        demoScope.launch {
+            delay(6_000)
+            if (livePlayer === exo && exo.playbackState != com.google.android.exoplayer2.Player.STATE_READY &&
+                livePlaybackError == null
+            ) {
+                Log.w(TAG, "live watchdog: brak READY po 6 s → retry prepare")
+                exo.stop()
+                exo.setMediaItem(com.google.android.exoplayer2.MediaItem.fromUri(url))
+                exo.prepare()
+                exo.play()
+                delay(8_000)
+                if (livePlayer === exo && exo.playbackState != com.google.android.exoplayer2.Player.STATE_READY &&
+                    livePlaybackError == null
+                ) {
+                    Log.e(TAG, "live watchdog: dalej brak READY → plansza")
+                    livePlaybackError = "TIMEOUT_BUFOROWANIA"
+                }
+            }
+        }
     }
 
     // Warstwa EPG: wiersz 0 = DEMO TV (sztuczna ramówka), 1..N = prawdziwe kanały z EPG
