@@ -1712,11 +1712,19 @@ fun DemoLiveScreen(
         }
     }
 
+    // Deduplikacja BACK z detalu: MovieDetail konsumuje KeyDown (fokus na jego
+    // przyciskach) i woła nasz callback; na części środowisk system MIMO TO
+    // odpala potem dispatcher na KeyUp — bez tej flagi jedno naciśnięcie
+    // cofałoby dwa poziomy (detal → EPG → fullscreen)
+    var detailBackHandledAtMs by remember { mutableLongStateOf(0L) }
+
     // JEDYNY punkt obsługi BACK: systemowy OnBackPressedDispatcher — dokładnie
     // jedno wywołanie na naciśnięcie, działa też przy zgubionym fokusie okna
     androidx.activity.compose.BackHandler(enabled = true) {
         if (!isReady) {
             onBackPressed()
+        } else if (System.currentTimeMillis() - detailBackHandledAtMs < 500) {
+            Log.i(TAG, "BACK(dispatcher) zdeduplikowany po BACK(detail)")
         } else {
             DemoLiveKeyController.handleKey(android.view.KeyEvent.KEYCODE_BACK, layer, actions)
             Log.i(TAG, "BACK(dispatcher) layer(after)=$layer zone=$playerZone")
@@ -1997,7 +2005,17 @@ fun DemoLiveScreen(
                 ) {
                     com.uxellence.tv.v3.moviedetail.MovieDetailScreen(
                         item = slide,
-                        onBackPressed = { /* BACK obsługuje BackHandler (dispatcher) */ },
+                        // MovieDetail KONSUMUJE KeyDown BACK (fokus na jego przyciskach,
+                        // np. Nagraj/Przypomnij przy programie przyszłym) — skonsumowany
+                        // DOWN wyłącza systemowy back-tracking i dispatcher NIGDY nie
+                        // odpala. Dlatego tu wołamy tę samą akcję co BackHandler.
+                        onBackPressed = {
+                            detailBackHandledAtMs = System.currentTimeMillis()
+                            DemoLiveKeyController.handleKey(
+                                android.view.KeyEvent.KEYCODE_BACK, layer, actions
+                            )
+                            Log.i(TAG, "BACK(detail) layer(after)=$layer zone=$playerZone")
+                        },
                         // Program PRZYSZŁY: nie da się go oglądać — [Nagraj, Przypomnij];
                         // miniony/bieżący: standardowe [Oglądaj, Do obejrzenia]
                         customButtons = when {
