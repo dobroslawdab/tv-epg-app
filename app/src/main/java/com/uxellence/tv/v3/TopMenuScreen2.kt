@@ -15063,7 +15063,11 @@ private fun VodWithChannels(
         val hintChannelIdx = if (sliderRowIndex == 2 && focusedRowIndex == 1) 0 else focusedRowIndex - 2
         val hintOnFirstTile = focusedRowIndex != sliderRowIndex && focusedColIndex == 0 &&
             (lazyListStates[hintChannelIdx]?.firstVisibleItemIndex ?: 1) == 0 &&
-            kinoFocusedItem() != null
+            kinoFocusedItem() != null &&
+            // BACK wraca do MENU (currentRow=0), ale lokalne focusedRow/Col
+            // zostają — bez tego warunku dymek wisiał nad stroną mimo
+            // fokusa na zakładkach
+            globalFocusState.value.currentRow > 0
         LaunchedEffect(focusedRowIndex, focusedColIndex, hintOnFirstTile) {
             if (hintOnFirstTile) {
                 hintVisibleRow = focusedRowIndex
