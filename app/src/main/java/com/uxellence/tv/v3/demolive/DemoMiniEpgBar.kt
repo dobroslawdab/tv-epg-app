@@ -508,17 +508,18 @@ internal fun DemoMiniEpgChannelRow(
             Duration.between(playbackInstant, nowInstant).toMillis() >= 15_000L
         ) playbackInstant else nowInstant
         Box(modifier = Modifier.fillMaxWidth().height(sy(BULLET))) {
-            // Pozycja live na osi taśmy — DOKŁADNIE tam, dokąd sięga biały
-            // pasek: w segmencie aktywnym, w segmencie następnego, a gdy live
-            // jest jeszcze dalej — do (i poza) prawą krawędź ekranu
+            // Pozycja glow na osi taśmy — DOKŁADNIE tam, dokąd sięga biały
+            // pasek (ta sama referencja refInstant: live, a przy timeshifcie
+            // na oglądanym kanale — moment oglądania; inaczej glow rozjeżdżał
+            // się z paskiem po start-over/przewinięciu)
             val liveX = when {
-                nowInstant.isBefore(program.startUtc) -> 0
-                nowInstant.isBefore(program.endUtc) ->
-                    SEGMENT_X + (fracOf(nowInstant).coerceIn(0f, 1f) * segW).toInt()
-                next != null && nowInstant.isBefore(next.endUtc) -> {
+                refInstant.isBefore(program.startUtc) -> 0
+                refInstant.isBefore(program.endUtc) ->
+                    SEGMENT_X + (fracOf(refInstant).coerceIn(0f, 1f) * segW).toInt()
+                next != null && refInstant.isBefore(next.endUtc) -> {
                     val nextDurMs = Duration.between(next.startUtc, next.endUtc)
                         .toMillis().coerceAtLeast(1L)
-                    val f = (Duration.between(next.startUtc, nowInstant).toMillis()
+                    val f = (Duration.between(next.startUtc, refInstant).toMillis()
                         .toFloat() / nextDurMs).coerceIn(0f, 1f)
                     nextBlockX + (f * (1920 - nextBlockX)).toInt()
                 }
