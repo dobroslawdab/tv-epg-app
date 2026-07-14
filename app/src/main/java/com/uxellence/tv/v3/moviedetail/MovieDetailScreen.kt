@@ -14,6 +14,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -29,7 +30,9 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.graphics.Brush
+import kotlinx.coroutines.launch
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.layout.ContentScale
@@ -152,6 +155,9 @@ fun MovieDetailScreen(
     // Page-level scroll for WIDEO so an expanded long description + buttons don't get
     // squeezed off-screen when content exceeds height.
     val pageScrollState = rememberScrollState()
+    // Demo live: DOWN/UP przewijają całą kartę (opis zawsze rozwinięty, bez fokusa)
+    val pageScrollScope = rememberCoroutineScope()
+    val pageScrollStepPx = with(LocalDensity.current) { sy(280).toPx() }
 
     // Calculate scroll position (0-2) for indicator
     val scrollPosition by remember {
@@ -447,7 +453,20 @@ fun MovieDetailScreen(
                     Spacer(modifier = Modifier.height(sy(32)))
                 }
 
-                if (isWideoMode) {
+                if (isDemoLive) {
+                    // Detal programu (demo live): opis ZAWSZE w pełni rozwinięty,
+                    // bez fokusa/ramki — DOWN/UP przewijają całą kartę
+                    // (pageScrollState), nie rozwijają tekstu
+                    Box(modifier = Modifier.widthIn(max = sx(981))) {
+                        Text(
+                            text = item.description,
+                            color = Color(0xFFEEEEEE),
+                            fontSize = sy(28).value.sp,
+                            fontWeight = FontWeight.Medium,
+                            lineHeight = sy(40).value.sp
+                        )
+                    }
+                } else if (isWideoMode) {
                     Box(
                         modifier = Modifier
                             .widthIn(max = sx(981))
@@ -665,11 +684,12 @@ fun MovieDetailScreen(
                     }
                     Key.DirectionUp -> {
                         if (isDemoLive) {
-                            // Demo live: przyciski NAD opisem → UP z opisu wraca na przyciski.
-                            // ZAWSZE konsumuj, by fokus nie uciekł poza detal (i nie wyszedł z apki).
-                            if (isDescriptionFocused) {
-                                try { runCatching { buttonFocusRequesters.getOrNull(0)?.requestFocus() } } catch (_: Exception) {}
-                                focusedButtonIndex = 0
+                            // Demo live: opis rozwinięty na stałe — UP przewija kartę
+                            // do góry. ZAWSZE konsumuj, by fokus nie uciekł poza detal.
+                            if (pageScrollState.value > 0) {
+                                pageScrollScope.launch {
+                                    pageScrollState.animateScrollBy(-pageScrollStepPx)
+                                }
                             }
                             true
                         } else if (isWideoMode && !isDescriptionFocused) {
@@ -680,9 +700,10 @@ fun MovieDetailScreen(
                     }
                     Key.DirectionDown -> {
                         if (isDemoLive) {
-                            // Demo live: DOWN z przycisku → opis (pod przyciskami). ZAWSZE konsumuj.
-                            if (!isDescriptionFocused) {
-                                try { descriptionFocusRequester.requestFocus() } catch (_: Exception) {}
+                            // Demo live: DOWN przewija całą kartę (długi opis), fokus
+                            // zostaje na przyciskach. ZAWSZE konsumuj.
+                            pageScrollScope.launch {
+                                pageScrollState.animateScrollBy(pageScrollStepPx)
                             }
                             true
                         } else if (isDescriptionFocused) {
