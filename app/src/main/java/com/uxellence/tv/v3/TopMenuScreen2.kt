@@ -8151,9 +8151,12 @@ private fun ShortcutCardV4(
                             android.util.Log.d("SHORTCUT_V4", "Nawigacja do TV Guide - Program telewizyjny")
                             VodDataCache.openTvGuideTrigger.value++
                         }
-                        // ODKRYWAJ: Oglądaj telewizję -> DEMO: kanał live
+                        // ODKRYWAJ: Oglądaj telewizję -> DEMO: kanał live, start na
+                        // NASZYM TVP1 (kanał 1, nagranie z anteny) — bez klucza demo
+                        // live startował na DEMO TV (po zmianie numeracji: kanał 12)
                         plainTitle.contains("telewizję", ignoreCase = true) -> {
-                            android.util.Log.d("SHORTCUT_V4", "Nawigacja do Demo live - Oglądaj telewizję")
+                            android.util.Log.d("SHORTCUT_V4", "Nawigacja do Demo live - Oglądaj telewizję (TVP1)")
+                            VodDataCache.demoLiveInitialChannelKey = "tvp1rec"
                             VodDataCache.openDemoLiveTrigger.value++
                         }
                         // TELEWIZJA: Widok listy kanałów -> Lista kanałów
