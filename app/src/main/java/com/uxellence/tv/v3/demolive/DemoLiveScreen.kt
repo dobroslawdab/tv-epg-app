@@ -1742,6 +1742,33 @@ fun DemoLiveScreen(
         }
     }
 
+    // Aktywność w tle → PAUZA wszystkich playerów. Apka jest launcherem, więc
+    // w back stacku potrafią żyć DWIE aktywności z pełnym UI (LauncherActivity
+    // + EpgActivity) — bez tej pauzy zasłonięta instancja grała dalej w tle
+    // (drugi dekoder + równoległa ekstrakcja klatek zapychały I/O karty:
+    // duplikaty miniaturek, zacięcia).
+    val demoLifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    DisposableEffect(demoLifecycleOwner) {
+        val obs = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            when (event) {
+                androidx.lifecycle.Lifecycle.Event.ON_STOP -> {
+                    barkers.values.forEach { it.controller.player?.pause() }
+                    livePlayer?.pause()
+                    Log.i(TAG, "lifecycle ON_STOP → pauza playerów (aktywność w tle)")
+                }
+                androidx.lifecycle.Lifecycle.Event.ON_START -> {
+                    // Wznów bez seeku — pozycja zostaje (powrót = timeshift)
+                    if (isTunedLiveStream()) livePlayer?.play()
+                    else activeCtl().player?.play()
+                    Log.i(TAG, "lifecycle ON_START → wznowienie aktywnego kanału")
+                }
+                else -> {}
+            }
+        }
+        demoLifecycleOwner.lifecycle.addObserver(obs)
+        onDispose { demoLifecycleOwner.lifecycle.removeObserver(obs) }
+    }
+
     // Polling pozycji + log diagnostyczny co 5 s
     LaunchedEffect(isReady) {
         if (!isReady) return@LaunchedEffect
