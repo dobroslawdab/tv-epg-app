@@ -5,6 +5,7 @@ i generuje manifest.json dla kanału "TVP1 Retro" w makiecie (demolive).
 
 Użycie:
   cut_by_epg.py <raw.mp4> <start_epoch_s> <out_dir> [--channel "TVP 1"] [--epg pltv.gz]
+                [--name "TVP1 Retro"] [--number 130]
 
 - <start_epoch_s>  — unix time startu nagrania (sekundy; z record_tvp1.sh)
 - ramówka: pobiera https://epg.ovh/pltv.gz (albo lokalny plik przez --epg)
@@ -47,6 +48,8 @@ def main() -> None:
     out_dir = Path(sys.argv[3])
     channel = "TVP 1"
     epg_path = None
+    ch_name = "TVP1 Retro"
+    ch_number = 130
     args = sys.argv[4:]
     while args:
         a = args.pop(0)
@@ -54,6 +57,10 @@ def main() -> None:
             channel = args.pop(0)
         elif a == "--epg":
             epg_path = Path(args.pop(0))
+        elif a == "--name":
+            ch_name = args.pop(0)
+        elif a == "--number":
+            ch_number = int(args.pop(0))
 
     out_dir.mkdir(parents=True, exist_ok=True)
     rec_dur = ffprobe_duration(raw)
@@ -115,7 +122,8 @@ def main() -> None:
         })
 
     manifest = {
-        "channelName": "TVP1 Retro",
+        "channelName": ch_name,
+        "channelNumber": ch_number,
         "recordedAtWallMs": int(start_epoch * 1000),
         "sourceChannel": channel,
         "items": manifest_items,

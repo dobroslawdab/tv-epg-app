@@ -303,14 +303,15 @@ fun DemoLiveScreen(
                 context = context
             )
         ).also { map ->
-            // Kanał z NAGRANIA realnej anteny (TVP1 Retro): paczka program_NN.mp4
-            // + manifest.json wgrana przez adb push (tools/record_tvp1.sh) do
-            // getExternalFilesDir()/tvp1rec. Brak paczki = kanał nie powstaje.
-            RecordedChannelLoader.load(context)?.let { rec ->
-                map["tvp1rec"] = BarkerBundle(
-                    channelId = "tvp1rec",
+            // Kanały z NAGRAŃ realnej anteny: paczki program_NN.mp4 + manifest.json
+            // (tools/record_tvp1.sh / cut_by_epg.py) wgrane do katalogu aplikacji
+            // (pamięć wewnętrzna, karta SD lub filesDir przez run-as). Każdy
+            // podkatalog z manifestem = osobny kanał; brak paczek = brak kanałów.
+            RecordedChannelLoader.loadAll(context).forEach { rec ->
+                map[rec.id] = BarkerBundle(
+                    channelId = rec.id,
                     name = rec.name,
-                    number = 130,
+                    number = rec.number,
                     schedule = BarkerSchedule(rec.items),
                     context = context,
                     dvrWindowMs = 24L * 3_600_000L   // przewijanie po całym nagraniu

@@ -20,7 +20,6 @@ import java.io.File
 object RecordedChannelLoader {
 
     private const val TAG = "RecordedChannel"
-    private const val DIR_NAME = "tvp1rec"
 
     @Serializable
     data class ManifestItem(
@@ -35,35 +34,49 @@ object RecordedChannelLoader {
     @Serializable
     data class Manifest(
         val channelName: String = "TVP1 Retro",
+        val channelNumber: Int = 130,
         val recordedAtWallMs: Long = 0L,
         val sourceChannel: String = "TVP 1",
         val items: List<ManifestItem> = emptyList(),
     )
 
     data class RecordedChannel(
+        val id: String,
         val name: String,
+        val number: Int,
         val items: List<BarkerSchedule.BarkerItem>,
     )
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    fun load(context: Context): RecordedChannel? {
-        // Lokalizacje paczki (pierwsza z manifestem wygrywa):
-        // - getExternalFilesDirs(null) — katalogi aplikacji na WSZYSTKICH
-        //   woluminach: [0] pamięć wewnętrzna, [1+] KARTA SD / USB
-        //   (/storage/<UUID>/Android/data/<pkg>/files/tvp1rec) — dostępne
-        //   bez żadnych uprawnień, duże nagrania trzymamy na karcie
-        // - filesDir/tvp1rec — Android 11+ blokuje adb push do Android/data
-        //   pamięci wewnętrznej; deploy: push → /data/local/tmp, potem
-        //   `run-as <pkg> cp` (debug build)
-        val candidates =
-            context.getExternalFilesDirs(null).filterNotNull().map { File(it, DIR_NAME) } +
-                File(context.filesDir, DIR_NAME)
-        val dir = candidates.firstOrNull { File(it, "manifest.json").exists() }
-        if (dir == null) {
-            Log.i(TAG, "Brak paczki nagrania (${candidates.joinToString()}) — kanał pominięty")
-            return null
+    /**
+     * Wszystkie kanały z nagrań. Rooty (aplikacyjne, bez uprawnień):
+     * - getExternalFilesDirs(null) — pamięć wewnętrzna [0] + KARTA SD/USB [1+]
+     *   (/storage/<UUID>/Android/data/<pkg>/files/…)
+     * - filesDir — Android 11+ blokuje adb push do Android/data pamięci
+     *   wewnętrznej; deploy: push → /data/local/tmp + `run-as <pkg> cp`
+     * W każdym roocie paczką jest KAŻDY podkatalog z manifest.json
+     * (np. tvp1rec/, pnewsrec/). Duplikaty katalogów (ta sama nazwa na kilku
+     * rootach) — wygrywa pierwszy znaleziony.
+     */
+    fun loadAll(context: Context): List<RecordedChannel> {
+        val roots =
+            context.getExternalFilesDirs(null).filterNotNull() + context.filesDir
+        val seen = mutableSetOf<String>()
+        val channels = mutableListOf<RecordedChannel>()
+        for (root in roots) {
+            val subdirs = root.listFiles { f: File ->
+                f.isDirectory && File(f, "manifest.json").exists()
+            } ?: continue
+            for (dir in subdirs) {
+                if (!seen.add(dir.name)) continue
+                loadDir(dir)?.let { channels += it }
+            }
         }
+        return channels.sortedBy { it.number }
+    }
+
+    private fun loadDir(dir: File): RecordedChannel? {
         val manifestFile = File(dir, "manifest.json")
         return try {
             val manifest = json.decodeFromString<Manifest>(manifestFile.readText())
@@ -86,11 +99,12 @@ object RecordedChannelLoader {
                 )
             }
             if (items.isEmpty()) {
-                Log.w(TAG, "Manifest bez działających plików — kanał pominięty")
+                Log.w(TAG, "Manifest bez działających plików (${dir.name}) — kanał pominięty")
                 null
             } else {
-                Log.i(TAG, "Kanał '${manifest.channelName}': ${items.size} programów z nagrania")
-                RecordedChannel(manifest.channelName, items)
+                Log.i(TAG, "Kanał '${manifest.channelName}' (#${manifest.channelNumber}): " +
+                    "${items.size} programów z ${dir.absolutePath}")
+                RecordedChannel(dir.name, manifest.channelName, manifest.channelNumber, items)
             }
         } catch (e: Exception) {
             Log.e(TAG, "Błąd manifestu: ${e.message}")
