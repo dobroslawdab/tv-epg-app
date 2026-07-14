@@ -1767,6 +1767,10 @@ fun DemoLiveScreen(
         onDispose { demoLifecycleOwner.lifecycle.removeObserver(obs) }
     }
 
+    // Buforowanie aktywnego playera (seek w dużym pliku z karty potrafi trwać
+    // kilka sekund) — spinner w FULLSCREEN zamiast "zawieszonej" stopklatki
+    var isBuffering by remember { mutableStateOf(false) }
+
     // Polling pozycji + log diagnostyczny co 5 s
     LaunchedEffect(isReady) {
         if (!isReady) return@LaunchedEffect
@@ -1774,6 +1778,11 @@ fun DemoLiveScreen(
         while (true) {
             delay(500)
             currentVirtualMs = activeCtl().currentVirtualPositionMs()
+            isBuffering = if (isTunedLiveStream()) {
+                livePlayer?.playbackState == com.google.android.exoplayer2.Player.STATE_BUFFERING
+            } else {
+                activeCtl().player?.playbackState == com.google.android.exoplayer2.Player.STATE_BUFFERING
+            }
             // Cofnięcie względem live na realnym streamie (okno DVR playlisty)
             liveBehindMs = if (isTunedLiveStream()) {
                 livePlayer?.let { (it.duration - it.currentPosition).coerceAtLeast(0L) } ?: 0L
@@ -2130,6 +2139,26 @@ fun DemoLiveScreen(
                 sx = sx, sy = sy
             )
         }
+        // Spinner buforowania: przełączenie kanału / seek do dalekiej pozycji
+        // w 800 MB pliku z karty trwa chwilę — bez wskaźnika wyglądało jak
+        // zawieszenie na stopklatce
+        if (isReady && isBuffering && recordingCandidate == null) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .zIndex(11f)
+                    .background(Color(0x66000000), RoundedCornerShape(sx(24)))
+                    .padding(sx(28)),
+                contentAlignment = Alignment.Center
+            ) {
+                androidx.compose.material3.CircularProgressIndicator(
+                    color = Color(0xFF5AECD3),
+                    strokeWidth = sx(6),
+                    modifier = Modifier.size(sx(72))
+                )
+            }
+        }
+
         DemoInfoToast(
             text = demoToast,
             onHidden = { demoToast = null },

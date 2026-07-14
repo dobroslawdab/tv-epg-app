@@ -100,26 +100,30 @@ class FrameCaptureManager {
      * Returns null if no frames are available.
      */
     fun getClosestFrame(targetPositionMs: Long): Bitmap? {
-        synchronized(ringBuffer) {
-            val ramBest = ringBuffer.minByOrNull { abs(it.positionMs - targetPositionMs) }
-            val ramDist = ramBest?.let { abs(it.positionMs - targetPositionMs) } ?: Long.MAX_VALUE
-            if (ramDist <= 6_000L) return ramBest?.bitmap
-
-            // Dysk ma gęstsze klatki niż RAM — doszukaj dokładniejszego kadru
+        // Wybór kandydatów w krótkim locku; dekodowanie JPG poza nim
+        val (ramBitmap, ramDist, diskBest) = synchronized(ringBuffer) {
+            val best = ringBuffer.minByOrNull { abs(it.positionMs - targetPositionMs) }
+            val dist = best?.let { abs(it.positionMs - targetPositionMs) } ?: Long.MAX_VALUE
             val floor = diskIndex.floorEntry(targetPositionMs)
             val ceil = diskIndex.ceilingEntry(targetPositionMs)
-            val diskBest = listOfNotNull(floor, ceil)
+            val disk = listOfNotNull(floor, ceil)
                 .minByOrNull { abs(it.key - targetPositionMs) }
-            if (diskBest != null && abs(diskBest.key - targetPositionMs) < ramDist) {
-                diskLru[diskBest.key]?.takeIf { !it.isRecycled }?.let { return it }
-                val bmp = android.graphics.BitmapFactory.decodeFile(diskBest.value.absolutePath)
-                if (bmp != null) {
-                    diskLru[diskBest.key] = bmp
-                    return bmp
-                }
-            }
-            return ramBest?.bitmap
+            Triple(best?.bitmap, dist, disk?.let { it.key to it.value })
         }
+        if (ramDist <= 6_000L) return ramBitmap
+
+        // Dysk ma gęstsze klatki niż RAM — doszukaj dokładniejszego kadru
+        if (diskBest != null && abs(diskBest.first - targetPositionMs) < ramDist) {
+            synchronized(diskLru) {
+                diskLru[diskBest.first]?.takeIf { !it.isRecycled }
+            }?.let { return it }
+            val bmp = android.graphics.BitmapFactory.decodeFile(diskBest.second.absolutePath)
+            if (bmp != null) {
+                synchronized(diskLru) { diskLru[diskBest.first] = bmp }
+                return bmp
+            }
+        }
+        return ramBitmap
     }
 
     /**
@@ -212,15 +216,20 @@ class FrameCaptureManager {
                     ?.forEach { f ->
                         val pos = f.name.removePrefix("f_").removeSuffix(".jpg").toLongOrNull()
                             ?: return@forEach
-                        synchronized(ringBuffer) {
+                        // Decyzja w locku, DEKODOWANIE poza — UI (getClosestFrame)
+                        // nie może czekać na BitmapFactory wątku ekstrakcji
+                        val needRam = synchronized(ringBuffer) {
                             diskIndex[pos] = f
-                            val ramHasNearby =
-                                ringBuffer.any { abs(it.positionMs - pos) < ramSpacingMs }
-                            if (!ramHasNearby && ringBuffer.size < MAX_FRAMES) {
-                                android.graphics.BitmapFactory.decodeFile(f.absolutePath)?.let {
-                                    ringBuffer.addLast(TimestampedFrame(it, pos))
+                            ringBuffer.size < MAX_FRAMES &&
+                                ringBuffer.none { abs(it.positionMs - pos) < ramSpacingMs }
+                        }
+                        if (needRam) {
+                            val bmp = android.graphics.BitmapFactory.decodeFile(f.absolutePath)
+                            if (bmp != null) synchronized(ringBuffer) {
+                                if (ringBuffer.size < MAX_FRAMES) {
+                                    ringBuffer.addLast(TimestampedFrame(bmp, pos))
                                     loaded++
-                                }
+                                } else bmp.recycle()
                             }
                         }
                     }
