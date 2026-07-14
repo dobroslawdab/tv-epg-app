@@ -88,7 +88,10 @@ fun MovieDetailScreen(
     // Tryb WIDEO: opcjonalny slot renderowany NAD tytułem zamiast wewnątrz-kolumnowego
     // logo kanału (np. demo live: linia "czas + NA ŻYWO"). null = domyślne logo (produkcja
     // VOD/Kino bez zmian).
-    wideoHeaderSlot: (@Composable () -> Unit)? = null
+    wideoHeaderSlot: (@Composable () -> Unit)? = null,
+    // Demo live: logo kanału na SZCZYCIE scrollowanej kolumny (przewija się z kartą);
+    // zastępuje górny spacer sy(255)
+    wideoTopSlot: (@Composable () -> Unit)? = null
 ) {
     // Reactive rental state — recomposes when RentalManager.rentals changes (e.g. after
     // rental confirmation or debug clear). VodSlideData has no stable id field, so we
@@ -178,6 +181,12 @@ fun MovieDetailScreen(
     LaunchedEffect(Unit) {
         delay(100)
         runCatching { buttonFocusRequesters.getOrNull(0)?.requestFocus() }
+        if (wideoHeaderSlot != null) {   // demo live (isDemoLive definiowane niżej)
+            // Wejście na detal: karta od GÓRY (bringIntoView fokusu potrafił
+            // podscrollować do przycisków/opisu) — fokus zostaje na 1. przycisku
+            delay(80)
+            runCatching { pageScrollState.scrollTo(0) }
+        }
     }
 
     // After exiting browse mode, refocus on "Oglądaj" (button index 0) — the canonical
@@ -377,8 +386,16 @@ fun MovieDetailScreen(
                     .fillMaxHeight()
                     .let { if (isWideoMode) it.verticalScroll(pageScrollState) else it }
             ) {
-                // Demo live: treść zaczyna się pod logo w rogu (Figma info_line y=255)
-                if (isWideoMode) Spacer(modifier = Modifier.height(if (isDemoLive) sy(255) else sy(168)))
+                // Demo live: logo kanału w scrollowanej kolumnie (Figma 208x208 @128,
+                // +40 px niżej wg wytycznej 2026-07-14) — przewija się razem z kartą;
+                // treść (info_line) zaczyna na tej samej wysokości co dotąd (255+40)
+                if (isWideoMode && isDemoLive && wideoTopSlot != null) {
+                    Spacer(modifier = Modifier.height(sy(64)))
+                    wideoTopSlot.invoke()
+                    Spacer(modifier = Modifier.height(sy(23)))
+                } else if (isWideoMode) {
+                    Spacer(modifier = Modifier.height(if (isDemoLive) sy(255) else sy(168)))
+                }
 
                 if (isDemoLive) {
                     // Demo live: info_line (godzina + oznaczenia) PRZYKLEJONE bezpośrednio

@@ -2198,33 +2198,32 @@ fun DemoLiveScreen(
                                 canStartOver = detailTiming != BlockTiming.FUTURE,
                                 sx = sx, sy = sy
                             )
+                        },
+                        // Logo kanału (Figma 208x208) na szczycie SCROLLOWANEJ kolumny
+                        // — przewija się razem z kartą (wytyczna 2026-07-14)
+                        wideoTopSlot = {
+                            Box(
+                                modifier = Modifier
+                                    .size(sx(208), sy(208))
+                                    .clip(RoundedCornerShape(sx(8)))
+                            ) {
+                                if (!detailChannelLogoUrl.isNullOrBlank()) {
+                                    coil.compose.AsyncImage(
+                                        model = detailChannelLogoUrl,
+                                        contentDescription = "Logo kanału",
+                                        contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                } else {
+                                    DemoChannelLogoBadge(
+                                        channelNumber = detailChannelNumber,
+                                        channelName = detailChannelName,
+                                        sx = sx, sy = sy
+                                    )
+                                }
+                            }
                         }
                     )
-                }
-                // Logo kanału w lewym górnym rogu (Figma: 208x208 @ 128,24).
-                // Kanały z logoUrl → obrazek; bez (np. DEMO TV) → badge zastępczy.
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(start = sx(128), top = sy(24))
-                        .size(sx(208), sy(208))
-                        .zIndex(15f)
-                        .clip(RoundedCornerShape(sx(8)))
-                ) {
-                    if (!detailChannelLogoUrl.isNullOrBlank()) {
-                        coil.compose.AsyncImage(
-                            model = detailChannelLogoUrl,
-                            contentDescription = "Logo kanału",
-                            contentScale = androidx.compose.ui.layout.ContentScale.Fit,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    } else {
-                        DemoChannelLogoBadge(
-                            channelNumber = detailChannelNumber,
-                            channelName = detailChannelName,
-                            sx = sx, sy = sy
-                        )
-                    }
                 }
             }
             // PIP: ten sam widok wideo w prawym dolnym rogu, NAD warstwą detalu.
