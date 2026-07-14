@@ -1717,6 +1717,12 @@ fun TopMenuScreen2(
                 }
 
                 if (event.key == Key.Back) {
+                    // Menu kontekstowe (long-press) otwarte na wierszach zakładki:
+                    // NIE obsługuj BACK tutaj — przepuść do OnBackPressedDispatcher,
+                    // gdzie BackHandler menu zamyka samo okno (user zostaje na kaflu)
+                    if (VodDataCache.contextMenuOpen.value) {
+                        return@onPreviewKeyEvent false
+                    }
                     // PIP mode: BACK from menu on ANY tab - always return to EPG
                     if (pipPlayer != null && globalFocusState.value.currentRow == 0) {
                         android.util.Log.d("PIP_NAVIGATION", "BACK from menu with PIP (tab: ${globalFocusState.value.sectionId}) - returning to EPG Day Test")
@@ -1948,8 +1954,14 @@ fun TopMenuScreen2(
                                         "PAKIETY"
                                     )
                                     true
-                                } else if (isLeftProfilFocused) {
-                                    // Left Profil focused - navigate to PROFILE section
+                                } else if (isLeftProfilFocused &&
+                                    globalFocusState.value.currentPosition == 0
+                                ) {
+                                    // Left Profil focused - navigate to PROFILE section.
+                                    // Warunek position==0: flaga bywa LEPKA (BACK z sekcji
+                                    // Profil ją ustawia, a przywrócenie fokusu na inną
+                                    // zakładkę jej nie czyści) — bez tego DOWN na np.
+                                    // Telewizji potrafił otworzyć "Kto ogląda"
                                     isLeftProfilFocused = false
                                     globalFocusState.value = GlobalFocusManager.transitionToContent(
                                         globalFocusState.value,
@@ -1957,6 +1969,7 @@ fun TopMenuScreen2(
                                     )
                                     true
                                 } else {
+                                    if (isLeftProfilFocused) isLeftProfilFocused = false
                                     // In main menu - transition to content
                                     val currentSection = MenuPositions.getSectionForPosition(globalFocusState.value.currentPosition)
                                     // Allow all sections (including ACCOUNT) to transition to content
@@ -6024,6 +6037,9 @@ private fun TelewizjaChannelsScreen(
     // teraz): Oglądaj / Nagraj od początku. Drugi element pary = akcja Oglądaj.
     var tvCtxChannel by remember { mutableStateOf<Pair<TvChannel, () -> Unit>?>(null) }
     var tvCtxProgram by remember { mutableStateOf<Pair<VodContent, () -> Unit>?>(null) }
+    LaunchedEffect(tvCtxChannel, tvCtxProgram) {
+        VodDataCache.contextMenuOpen.value = tvCtxChannel != null || tvCtxProgram != null
+    }
     var isInitialized by remember { mutableStateOf(false) }
 
     // ✅ INITIALIZATION: ALWAYS set to true (no conditions) - enables navigation
@@ -14811,6 +14827,12 @@ private fun VodWithChannels(
     var kinoCtxItem by remember { mutableStateOf<VodContent?>(null) }
     var kinoEnterLongHandled by remember { mutableStateOf(false) }
 
+    // Root-handler TopMenu musi wiedzieć o otwartym menu (BACK ma je zamykać,
+    // nie wracać do top menu) — patrz VodDataCache.contextMenuOpen
+    LaunchedEffect(kinoCtxItem) {
+        VodDataCache.contextMenuOpen.value = kinoCtxItem != null
+    }
+
     // Podpowiedź long-press: pokazywana gdy fokus staje na PIERWSZEJ miniaturce
     // wiersza (badania: v1 toast Figma 4100-1747 vs v2 dymek — dev modal "0");
     // auto-hide po 4 s, znika przy otwarciu menu / zejściu z pierwszego kafla
@@ -21304,6 +21326,9 @@ private fun WideoChannelsScreen(
     // ===== Menu kontekstowe kafla (long-press OK): Oglądaj / Dodaj do obejrzenia =====
     var wideoCtxItem by remember { mutableStateOf<VodContent?>(null) }
     var wideoEnterLongHandled by remember { mutableStateOf(false) }
+    LaunchedEffect(wideoCtxItem) {
+        VodDataCache.contextMenuOpen.value = wideoCtxItem != null
+    }
 
     // Item wskazywany wizualnie w fokusowanym wierszu — ta sama logika co gałąź
     // Enter w handleWideoChannelsNavigation (effective index z offsetu scrolla)

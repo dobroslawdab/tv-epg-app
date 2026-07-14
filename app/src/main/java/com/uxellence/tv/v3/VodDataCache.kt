@@ -117,6 +117,12 @@ object VodDataCache {
     // dopasowuje go do realnego kanału i tunuje po załadowaniu wierszy; 1x-użytek
     var demoLiveInitialChannelKey: String? = null
 
+    // true = otwarte menu kontekstowe (long-press) na wierszach zakładek —
+    // root-handler TopMenuScreen2 MUSI wtedy przepuścić BACK (dispatcher →
+    // BackHandler menu zamyka TYLKO menu); bez tego BACK od razu wracał
+    // do top menu z wiszącym oknem
+    val contextMenuOpen = mutableStateOf(false)
+
     // Same mechanism for the MOJE tab — used when MovieDetail closes and user originally
     // navigated to MovieDetail from MOJE→Wypożyczone (poster click). MojeChannelsScreen's
     // outer Box watches this and re-grabs keyboard focus; without it, BACK from MovieDetail
