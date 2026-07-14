@@ -184,7 +184,7 @@ internal fun DemoFilmstrip(
                                     .padding(horizontal = sx(24))
                             ) {
                                 Text(
-                                    text = "Przechodzisz do",
+                                    text = "Początek programu",
                                     color = Color(0xCCEEEEEE),
                                     fontSize = demoSp(if (isCenter) 22 else 16, sy)
                                 )

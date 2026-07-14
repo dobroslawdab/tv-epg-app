@@ -247,7 +247,9 @@ fun DemoPlayerUi(
                         if (figmaButtons) PlayerButtonsRowFigma(isPaused, buttonsFocusIndex, isAtLiveEdge, vodButtons, recScheduled, sx, sy)
                         else PlayerButtonsRow(isPaused, buttonsFocusIndex, isAtLiveEdge, vodButtons, recScheduled, sx, sy)
                     }
-                    Spacer(modifier = Modifier.height(sy(28)))
+                    // Odstęp 28 - 24 (pół wiersza opisu, line-height 48) — opis
+                    // podniesiony o pół linii tekstu (wytyczna 2026-07-14)
+                    Spacer(modifier = Modifier.height(sy(4)))
                     // Opis: ramka zawsze zajmuje miejsce (transparentna gdy bez fokusu),
                     // żeby fokus nie przesuwał tekstu; aqua ramka tylko w SNIPPET
                     Box(
@@ -274,6 +276,21 @@ fun DemoPlayerUi(
                                 TextOverflow.Clip   // reszta chowa się pod foldem
                             }
                         )
+                        if (zone == PlayerZone.SNIPPET) {
+                            // Fokus na opisie: wskaźnik "więcej ›" w prawym dolnym
+                            // rogu bloczka, w kolorze fokusa; tło zasłania tekst
+                            // ostatniej linii, żeby napis był czytelny
+                            Text(
+                                text = "więcej ›",
+                                color = AQUA,
+                                fontSize = demoSp(30, sy),
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .background(Color(0xFF281443))
+                                    .padding(start = sx(16))
+                            )
+                        }
                     }
                 }
             }
