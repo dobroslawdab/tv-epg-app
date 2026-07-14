@@ -3545,8 +3545,14 @@ private fun KontoButton(
                 if (event.type == KeyEventType.KeyDown &&
                     (event.key == Key.Enter || event.key == Key.DirectionCenter ||
                      event.key == Key.DirectionDown)) {
-                    onClick()
-                    true
+                    // TYLKO przy LOGICZNYM fokusie (widoczny ring). Fizyczny fokus
+                    // Compose potrafi zabłądzić na te przyciski po przejściach
+                    // ekranów — OK/DOWN usera na kaflu treści otwierało wtedy
+                    // "Kto ogląda" / Konto z zaskoczenia
+                    if (isFocused) {
+                        onClick()
+                        true
+                    } else false
                 } else {
                     false
                 }
@@ -3641,8 +3647,14 @@ private fun ProfilButton(
                 if (event.type == KeyEventType.KeyDown &&
                     (event.key == Key.Enter || event.key == Key.DirectionCenter ||
                      event.key == Key.DirectionDown)) {
-                    onClick()
-                    true
+                    // TYLKO przy LOGICZNYM fokusie (widoczny ring). Fizyczny fokus
+                    // Compose potrafi zabłądzić na te przyciski po przejściach
+                    // ekranów — OK/DOWN usera na kaflu treści otwierało wtedy
+                    // "Kto ogląda" / Konto z zaskoczenia
+                    if (isFocused) {
+                        onClick()
+                        true
+                    } else false
                 } else {
                     false
                 }
