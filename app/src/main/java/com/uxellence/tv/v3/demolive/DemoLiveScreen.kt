@@ -1366,19 +1366,27 @@ fun DemoLiveScreen(
                 playerInteractionAt = System.currentTimeMillis()
                 when (playerZone) {
                     PlayerZone.BUTTONS -> {
+                        // Pauza ≠ live — przy pauzie slot 1 jest przyciskiem "Wróć do live".
+                        // Barker: wg pozycji jego kontrolera; live-stream: wg liveBehindMs.
+                        val atLive = when {
+                            activeBarker() != null -> !isPaused && activeCtl().isAtLiveEdge()
+                            isTunedLiveStream() -> !isPaused && liveBehindMs < 5_000L
+                            else -> true
+                        }
                         if (dir < 0 && playerButtonsFocus == 0) {
                             // LEWO z pierwszej ikony ("Zatrzymaj") → od razu taśma
                             // przewijania WSTECZ — jak UP na taśmę + LEFT
                             // (wytyczna 2026-07-14)
                             openStripWithStepFn(-1)
-                        } else {
-                            // Pauza ≠ live — przy pauzie slot 1 jest przyciskiem "Wróć do live".
-                            // Barker: wg pozycji jego kontrolera; live-stream: wg liveBehindMs.
-                            val atLive = when {
-                                activeBarker() != null -> !isPaused && activeCtl().isAtLiveEdge()
-                                isTunedLiveStream() -> !isPaused && liveBehindMs < 5_000L
-                                else -> true
+                        } else if (dir > 0 && playerButtonsFocus == 4) {
+                            // PRAWO z ostatniej ikony (napisy/dźwięk) → przewijanie
+                            // DO PRZODU; na live zamiast tego info "jesteś live"
+                            if (atLive) {
+                                demoToast = "Oglądasz na żywo"
+                            } else {
+                                openStripWithStepFn(1)
                             }
+                        } else {
                             var newFocus = (playerButtonsFocus + dir).coerceIn(0, 4)
                             if (atLive && newFocus == 1) {
                                 // Na live slot 1 to status "Oglądasz live" (niefokusowalny) — przeskocz
