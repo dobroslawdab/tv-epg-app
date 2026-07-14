@@ -91,8 +91,6 @@ fun DemoPlayerUi(
     figmaButtons: Boolean = false,  // klawisz "3": ikonowy pasek wg designu Figma
     frames: List<Pair<Long, Bitmap?>>,
     blockTitleFor: ((Long) -> String?)? = null,  // tytuł materiału dla pozycji wirtualnej (taśma)
-    // Klawisz "8": kafelek "Przechodzisz do…" zamiast tytułów nad taśmą
-    scrubNextTile: Boolean = false,
     // Player VOD (zwiastun): kontrolki bez LIVE i REC — [pauza, od początku, napisy]
     vodButtons: Boolean = false,
     // Bieżący program ma już ZLECONE nagranie → REC pokazuje "Anuluj nagranie"
@@ -165,7 +163,6 @@ fun DemoPlayerUi(
                         antennaStartWallMs = antennaStartWallMs,
                         showTimeLabels = false,   // czasy są nad paskiem, nie nad miniaturami
                         blockTitleFor = blockTitleFor,
-                        nextTileMode = scrubNextTile,
                         blockMetaFor = blockMetaFor,
                         sx = sx, sy = sy
                     )

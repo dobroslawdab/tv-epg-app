@@ -379,7 +379,6 @@ fun DemoVodPlayerScreen(
             vodButtons = true,
             frames = filmstripFrames,
             blockTitleFor = { title },
-            scrubNextTile = DemoPlayerPrefs.scrubNextTile.value,
             blockMetaFor = { listOf(genre, year).filter { it.isNotBlank() }.joinToString(", ") },
             sx = sx, sy = sy
         )

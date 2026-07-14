@@ -47,10 +47,9 @@ internal fun DemoFilmstrip(
     antennaStartWallMs: Long,
     showTimeLabels: Boolean = true,   // false: czasy pokazuje pasek postępu (design)
     blockTitleFor: ((Long) -> String?)? = null,  // tytuły materiałów nad taśmą (Figma 5530-5395)
-    // Wariant "kafelek przejścia" (klawisz 8, Figma 5530-5267): pierwszy slot
-    // nowego materiału to karta "Przechodzisz do…" zamiast miniaturki,
-    // a tytuły NAD taśmą są wyłączone
-    nextTileMode: Boolean = false,
+    // Tryb POŁĄCZONY (decyzja 2026-07-14, dawne A/B spod klawisza 8): tytuły
+    // nad taśmą (Figma 5530-5395) ORAZ kafelek "Przechodzisz do…" na pierwszym
+    // slocie nowego materiału (Figma 5530-5267) wyświetlane RAZEM
     blockMetaFor: ((Long) -> String?)? = null,   // metadane materiału (kafelek)
     sx: (Int) -> Dp,
     sy: (Int) -> Dp
@@ -66,7 +65,7 @@ internal fun DemoFilmstrip(
         // trzyma tytuł przy lewej krawędzi, aż przewiniemy do następnego.
         // Pasmo tytułów siedzi tuż nad MAŁYMI miniaturkami i jest rysowane
         // PRZED taśmą — duża środkowa miniatura (wyższa) przykrywa je z-indexem.
-        if (!nextTileMode && blockTitleFor != null && frames.isNotEmpty()) {
+        if (blockTitleFor != null && frames.isNotEmpty()) {
             // Geometria slotów w px designu 1920: taśma wycentrowana, szersza
             // od ekranu (clipToBounds) — lewy slot częściowo poza kadrem
             val sideW = 320; val centerW = 480; val gapW = 10
@@ -135,7 +134,7 @@ internal fun DemoFilmstrip(
 
                 // Kafelek przejścia: slot jest PIERWSZYM slotem nowego materiału
                 // (tytuł inny niż w slocie po lewej), oba w oknie DVR
-                val isTransitionTile = nextTileMode && blockTitleFor != null && index > 0 &&
+                val isTransitionTile = blockTitleFor != null && index > 0 &&
                     run {
                         val prevV = centerVirtualMs + frames[index - 1].first
                         val curT = blockTitleFor(slotVirtualMs)

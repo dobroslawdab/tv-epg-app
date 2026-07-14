@@ -74,7 +74,7 @@ private fun liveLoopMs(channelId: String?): Long? = when (channelId) {
  */
 private class DemoVideoView(
     context: android.content.Context,
-    private val onKey: (Int) -> Boolean
+    private val onKey: (Int, Int) -> Boolean   // (keyCode, repeatCount)
 ) : android.widget.FrameLayout(context) {
 
     private val textureView = android.view.TextureView(context)
@@ -155,7 +155,9 @@ private class DemoVideoView(
     }
 
     override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
-        if (event.action == android.view.KeyEvent.ACTION_DOWN && onKey(event.keyCode)) return true
+        if (event.action == android.view.KeyEvent.ACTION_DOWN &&
+            onKey(event.keyCode, event.repeatCount)
+        ) return true
         return super.dispatchKeyEvent(event)
     }
 }
@@ -438,6 +440,24 @@ fun DemoLiveScreen(
     /** Kontroler osi/playbacku dla dostrojonego kanału (fallback: primary demo). */
     fun activeCtl(): DemoChannelPlayerController = activeBarker()?.controller ?: controller
 
+    /**
+     * Snap kursora przewijania do granicy materiału: krok (zwłaszcza przyspieszony
+     * przy szybkim przewijaniu) NIE przeskakuje zmiany materiału — kursor zatrzymuje
+     * się na starcie nowego bloku, gdzie taśma pokazuje kafelek "Przechodzisz do…".
+     */
+    fun snapScrubToBlockEdge(oldMs: Long, candidateMs: Long, direction: Int): Long {
+        val sched = activeBarker()?.schedule ?: demoBundle.schedule
+        return if (direction > 0) {
+            val end = sched.epgBlockAt(oldMs).endVirtualMs
+            if (oldMs < end && candidateMs > end) end else candidateMs
+        } else {
+            // Blok dla pozycji tuż PRZED kursorem — stojąc na granicy, cofamy się
+            // w głąb poprzedniego materiału aż do JEGO startu, nie w miejscu
+            val start = sched.epgBlockAt((oldMs - 1).coerceAtLeast(0L)).startVirtualMs
+            if (oldMs > start && candidateMs < start) start else candidateMs
+        }
+    }
+
     /** Leniwe pobranie materiałów barkera (pierwsze dostrojenie); po sukcesie podpina obraz. */
     fun ensureBarkerReady(bundle: BarkerBundle) {
         if (bundle.ready.value || bundle.downloading.value) return
@@ -554,6 +574,11 @@ fun DemoLiveScreen(
     // Akceleracja seeka (wzorzec z VodPlayerScreen)
     var rapidPressCount by remember { mutableIntStateOf(0) }
     var lastPressTimeNano by remember { mutableLongStateOf(0L) }
+    // Granica materiału, na której kursor stanął podczas trzymania strzałki
+    // (-1 = brak locka); patrz scrubStepWithSnap
+    var scrubSnapLockMs by remember { mutableLongStateOf(-1L) }
+    // repeatCount ostatniego KeyDown (0 = nowe fizyczne naciśnięcie, >0 = trzymanie)
+    var scrubKeyRepeat by remember { mutableIntStateOf(0) }
     fun getSeekStep(): Long {
         val now = System.nanoTime()
         val elapsedMs = (now - lastPressTimeNano) / 1_000_000
@@ -705,6 +730,29 @@ fun DemoLiveScreen(
     fun isTunedLiveStream(): Boolean =
         tunedChannelIndex != 0 &&
             epgRows.getOrNull(tunedChannelIndex)?.channel?.streamUrl?.isNotBlank() == true
+
+    /**
+     * Krok przewijania taśmy ze snapem do granicy materiału. Przy TRZYMANIU
+     * strzałki (autorepeat: repeatCount > 0) kursor ZATRZYMUJE SIĘ na granicy
+     * (kafelek "Przechodzisz do…") i stoi aż user puści klawisz. NOWE fizyczne
+     * naciśnięcie (repeatCount == 0) ZAWSZE zwalnia blokadę i rusza dalej —
+     * sygnałem jest repeatCount, nie timing, żeby szybkie klikanie nigdy nie
+     * dawało trwałej blokady. Realny live: bez snapu (oś wall-clock).
+     */
+    fun scrubStepWithSnap(dir: Int) {
+        val step = getSeekStep()   // akceleracja przy serii naciśnięć
+        if (scrubKeyRepeat == 0) scrubSnapLockMs = -1L   // nowy klik zwalnia lock
+        if (scrubSnapLockMs >= 0 && scrubCursorMs == scrubSnapLockMs) {
+            return   // autorepeat na granicy — czekaj na puszczenie klawisza
+        }
+        scrubSnapLockMs = -1L
+        val cand = scrubCursorMs + step * dir
+        val snapped = if (isTunedLiveStream()) cand
+            else snapScrubToBlockEdge(scrubCursorMs, cand, dir)
+        if (snapped != cand) scrubSnapLockMs = snapped
+        scrubCursorMs = snapped.coerceIn(activeCtl().dvrStartMs(), activeCtl().virtualNow())
+        updateFilmstrip(scrubCursorMs)
+    }
 
     /** Seek względny na live (clamp do okna DVR playlisty). */
     fun liveSeekBy(deltaMs: Long) {
@@ -1244,9 +1292,7 @@ fun DemoLiveScreen(
                             // Blokada przewijania DO PRZODU (TVN/Disney) — komunikat, bez ruchu
                             showForwardBlocked()
                         } else {
-                            scrubCursorMs = (scrubCursorMs + getSeekStep() * dir)
-                                .coerceIn(activeCtl().dvrStartMs(), activeCtl().virtualNow())
-                            updateFilmstrip(scrubCursorMs)
+                            scrubStepWithSnap(dir)
                         }
                     }
                     PlayerZone.SNIPPET, PlayerZone.DETAIL -> { /* brak nawigacji poziomej */ }
@@ -1504,9 +1550,7 @@ fun DemoLiveScreen(
                             scrubStartVirtualMs = activeCtl().currentVirtualPositionMs()
                             openStrip(scrubStartVirtualMs)
                         }
-                        scrubCursorMs = (scrubCursorMs + getSeekStep() * direction)
-                            .coerceIn(controller.dvrStartMs(), controller.virtualNow())
-                        updateFilmstrip(scrubCursorMs)
+                        scrubStepWithSnap(direction)
                         playerInteractionAt = System.currentTimeMillis()
                         Log.i(TAG, "STRIP ${if (direction > 0) "RIGHT" else "LEFT"} → ${scrubCursorMs}ms")
                     }
@@ -1712,7 +1756,8 @@ fun DemoLiveScreen(
     // UWAGA: BACK celowo NIE jest tu obsługiwany — przepuszczamy go do systemowego
     // OnBackPressedDispatcher (BackHandler niżej). Obsługa w obu miejscach dawała
     // podwójne przetworzenie jednego naciśnięcia (DOWN w widoku + dispatcher na UP).
-    val keyHandler = rememberUpdatedState<(Int) -> Boolean> { keyCode ->
+    val keyHandler = rememberUpdatedState<(Int, Int) -> Boolean> { keyCode, repeatCount ->
+        scrubKeyRepeat = repeatCount   // sygnał trzymania dla scrubStepWithSnap
         if (keyCode == android.view.KeyEvent.KEYCODE_BACK) {
             false
         } else if (!isReady) {
@@ -1730,15 +1775,6 @@ fun DemoLiveScreen(
             }
             demoToast = "DEMO TV: przewijanie = ${demoPolicyOverride}"
             Log.i(TAG, "demoPolicyOverride=$demoPolicyOverride")
-            true
-        } else if (keyCode == android.view.KeyEvent.KEYCODE_8) {
-            // DEMO: wariant pokazania ZMIANY MATERIAŁU na taśmie przewijania
-            // (badanie A/B): tytuły nad kafelkami ⇄ kafelek "Przechodzisz do…"
-            val on = DemoPlayerPrefs.toggleScrubNextTile(context)
-            playerInteractionAt = System.currentTimeMillis()
-            demoToast = if (on) "Zmiana materiału: kafelek na taśmie (Przechodzisz do…)"
-                else "Zmiana materiału: tytuły nad miniaturkami"
-            Log.i(TAG, "scrubNextTile=$on")
             true
         } else if (keyCode == android.view.KeyEvent.KEYCODE_3) {
             // DEMO: przełącz wygląd paska przycisków playera (tekstowy ⇄ ikonowy wg Figmy).
@@ -1794,7 +1830,7 @@ fun DemoLiveScreen(
         movableContentOf { modifier: Modifier ->
             AndroidView(
                 factory = { ctx ->
-                    DemoVideoView(ctx) { keyCode -> keyHandler.value(keyCode) }
+                    DemoVideoView(ctx) { keyCode, rpt -> keyHandler.value(keyCode, rpt) }
                         .also { videoViewRef = it }
                 },
                 update = { view -> view.attach(playerRef) },
@@ -1815,7 +1851,7 @@ fun DemoLiveScreen(
                 // sam obsługuje i konsumuje wszystkie klawisze
                 if (recordingCandidate != null) return@onPreviewKeyEvent false
                 if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-                keyHandler.value(event.nativeKeyEvent.keyCode)
+                keyHandler.value(event.nativeKeyEvent.keyCode, event.nativeKeyEvent.repeatCount)
             }
             .focusable()
     ) {
@@ -1986,7 +2022,6 @@ fun DemoLiveScreen(
                 uiMainBlock.title,
                 controller.antennaStartWallMs + uiMainBlock.startVirtualMs
             ),
-            scrubNextTile = DemoPlayerPrefs.scrubNextTile.value,
             blockMetaFor = { v ->
                 blockForTunedChannel(v)?.let { b ->
                     listOf(b.genre, b.year).filter { it.isNotBlank() }.joinToString(", ")
