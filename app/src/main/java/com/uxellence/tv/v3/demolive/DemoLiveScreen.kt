@@ -1222,6 +1222,15 @@ fun DemoLiveScreen(
                     }
                     val playingNow = nowRef in targetStart until targetEnd
                     when {
+                        playingNow && epgChannelIndex == tunedChannelIndex -> {
+                            // Klik na program AKTUALNIE OGLĄDANY (live LUB timeshift)
+                            // → player UI bez ruszania pozycji odtwarzania. Dotąd
+                            // w expanded szło przez tuneBarker → seekToLiveEdge
+                            // i wyrzucało z timeshiftu do live.
+                            epgExpanded = false
+                            openPlayerButtons()
+                            Log.i(TAG, "EPG select: '${program.title}' (oglądany) → PLAYER_UI")
+                        }
                         playingNow && epgExpanded -> {
                             // Wybór programu nadawanego TERAZ na warstwie wielu kanałów →
                             // dostrój kanał i ZWIŃ do paska tylko tego kanału (EPG single).
