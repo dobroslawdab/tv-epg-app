@@ -219,7 +219,7 @@ fun DemoLiveScreen(
 
         linkedMapOf(
             "demo" to BarkerBundle(
-                channelId = "demo", name = "DEMO TV", number = 122,
+                channelId = "demo", name = "DEMO TV", number = 12,
                 schedule = BarkerSchedule(listOf(
                     item(
                         "https://archive.org/download/Sintel/sintel-2048-stereo_512kb.mp4",
@@ -245,7 +245,7 @@ fun DemoLiveScreen(
                 context = context
             ),
             "kino" to BarkerBundle(
-                channelId = "kino", name = "Kino", number = 127,
+                channelId = "kino", name = "Kino", number = 15,
                 schedule = BarkerSchedule(listOf(
                     item(
                         "https://archive.org/download/Tears-of-Steel/tears_of_steel_720p.mp4",
@@ -267,7 +267,7 @@ fun DemoLiveScreen(
                 context = context
             ),
             "kosmos" to BarkerBundle(
-                channelId = "kosmos", name = "Kosmos", number = 128,
+                channelId = "kosmos", name = "Kosmos", number = 16,
                 schedule = BarkerSchedule(listOf(
                     item(
                         "https://images-assets.nasa.gov/video/NHQ_2019_0311_Go%20Forward%20to%20the%20Moon/NHQ_2019_0311_Go%20Forward%20to%20the%20Moon~small.mp4",
@@ -289,7 +289,7 @@ fun DemoLiveScreen(
                 context = context
             ),
             "kids" to BarkerBundle(
-                channelId = "kids", name = "Retro Kids", number = 129,
+                channelId = "kids", name = "Retro Kids", number = 17,
                 schedule = BarkerSchedule(listOf(
                     item(
                         "https://archive.org/download/Popeye_forPresident/Popeye_forPresident_512kb.mp4",
@@ -314,10 +314,17 @@ fun DemoLiveScreen(
             // (pamięć wewnętrzna, karta SD lub filesDir przez run-as). Każdy
             // podkatalog z manifestem = osobny kanał; brak paczek = brak kanałów.
             RecordedChannelLoader.loadAll(context).forEach { rec ->
+                // Układ kanałów 2026-07-14: nasze nagrania grają głównych bohaterów
+                // (TVP1 pod 1, Polsat News Polityka pod 2); realne HD schodzą na 10/11
+                val (recName, recNumber) = when (rec.id) {
+                    "tvp1rec" -> "TVP1" to 1
+                    "pnewsrec" -> "Polsat News Polityka" to 2
+                    else -> rec.name to rec.number
+                }
                 map[rec.id] = BarkerBundle(
                     channelId = rec.id,
-                    name = rec.name,
-                    number = rec.number,
+                    name = recName,
+                    number = recNumber,
                     schedule = BarkerSchedule(rec.items),
                     context = context,
                     dvrWindowMs = 24L * 3_600_000L,  // przewijanie po całym nagraniu
@@ -979,7 +986,7 @@ fun DemoLiveScreen(
                 logoUrl = null,
                 epgId = "1123"   // id ramówki wg Play; w epg.xml (jeszcze) go nie ma
             ),
-            channelNumber = 1123,
+            channelNumber = 18,
             programs = programs,
             currentProgramIndex = currentIdx,
             lazyListState = androidx.compose.foundation.lazy.LazyListState()
@@ -1029,7 +1036,7 @@ fun DemoLiveScreen(
                 logoUrl = null,
                 epgId = "dashif"
             ),
-            channelNumber = 125,
+            channelNumber = 13,
             programs = programs,
             currentProgramIndex = currentIdx,
             lazyListState = androidx.compose.foundation.lazy.LazyListState()
@@ -1078,7 +1085,7 @@ fun DemoLiveScreen(
                 logoUrl = null,
                 epgId = "safari"
             ),
-            channelNumber = 126,
+            channelNumber = 14,
             programs = programs,
             currentProgramIndex = currentIdx,
             lazyListState = androidx.compose.foundation.lazy.LazyListState()
@@ -1090,8 +1097,9 @@ fun DemoLiveScreen(
         // live-stream (Stargaze/DASH-IF/Safari), potem realne z EPG
         val barkerRows = barkers.values.map { buildBarkerRow(it) }
         val demoRow = barkerRows.first()
-        epgRows = barkerRows + listOf(buildStargazeRow(), buildLivesim2Row(), buildSafariRow()) +
-            realChannelRows
+        epgRows = (barkerRows +
+            listOf(buildStargazeRow(), buildLivesim2Row(), buildSafariRow()) +
+            realChannelRows).sortedBy { it.channelNumber }
         // Start jak pod Telewizją: pasek 1 kanału (tego, który jest na ekranie)
         epgExpanded = false
         epgChannelIndex = tunedChannelIndex.coerceIn(0, (epgRows.size - 1).coerceAtLeast(0))
@@ -1648,6 +1656,13 @@ fun DemoLiveScreen(
             demoBundle.ready.value = true
             isReady = true
             openEpg()
+            // Po sortowaniu kanałów DEMO TV (primary, gra od startu) nie jest już
+            // wierszem 0 — dostrój indeksy na jego pozycję w epgRows
+            val demoIdx = epgRows.indexOfFirst { it.channel.id == "demo" }
+            if (demoIdx >= 0) {
+                tunedChannelIndex = demoIdx
+                epgChannelIndex = demoIdx
+            }
             Log.i(TAG, "Demo ready: antennaStart=${controller.antennaStartWallMs}")
         } catch (e: Exception) {
             Log.e(TAG, "Setup error: ${e.message}")
@@ -1688,10 +1703,22 @@ fun DemoLiveScreen(
                     !now.isBefore(p.startUtc) && now.isBefore(p.endUtc)
                 }.coerceAtLeast(0)
                 channelNumber++
+                // Przemapowanie 2026-07-14: realny TVP1 HD → 10 (nasz TVP1 z nagrania
+                // gra pod 1), Polsat 2→3, realny Polsat News Polityka → 11 z nazwą
+                // "… HD" (nasz retro przejmuje nazwę pod 2); reszta zostaje (4..9)
+                val mappedNumber = when (channelNumber) {
+                    1 -> 10
+                    2 -> 3
+                    3 -> 11
+                    else -> channelNumber
+                }
+                val mappedChannel = if (channelNumber == 3) {
+                    channel.copy(name = channel.name + " HD")
+                } else channel
                 rows.add(
                     com.uxellence.tv.v3.epg.ChannelEpgRow(
-                        channel = channel,
-                        channelNumber = channelNumber,
+                        channel = mappedChannel,
+                        channelNumber = mappedNumber,
                         programs = sorted,
                         currentProgramIndex = currentIdx,
                         lazyListState = androidx.compose.foundation.lazy.LazyListState()
