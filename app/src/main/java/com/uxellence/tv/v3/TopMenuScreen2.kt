@@ -1500,6 +1500,13 @@ fun TopMenuScreen2(
     // Left Profil button state (v4.0.0: Profil is on left side, before Start)
     var isLeftProfilFocused by remember { mutableStateOf(false) }
     val leftProfilFocusRequester = remember { FocusRequester() }
+    // Anty-lepkość flag przycisków specjalnych (Profil/Konto/Pakiety): realna
+    // zmiana pozycji w menu = nawigacja po zakładkach, więc fokus NIE może już
+    // być na przycisku. Bez tego lepka flaga (ustawiana m.in. przez powroty
+    // z sekcji ACCOUNT/PROFILE) sprawiała, że OK/DOWN na zakładce otwierało
+    // Konto / "Kto ogląda". Skip pierwszego składu i powrotów bez zmiany
+    // pozycji (wtedy flaga jest celowa — fokus wraca na przycisk).
+    var lastSeenMenuPosition by remember { mutableStateOf(-1) }
 
     // Right section state (0=Konto, 1=Ustawienia, -1=none focused)
     // Note: Profil moved to left side in v4.0.0
@@ -1550,6 +1557,19 @@ fun TopMenuScreen2(
         if (isLeftProfilFocused && globalFocusState.value.currentRow == 0) {
             delay(50)
             leftProfilFocusRequester.requestFocus()
+        }
+    }
+
+    // Anty-lepkość: zmiana pozycji zakładki gasi flagi przycisków specjalnych
+    // (patrz komentarz przy lastSeenMenuPosition)
+    LaunchedEffect(globalFocusState.value.currentPosition) {
+        val pos = globalFocusState.value.currentPosition
+        val positionChanged = lastSeenMenuPosition != -1 && lastSeenMenuPosition != pos
+        lastSeenMenuPosition = pos
+        if (positionChanged && globalFocusState.value.currentRow == 0) {
+            if (focusedRightButton != -1) focusedRightButton = -1
+            if (isPakietyFocused) isPakietyFocused = false
+            if (isLeftProfilFocused) isLeftProfilFocused = false
         }
     }
 

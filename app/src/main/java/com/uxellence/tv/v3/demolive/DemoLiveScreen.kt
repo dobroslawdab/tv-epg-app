@@ -31,7 +31,7 @@ import kotlinx.coroutines.withContext
 
 private const val TAG = "DemoLive"
 private const val SEEK_STEP_MS = 10_000L
-private const val EPG_TIMEOUT_MS = 12_000L
+private const val EPG_TIMEOUT_MS = 5_000L
 private const val PLAYER_UI_TIMEOUT_MS = 10_000L
 // Stargaze — realny kanał FAST (Tivio Studio, w ofercie Play), stream HLS.
 // Publicznego EPG brak (Tivio API wymaga klucza SDK) → syntetyczna ramówka
@@ -1270,21 +1270,24 @@ fun DemoLiveScreen(
                             rapidPressCount = 0
                             playerZone = PlayerZone.BUTTONS
                             playerButtonsFocus = 0
-                            Log.i(TAG, "STRIP(live) seek → ${scrubCursorMs}ms → BUTTONS")
+                            // Wytyczna 2026-07-14: OK po przewinięciu = skok
+                            // i schowanie CAŁEGO UI (czysty obraz)
+                            layer = DemoLayer.FULLSCREEN
+                            Log.i(TAG, "STRIP(live) seek → ${scrubCursorMs}ms → FULLSCREEN")
                         } else if (isBlackoutAtVirtual(scrubCursorMs)) {
                             // Blackout (brak praw) — nie odtwarzaj tego fragmentu
                             demoToast = "Tego programu nie można odtworzyć"
                             Log.i(TAG, "STRIP OK on blackout → blocked")
                         } else {
-                            // OK na taśmie = skok do kursora i POWRÓT NA POZIOM
-                            // PLAYERA (kontrolki widoczne); auto-hide schowa UI
-                            // po chwili bezczynności
+                            // OK na taśmie = skok do kursora i schowanie CAŁEGO
+                            // UI (wytyczna 2026-07-14: czysty obraz po seeku)
                             activeCtl().seekToVirtual(scrubCursorMs)
                             isPaused = false
                             rapidPressCount = 0
                             playerZone = PlayerZone.BUTTONS
                             playerButtonsFocus = 0
-                            Log.i(TAG, "STRIP seek → ${scrubCursorMs}ms → BUTTONS")
+                            layer = DemoLayer.FULLSCREEN
+                            Log.i(TAG, "STRIP seek → ${scrubCursorMs}ms → FULLSCREEN")
                         }
                     }
                     PlayerZone.BUTTONS -> when (playerButtonsFocus) {
@@ -1680,12 +1683,11 @@ fun DemoLiveScreen(
         }
     }
 
-    // Auto-hide tylko dla rozwiniętej warstwy EPG (przeglądanie wielu kanałów).
-    // Pasek pojedynczego kanału (single) NIE znika sam — zostaje aż użytkownik
-    // sam zadziała (OK → player, WSTECZ → pełny ekran, GÓRA/DÓŁ → wiele kanałów).
-    // Inaczej „wracając do kanału" pasek po chwili sam przechodził w player.
+    // Auto-hide warstwy EPG (single i expanded): 5 s bezczynności → pełny ekran.
+    // (Wytyczna 2026-07-14: pasek z programami dnia ma sam znikać, gdy user
+    // nic nie klika — wcześniej single bar zostawał na stałe.)
     LaunchedEffect(layer, epgInteractionAt, epgExpanded) {
-        if (layer == DemoLayer.EPG && isReady && epgExpanded) {
+        if (layer == DemoLayer.EPG && isReady) {
             delay(EPG_TIMEOUT_MS)
             layer = DemoLayer.FULLSCREEN
         }
