@@ -32,16 +32,17 @@ class DemoChannelPlayerController(
     // Okno DVR (ile wstecz od live edge można się cofnąć). Default: godzina —
     // jak dotąd. Kanał z nagrania anteny (TVP1 Retro) dostaje pełną dobę,
     // żeby przewijać się po CAŁYM nagranym materiale.
-    private val dvrWindowMs: Long = 3_600_000L
+    private val dvrWindowMs: Long = 3_600_000L,
+    // Start anteny (zegar ścienny). Default: dziś 9:00 (wspólna oś barkerów).
+    // Kanał z nagrania podaje recordedAtWallMs z manifestu — ramówka pokrywa
+    // się wtedy z REALNYMI godzinami emisji (nagranie 8:00 → EPG od 8:00)
+    val antennaStartWallMs: Long = BarkerSchedule.barkerStartWallMs()
 ) {
 
     companion object {
         private const val TAG = "DemoLive"
         private const val LIVE_EDGE_TOLERANCE_MS = 5_000L
     }
-
-    /** Barker channel: antena wystartowała dziś o 9:00 (zegar ścienny). */
-    val antennaStartWallMs: Long = BarkerSchedule.barkerStartWallMs()
 
     var player: ExoPlayer? = null
         private set

@@ -45,6 +45,9 @@ object RecordedChannelLoader {
         val name: String,
         val number: Int,
         val items: List<BarkerSchedule.BarkerItem>,
+        // Realny start nagrania (wall-clock) — oś anteny kanału; ramówka EPG
+        // pokrywa się z godzinami faktycznej emisji
+        val recordedAtWallMs: Long,
     )
 
     private val json = Json { ignoreUnknownKeys = true }
@@ -104,7 +107,12 @@ object RecordedChannelLoader {
             } else {
                 Log.i(TAG, "Kanał '${manifest.channelName}' (#${manifest.channelNumber}): " +
                     "${items.size} programów z ${dir.absolutePath}")
-                RecordedChannel(dir.name, manifest.channelName, manifest.channelNumber, items)
+                RecordedChannel(
+                    dir.name, manifest.channelName, manifest.channelNumber, items,
+                    // 0 w manifeście (stare paczki) → fallback na wspólną oś 9:00
+                    recordedAtWallMs = manifest.recordedAtWallMs
+                        .takeIf { it > 0 } ?: BarkerSchedule.barkerStartWallMs(),
+                )
             }
         } catch (e: Exception) {
             Log.e(TAG, "Błąd manifestu: ${e.message}")

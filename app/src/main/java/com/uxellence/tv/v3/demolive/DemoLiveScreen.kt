@@ -173,9 +173,13 @@ private class BarkerBundle(
     val number: Int,
     val schedule: BarkerSchedule,
     context: android.content.Context,
-    dvrWindowMs: Long = 3_600_000L
+    dvrWindowMs: Long = 3_600_000L,
+    // Kanał z nagrania: realny start nagrania (manifest.recordedAtWallMs) —
+    // ramówka EPG zgodna z godzinami emisji zamiast wspólnej osi 9:00
+    antennaStartWallMs: Long = BarkerSchedule.barkerStartWallMs()
 ) {
-    val controller = DemoChannelPlayerController(context, schedule, dvrWindowMs)
+    val controller =
+        DemoChannelPlayerController(context, schedule, dvrWindowMs, antennaStartWallMs)
     val filmstrip = DemoFilmstripProvider(schedule)
     val ready = androidx.compose.runtime.mutableStateOf(false)
     val downloading = androidx.compose.runtime.mutableStateOf(false)
@@ -316,7 +320,9 @@ fun DemoLiveScreen(
                     number = rec.number,
                     schedule = BarkerSchedule(rec.items),
                     context = context,
-                    dvrWindowMs = 24L * 3_600_000L   // przewijanie po całym nagraniu
+                    dvrWindowMs = 24L * 3_600_000L,  // przewijanie po całym nagraniu
+                    // Oś = realny start nagrania (ramówka zgodna z godzinami anteny)
+                    antennaStartWallMs = rec.recordedAtWallMs
                 )
             }
         }
