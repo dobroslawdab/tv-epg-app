@@ -1160,6 +1160,53 @@ fun DemoLiveScreen(
         return focusedIdx == liveProgramIndexFor(tunedChannelIndex)
     }
 
+    // Wejście w taśmę przewijania z krokiem (używane z FULLSCREEN — LEFT/RIGHT,
+    // oraz z BUTTONS — LEWO z pierwszej ikony "Zatrzymaj" = od razu wstecz)
+    fun openStripWithStepFn(direction: Int) {
+        val policy = tunedSeekPolicy()
+        when {
+            policy == DemoSeekPolicy.NONE -> {
+                // Kanał bez przewijania — komunikat przy PRÓBIE przewijania
+                demoToast = "Przewijanie tego kanału nie jest możliwe — " +
+                    "nadawca udostępnia tylko bieżący fragment"
+            }
+            isTunedLiveStream() -> {
+                // Realny stream live (Stargaze): taśma STRIP na osi wall-clock,
+                // kursor ograniczony do okna DVR playlisty (~38 s). Miniaturki
+                // ze zrzutów klatek robionych podczas oglądania (liveThumbs).
+                val nowV = controller.virtualNow()
+                val windowMs = livePlayer?.duration?.takeIf { it > 0 } ?: 38_000L
+                if (layer != DemoLayer.PLAYER_UI || playerZone != PlayerZone.STRIP) {
+                    scrubStartVirtualMs = nowV - liveBehindMs
+                    openStrip(scrubStartVirtualMs)
+                }
+                scrubCursorMs = (scrubCursorMs + getSeekStep() * direction)
+                    .coerceIn(nowV - windowMs, nowV)
+                updateFilmstrip(scrubCursorMs)
+                playerInteractionAt = System.currentTimeMillis()
+                Log.i(TAG, "STRIP(live) ${if (direction > 0) "RIGHT" else "LEFT"} → ${scrubCursorMs}ms")
+            }
+            direction > 0 && policy == DemoSeekPolicy.BACKWARD_ONLY -> {
+                // Blokada do przodu — pokaż komunikat, ale wejdź w STRIP (żeby user
+                // widział pasek i mógł przewijać w tył / wrócić do live)
+                if (layer != DemoLayer.PLAYER_UI || playerZone != PlayerZone.STRIP) {
+                    scrubStartVirtualMs = activeCtl().currentVirtualPositionMs()
+                    openStrip(scrubStartVirtualMs)
+                }
+                showForwardBlocked()
+            }
+            else -> {
+                if (layer != DemoLayer.PLAYER_UI || playerZone != PlayerZone.STRIP) {
+                    scrubStartVirtualMs = activeCtl().currentVirtualPositionMs()
+                    openStrip(scrubStartVirtualMs)
+                }
+                scrubStepWithSnap(direction)
+                playerInteractionAt = System.currentTimeMillis()
+                Log.i(TAG, "STRIP ${if (direction > 0) "RIGHT" else "LEFT"} → ${scrubCursorMs}ms")
+            }
+        }
+    }
+
     // ============ AKCJE (wywoływane przez DemoLiveKeyController) ============
     val actions = remember {
         DemoLiveActions(
@@ -1319,19 +1366,26 @@ fun DemoLiveScreen(
                 playerInteractionAt = System.currentTimeMillis()
                 when (playerZone) {
                     PlayerZone.BUTTONS -> {
-                        // Pauza ≠ live — przy pauzie slot 1 jest przyciskiem "Wróć do live".
-                        // Barker: wg pozycji jego kontrolera; live-stream: wg liveBehindMs.
-                        val atLive = when {
-                            activeBarker() != null -> !isPaused && activeCtl().isAtLiveEdge()
-                            isTunedLiveStream() -> !isPaused && liveBehindMs < 5_000L
-                            else -> true
+                        if (dir < 0 && playerButtonsFocus == 0) {
+                            // LEWO z pierwszej ikony ("Zatrzymaj") → od razu taśma
+                            // przewijania WSTECZ — jak UP na taśmę + LEFT
+                            // (wytyczna 2026-07-14)
+                            openStripWithStepFn(-1)
+                        } else {
+                            // Pauza ≠ live — przy pauzie slot 1 jest przyciskiem "Wróć do live".
+                            // Barker: wg pozycji jego kontrolera; live-stream: wg liveBehindMs.
+                            val atLive = when {
+                                activeBarker() != null -> !isPaused && activeCtl().isAtLiveEdge()
+                                isTunedLiveStream() -> !isPaused && liveBehindMs < 5_000L
+                                else -> true
+                            }
+                            var newFocus = (playerButtonsFocus + dir).coerceIn(0, 4)
+                            if (atLive && newFocus == 1) {
+                                // Na live slot 1 to status "Oglądasz live" (niefokusowalny) — przeskocz
+                                newFocus = (newFocus + dir).coerceIn(0, 4)
+                            }
+                            playerButtonsFocus = newFocus
                         }
-                        var newFocus = (playerButtonsFocus + dir).coerceIn(0, 4)
-                        if (atLive && newFocus == 1) {
-                            // Na live slot 1 to status "Oglądasz live" (niefokusowalny) — przeskocz
-                            newFocus = (newFocus + dir).coerceIn(0, 4)
-                        }
-                        playerButtonsFocus = newFocus
                     }
                     PlayerZone.STRIP -> {
                         if (dir > 0 && tunedSeekPolicy() == DemoSeekPolicy.BACKWARD_ONLY) {
@@ -1558,50 +1612,7 @@ fun DemoLiveScreen(
                     PlayerZone.BUTTONS -> openEpg()   // łańcuch: player UI → EPG → fullscreen → wyjście
                 }
             },
-            openStripWithStep = { direction ->
-                val policy = tunedSeekPolicy()
-                when {
-                    policy == DemoSeekPolicy.NONE -> {
-                        // Kanał bez przewijania — komunikat przy PRÓBIE przewijania
-                        demoToast = "Przewijanie tego kanału nie jest możliwe — " +
-                            "nadawca udostępnia tylko bieżący fragment"
-                    }
-                    isTunedLiveStream() -> {
-                        // Realny stream live (Stargaze): taśma STRIP na osi wall-clock,
-                        // kursor ograniczony do okna DVR playlisty (~38 s). Miniaturki
-                        // ze zrzutów klatek robionych podczas oglądania (liveThumbs).
-                        val nowV = controller.virtualNow()
-                        val windowMs = livePlayer?.duration?.takeIf { it > 0 } ?: 38_000L
-                        if (layer != DemoLayer.PLAYER_UI || playerZone != PlayerZone.STRIP) {
-                            scrubStartVirtualMs = nowV - liveBehindMs
-                            openStrip(scrubStartVirtualMs)
-                        }
-                        scrubCursorMs = (scrubCursorMs + getSeekStep() * direction)
-                            .coerceIn(nowV - windowMs, nowV)
-                        updateFilmstrip(scrubCursorMs)
-                        playerInteractionAt = System.currentTimeMillis()
-                        Log.i(TAG, "STRIP(live) ${if (direction > 0) "RIGHT" else "LEFT"} → ${scrubCursorMs}ms")
-                    }
-                    direction > 0 && policy == DemoSeekPolicy.BACKWARD_ONLY -> {
-                        // Blokada do przodu — pokaż komunikat, ale wejdź w STRIP (żeby user
-                        // widział pasek i mógł przewijać w tył / wrócić do live)
-                        if (layer != DemoLayer.PLAYER_UI || playerZone != PlayerZone.STRIP) {
-                            scrubStartVirtualMs = activeCtl().currentVirtualPositionMs()
-                            openStrip(scrubStartVirtualMs)
-                        }
-                        showForwardBlocked()
-                    }
-                    else -> {
-                        if (layer != DemoLayer.PLAYER_UI || playerZone != PlayerZone.STRIP) {
-                            scrubStartVirtualMs = activeCtl().currentVirtualPositionMs()
-                            openStrip(scrubStartVirtualMs)
-                        }
-                        scrubStepWithSnap(direction)
-                        playerInteractionAt = System.currentTimeMillis()
-                        Log.i(TAG, "STRIP ${if (direction > 0) "RIGHT" else "LEFT"} → ${scrubCursorMs}ms")
-                    }
-                }
-            },
+            openStripWithStep = { direction -> openStripWithStepFn(direction) },
             goFullscreen = { layer = DemoLayer.FULLSCREEN },
             exit = { onBackPressed() }
         )
