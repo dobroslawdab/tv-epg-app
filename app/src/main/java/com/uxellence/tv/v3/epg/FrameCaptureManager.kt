@@ -40,6 +40,18 @@ class FrameCaptureManager {
     private val handlerThread = HandlerThread("FrameCapture").also { it.start() }
     private val handler = Handler(handlerThread.looper)
 
+    // Trwały cache dyskowy: indeks pozycja→plik (wszystkie f_<pos>.jpg — gęstość
+    // NIE jest ograniczona RAM-em) + mały LRU zdekodowanych bitmap. RAM ring
+    // trzyma przerzedzony podzbiór; dokładne kadry doczytywane z dysku (małe
+    // JPG, ~1-3 ms) — taśma może kroczyć gęściej niż mieści się w pamięci.
+    private val diskIndex = java.util.TreeMap<Long, java.io.File>()
+    private val diskLru = object : LinkedHashMap<Long, Bitmap>(0, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Long, Bitmap>?) =
+            size > 80   // bez recycle przy evict — bitmapa może być właśnie na ekranie
+    }
+    // Minimalny odstęp klatek trzymanych w RAM (dysk trzyma gęściej)
+    private val ramSpacingMs = 30_000L
+
     /**
      * Capture a frame from the PlayerView at the current playback position.
      * Uses PixelCopy for SurfaceView-based capture (works with ExoPlayer's default SurfaceView).
@@ -89,9 +101,24 @@ class FrameCaptureManager {
      */
     fun getClosestFrame(targetPositionMs: Long): Bitmap? {
         synchronized(ringBuffer) {
-            if (ringBuffer.isEmpty()) return null
+            val ramBest = ringBuffer.minByOrNull { abs(it.positionMs - targetPositionMs) }
+            val ramDist = ramBest?.let { abs(it.positionMs - targetPositionMs) } ?: Long.MAX_VALUE
+            if (ramDist <= 6_000L) return ramBest?.bitmap
 
-            return ringBuffer.minByOrNull { abs(it.positionMs - targetPositionMs) }?.bitmap
+            // Dysk ma gęstsze klatki niż RAM — doszukaj dokładniejszego kadru
+            val floor = diskIndex.floorEntry(targetPositionMs)
+            val ceil = diskIndex.ceilingEntry(targetPositionMs)
+            val diskBest = listOfNotNull(floor, ceil)
+                .minByOrNull { abs(it.key - targetPositionMs) }
+            if (diskBest != null && abs(diskBest.key - targetPositionMs) < ramDist) {
+                diskLru[diskBest.key]?.takeIf { !it.isRecycled }?.let { return it }
+                val bmp = android.graphics.BitmapFactory.decodeFile(diskBest.value.absolutePath)
+                if (bmp != null) {
+                    diskLru[diskBest.key] = bmp
+                    return bmp
+                }
+            }
+            return ramBest?.bitmap
         }
     }
 
@@ -175,26 +202,31 @@ class FrameCaptureManager {
         diskCacheDir: java.io.File? = null
     ) {
         handler.post {
-            // 1) Wczytaj klatki z trwałego cache — dekodowanie małych JPG jest
-            //    o rzędy wielkości szybsze niż MediaMetadataRetriever na dużym mp4
+            // 1) Zaindeksuj trwały cache (pozycja→plik; WSZYSTKIE klatki) i wczytaj
+            //    do RAM przerzedzony podzbiór (co ramSpacingMs) — dekodowanie małych
+            //    JPG jest o rzędy wielkości szybsze niż retriever na dużym mp4
             if (diskCacheDir != null && diskCacheDir.isDirectory) {
                 var loaded = 0
                 diskCacheDir.listFiles { f -> f.name.startsWith("f_") && f.name.endsWith(".jpg") }
+                    ?.sortedBy { it.name }
                     ?.forEach { f ->
                         val pos = f.name.removePrefix("f_").removeSuffix(".jpg").toLongOrNull()
                             ?: return@forEach
-                        val bmp = android.graphics.BitmapFactory.decodeFile(f.absolutePath)
-                            ?: return@forEach
                         synchronized(ringBuffer) {
-                            if (ringBuffer.size < MAX_FRAMES &&
-                                ringBuffer.none { abs(it.positionMs - pos) < 1_000L }
-                            ) {
-                                ringBuffer.addLast(TimestampedFrame(bmp, pos))
-                                loaded++
-                            } else bmp.recycle()
+                            diskIndex[pos] = f
+                            val ramHasNearby =
+                                ringBuffer.any { abs(it.positionMs - pos) < ramSpacingMs }
+                            if (!ramHasNearby && ringBuffer.size < MAX_FRAMES) {
+                                android.graphics.BitmapFactory.decodeFile(f.absolutePath)?.let {
+                                    ringBuffer.addLast(TimestampedFrame(it, pos))
+                                    loaded++
+                                }
+                            }
                         }
                     }
-                if (loaded > 0) Log.d(TAG, "Disk cache: loaded $loaded frames (${diskCacheDir.name})")
+                if (diskIndex.isNotEmpty()) {
+                    Log.d(TAG, "Disk cache: ${diskIndex.size} indexed, $loaded in RAM (${diskCacheDir.name})")
+                }
             }
 
             var retriever: MediaMetadataRetriever? = null
@@ -211,9 +243,13 @@ class FrameCaptureManager {
                     val positionMs = step * i
                     val positionUs = positionMs * 1000  // MediaMetadataRetriever uses microseconds
 
-                    // Pozycja pokryta przez cache dyskowy → pomiń kosztowną ekstrakcję
+                    // Pozycja pokryta (RAM lub dysk) → pomiń kosztowną ekstrakcję
                     val covered = synchronized(ringBuffer) {
-                        ringBuffer.any { abs(it.positionMs - positionMs) < step / 2 }
+                        val onDisk = listOfNotNull(
+                            diskIndex.floorKey(positionMs), diskIndex.ceilingKey(positionMs)
+                        ).any { abs(it - positionMs) < step / 2 }
+                        onDisk || (diskCacheDir == null &&
+                            ringBuffer.any { abs(it.positionMs - positionMs) < step / 2 })
                     }
                     if (covered) continue
 
@@ -226,29 +262,30 @@ class FrameCaptureManager {
                         val scaled = Bitmap.createScaledBitmap(frame, THUMB_WIDTH, THUMB_HEIGHT, true)
                         if (scaled !== frame) frame.recycle()
 
-                        var added = false
+                        // 2) Trwały cache: KAŻDA klatka na dysk (gęstość bez limitu RAM)
+                        if (diskCacheDir != null) {
+                            runCatching {
+                                diskCacheDir.mkdirs()
+                                val out = java.io.File(diskCacheDir, "f_$positionMs.jpg")
+                                java.io.FileOutputStream(out).use { fos ->
+                                    scaled.compress(Bitmap.CompressFormat.JPEG, 80, fos)
+                                }
+                                synchronized(ringBuffer) { diskIndex[positionMs] = out }
+                            }
+                        }
+
                         synchronized(ringBuffer) {
-                            // Don't add if we already have a frame near this position
-                            val hasNearby = ringBuffer.any { abs(it.positionMs - positionMs) < step / 2 }
+                            // RAM: przerzedzony podzbiór (dokładne kadry doczyta dysk)
+                            val spacing = if (diskCacheDir != null) ramSpacingMs else step / 2
+                            val hasNearby =
+                                ringBuffer.any { abs(it.positionMs - positionMs) < spacing }
                             if (!hasNearby) {
                                 if (ringBuffer.size >= MAX_FRAMES) {
                                     ringBuffer.removeFirst().bitmap.recycle()
                                 }
                                 ringBuffer.addLast(TimestampedFrame(scaled, positionMs))
-                                added = true
-                            } else {
+                            } else if (diskCacheDir == null) {
                                 scaled.recycle()
-                            }
-                        }
-                        // 2) Dopisz nową klatkę do trwałego cache
-                        if (added && diskCacheDir != null) {
-                            runCatching {
-                                diskCacheDir.mkdirs()
-                                java.io.FileOutputStream(
-                                    java.io.File(diskCacheDir, "f_$positionMs.jpg")
-                                ).use { fos ->
-                                    scaled.compress(Bitmap.CompressFormat.JPEG, 80, fos)
-                                }
                             }
                         }
                         Log.d(TAG, "Extracted keyframe at ${positionMs}ms (${i}/$count)")

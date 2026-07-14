@@ -21,8 +21,6 @@ class DemoFilmstripProvider(private val schedule: BarkerSchedule) {
         if (started) return
         started = true
         paths.forEachIndexed { i, path ->
-            val count = (schedule.durMs[i] / 6_500L).toInt()
-                .coerceIn(1, FrameCaptureManager.MAX_FRAMES - 2)
             // Pliki lokalne (kanał z nagrania / pobrany barker): TRWAŁY cache
             // klatek obok materiału (frames/<program>/f_<pos>.jpg) — kolejne
             // sesje mają taśmę dokładną od razu, bez ekstrakcji z mp4
@@ -30,6 +28,15 @@ class DemoFilmstripProvider(private val schedule: BarkerSchedule) {
                 val f = java.io.File(path.removePrefix("file://"))
                 java.io.File(f.parentFile, "frames/${f.nameWithoutExtension}")
             } else null
+            // Z cache dyskowym gęstość NIE jest ograniczona RAM-em: klatka co
+            // ~10 s (krok taśmy) — RAM trzyma przerzedzony podzbiór, dokładne
+            // kadry doczytywane z dysku w getClosestFrame
+            val count = if (diskDir != null) {
+                (schedule.durMs[i] / 10_000L).toInt().coerceAtLeast(1)
+            } else {
+                (schedule.durMs[i] / 6_500L).toInt()
+                    .coerceIn(1, FrameCaptureManager.MAX_FRAMES - 2)
+            }
             managers[i].extractKeyFrames(
                 path, schedule.durMs[i], count = count, diskCacheDir = diskDir
             )

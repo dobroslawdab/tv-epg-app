@@ -595,12 +595,10 @@ fun DemoLiveScreen(
     var scrubSnapLockMs by remember { mutableLongStateOf(-1L) }
     // repeatCount ostatniego KeyDown (0 = nowe fizyczne naciśnięcie, >0 = trzymanie)
     var scrubKeyRepeat by remember { mutableIntStateOf(0) }
-    // Bazowy krok taśmy: kanał z długim oknem DVR (nagranie 8 h+) kroczy po 30 s —
-    // 10 s przy 8 h materiału to mikroskop, a klatki ekstrahowane są co ~28 s,
-    // więc sąsiednie sloty taśmy pokazywały TĘ SAMĄ miniaturkę (trudno wybrać
-    // miejsce). 30 s ≥ gęstość klatek → każdy slot ma inny kadr.
-    fun baseSeekStepMs(): Long =
-        if ((activeBarker()?.dvrWindowMs ?: 0L) >= 2 * 3_600_000L) 30_000L else SEEK_STEP_MS
+    // Bazowy krok taśmy: 10 s wszędzie — dyskowy cache klatek (frames/) daje
+    // gęstość co ~10 s niezależnie od RAM-u, więc sloty mają unikalne kadry
+    // także na kanałach z nagrania (wytyczna 2026-07-14)
+    fun baseSeekStepMs(): Long = SEEK_STEP_MS
 
     fun getSeekStep(): Long {
         val now = System.nanoTime()
