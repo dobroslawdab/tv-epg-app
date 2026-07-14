@@ -6040,6 +6040,10 @@ private fun TelewizjaChannelsScreen(
     LaunchedEffect(tvCtxChannel, tvCtxProgram) {
         VodDataCache.contextMenuOpen.value = tvCtxChannel != null || tvCtxProgram != null
     }
+    // Restore fokusa po zamknięciu menu: na KONTENER z handlerem (lekcja #11),
+    // nie na FR karty — przy fixed-focus FR Pair(row,0) wisi na widocznej karcie
+    // i po przewinięciu taśmy requestFocus padał w ciszy (fokus znikał)
+    val telewizjaRootBoxFocusRequester = remember { FocusRequester() }
     var isInitialized by remember { mutableStateOf(false) }
 
     // ✅ INITIALIZATION: ALWAYS set to true (no conditions) - enables navigation
@@ -6381,6 +6385,7 @@ private fun TelewizjaChannelsScreen(
                         onReturnToMenu = onReturnToMenu
                     )
                 }
+                .focusRequester(telewizjaRootBoxFocusRequester)
                 .focusable()
         ) {
             TelewizjaChannelRowsLayout(
@@ -6388,6 +6393,7 @@ private fun TelewizjaChannelsScreen(
                 onTvCtxChannelChange = { tvCtxChannel = it },
                 tvCtxProgram = tvCtxProgram,
                 onTvCtxProgramChange = { tvCtxProgram = it },
+                rootBoxFocusRequester = telewizjaRootBoxFocusRequester,
                 channels = channels,
                 channelTypes = channelTypes,
                 gridContent = gridContent,
@@ -12942,6 +12948,8 @@ fun TelewizjaChannelRowsLayout(
     onTvCtxChannelChange: (Pair<TvChannel, () -> Unit>?) -> Unit = {},
     tvCtxProgram: Pair<VodContent, () -> Unit>? = null,
     onTvCtxProgramChange: (Pair<VodContent, () -> Unit>?) -> Unit = {},
+    // Restore fokusa po menu kontekstowym — kontener sekcji z onPreviewKeyEvent
+    rootBoxFocusRequester: FocusRequester? = null,
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     livePlayer: ExoPlayer? = null,
@@ -13124,8 +13132,10 @@ fun TelewizjaChannelRowsLayout(
                 menuWidth = sx(352),
                 onDismiss = {
                     onTvCtxChannelChange(null)
+                    // Kontener, nie karta — FR karty bywa nieprzypięty po scrollu
                     try {
-                        channelFocusRequesters[Pair(focusedRowIndex, 0)]?.requestFocus()
+                        rootBoxFocusRequester?.requestFocus()
+                            ?: channelFocusRequesters[Pair(focusedRowIndex, 0)]?.requestFocus()
                     } catch (_: Exception) {}
                 },
                 onNavigate = { dx ->
@@ -13195,8 +13205,10 @@ fun TelewizjaChannelRowsLayout(
                 menuWidth = sx(352),
                 onDismiss = {
                     onTvCtxProgramChange(null)
+                    // Kontener, nie karta — FR karty bywa nieprzypięty po scrollu
                     try {
-                        channelFocusRequesters[Pair(focusedRowIndex, 0)]?.requestFocus()
+                        rootBoxFocusRequester?.requestFocus()
+                            ?: channelFocusRequesters[Pair(focusedRowIndex, 0)]?.requestFocus()
                     } catch (_: Exception) {}
                 },
                 onNavigate = { dx ->
