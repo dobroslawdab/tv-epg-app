@@ -66,6 +66,48 @@ object RecordedChannelLoader {
         return clean to year
     }
 
+    // Jednorazowe generowanie okładek programów w tle (jeden wątek — duże pliki
+    // z karty SD; klatka z 40% materiału, JPEG 320x180). Gotowe okładki są
+    // trwałe — kolejne uruchomienia używają ich bez generowania.
+    private val coverExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
+
+    private fun scheduleCoverGeneration(dir: File, manifest: Manifest) {
+        val coversDir = File(dir, "covers")
+        val missing = manifest.items.filter { mi ->
+            val c = File(coversDir, "${mi.file.removeSuffix(".mp4")}.jpg")
+            (!c.exists() || c.length() == 0L) && File(dir, mi.file).exists()
+        }
+        if (missing.isEmpty()) return
+        coverExecutor.execute {
+            coversDir.mkdirs()
+            var done = 0
+            for (mi in missing) {
+                val out = File(coversDir, "${mi.file.removeSuffix(".mp4")}.jpg")
+                val retriever = android.media.MediaMetadataRetriever()
+                try {
+                    retriever.setDataSource(File(dir, mi.file).absolutePath)
+                    val atUs = (mi.durMs * 2 / 5) * 1000L   // 40% materiału
+                    val frame = retriever.getFrameAtTime(
+                        atUs, android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC
+                    ) ?: continue
+                    val scaled = android.graphics.Bitmap.createScaledBitmap(frame, 320, 180, true)
+                    java.io.FileOutputStream(out).use { fos ->
+                        scaled.compress(android.graphics.Bitmap.CompressFormat.JPEG, 82, fos)
+                    }
+                    scaled.recycle()
+                    if (scaled !== frame) frame.recycle()
+                    done++
+                } catch (e: Exception) {
+                    Log.w(TAG, "Okładka ${mi.file}: ${e.message}")
+                    out.delete()
+                } finally {
+                    runCatching { retriever.release() }
+                }
+            }
+            Log.i(TAG, "Wygenerowano $done/${missing.size} okładek → ${coversDir.absolutePath}")
+        }
+    }
+
     /**
      * Wszystkie kanały z nagrań. Rooty (aplikacyjne, bez uprawnień):
      * - getExternalFilesDirs(null) — pamięć wewnętrzna [0] + KARTA SD/USB [1+]
@@ -104,6 +146,11 @@ object RecordedChannelLoader {
                     return@mapNotNull null
                 }
                 val (cleanDesc, year) = splitEpgDescription(mi.description)
+                // Trwała okładka programu (covers/<plik>.jpg): wygenerowana RAZ
+                // z klatki ~40% materiału (początek to często reklamy) — EPG ma
+                // miniaturki natychmiast, bez czekania na ekstrakcję klatek
+                val cover = File(File(dir, "covers"), "${mi.file.removeSuffix(".mp4")}.jpg")
+                    .takeIf { it.exists() && it.length() > 0L }
                 BarkerSchedule.BarkerItem(
                     url = "file://${f.absolutePath}",
                     title = mi.title,
@@ -112,10 +159,11 @@ object RecordedChannelLoader {
                     country = "Polska",
                     age = mi.age,
                     description = cleanDesc,      // bez prefiksu "G: … W: …"
-                    coverUrl = null,              // okładka = klatka z materiału
+                    coverUrl = cover?.let { "file://${it.absolutePath}" },
                     nominalDurMs = mi.durMs,
                 )
             }
+            scheduleCoverGeneration(dir, manifest)
             if (items.isEmpty()) {
                 Log.w(TAG, "Manifest bez działających plików (${dir.name}) — kanał pominięty")
                 null

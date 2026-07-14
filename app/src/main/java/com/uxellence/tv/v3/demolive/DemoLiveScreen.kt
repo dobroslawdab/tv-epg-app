@@ -173,7 +173,7 @@ private class BarkerBundle(
     val number: Int,
     val schedule: BarkerSchedule,
     context: android.content.Context,
-    dvrWindowMs: Long = 3_600_000L,
+    val dvrWindowMs: Long = 3_600_000L,
     // Kanał z nagrania: realny start nagrania (manifest.recordedAtWallMs) —
     // ramówka EPG zgodna z godzinami emisji zamiast wspólnej osi 9:00
     antennaStartWallMs: Long = BarkerSchedule.barkerStartWallMs()
@@ -595,6 +595,13 @@ fun DemoLiveScreen(
     var scrubSnapLockMs by remember { mutableLongStateOf(-1L) }
     // repeatCount ostatniego KeyDown (0 = nowe fizyczne naciśnięcie, >0 = trzymanie)
     var scrubKeyRepeat by remember { mutableIntStateOf(0) }
+    // Bazowy krok taśmy: kanał z długim oknem DVR (nagranie 8 h+) kroczy po 30 s —
+    // 10 s przy 8 h materiału to mikroskop, a klatki ekstrahowane są co ~28 s,
+    // więc sąsiednie sloty taśmy pokazywały TĘ SAMĄ miniaturkę (trudno wybrać
+    // miejsce). 30 s ≥ gęstość klatek → każdy slot ma inny kadr.
+    fun baseSeekStepMs(): Long =
+        if ((activeBarker()?.dvrWindowMs ?: 0L) >= 2 * 3_600_000L) 30_000L else SEEK_STEP_MS
+
     fun getSeekStep(): Long {
         val now = System.nanoTime()
         val elapsedMs = (now - lastPressTimeNano) / 1_000_000
@@ -606,7 +613,7 @@ fun DemoLiveScreen(
             rapidPressCount >= 6 -> 2
             else -> 1
         }
-        return SEEK_STEP_MS * multiplier
+        return baseSeekStepMs() * multiplier
     }
 
     /**
@@ -629,7 +636,7 @@ fun DemoLiveScreen(
             barker.filmstrip.framesAround(
                 centerVirtualMs = centerMs,
                 liveEdgeVirtualMs = barker.controller.virtualNow(),
-                stepMs = SEEK_STEP_MS,
+                stepMs = baseSeekStepMs(),
                 sideCount = 3,
                 dvrStartVirtualMs = barker.controller.dvrStartMs()
             )
