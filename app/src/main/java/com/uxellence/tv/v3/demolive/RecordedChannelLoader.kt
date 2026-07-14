@@ -48,14 +48,17 @@ object RecordedChannelLoader {
     private val json = Json { ignoreUnknownKeys = true }
 
     fun load(context: Context): RecordedChannel? {
-        // Dwie lokalizacje paczki:
-        // - getExternalFilesDir/tvp1rec — adb push wprost (emulator / starsze API)
-        // - filesDir/tvp1rec — Android 11+ blokuje push do Android/data; deploy:
-        //   adb push → /data/local/tmp, potem `run-as <pkg> cp` (debug build)
-        val candidates = listOf(
-            File(context.getExternalFilesDir(null), DIR_NAME),
-            File(context.filesDir, DIR_NAME),
-        )
+        // Lokalizacje paczki (pierwsza z manifestem wygrywa):
+        // - getExternalFilesDirs(null) — katalogi aplikacji na WSZYSTKICH
+        //   woluminach: [0] pamięć wewnętrzna, [1+] KARTA SD / USB
+        //   (/storage/<UUID>/Android/data/<pkg>/files/tvp1rec) — dostępne
+        //   bez żadnych uprawnień, duże nagrania trzymamy na karcie
+        // - filesDir/tvp1rec — Android 11+ blokuje adb push do Android/data
+        //   pamięci wewnętrznej; deploy: push → /data/local/tmp, potem
+        //   `run-as <pkg> cp` (debug build)
+        val candidates =
+            context.getExternalFilesDirs(null).filterNotNull().map { File(it, DIR_NAME) } +
+                File(context.filesDir, DIR_NAME)
         val dir = candidates.firstOrNull { File(it, "manifest.json").exists() }
         if (dir == null) {
             Log.i(TAG, "Brak paczki nagrania (${candidates.joinToString()}) — kanał pominięty")
