@@ -52,6 +52,20 @@ object RecordedChannelLoader {
 
     private val json = Json { ignoreUnknownKeys = true }
 
+    // Opisy epg.ovh mają prefiks metadanych przed pustą linią:
+    // "G: serial obyczajowy. S7E81. R: 2013. W: 12. \n \nWłaściwy opis…"
+    // Do UI idzie tylko czysty opis; rok (R: RRRR) trafia do metadanych.
+    private val yearRegex = Regex("""R:\s*(\d{4})""")
+
+    private fun splitEpgDescription(raw: String): Pair<String, String> {
+        val parts = raw.split(Regex("\n\\s*\n"), limit = 2)
+        val clean = (if (parts.size == 2) parts[1] else raw).trim()
+        val year = if (parts.size == 2) {
+            yearRegex.find(parts[0])?.groupValues?.get(1)?.let { "$it r." } ?: ""
+        } else ""
+        return clean to year
+    }
+
     /**
      * Wszystkie kanały z nagrań. Rooty (aplikacyjne, bez uprawnień):
      * - getExternalFilesDirs(null) — pamięć wewnętrzna [0] + KARTA SD/USB [1+]
@@ -89,14 +103,15 @@ object RecordedChannelLoader {
                     Log.w(TAG, "Pominięty brakujący plik: ${mi.file}")
                     return@mapNotNull null
                 }
+                val (cleanDesc, year) = splitEpgDescription(mi.description)
                 BarkerSchedule.BarkerItem(
                     url = "file://${f.absolutePath}",
                     title = mi.title,
                     genre = mi.genre,
-                    year = "",                    // nagranie z anteny — rok nieistotny
+                    year = year,                  // z prefiksu opisu epg.ovh (R: RRRR)
                     country = "Polska",
                     age = mi.age,
-                    description = mi.description,
+                    description = cleanDesc,      // bez prefiksu "G: … W: …"
                     coverUrl = null,              // okładka = klatka z materiału
                     nominalDurMs = mi.durMs,
                 )

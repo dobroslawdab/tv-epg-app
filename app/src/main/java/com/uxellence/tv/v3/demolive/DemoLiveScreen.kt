@@ -447,6 +447,16 @@ fun DemoLiveScreen(
     fun activeCtl(): DemoChannelPlayerController = activeBarker()?.controller ?: controller
 
     /**
+     * Kontroler OSI CZASU kanału pod danym indeksem EPG: barker (w tym kanał
+     * z nagrania — własna oś od recordedAtWallMs!) → jego kontroler; realny
+     * kanał → primary. Wszystkie konwersje wall↔virtual w kontekście KONKRETNEGO
+     * kanału muszą iść przez jego oś — primary (9:00) dawał rozjazd o 1 h na
+     * kanałach z nagrania (nagranie od 8:00).
+     */
+    fun ctlFor(channelIdx: Int): DemoChannelPlayerController =
+        barkerFor(channelIdx)?.controller ?: controller
+
+    /**
      * Snap kursora przewijania do granicy materiału: krok (zwłaszcza przyspieszony
      * przy szybkim przewijaniu) NIE przeskakuje zmiany materiału — kursor zatrzymuje
      * się na starcie nowego bloku, gdzie taśma pokazuje kafelek "Przechodzisz do…".
@@ -724,7 +734,7 @@ fun DemoLiveScreen(
     // Blackout (brak praw) programu pod daną pozycją wirtualną na dostrojonym kanale
     fun isBlackoutAtVirtual(virtualMs: Long): Boolean {
         val row = epgRows.getOrNull(tunedChannelIndex) ?: return false
-        val instant = java.time.Instant.ofEpochMilli(controller.antennaStartWallMs + virtualMs)
+        val instant = java.time.Instant.ofEpochMilli(activeCtl().antennaStartWallMs + virtualMs)
         val idx = row.programs.indexOfFirst { p ->
             !instant.isBefore(p.startUtc) && instant.isBefore(p.endUtc)
         }
@@ -815,9 +825,12 @@ fun DemoLiveScreen(
         channelNumber: Int = 122,
         channelIndex: Int = 0
     ) {
-        val startV = program.startUtc.toEpochMilli() - controller.antennaStartWallMs
-        val endV = program.endUtc.toEpochMilli() - controller.antennaStartWallMs
-        val nowV = controller.currentVirtualPositionMs()
+        val chCtl = ctlFor(channelIndex)
+        val startV = program.startUtc.toEpochMilli() - chCtl.antennaStartWallMs
+        val endV = program.endUtc.toEpochMilli() - chCtl.antennaStartWallMs
+        val nowV = if (barkerFor(channelIndex) != null &&
+            activeBarker() === barkerFor(channelIndex)
+        ) chCtl.currentVirtualPositionMs() else chCtl.virtualNow()
         val durationMin = (program.endUtc.toEpochMilli() - program.startUtc.toEpochMilli()) / 60_000
         detailSlide = com.uxellence.tv.v3.VodSlideData(
             title = program.title,
@@ -835,7 +848,7 @@ fun DemoLiveScreen(
         )
         detailTiming = when {
             isDemo && nowV in startV until endV -> BlockTiming.CURRENT
-            endV <= controller.virtualNow() -> BlockTiming.PAST
+            endV <= chCtl.virtualNow() -> BlockTiming.PAST
             else -> BlockTiming.FUTURE
         }
         detailIsDemo = isDemo
@@ -1082,7 +1095,7 @@ fun DemoLiveScreen(
         // niż live, a start programu wskazywałby na kanałach o grubszych blokach
         // (np. Stargaze 30 min) blok MINIONY: program trwający lądowałby obok
         // kolumny fokusa zamiast pod spodem.
-        val watchedWallMs = controller.antennaStartWallMs + when {
+        val watchedWallMs = activeCtl().antennaStartWallMs + when {
             activeBarker() != null -> currentVirtualMs
             isTunedLiveStream() -> (liveEdgeMs - liveBehindMs).coerceAtLeast(0L)
             else -> liveEdgeMs
@@ -1118,12 +1131,13 @@ fun DemoLiveScreen(
     fun liveProgramIndexFor(channelIdx: Int): Int {
         val row = epgRows.getOrNull(channelIdx) ?: return 0
         val bk = barkerFor(channelIdx)
+        val chCtl = ctlFor(channelIdx)
         val refMs = if (bk != null && bk.ready.value && channelIdx == tunedChannelIndex) {
             bk.controller.currentVirtualPositionMs()
         } else {
-            controller.virtualNow()
+            chCtl.virtualNow()
         }
-        val instant = java.time.Instant.ofEpochMilli(controller.antennaStartWallMs + refMs)
+        val instant = java.time.Instant.ofEpochMilli(chCtl.antennaStartWallMs + refMs)
         val idx = row.programs.indexOfFirst { p ->
             !instant.isBefore(p.startUtc) && instant.isBefore(p.endUtc)
         }
@@ -1156,9 +1170,7 @@ fun DemoLiveScreen(
                     // programy trwające na wszystkich kanałach stoją w jednej kolumnie
                     // niezależnie od długości bloków; miniony/przyszły — na starcie.
                     row.programs.getOrNull(newIdx)?.let { p ->
-                        val now = java.time.Instant.ofEpochMilli(
-                            controller.antennaStartWallMs + liveEdgeMs
-                        )
+                        val now = java.time.Instant.ofEpochMilli(System.currentTimeMillis())
                         epgFocusedTime =
                             if (!now.isBefore(p.startUtc) && now.isBefore(p.endUtc)) now
                             else p.startUtc
@@ -1197,15 +1209,16 @@ fun DemoLiveScreen(
                     Log.i(TAG, "EPG select: '${program.title}' blackout → blocked")
                 } else if (row != null && program != null) {
                     val selBarker = barkerFor(epgChannelIndex)
-                    val targetStart = program.startUtc.toEpochMilli() - controller.antennaStartWallMs
-                    val targetEnd = program.endUtc.toEpochMilli() - controller.antennaStartWallMs
+                    val selCtl = ctlFor(epgChannelIndex)
+                    val targetStart = program.startUtc.toEpochMilli() - selCtl.antennaStartWallMs
+                    val targetEnd = program.endUtc.toEpochMilli() - selCtl.antennaStartWallMs
                     // "Teraz na żywo": barker wg pozycji odtwarzania, realne kanały wg zegara
                     val nowRef = if (selBarker != null && selBarker.ready.value &&
                         epgChannelIndex == tunedChannelIndex
                     ) {
                         selBarker.controller.currentVirtualPositionMs()
                     } else {
-                        controller.virtualNow()
+                        selCtl.virtualNow()
                     }
                     val playingNow = nowRef in targetStart until targetEnd
                     when {
@@ -1247,7 +1260,7 @@ fun DemoLiveScreen(
                             Log.i(TAG, "EPG select: '${program.title}' (single) → PLAYER_UI")
                         }
                         selBarker != null &&
-                            controller.virtualNow() in targetStart until targetEnd -> {
+                            selCtl.virtualNow() in targetStart until targetEnd -> {
                             // Program BIEŻĄCY WG ZEGARA na kanale barker, a my w timeshifcie
                             // (playingNow=false bo pozycja odtwarzania gdzie indziej) →
                             // WRÓĆ DO LIVE tego kanału. To naturalna droga powrotu z paska.
@@ -1398,7 +1411,7 @@ fun DemoLiveScreen(
                                 else (liveEdgeMs - liveBehindMs).coerceAtLeast(0L)
                             )
                             val blockStartWall = block?.let {
-                                controller.antennaStartWallMs + it.startVirtualMs
+                                activeCtl().antennaStartWallMs + it.startVirtualMs
                             }
                             if (block != null && blockStartWall != null &&
                                 DemoRecordingScheduler.isScheduled(block.title, blockStartWall)
@@ -1415,8 +1428,8 @@ fun DemoLiveScreen(
                                         .filter { it.isNotBlank() }.joinToString(", "),
                                     channelId = row?.channel?.id ?: "",
                                     channelName = row?.channel?.name ?: "DEMO TV",
-                                    startUtcMs = controller.antennaStartWallMs + block.startVirtualMs,
-                                    endUtcMs = controller.antennaStartWallMs + block.endVirtualMs,
+                                    startUtcMs = activeCtl().antennaStartWallMs + block.startVirtualMs,
+                                    endUtcMs = activeCtl().antennaStartWallMs + block.endVirtualMs,
                                     imageUrl = block.coverUrl,
                                     isSeries = false,
                                     keepLabel = "3 miesiące"
@@ -1731,7 +1744,7 @@ fun DemoLiveScreen(
                     while (liveThumbs.size > 40) liveThumbs.removeFirst().second.recycle()
                 }
             }
-            liveEdgeMs = controller.virtualNow()
+            liveEdgeMs = activeCtl().virtualNow()
             if (++tick % 10 == 0) {
                 val sched = activeBarker()?.schedule ?: demoBundle.schedule
                 val mp = sched.materialPositionFor(currentVirtualMs)
@@ -1978,13 +1991,13 @@ fun DemoLiveScreen(
             // na KAŻDYM barkerze, nie tylko DEMO TV), live stream = live minus
             // cofnięcie w oknie, realny kanał = live (brak timeshiftu w demo)
             playbackInstant = java.time.Instant.ofEpochMilli(
-                controller.antennaStartWallMs + when {
+                activeCtl().antennaStartWallMs + when {
                     activeBarker() != null -> currentVirtualMs
                     isTunedLiveStream() -> (liveEdgeMs - liveBehindMs).coerceAtLeast(0L)
                     else -> liveEdgeMs
                 }
             ),
-            nowInstant = java.time.Instant.ofEpochMilli(controller.antennaStartWallMs + liveEdgeMs),
+            nowInstant = java.time.Instant.ofEpochMilli(activeCtl().antennaStartWallMs + liveEdgeMs),
             isRecording = { title, startUtc ->
                 DemoRecordingScheduler.isScheduled(title, startUtc.toEpochMilli())
             },
@@ -2031,7 +2044,7 @@ fun DemoLiveScreen(
                 (liveEdgeMs - (livePlayer?.duration?.takeIf { it > 0 } ?: 38_000L)).coerceAtLeast(0L)
             } else activeCtl().dvrStartMs(),
             scrubCursorMs = scrubCursorMs,
-            antennaStartWallMs = controller.antennaStartWallMs,
+            antennaStartWallMs = activeCtl().antennaStartWallMs,
             isPaused = isPaused,
             buttonsFocusIndex = if (playerZone == PlayerZone.BUTTONS) playerButtonsFocus else -1,
             figmaButtons = useFigmaButtons,
@@ -2039,7 +2052,7 @@ fun DemoLiveScreen(
             blockTitleFor = { v -> blockForTunedChannel(v)?.title },
             recScheduled = DemoRecordingScheduler.isScheduled(
                 uiMainBlock.title,
-                controller.antennaStartWallMs + uiMainBlock.startVirtualMs
+                activeCtl().antennaStartWallMs + uiMainBlock.startVirtualMs
             ),
             blockMetaFor = { v ->
                 blockForTunedChannel(v)?.let { b ->
