@@ -1921,6 +1921,15 @@ fun DemoLiveScreen(
         }
     }
 
+    // TWARDE przepięcie obrazu przy zmianie playera (130↔131): AndroidView.update
+    // wewnątrz movableContentOf potrafi się NIE wykonać po zmianie playerRef
+    // (na boxie zero logów attach mimo przełączeń) — TextureView zostawał
+    // podpięty do starego playera: stopklatka poprzedniego kanału, choć nowy
+    // grał (pozycja płynęła). LaunchedEffect nie zależy od recompose widoku.
+    LaunchedEffect(playerRef) {
+        videoViewRef?.attach(playerRef)
+    }
+
     val isDetail = layer == DemoLayer.PLAYER_UI && playerZone == PlayerZone.DETAIL
 
     Box(
