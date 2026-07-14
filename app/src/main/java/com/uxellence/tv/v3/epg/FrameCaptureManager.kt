@@ -166,8 +166,37 @@ class FrameCaptureManager {
      * Runs on background HandlerThread — does NOT affect ExoPlayer playback.
      * Call once when video duration is known to pre-populate filmstrip.
      */
-    fun extractKeyFrames(videoUrl: String, durationMs: Long, count: Int = 10) {
+    fun extractKeyFrames(
+        videoUrl: String,
+        durationMs: Long,
+        count: Int = 10,
+        // Trwały cache klatek (f_<positionMs>.jpg): istniejące wczytywane od razu
+        // (taśma dokładna od startu sesji), nowe dopisywane po ekstrakcji
+        diskCacheDir: java.io.File? = null
+    ) {
         handler.post {
+            // 1) Wczytaj klatki z trwałego cache — dekodowanie małych JPG jest
+            //    o rzędy wielkości szybsze niż MediaMetadataRetriever na dużym mp4
+            if (diskCacheDir != null && diskCacheDir.isDirectory) {
+                var loaded = 0
+                diskCacheDir.listFiles { f -> f.name.startsWith("f_") && f.name.endsWith(".jpg") }
+                    ?.forEach { f ->
+                        val pos = f.name.removePrefix("f_").removeSuffix(".jpg").toLongOrNull()
+                            ?: return@forEach
+                        val bmp = android.graphics.BitmapFactory.decodeFile(f.absolutePath)
+                            ?: return@forEach
+                        synchronized(ringBuffer) {
+                            if (ringBuffer.size < MAX_FRAMES &&
+                                ringBuffer.none { abs(it.positionMs - pos) < 1_000L }
+                            ) {
+                                ringBuffer.addLast(TimestampedFrame(bmp, pos))
+                                loaded++
+                            } else bmp.recycle()
+                        }
+                    }
+                if (loaded > 0) Log.d(TAG, "Disk cache: loaded $loaded frames (${diskCacheDir.name})")
+            }
+
             var retriever: MediaMetadataRetriever? = null
             try {
                 retriever = MediaMetadataRetriever()
@@ -182,6 +211,12 @@ class FrameCaptureManager {
                     val positionMs = step * i
                     val positionUs = positionMs * 1000  // MediaMetadataRetriever uses microseconds
 
+                    // Pozycja pokryta przez cache dyskowy → pomiń kosztowną ekstrakcję
+                    val covered = synchronized(ringBuffer) {
+                        ringBuffer.any { abs(it.positionMs - positionMs) < step / 2 }
+                    }
+                    if (covered) continue
+
                     val frame = retriever.getFrameAtTime(
                         positionUs,
                         MediaMetadataRetriever.OPTION_CLOSEST_SYNC
@@ -191,6 +226,7 @@ class FrameCaptureManager {
                         val scaled = Bitmap.createScaledBitmap(frame, THUMB_WIDTH, THUMB_HEIGHT, true)
                         if (scaled !== frame) frame.recycle()
 
+                        var added = false
                         synchronized(ringBuffer) {
                             // Don't add if we already have a frame near this position
                             val hasNearby = ringBuffer.any { abs(it.positionMs - positionMs) < step / 2 }
@@ -199,8 +235,20 @@ class FrameCaptureManager {
                                     ringBuffer.removeFirst().bitmap.recycle()
                                 }
                                 ringBuffer.addLast(TimestampedFrame(scaled, positionMs))
+                                added = true
                             } else {
                                 scaled.recycle()
+                            }
+                        }
+                        // 2) Dopisz nową klatkę do trwałego cache
+                        if (added && diskCacheDir != null) {
+                            runCatching {
+                                diskCacheDir.mkdirs()
+                                java.io.FileOutputStream(
+                                    java.io.File(diskCacheDir, "f_$positionMs.jpg")
+                                ).use { fos ->
+                                    scaled.compress(Bitmap.CompressFormat.JPEG, 80, fos)
+                                }
                             }
                         }
                         Log.d(TAG, "Extracted keyframe at ${positionMs}ms (${i}/$count)")

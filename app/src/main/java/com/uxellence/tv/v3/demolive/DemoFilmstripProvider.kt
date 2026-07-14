@@ -23,7 +23,16 @@ class DemoFilmstripProvider(private val schedule: BarkerSchedule) {
         paths.forEachIndexed { i, path ->
             val count = (schedule.durMs[i] / 6_500L).toInt()
                 .coerceIn(1, FrameCaptureManager.MAX_FRAMES - 2)
-            managers[i].extractKeyFrames(path, schedule.durMs[i], count = count)
+            // Pliki lokalne (kanał z nagrania / pobrany barker): TRWAŁY cache
+            // klatek obok materiału (frames/<program>/f_<pos>.jpg) — kolejne
+            // sesje mają taśmę dokładną od razu, bez ekstrakcji z mp4
+            val diskDir = if (!path.startsWith("http")) {
+                val f = java.io.File(path.removePrefix("file://"))
+                java.io.File(f.parentFile, "frames/${f.nameWithoutExtension}")
+            } else null
+            managers[i].extractKeyFrames(
+                path, schedule.durMs[i], count = count, diskCacheDir = diskDir
+            )
         }
     }
 
