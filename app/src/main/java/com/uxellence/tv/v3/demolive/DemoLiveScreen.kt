@@ -863,7 +863,20 @@ fun DemoLiveScreen(
             ctl.virtualNow()
         }
         val edge = ctl.virtualNow()
-        val blocks = bundle.schedule.blocksAround(nowV, before = 3, after = 8)
+        // Bloki wstecz: tyle, by pokryć CAŁE okno DVR kanału (kanał z nagrania:
+        // 8 h ramówki do przewijania; barkery 60 min ≈ dawne before=3).
+        // Sztywne before=3 ucinało ramówkę kanału 130/131 na ~2 h wstecz.
+        val dvrStart = ctl.dvrStartMs()
+        val backBlocks = run {
+            var b = bundle.schedule.epgBlockAt(nowV).startVirtualMs
+            var count = 0
+            while (b > dvrStart && b > 0 && count < 60) {
+                b = bundle.schedule.epgBlockAt(b - 1).startVirtualMs
+                count++
+            }
+            count.coerceAtLeast(3)
+        }
+        val blocks = bundle.schedule.blocksAround(nowV, before = backBlocks, after = 8)
         val programs = blocks.map { b ->
             com.uxellence.tv.v3.epg.EpgProgram(
                 channelId = bundle.channelId,
