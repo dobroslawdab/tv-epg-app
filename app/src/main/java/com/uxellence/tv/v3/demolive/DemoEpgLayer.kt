@@ -73,6 +73,7 @@ fun DemoEpgLayer(
     // 2=miniaturka; -1=brak) + podniesienie paska (miejsce na kontrolki)
     figmaFocusZone: Int = -1,
     singleBarLiftPx: Int = 0,
+    figmaControlsSlot: (@Composable () -> Unit)? = null,
     sx: (Int) -> Dp,
     sy: (Int) -> Dp
 ) {
@@ -145,6 +146,7 @@ fun DemoEpgLayer(
                     isRecording = isRecording,
                     focusZone = figmaFocusZone,
                     liftPx = singleBarLiftPx,
+                    controlsSlot = figmaControlsSlot,
                     sx = sx, sy = sy
                 )
             } else {

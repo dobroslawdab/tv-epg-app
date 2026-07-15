@@ -1560,8 +1560,8 @@ fun DemoLiveScreen(
                                 Log.i(TAG, "REC → modal nagrywania: '${block.title}'")
                             }
                         }
-                        4 -> if (DemoPlayerPrefs.playerVersion.value == 2) {
-                            // Wersja 2: ikona ⓘ "Zobacz opis" → detal programu
+                        4 -> if (DemoPlayerPrefs.playerVersion.value >= 2) {
+                            // Wersje 2 i 3: ikona ⓘ "Zobacz opis" → detal programu
                             openCurrentProgramDetail()
                             Log.i(TAG, "ⓘ Zobacz opis → DETAIL")
                         } /* wersja 1: Napisy — atrapa */
@@ -2005,9 +2005,9 @@ fun DemoLiveScreen(
                     val dir = if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT) 1 else -1
                     when (figmaZone) {
                         0 -> {
-                            // Nawigacja po ikonach (bez skrajnych przejść do taśmy —
-                            // od tego jest poziom paska)
-                            playerButtonsFocus = (playerButtonsFocus + dir).coerceIn(0, 4)
+                            // Nawigacja po ikonach (z ⓘ; bez skrajnych przejść do
+                            // taśmy — od tego jest poziom paska)
+                            playerButtonsFocus = (playerButtonsFocus + dir).coerceIn(0, 5)
                             true
                         }
                         1 -> {
@@ -2268,34 +2268,28 @@ fun DemoLiveScreen(
             },
             figmaFocusZone = if (playerVersion == 3 && !epgExpanded) figmaZone else -1,
             singleBarLiftPx = if (playerVersion == 3 && !epgExpanded) 150 else 0,
+            // Wersja 3: kontrolki (z ikoną ⓘ) POD kartą odtwarzanego programu —
+            // przewijają się razem z taśmą ramówki
+            figmaControlsSlot = if (playerVersion == 3 && !epgExpanded && isReady) {
+                {
+                    PlayerButtonsRowFigma(
+                        isPaused = isPaused,
+                        focusedIndex = if (figmaZone == 0) playerButtonsFocus else -1,
+                        isAtLiveEdge = when {
+                            activeBarker() != null -> !isPaused && activeCtl().isAtLiveEdge()
+                            isTunedLiveStream() -> !isPaused && liveBehindMs < 5_000L
+                            else -> true
+                        },
+                        vodButtons = false,
+                        recScheduled = false,
+                        withInfoButton = true,
+                        sx = sx, sy = sy
+                    )
+                }
+            } else null,
             sx = sx,
             sy = sy
         )
-
-        // ===== WERSJA 3: ikonowe kontrolki (Figma) pod paskiem EPG single =====
-        if (playerVersion == 3 && layer == DemoLayer.EPG && !epgExpanded && isReady) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = sy(28))
-                    .zIndex(11f),
-                contentAlignment = Alignment.Center
-            ) {
-                PlayerButtonsRowFigma(
-                    isPaused = isPaused,
-                    focusedIndex = if (figmaZone == 0) playerButtonsFocus else -1,
-                    isAtLiveEdge = when {
-                        activeBarker() != null -> !isPaused && activeCtl().isAtLiveEdge()
-                        isTunedLiveStream() -> !isPaused && liveBehindMs < 5_000L
-                        else -> true
-                    },
-                    vodButtons = false,
-                    recScheduled = false,
-                    sx = sx, sy = sy
-                )
-            }
-        }
 
         // Zunifikowane UI playera (BUTTONS / STRIP / SNIPPET); DETAIL renderuje
         // poniżej prawdziwy MovieDetailScreen (identyczny z zakładką Wideo).

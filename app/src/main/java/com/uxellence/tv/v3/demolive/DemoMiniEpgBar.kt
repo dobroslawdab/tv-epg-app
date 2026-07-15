@@ -83,6 +83,8 @@ internal fun DemoMiniEpgBar(
     focusZone: Int = -1,
     // Podniesienie paska (px designu) — wersja 3 robi miejsce na kontrolki pod nim
     liftPx: Int = 0,
+    // Wersja 3: kontrolki playera pod kartą odtwarzanego programu
+    controlsSlot: (@Composable () -> Unit)? = null,
     sx: (Int) -> Dp,
     sy: (Int) -> Dp
 ) {
@@ -107,6 +109,7 @@ internal fun DemoMiniEpgBar(
             nowInstant = nowInstant,
             isRecording = isRecording,
             focusZone = focusZone,
+            controlsSlot = controlsSlot,
             sx = sx, sy = sy
         )
     }
@@ -215,6 +218,9 @@ internal fun DemoMiniEpgChannelRow(
     nextBlockX: Int = 1567,
     // Player wg Figmy (wersja 3): 1 = fokus na pasku, 2 = fokus na miniaturce
     focusZone: Int = -1,
+    // Wersja 3: kontrolki playera POD kartą ODTWARZANEGO programu —
+    // przewijają się razem z taśmą ramówki (kotwica: karta isWatched)
+    controlsSlot: (@Composable () -> Unit)? = null,
     sx: (Int) -> Dp,
     sy: (Int) -> Dp
 ) {
@@ -315,7 +321,10 @@ internal fun DemoMiniEpgChannelRow(
                 val isLiveNow = program != null &&
                     !nowInstant.isBefore(program.startUtc) &&
                     nowInstant.isBefore(program.endUtc)
-                if (program != null) Row(verticalAlignment = Alignment.CenterVertically) {
+                val isWatchedAnim = isTunedChannel && program != null &&
+                    !playbackInstant.isBefore(program.startUtc) &&
+                    playbackInstant.isBefore(program.endUtc)
+                if (program != null) Row(verticalAlignment = Alignment.Top) {
             // ===== Karta aktywnego programu (w=908) =====
                 Column(modifier = Modifier.width(sx(908))) {
                     if (focused) {
@@ -341,8 +350,9 @@ internal fun DemoMiniEpgChannelRow(
                                 .background(Color(0x33000000))
                                 .then(
                                     when {
+                                        // Poziom miniaturki (wersja 3): fokus FIOLETOWY
                                         focusZone == 2 -> Modifier.border(
-                                            sx(8), WHITE, RoundedCornerShape(sx(4))
+                                            sx(8), PURPLE, RoundedCornerShape(sx(4))
                                         )
                                         focused -> Modifier.border(
                                             sx(6), AQUA, RoundedCornerShape(sx(4))
@@ -469,6 +479,12 @@ internal fun DemoMiniEpgChannelRow(
                             }
                         }
                     }
+                    // Wersja 3: kontrolki playera POD odtwarzanym materiałem —
+                    // przewijają się razem z kartą (znikają, gdy przewiniesz
+                    // ramówkę na inny program)
+                    if (controlsSlot != null && isWatchedAnim) {
+                        controlsSlot.invoke()
+                    }
                 }
 
                 // ===== Nastepny program (40%): x = nextBlockX, POKRYWA sie ze
@@ -593,19 +609,32 @@ internal fun DemoMiniEpgChannelRow(
                         .background(WHITE, RoundedCornerShape(sx(6)))
                 )
             }
-            // Player wg Figmy (wersja 3), fokus na PASKU: ZAFOKUSOWANA KROPKA
-            // na pozycji odtwarzania (koniec białego wypełnienia)
+            // Player wg Figmy (wersja 3), fokus na PASKU: okrągła FIOLETOWA
+            // kropka na pozycji odtwarzania + czas (index) nad nią
             if (focusZone == 1) {
                 Box(
                     modifier = Modifier
                         .offset(
-                            x = sx(SEGMENT_X + progressW - 14),
-                            y = sy((BULLET - 28) / 2)
+                            x = sx(SEGMENT_X + progressW - 16),
+                            y = sy((BULLET - 32) / 2)
                         )
-                        .size(sx(28), sy(28))
-                        .background(AQUA, CircleShape)
+                        .size(sx(32), sy(32))
+                        .background(PURPLE, CircleShape)
                         .border(sx(4), WHITE, CircleShape)
                 )
+                Box(
+                    modifier = Modifier
+                        .offset(x = sx(SEGMENT_X + progressW - 60), y = -sy(48))
+                        .background(PURPLE, RoundedCornerShape(sx(8)))
+                        .padding(horizontal = sx(14), vertical = sy(4))
+                ) {
+                    Text(
+                        text = formatWall(refInstant.toEpochMilli(), withSeconds = false),
+                        color = WHITE,
+                        fontSize = demoSp(22, sy),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
             Box(
                 modifier = Modifier
