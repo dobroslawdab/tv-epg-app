@@ -1414,12 +1414,8 @@ fun DemoLiveScreen(
                                 openStripWithStepFn(1)
                             }
                         } else {
-                            var newFocus = (playerButtonsFocus + dir).coerceIn(0, maxBtn)
-                            if (atLive && newFocus == 1) {
-                                // Na live slot 1 to status "Oglądasz live" (niefokusowalny) — przeskocz
-                                newFocus = (newFocus + dir).coerceIn(0, maxBtn)
-                            }
-                            playerButtonsFocus = newFocus
+                            // LIVE fokusowalne także na live edge (podpis "Jesteś live")
+                            playerButtonsFocus = (playerButtonsFocus + dir).coerceIn(0, maxBtn)
                         }
                     }
                     PlayerZone.STRIP -> {

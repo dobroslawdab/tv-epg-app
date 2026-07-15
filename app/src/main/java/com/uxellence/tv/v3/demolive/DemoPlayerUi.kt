@@ -617,28 +617,11 @@ private fun PlayerButtonsRow(
             PlayerButton("⚙  Napisy, dźwięk, jakość", focusedIndex == 2, sx, sy)
             return
         }
-        if (isAtLiveEdge) {
-            // Status, nie przycisk — fokus go omija
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(horizontal = sx(10))
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(sy(12))
-                        .background(Color.Red, CircleShape)
-                )
-                Spacer(modifier = Modifier.width(sx(10)))
-                Text(
-                    text = "Oglądasz live",
-                    color = TEXT_PRIMARY,
-                    fontSize = demoSp(20, sy),
-                    fontWeight = FontWeight.Medium
-                )
-            }
-        } else {
-            PlayerButton("LIVE  Wróć do live", focusedIndex == 1, sx, sy)
-        }
+        // LIVE fokusowalne ZAWSZE — na live edge z podpisem "Jesteś live"
+        PlayerButton(
+            if (isAtLiveEdge) "LIVE  Jesteś live" else "LIVE  Wróć do live",
+            focusedIndex == 1, sx, sy
+        )
         Spacer(modifier = Modifier.width(sx(16)))
         PlayerButton("↺  Zacznij od początku", focusedIndex == 2, sx, sy)
         Spacer(modifier = Modifier.width(sx(16)))
@@ -824,9 +807,12 @@ internal fun PlayerButtonsRowFigma(
             FigmaControlItem(R.drawable.demo_ic_startover, "Zacznij od początku", focusedIndex == 1, sx, sy)
             FigmaControlItem(R.drawable.demo_ic_settings, "Napisy, dźwięk, jakość", focusedIndex == 2, sx, sy)
         } else {
-            // Na live edge: sama ikonka LIVE bez podpisu "Oglądasz live", niefokusowalna
-            // (w wariancie ikonowym ikona wystarcza za status)
-            FigmaControlItem(R.drawable.demo_ic_live, "Wróć do live", !isAtLiveEdge && focusedIndex == 1, sx, sy)
+            // LIVE fokusowalne ZAWSZE — na live edge z podpisem "Jesteś live"
+            FigmaControlItem(
+                R.drawable.demo_ic_live,
+                if (isAtLiveEdge) "Jesteś live" else "Wróć do live",
+                focusedIndex == 1, sx, sy
+            )
             FigmaControlItem(R.drawable.demo_ic_startover, "Zacznij od początku", focusedIndex == 2, sx, sy)
             FigmaControlItem(R.drawable.demo_ic_rec,
                 if (recScheduled) "Anuluj nagranie" else "Nagraj", focusedIndex == 3, sx, sy)
