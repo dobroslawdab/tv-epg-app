@@ -605,10 +605,10 @@ internal fun DemoMiniEpgChannelRow(
                         .background(WHITE, RoundedCornerShape(sx(6)))
                 )
             }
-            // Player wg Figmy (wersja 3), fokus na PASKU: kółeczko (bullet) jak
-            // kursor na taśmie przewijania, w KOLORZE FOKUSA (aqua).
-            // IDEALNE KOŁO: jeden wymiar (sy) dla obu osi — sx/sy mają na
-            // realnym ekranie różne współczynniki i sx×sy dawało elipsę
+            // Player wg Figmy (wersja 3), fokus na PASKU: kółeczko jak kursor
+            // na taśmie przewijania, w KOLORZE FOKUSA (aqua).
+            // requiredSize: rodzic (pasek h=12) przycinał wysokość dziecka
+            // i koło wychodziło "zmiażdżone" — requiredSize ignoruje constraints
             if (focusZone == 1) {
                 Box(
                     modifier = Modifier
@@ -616,7 +616,7 @@ internal fun DemoMiniEpgChannelRow(
                             x = sx(SEGMENT_X + progressW) - sy(12),
                             y = sy((BULLET - 24) / 2)
                         )
-                        .size(sy(24))
+                        .requiredSize(sy(24))
                         .background(AQUA, CircleShape)
                 )
             }
