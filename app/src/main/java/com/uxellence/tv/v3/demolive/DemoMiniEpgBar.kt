@@ -350,9 +350,10 @@ internal fun DemoMiniEpgChannelRow(
                                 .background(Color(0x33000000))
                                 .then(
                                     when {
-                                        // Poziom miniaturki (wersja 3): fokus FIOLETOWY
+                                        // Poziom miniaturki (wersja 3): fokus w KOLORZE
+                                        // FOKUSA (aqua, jak wszędzie), grubsza ramka
                                         focusZone == 2 -> Modifier.border(
-                                            sx(8), PURPLE, RoundedCornerShape(sx(4))
+                                            sx(10), AQUA, RoundedCornerShape(sx(4))
                                         )
                                         focused -> Modifier.border(
                                             sx(6), AQUA, RoundedCornerShape(sx(4))
@@ -479,12 +480,6 @@ internal fun DemoMiniEpgChannelRow(
                             }
                         }
                     }
-                    // Wersja 3: kontrolki playera POD odtwarzanym materiałem —
-                    // przewijają się razem z kartą (znikają, gdy przewiniesz
-                    // ramówkę na inny program)
-                    if (controlsSlot != null && isWatchedAnim) {
-                        controlsSlot.invoke()
-                    }
                 }
 
                 // ===== Nastepny program (40%): x = nextBlockX, POKRYWA sie ze
@@ -609,32 +604,18 @@ internal fun DemoMiniEpgChannelRow(
                         .background(WHITE, RoundedCornerShape(sx(6)))
                 )
             }
-            // Player wg Figmy (wersja 3), fokus na PASKU: okrągła FIOLETOWA
-            // kropka na pozycji odtwarzania + czas (index) nad nią
+            // Player wg Figmy (wersja 3), fokus na PASKU: kółeczko (bullet) jak
+            // kursor na taśmie przewijania, w KOLORZE FOKUSA (aqua)
             if (focusZone == 1) {
                 Box(
                     modifier = Modifier
                         .offset(
-                            x = sx(SEGMENT_X + progressW - 16),
-                            y = sy((BULLET - 32) / 2)
+                            x = sx(SEGMENT_X + progressW - 12),
+                            y = sy((BULLET - 24) / 2)
                         )
-                        .size(sx(32), sy(32))
-                        .background(PURPLE, CircleShape)
-                        .border(sx(4), WHITE, CircleShape)
+                        .size(sx(24), sy(24))
+                        .background(AQUA, CircleShape)
                 )
-                Box(
-                    modifier = Modifier
-                        .offset(x = sx(SEGMENT_X + progressW - 60), y = -sy(48))
-                        .background(PURPLE, RoundedCornerShape(sx(8)))
-                        .padding(horizontal = sx(14), vertical = sy(4))
-                ) {
-                    Text(
-                        text = formatWall(refInstant.toEpochMilli(), withSeconds = false),
-                        color = WHITE,
-                        fontSize = demoSp(22, sy),
-                        fontWeight = FontWeight.Bold
-                    )
-                }
             }
             Box(
                 modifier = Modifier
@@ -669,6 +650,13 @@ internal fun DemoMiniEpgChannelRow(
                             )
                     )
                 }
+            }
+        }
+        // Wersja 3: kontrolki playera POD paskiem postępu (przy materiale
+        // odtwarzanym — przewinięcie ramówki na inny program je chowa)
+        if (controlsSlot != null && isWatched) {
+            Box(modifier = Modifier.padding(start = sx(SEGMENT_X - 44))) {
+                controlsSlot.invoke()
             }
         }
     }
