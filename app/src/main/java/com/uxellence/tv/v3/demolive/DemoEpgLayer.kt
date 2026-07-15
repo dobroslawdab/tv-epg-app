@@ -103,7 +103,9 @@ fun DemoEpgLayer(
             // Gradient ciemny #281443 (parametry z Figmy).
             // Pasek 1 kanalu: pas o wysokosci 510 przy dolnej krawedzi;
             // rozwiniete 3 kanaly: wyzszy (15%/45% z 804), przykrywa caly blok
-            if (isExpanded) {
+            if (isExpanded || figmaFocusZone >= 0) {
+                // Rozwinięte 3 kanały ORAZ player wersji 3 (wytyczna 2026-07-15:
+                // gradient jak przy trzech paskach EPG)
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
