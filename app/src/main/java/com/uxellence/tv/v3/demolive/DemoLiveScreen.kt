@@ -557,6 +557,11 @@ fun DemoLiveScreen(
     // i restart, aż do ponownego "3". Odczyt .value subskrybuje recompose.
     remember { DemoPlayerPrefs.load(context) }
     val useFigmaButtons = DemoPlayerPrefs.useFigmaButtons.value
+    // Klawisz "0": wersja playera (1 = obecna, 2 = ikonka ⓘ zamiast opisu,
+    // 3 = player wg Figmy 5530-5203: pasek EPG + kontrolki + poziomy fokusa)
+    val playerVersion = DemoPlayerPrefs.playerVersion.value
+    // Wersja 3 — poziom fokusa: 0=kontrolki, 1=pasek (L/P=przewijanie), 2=miniaturka
+    var figmaZone by remember { mutableIntStateOf(0) }
     var scrubCursorMs by remember { mutableLongStateOf(0L) }
     var playerInteractionAt by remember { mutableLongStateOf(0L) }
     var filmstripFrames by remember { mutableStateOf<List<Pair<Long, Bitmap?>>>(emptyList()) }
@@ -1381,12 +1386,13 @@ fun DemoLiveScreen(
                             isTunedLiveStream() -> !isPaused && liveBehindMs < 5_000L
                             else -> true
                         }
+                        val maxBtn = if (DemoPlayerPrefs.playerVersion.value == 2) 5 else 4
                         if (dir < 0 && playerButtonsFocus == 0) {
                             // LEWO z pierwszej ikony ("Zatrzymaj") → od razu taśma
                             // przewijania WSTECZ — jak UP na taśmę + LEFT
                             // (wytyczna 2026-07-14)
                             openStripWithStepFn(-1)
-                        } else if (dir > 0 && playerButtonsFocus == 4) {
+                        } else if (dir > 0 && playerButtonsFocus == maxBtn) {
                             // PRAWO z ostatniej ikony (napisy/dźwięk) → przewijanie
                             // DO PRZODU; na live zamiast tego info "jesteś live"
                             if (atLive) {
@@ -1395,10 +1401,10 @@ fun DemoLiveScreen(
                                 openStripWithStepFn(1)
                             }
                         } else {
-                            var newFocus = (playerButtonsFocus + dir).coerceIn(0, 4)
+                            var newFocus = (playerButtonsFocus + dir).coerceIn(0, maxBtn)
                             if (atLive && newFocus == 1) {
                                 // Na live slot 1 to status "Oglądasz live" (niefokusowalny) — przeskocz
-                                newFocus = (newFocus + dir).coerceIn(0, 4)
+                                newFocus = (newFocus + dir).coerceIn(0, maxBtn)
                             }
                             playerButtonsFocus = newFocus
                         }
@@ -1416,6 +1422,27 @@ fun DemoLiveScreen(
             },
             playerSelect = {
                 playerInteractionAt = System.currentTimeMillis()
+                // Detal bieżącego programu aktywnego barkera (SNIPPET / ikona ⓘ)
+                fun openCurrentProgramDetail() {
+                    val bundle = activeBarker() ?: barkers.getValue("demo")
+                    val ctl = bundle.controller
+                    val block = bundle.schedule.epgBlockAt(ctl.currentVirtualPositionMs())
+                    val program = com.uxellence.tv.v3.epg.EpgProgram(
+                        channelId = bundle.channelId,
+                        title = block.title,
+                        startUtc = java.time.Instant.ofEpochMilli(ctl.antennaStartWallMs + block.startVirtualMs),
+                        endUtc = java.time.Instant.ofEpochMilli(ctl.antennaStartWallMs + block.endVirtualMs),
+                        description = block.description,
+                        categories = listOf(block.genre, block.year, block.country),
+                        iconUrl = block.coverUrl
+                            ?: bundle.filmstrip.thumbUriFor(block.startVirtualMs, ctl.virtualNow(), context.cacheDir)
+                    )
+                    openDetail(
+                        program, channelLogoUrl = null, isDemo = true, fromEpg = false,
+                        channelName = bundle.name, channelNumber = bundle.number,
+                        channelIndex = tunedChannelIndex
+                    )
+                }
                 when (playerZone) {
                     PlayerZone.STRIP -> {
                         if (isTunedLiveStream()) {
@@ -1521,28 +1548,16 @@ fun DemoLiveScreen(
                                 Log.i(TAG, "REC → modal nagrywania: '${block.title}'")
                             }
                         }
+                        4 -> if (DemoPlayerPrefs.playerVersion.value == 2) {
+                            // Wersja 2: ikona ⓘ "Zobacz opis" → detal programu
+                            openCurrentProgramDetail()
+                            Log.i(TAG, "ⓘ Zobacz opis → DETAIL")
+                        } /* wersja 1: Napisy — atrapa */
                         else -> { /* Napisy — atrapa */ }
                     }
                     PlayerZone.SNIPPET -> {
                         // OK na skrócie opisu → detal bieżącego programu aktywnego barkera
-                        val bundle = activeBarker() ?: barkers.getValue("demo")
-                        val ctl = bundle.controller
-                        val block = bundle.schedule.epgBlockAt(ctl.currentVirtualPositionMs())
-                        val program = com.uxellence.tv.v3.epg.EpgProgram(
-                            channelId = bundle.channelId,
-                            title = block.title,
-                            startUtc = java.time.Instant.ofEpochMilli(ctl.antennaStartWallMs + block.startVirtualMs),
-                            endUtc = java.time.Instant.ofEpochMilli(ctl.antennaStartWallMs + block.endVirtualMs),
-                            description = block.description,
-                            categories = listOf(block.genre, block.year, block.country),
-                            iconUrl = block.coverUrl
-                                ?: bundle.filmstrip.thumbUriFor(block.startVirtualMs, ctl.virtualNow(), context.cacheDir)
-                        )
-                        openDetail(
-                            program, channelLogoUrl = null, isDemo = true, fromEpg = false,
-                            channelName = bundle.name, channelNumber = bundle.number,
-                            channelIndex = tunedChannelIndex
-                        )
+                        openCurrentProgramDetail()
                         Log.i(TAG, "SNIPPET → DETAIL")
                     }
                     PlayerZone.DETAIL -> {
@@ -1590,7 +1605,11 @@ fun DemoLiveScreen(
                 playerInteractionAt = System.currentTimeMillis()
                 when (playerZone) {
                     PlayerZone.BUTTONS -> {
-                        playerZone = PlayerZone.SNIPPET   // fokus na skrót opisu (bez PIP)
+                        // Wersja 2: brak bloku opisu (ⓘ jest ikoną paska) — DOWN nic
+                        // (odczyt ŚWIEŻY — lambdy w remember{} trzymają stale val)
+                        if (DemoPlayerPrefs.playerVersion.value != 2) {
+                            playerZone = PlayerZone.SNIPPET   // fokus na skrót opisu (bez PIP)
+                        }
                     }
                     PlayerZone.STRIP -> {
                         playerZone = PlayerZone.BUTTONS
@@ -1782,13 +1801,15 @@ fun DemoLiveScreen(
                 }
             }
 
-            if (layer == DemoLayer.EPG || matchedChannelId != null) openEpg()
-            // Indeks dostrojonego kanału liczony PO zbudowaniu POSORTOWANEJ listy
-            // (dawna arytmetyka pozycyjna barkers.size+3+idx po sortowaniu
+            // Dołączenie realnych kanałów PRZEBUDOWUJE posortowaną listę —
+            // indeksy się przesuwają. Zapamiętaj ID dostrojonego kanału sprzed
+            // przebudowy i odtwórz indeks PO niej (dawna arytmetyka pozycyjna
             // wskazywała złe wiersze — "lądowanie w dziwnym miejscu")
-            matchedChannelId?.let { id ->
+            val prevTunedId = epgRows.getOrNull(tunedChannelIndex)?.channel?.id
+            if (layer == DemoLayer.EPG || matchedChannelId != null) openEpg()
+            (matchedChannelId ?: prevTunedId)?.let { id ->
                 val i = epgRows.indexOfFirst { it.channel.id == id }
-                if (i >= 0) {
+                if (i >= 0 && i != tunedChannelIndex) {
                     tunedChannelIndex = i
                     epgChannelIndex = i
                     if (layer == DemoLayer.EPG) openEpg()   // pasek single = dostrojony kanał
@@ -1917,6 +1938,83 @@ fun DemoLiveScreen(
             // Detal renderuje MovieDetailScreen z własnym fokusem i klawiszami —
             // nie przechwytuj (tylko BACK idzie przez nasz BackHandler)
             false
+        } else if (keyCode == android.view.KeyEvent.KEYCODE_0) {
+            // Wersja playera 1→2→3→1 (badanie A/B/C)
+            val v = DemoPlayerPrefs.cyclePlayerVersion(context)
+            figmaZone = 0
+            playerInteractionAt = System.currentTimeMillis()
+            epgInteractionAt = System.currentTimeMillis()
+            demoToast = when (v) {
+                2 -> "Player: wersja 2 (ikonka ⓘ zamiast opisu)"
+                3 -> "Player: wersja 3 (pasek EPG + kontrolki, Figma)"
+                else -> "Player: wersja 1 (obecna)"
+            }
+            Log.i(TAG, "playerVersion=$v")
+            true
+        } else if (playerVersion == 3 && layer == DemoLayer.EPG && !epgExpanded) {
+            // ===== WERSJA 3 (Figma 5530-5203): pasek EPG single + kontrolki =====
+            // Poziomy: 0=kontrolki, 1=pasek, 2=miniaturka; wyżej z miniaturki
+            // LUB niżej z kontrolek → widok 3 kanałów (EPG expanded)
+            epgInteractionAt = System.currentTimeMillis()
+            when (keyCode) {
+                android.view.KeyEvent.KEYCODE_DPAD_UP -> {
+                    if (figmaZone < 2) figmaZone++ else {
+                        epgExpanded = true
+                        figmaZone = 0
+                    }
+                    true
+                }
+                android.view.KeyEvent.KEYCODE_DPAD_DOWN -> {
+                    if (figmaZone > 0) figmaZone-- else {
+                        epgExpanded = true
+                        figmaZone = 0
+                    }
+                    true
+                }
+                android.view.KeyEvent.KEYCODE_DPAD_LEFT,
+                android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                    val dir = if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT) 1 else -1
+                    when (figmaZone) {
+                        0 -> {
+                            // Nawigacja po ikonach (bez skrajnych przejść do taśmy —
+                            // od tego jest poziom paska)
+                            playerButtonsFocus = (playerButtonsFocus + dir).coerceIn(0, 4)
+                            true
+                        }
+                        1 -> {
+                            // Pasek: L/P = nasz widok przewijania z miniaturkami
+                            openStripWithStepFn(dir)
+                            true
+                        }
+                        else -> true   // miniaturka: brak nawigacji poziomej
+                    }
+                }
+                android.view.KeyEvent.KEYCODE_DPAD_CENTER,
+                android.view.KeyEvent.KEYCODE_ENTER -> {
+                    when (figmaZone) {
+                        0 -> {
+                            // Akcja przycisku (playerSelect działa wg playerZone)
+                            playerZone = PlayerZone.BUTTONS
+                            actions.playerSelect()
+                        }
+                        1 -> {
+                            // OK na pasku: wejdź w przewijanie (bez kroku)
+                            openStrip(activeCtl().currentVirtualPositionMs())
+                        }
+                        else -> {
+                            // OK na miniaturce: detal bieżącego programu
+                            playerZone = PlayerZone.SNIPPET
+                            actions.playerSelect()
+                        }
+                    }
+                    true
+                }
+                else -> {
+                    val handled = DemoLiveKeyController.handleKey(keyCode, layer, actions)
+                    Log.i(TAG, "key=$keyCode (v3) layer(after)=$layer handled=$handled")
+                    handled
+                }
+            }
         } else if (keyCode == android.view.KeyEvent.KEYCODE_2) {
             // DEMO: cykluj politykę przewijania DEMO TV (pokaz blokad na żywym wideo)
             demoPolicyOverride = when (demoPolicyOverride) {
@@ -2129,9 +2227,36 @@ fun DemoLiveScreen(
             isRecording = { title, startUtc ->
                 DemoRecordingScheduler.isScheduled(title, startUtc.toEpochMilli())
             },
+            figmaFocusZone = if (playerVersion == 3 && !epgExpanded) figmaZone else -1,
+            singleBarLiftPx = if (playerVersion == 3 && !epgExpanded) 150 else 0,
             sx = sx,
             sy = sy
         )
+
+        // ===== WERSJA 3: ikonowe kontrolki (Figma) pod paskiem EPG single =====
+        if (playerVersion == 3 && layer == DemoLayer.EPG && !epgExpanded && isReady) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = sy(28))
+                    .zIndex(11f),
+                contentAlignment = Alignment.Center
+            ) {
+                PlayerButtonsRowFigma(
+                    isPaused = isPaused,
+                    focusedIndex = if (figmaZone == 0) playerButtonsFocus else -1,
+                    isAtLiveEdge = when {
+                        activeBarker() != null -> !isPaused && activeCtl().isAtLiveEdge()
+                        isTunedLiveStream() -> !isPaused && liveBehindMs < 5_000L
+                        else -> true
+                    },
+                    vodButtons = false,
+                    recScheduled = false,
+                    sx = sx, sy = sy
+                )
+            }
+        }
 
         // Zunifikowane UI playera (BUTTONS / STRIP / SNIPPET); DETAIL renderuje
         // poniżej prawdziwy MovieDetailScreen (identyczny z zakładką Wideo).
@@ -2178,6 +2303,7 @@ fun DemoLiveScreen(
             figmaButtons = useFigmaButtons,
             frames = filmstripFrames,
             blockTitleFor = { v -> blockForTunedChannel(v)?.title },
+            infoInsteadOfDescription = playerVersion == 2,
             recScheduled = DemoRecordingScheduler.isScheduled(
                 uiMainBlock.title,
                 activeCtl().antennaStartWallMs + uiMainBlock.startVirtualMs

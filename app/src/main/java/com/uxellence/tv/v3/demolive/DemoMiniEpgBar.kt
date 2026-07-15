@@ -79,6 +79,10 @@ internal fun DemoMiniEpgBar(
     playbackInstant: Instant,
     nowInstant: Instant,
     isRecording: (title: String, startUtc: Instant) -> Boolean = { _, _ -> false },
+    // Player wg Figmy (wersja 3): poziom fokusa (1=pasek, 2=miniaturka; -1=brak)
+    focusZone: Int = -1,
+    // Podniesienie paska (px designu) — wersja 3 robi miejsce na kontrolki pod nim
+    liftPx: Int = 0,
     sx: (Int) -> Dp,
     sy: (Int) -> Dp
 ) {
@@ -89,7 +93,7 @@ internal fun DemoMiniEpgBar(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .offset(y = sy(807))
+            .offset(y = sy(807 - liftPx))
             // Nad gradientem warstwy EPG (gradient ma zIndex 1)
             .zIndex(2f)
     ) {
@@ -102,6 +106,7 @@ internal fun DemoMiniEpgBar(
             playbackInstant = playbackInstant,
             nowInstant = nowInstant,
             isRecording = isRecording,
+            focusZone = focusZone,
             sx = sx, sy = sy
         )
     }
@@ -208,6 +213,8 @@ internal fun DemoMiniEpgChannelRow(
     // (Figma 5530-5949, next w calosci widoczny). Segment aktywnego programu
     // konczy sie przerwa+kropka tuz przed nim.
     nextBlockX: Int = 1567,
+    // Player wg Figmy (wersja 3): 1 = fokus na pasku, 2 = fokus na miniaturce
+    focusZone: Int = -1,
     sx: (Int) -> Dp,
     sy: (Int) -> Dp
 ) {
@@ -333,9 +340,15 @@ internal fun DemoMiniEpgChannelRow(
                                 .clip(RoundedCornerShape(sx(4)))
                                 .background(Color(0x33000000))
                                 .then(
-                                    if (focused) Modifier.border(
-                                        sx(6), AQUA, RoundedCornerShape(sx(4))
-                                    ) else Modifier
+                                    when {
+                                        focusZone == 2 -> Modifier.border(
+                                            sx(8), WHITE, RoundedCornerShape(sx(4))
+                                        )
+                                        focused -> Modifier.border(
+                                            sx(6), AQUA, RoundedCornerShape(sx(4))
+                                        )
+                                        else -> Modifier
+                                    }
                                 )
                         ) {
                             if (!program.iconUrl.isNullOrBlank()) {
@@ -614,6 +627,17 @@ internal fun DemoMiniEpgChannelRow(
                     )
                 }
             }
+        }
+        // Player wg Figmy (wersja 3), fokus na PASKU: podpowiedź przewijania
+        if (focusZone == 1) {
+            Spacer(modifier = Modifier.height(sy(10)))
+            Text(
+                text = "◀  Przewijaj  ▶",
+                color = AQUA,
+                fontSize = demoSp(22, sy),
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(start = sx(SEGMENT_X))
+            )
         }
     }
 }

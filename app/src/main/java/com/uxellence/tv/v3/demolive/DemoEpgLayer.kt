@@ -69,6 +69,10 @@ fun DemoEpgLayer(
     nowInstant: Instant,        // zegar ścienny = live; program live-now ma ciemniejsze tło
     // Kropka nagrywania na mini-EPG: tylko programy ze zleconym nagraniem
     isRecording: (title: String, startUtc: Instant) -> Boolean = { _, _ -> false },
+    // Player wg Figmy (wersja 3): poziom fokusa paska single (1=pasek,
+    // 2=miniaturka; -1=brak) + podniesienie paska (miejsce na kontrolki)
+    figmaFocusZone: Int = -1,
+    singleBarLiftPx: Int = 0,
     sx: (Int) -> Dp,
     sy: (Int) -> Dp
 ) {
@@ -139,6 +143,8 @@ fun DemoEpgLayer(
                     playbackInstant = playbackInstant,
                     nowInstant = nowInstant,
                     isRecording = isRecording,
+                    focusZone = figmaFocusZone,
+                    liftPx = singleBarLiftPx,
                     sx = sx, sy = sy
                 )
             } else {

@@ -91,6 +91,8 @@ fun DemoPlayerUi(
     figmaButtons: Boolean = false,  // klawisz "3": ikonowy pasek wg designu Figma
     frames: List<Pair<Long, Bitmap?>>,
     blockTitleFor: ((Long) -> String?)? = null,  // tytuł materiału dla pozycji wirtualnej (taśma)
+    // Wersja 2 playera (klawisz "0"): zamiast bloku opisu ikonka ⓘ "Zobacz opis"
+    infoInsteadOfDescription: Boolean = false,
     // Player VOD (zwiastun): kontrolki bez LIVE i REC — [pauza, od początku, napisy]
     vodButtons: Boolean = false,
     // Bieżący program ma już ZLECONE nagranie → REC pokazuje "Anuluj nagranie"
@@ -195,14 +197,18 @@ fun DemoPlayerUi(
                     if (!figmaButtons) {
                         Spacer(modifier = Modifier.height(sy(20)))
                         Box(modifier = Modifier.padding(start = sx(MAIN_X))) {
-                            PlayerButtonsRow(isPaused, buttonsFocusIndex, isAtLiveEdge, vodButtons, recScheduled, sx, sy)
+                            PlayerButtonsRow(isPaused, buttonsFocusIndex, isAtLiveEdge, vodButtons, recScheduled, infoInsteadOfDescription, sx, sy)
                         }
                     }
                 }
             } else {
-                // BUTTONS / SNIPPET — dolna kolumna z animowanym foldem opisu
+                // BUTTONS / SNIPPET — dolna kolumna z animowanym foldem opisu.
+                // Wersja 2 (ⓘ w pasku, bez bloku opisu): bez folda — fold spychał
+                // przyciski poza dolną krawędź ekranu
                 val foldOffset by animateDpAsState(
-                    targetValue = if (zone == PlayerZone.SNIPPET) 0.dp else sy(FOLD_OFFSET),
+                    targetValue = if (zone == PlayerZone.SNIPPET || infoInsteadOfDescription) {
+                        0.dp
+                    } else sy(FOLD_OFFSET),
                     animationSpec = tween(350),
                     label = "demo_player_fold"
                 )
@@ -244,12 +250,14 @@ fun DemoPlayerUi(
                     }
                     Spacer(modifier = Modifier.height(sy(24)))
                     Box(modifier = Modifier.padding(start = sx(MAIN_X))) {
-                        if (figmaButtons) PlayerButtonsRowFigma(isPaused, buttonsFocusIndex, isAtLiveEdge, vodButtons, recScheduled, sx, sy)
-                        else PlayerButtonsRow(isPaused, buttonsFocusIndex, isAtLiveEdge, vodButtons, recScheduled, sx, sy)
+                        if (figmaButtons) PlayerButtonsRowFigma(isPaused, buttonsFocusIndex, isAtLiveEdge, vodButtons, recScheduled, infoInsteadOfDescription, sx, sy)
+                        else PlayerButtonsRow(isPaused, buttonsFocusIndex, isAtLiveEdge, vodButtons, recScheduled, infoInsteadOfDescription, sx, sy)
                     }
                     // Odstęp 28 - 24 (pół wiersza opisu, line-height 48) — opis
                     // podniesiony o pół linii tekstu (wytyczna 2026-07-14)
                     Spacer(modifier = Modifier.height(sy(4)))
+                    if (!infoInsteadOfDescription) {
+                    // Wersja 2: bez bloku opisu — "Zobacz opis" jest IKONĄ paska
                     // Opis: ramka zawsze zajmuje miejsce (transparentna gdy bez fokusu),
                     // żeby fokus nie przesuwał tekstu; aqua ramka tylko w SNIPPET
                     Box(
@@ -292,6 +300,7 @@ fun DemoPlayerUi(
                             )
                         }
                     }
+                    }   // koniec else (wersja 1: blok opisu)
                 }
             }
         }
@@ -591,6 +600,7 @@ private fun PlayerButtonsRow(
     isAtLiveEdge: Boolean,
     vodButtons: Boolean,
     recScheduled: Boolean,
+    withInfoButton: Boolean = false,
     sx: (Int) -> Dp,
     sy: (Int) -> Dp
 ) {
@@ -632,7 +642,13 @@ private fun PlayerButtonsRow(
         PlayerButton(if (recScheduled) "REC  Anuluj nagranie" else "REC  Nagraj",
             focusedIndex == 3, sx, sy)
         Spacer(modifier = Modifier.width(sx(16)))
-        PlayerButton("⚙  Napisy, dźwięk, jakość", focusedIndex == 4, sx, sy)
+        if (withInfoButton) {
+            PlayerButton("ⓘ  Zobacz opis", focusedIndex == 4, sx, sy)
+            Spacer(modifier = Modifier.width(sx(16)))
+            PlayerButton("⚙  Napisy, dźwięk, jakość", focusedIndex == 5, sx, sy)
+        } else {
+            PlayerButton("⚙  Napisy, dźwięk, jakość", focusedIndex == 4, sx, sy)
+        }
     }
 }
 
@@ -787,12 +803,14 @@ private val FIGMA_TEXT_STATUS = Color(0xFF5FEDD4)        // Colours/Text/text st
  * w kolorze tła + label aqua pod spodem. Przełączane klawiszem "3".
  */
 @Composable
-private fun PlayerButtonsRowFigma(
+internal fun PlayerButtonsRowFigma(
     isPaused: Boolean,
     focusedIndex: Int,
     isAtLiveEdge: Boolean,
     vodButtons: Boolean,
     recScheduled: Boolean,
+    // Wersja 2 playera: dodatkowa ikona ⓘ "Zobacz opis" (idx 4, napisy → 5)
+    withInfoButton: Boolean = false,
     sx: (Int) -> Dp,
     sy: (Int) -> Dp
 ) {
@@ -809,7 +827,12 @@ private fun PlayerButtonsRowFigma(
             FigmaControlItem(R.drawable.demo_ic_startover, "Zacznij od początku", focusedIndex == 2, sx, sy)
             FigmaControlItem(R.drawable.demo_ic_rec,
                 if (recScheduled) "Anuluj nagranie" else "Nagraj", focusedIndex == 3, sx, sy)
-            FigmaControlItem(R.drawable.demo_ic_settings, "Napisy, dźwięk, jakość", focusedIndex == 4, sx, sy)
+            if (withInfoButton) {
+                FigmaControlItem(R.drawable.demo_ic_info, "Zobacz opis", focusedIndex == 4, sx, sy)
+                FigmaControlItem(R.drawable.demo_ic_settings, "Napisy, dźwięk, jakość", focusedIndex == 5, sx, sy)
+            } else {
+                FigmaControlItem(R.drawable.demo_ic_settings, "Napisy, dźwięk, jakość", focusedIndex == 4, sx, sy)
+            }
         }
     }
 }
