@@ -593,6 +593,20 @@ internal fun DemoMiniEpgChannelRow(
                         .background(WHITE, RoundedCornerShape(sx(6)))
                 )
             }
+            // Player wg Figmy (wersja 3), fokus na PASKU: ZAFOKUSOWANA KROPKA
+            // na pozycji odtwarzania (koniec białego wypełnienia)
+            if (focusZone == 1) {
+                Box(
+                    modifier = Modifier
+                        .offset(
+                            x = sx(SEGMENT_X + progressW - 14),
+                            y = sy((BULLET - 28) / 2)
+                        )
+                        .size(sx(28), sy(28))
+                        .background(AQUA, CircleShape)
+                        .border(sx(4), WHITE, CircleShape)
+                )
+            }
             Box(
                 modifier = Modifier
                     .offset(x = sx(SEGMENT_X + segW + SEG_GAP), y = sy((BULLET - bulletD) / 2))
@@ -627,17 +641,6 @@ internal fun DemoMiniEpgChannelRow(
                     )
                 }
             }
-        }
-        // Player wg Figmy (wersja 3), fokus na PASKU: podpowiedź przewijania
-        if (focusZone == 1) {
-            Spacer(modifier = Modifier.height(sy(10)))
-            Text(
-                text = "◀  Przewijaj  ▶",
-                color = AQUA,
-                fontSize = demoSp(22, sy),
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(start = sx(SEGMENT_X))
-            )
         }
     }
 }

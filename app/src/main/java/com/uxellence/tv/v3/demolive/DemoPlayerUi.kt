@@ -203,12 +203,15 @@ fun DemoPlayerUi(
                 }
             } else {
                 // BUTTONS / SNIPPET — dolna kolumna z animowanym foldem opisu.
-                // Wersja 2 (ⓘ w pasku, bez bloku opisu): bez folda — fold spychał
-                // przyciski poza dolną krawędź ekranu
+                // Wersja 2 (ⓘ w pasku, bez bloku opisu): fold tylko o wysokość
+                // wiersza tekstu (48) — pełny fold spychał przyciski poza ekran,
+                // zero zostawiało za duży odstęp od dołu
                 val foldOffset by animateDpAsState(
-                    targetValue = if (zone == PlayerZone.SNIPPET || infoInsteadOfDescription) {
-                        0.dp
-                    } else sy(FOLD_OFFSET),
+                    targetValue = when {
+                        zone == PlayerZone.SNIPPET -> 0.dp
+                        infoInsteadOfDescription -> sy(48)
+                        else -> sy(FOLD_OFFSET)
+                    },
                     animationSpec = tween(350),
                     label = "demo_player_fold"
                 )

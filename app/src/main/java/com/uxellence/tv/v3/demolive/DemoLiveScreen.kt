@@ -718,6 +718,18 @@ fun DemoLiveScreen(
     }
 
     fun openPlayerButtons() {
+        // Wersja 3 (Figma): NIE otwieraj starego playera — wszystkie kontrolki
+        // są w widoku figmowym (pasek EPG + ikony); wróć do niego z fokusem
+        // na kontrolkach
+        if (DemoPlayerPrefs.playerVersion.value == 3) {
+            figmaZone = 0
+            playerButtonsFocus = 0
+            playerZone = PlayerZone.BUTTONS
+            epgExpanded = false
+            epgInteractionAt = System.currentTimeMillis()
+            layer = DemoLayer.EPG
+            return
+        }
         playerZone = PlayerZone.BUTTONS
         playerButtonsFocus = 0
         playerInteractionAt = System.currentTimeMillis()
@@ -1612,8 +1624,16 @@ fun DemoLiveScreen(
                         }
                     }
                     PlayerZone.STRIP -> {
-                        playerZone = PlayerZone.BUTTONS
-                        playerButtonsFocus = 0
+                        if (DemoPlayerPrefs.playerVersion.value == 3) {
+                            // Wersja 3: z taśmy w dół → widok figmowy, poziom paska
+                            figmaZone = 1
+                            epgExpanded = false
+                            epgInteractionAt = System.currentTimeMillis()
+                            layer = DemoLayer.EPG
+                        } else {
+                            playerZone = PlayerZone.BUTTONS
+                            playerButtonsFocus = 0
+                        }
                     }
                     PlayerZone.SNIPPET, PlayerZone.DETAIL -> { /* nic */ }
                 }
@@ -1637,8 +1657,17 @@ fun DemoLiveScreen(
                             controller.seekToLiveEdge()
                             isPaused = false
                         }
-                        playerZone = PlayerZone.BUTTONS
-                        playerButtonsFocus = 0
+                        if (DemoPlayerPrefs.playerVersion.value == 3) {
+                            // Wersja 3: WSTECZ z taśmy → widok figmowy (poziom paska),
+                            // NIGDY stary player
+                            figmaZone = 1
+                            epgExpanded = false
+                            epgInteractionAt = System.currentTimeMillis()
+                            layer = DemoLayer.EPG
+                        } else {
+                            playerZone = PlayerZone.BUTTONS
+                            playerButtonsFocus = 0
+                        }
                     }
                     PlayerZone.SNIPPET -> {
                         playerZone = PlayerZone.BUTTONS
@@ -1986,7 +2015,13 @@ fun DemoLiveScreen(
                             openStripWithStepFn(dir)
                             true
                         }
-                        else -> true   // miniaturka: brak nawigacji poziomej
+                        else -> {
+                            // Miniaturka/program: L/P przewija RAMÓWKĘ kanału
+                            // (jak pasek EPG jednego kanału) — karta programu
+                            // się zmienia, podgląd zostaje przy odtwarzanym
+                            actions.epgMove(dir)
+                            true
+                        }
                     }
                 }
                 android.view.KeyEvent.KEYCODE_DPAD_CENTER,
@@ -2002,9 +2037,13 @@ fun DemoLiveScreen(
                             openStrip(activeCtl().currentVirtualPositionMs())
                         }
                         else -> {
-                            // OK na miniaturce: detal bieżącego programu
-                            playerZone = PlayerZone.SNIPPET
-                            actions.playerSelect()
+                            // OK na programie ramówki: oglądany → wróć na kontrolki;
+                            // inny (miniony/przyszły/live) → jak w EPG (detal/tune)
+                            if (isEpgAtWatchedPosition()) {
+                                figmaZone = 0
+                            } else {
+                                actions.epgSelect()
+                            }
                         }
                     }
                     true
