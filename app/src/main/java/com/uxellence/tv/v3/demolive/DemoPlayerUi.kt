@@ -98,6 +98,7 @@ fun DemoPlayerUi(
     // Bieżący program ma już ZLECONE nagranie → REC pokazuje "Anuluj nagranie"
     recScheduled: Boolean = false,
     blockMetaFor: ((Long) -> String?)? = null,
+    blockRangeFor: ((Long) -> String?)? = null,   // "HH:mm – HH:mm" nagłówek kafelka przejścia
     sx: (Int) -> Dp,
     sy: (Int) -> Dp
 ) {
@@ -166,6 +167,7 @@ fun DemoPlayerUi(
                         showTimeLabels = false,   // czasy są nad paskiem, nie nad miniaturami
                         blockTitleFor = blockTitleFor,
                         blockMetaFor = blockMetaFor,
+                        blockRangeFor = blockRangeFor,
                         sx = sx, sy = sy
                     )
                     Spacer(modifier = Modifier.height(sy(16)))

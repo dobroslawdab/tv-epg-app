@@ -2343,6 +2343,13 @@ fun DemoLiveScreen(
                     listOf(b.genre, b.year).filter { it.isNotBlank() }.joinToString(", ")
                 }
             },
+            blockRangeFor = { v ->
+                blockForTunedChannel(v)?.let { b ->
+                    val ws = activeCtl().antennaStartWallMs
+                    formatWall(ws + b.startVirtualMs, false) + " – " +
+                        formatWall(ws + b.endVirtualMs, false)
+                }
+            },
             sx = sx,
             sy = sy
         )

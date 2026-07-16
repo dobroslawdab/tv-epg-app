@@ -614,7 +614,9 @@ internal fun DemoMiniEpgChannelRow(
                     modifier = Modifier
                         .offset(
                             x = sx(SEGMENT_X + progressW) - sy(12),
-                            y = sy((BULLET - 24) / 2)
+                            // +5 px w dół: pasek h=12, środek kółka był ciut
+                            // nad linią (BULLET liczony od góry paska)
+                            y = sy((BULLET - 24) / 2) + sy(5)
                         )
                         .requiredSize(sy(24))
                         .background(AQUA, CircleShape)

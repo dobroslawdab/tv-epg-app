@@ -51,6 +51,9 @@ internal fun DemoFilmstrip(
     // nad taśmą (Figma 5530-5395) ORAZ kafelek "Przechodzisz do…" na pierwszym
     // slocie nowego materiału (Figma 5530-5267) wyświetlane RAZEM
     blockMetaFor: ((Long) -> String?)? = null,   // metadane materiału (kafelek)
+    // Przedział czasowy bloku "HH:mm – HH:mm" dla pozycji wirtualnej — nagłówek
+    // kafelka przejścia (Figma 5628-3015: godziny NASTĘPNEGO programu + fifka)
+    blockRangeFor: ((Long) -> String?)? = null,
     sx: (Int) -> Dp,
     sy: (Int) -> Dp
 ) {
@@ -174,8 +177,8 @@ internal fun DemoFilmstrip(
                         contentAlignment = Alignment.Center
                     ) {
                         if (isTransitionTile) {
-                            // Karta "Przechodzisz do…" (Figma 5530-5267): ciemny
-                            // kafelek z tytułem i metadanymi następnego materiału
+                            // Kafelek przejścia (Figma 5628-3015): przedział czasowy
+                            // następnego programu + fifka ›, pod spodem tytuł i metadane
                             Column(
                                 verticalArrangement = Arrangement.Center,
                                 modifier = Modifier
@@ -183,12 +186,23 @@ internal fun DemoFilmstrip(
                                     .background(Color(0xF2352052))
                                     .padding(horizontal = sx(24))
                             ) {
-                                Text(
-                                    text = "Początek programu",
-                                    color = Color(0xCCEEEEEE),
-                                    fontSize = demoSp(if (isCenter) 22 else 16, sy)
-                                )
-                                Spacer(modifier = Modifier.height(sy(8)))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = blockRangeFor?.invoke(slotVirtualMs) ?: "",
+                                        color = Color(0xFFEEEEEE),
+                                        fontSize = demoSp(if (isCenter) 24 else 17, sy),
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Spacer(modifier = Modifier.width(sx(8)))
+                                    Image(
+                                        painter = androidx.compose.ui.res.painterResource(
+                                            id = com.uxellence.tv.v3.R.drawable.demo_ic_chevron_right
+                                        ),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(demoSp(if (isCenter) 24 else 17, sy).value.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(sy(12)))
                                 Text(
                                     text = blockTitleFor?.invoke(slotVirtualMs) ?: "",
                                     color = Color(0xFFEEEEEE),
