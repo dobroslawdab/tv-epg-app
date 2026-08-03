@@ -692,7 +692,8 @@ fun MiniPlayer(
     }
     val player = remember {
         ExoPlayer.Builder(context).build().apply {
-            liveUrl?.let { setMediaItem(MediaItem.fromUri(it)) }
+            // Fabryka wstrzykuje token JWT + ustawia MIME (DASH dla `.livx`)
+            liveUrl?.let { setMediaItem(com.uxellence.tv.v3.channels.LiveMediaItemFactory.build(it)) }
             playWhenReady = true
             volume = 0f
             prepare()

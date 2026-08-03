@@ -154,6 +154,17 @@ fun EpgDayScreen(
     val rootFocus = remember { FocusRequester() }
     val columnScrollState = rememberLazyListState()  // For vertical scrolling between channels
 
+    // Retry po wygaśnięciu tokenu JWT kanałów live (401/403 z CDN).
+    // Lambdy czytają delegaty `streamUrl` / `player`, więc zawsze widzą aktualną wartość.
+    val liveTokenRetry = remember {
+        com.uxellence.tv.v3.channels.LiveTokenRetryHandler(
+            context = context,
+            scope = coroutineScope,
+            currentRawUrl = { streamUrl },
+            player = { player }
+        )
+    }
+
     // NEW: Dynamic expand/collapse state
     var isExpanded by remember { mutableStateOf(false) }  // false = 1 channel, true = 3+ channels
 
@@ -653,12 +664,16 @@ fun EpgDayScreen(
                         else -> "UNKNOWN($playbackState)"
                     }
                     android.util.Log.d("EpgDayScreen", "Player state changed: $state")
+                    // Reset licznika prób retry tokenu po powrocie do READY
+                    liveTokenRetry.onPlaybackStateChanged(playbackState)
                 }
 
                 override fun onPlayerError(error: com.google.android.exoplayer2.PlaybackException) {
                     android.util.Log.e("EpgDayScreen", "Player ERROR: ${error.errorCodeName} - ${error.message}")
                     android.util.Log.e("EpgDayScreen", "  Error code: ${error.errorCode}")
                     error.printStackTrace()
+                    // 401/403 na kanale z JWT → dociągnij świeży token i ponów prepare
+                    liveTokenRetry.onPlayerError(error)
                 }
             })
         }
@@ -680,20 +695,20 @@ fun EpgDayScreen(
         }
     }
 
-    // Change media source when streamUrl changes (smooth transition, no recreation)
-    LaunchedEffect(streamUrl, playerResetTrigger) {
+    // Change media source when streamUrl changes (smooth transition, no recreation).
+    // `liveToken` w kluczu: po zdalnej rotacji JWT bieżący kanał przeładowuje się sam,
+    // bez restartu aplikacji. Patrz docs/patterns/LIVE_TOKEN_REMOTE_CONFIG_PATTERN.md
+    val liveToken by com.uxellence.tv.v3.channels.LiveTokenProvider.tokenState.collectAsState()
+    LaunchedEffect(streamUrl, playerResetTrigger, liveToken) {
         if (streamUrl.isNotEmpty() && player != null) {
-            android.util.Log.d("EpgDayScreen", "Changing stream source to: $streamUrl (trigger=$playerResetTrigger)")
+            android.util.Log.d(
+                "EpgDayScreen",
+                "Changing stream source to: ${com.uxellence.tv.v3.channels.LiveMediaItemFactory.maskUrl(streamUrl)} (trigger=$playerResetTrigger)"
+            )
 
-            val mediaItem = MediaItem.Builder()
-                .setUri(streamUrl)
-                .setLiveConfiguration(
-                    MediaItem.LiveConfiguration.Builder()
-                        .setMinPlaybackSpeed(1.0f)   // Disable auto speed-down
-                        .setMaxPlaybackSpeed(1.0f)   // Disable auto catch-up to live edge
-                        .build()
-                )
-                .build()
+            // Fabryka wstrzykuje token JWT i ustawia MIME — ExoPlayer nie rozpozna
+            // DASH po rozszerzeniu `.livx` używanym przez CDN Play.
+            val mediaItem = com.uxellence.tv.v3.channels.LiveMediaItemFactory.build(streamUrl)
             player?.apply {
                 stop()
                 setMediaItem(mediaItem)

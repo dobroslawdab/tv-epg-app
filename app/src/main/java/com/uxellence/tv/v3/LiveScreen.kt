@@ -28,6 +28,9 @@ import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.ui.PlayerView
 import com.uxellence.tv.v3.ui.theme.figmaRadialBackground
 import com.uxellence.tv.v3.channels.ChannelManager
+import com.uxellence.tv.v3.channels.LiveMediaItemFactory
+import com.uxellence.tv.v3.channels.LiveTokenProvider
+import com.uxellence.tv.v3.channels.LiveTokenRetryHandler
 import android.util.Log
 
 /**
@@ -69,8 +72,10 @@ fun LiveScreen(
         }
     }
 
-    // Load channels dynamically from ChannelManager
-    val channels = remember {
+    // Load channels dynamically from ChannelManager.
+    // Klucz `channelsVersion` — lista przeładuje się gdy dojdzie zdalna aktualizacja z Supabase.
+    val channelsVersion by ChannelManager.channelsVersion.collectAsState()
+    val channels = remember(channelsVersion) {
         ChannelManager.getAllChannels(includeUnavailable = false).mapIndexed { index, channelData ->
             LiveChannel(
                 number = index + 1,
@@ -102,14 +107,42 @@ fun LiveScreen(
         ExoPlayer.Builder(context).build()
     }
 
-    // Channel switching logic
-    LaunchedEffect(currentChannelIndex) {
+    // Retry na wygasły token JWT (401/403) — bez tego wygaśnięcie tokenu w trakcie
+    // sesji badawczej = czarny ekran do restartu aplikacji.
+    val coroutineScope = rememberCoroutineScope()
+    val tokenRetryHandler = remember {
+        LiveTokenRetryHandler(
+            context = context,
+            scope = coroutineScope,
+            currentRawUrl = { channels.getOrNull(currentChannelIndex)?.streamUrl.orEmpty() },
+            player = { player },
+            onRetry = { attempt ->
+                isError = false
+                errorMessage = "Odświeżam dostęp do kanału (próba $attempt)…"
+            },
+            onGiveUp = { reason ->
+                isError = true
+                errorMessage = "Brak dostępu do strumienia: $reason"
+            }
+        )
+    }
+
+    DisposableEffect(player) {
+        player.addListener(tokenRetryHandler)
+        onDispose { player.removeListener(tokenRetryHandler) }
+    }
+
+    // Channel switching logic.
+    // Klucz zawiera token — po zdalnej rotacji JWT bieżący kanał przeładuje się sam.
+    val liveToken by LiveTokenProvider.tokenState.collectAsState()
+    LaunchedEffect(currentChannelIndex, liveToken) {
         if (currentChannelIndex < channels.size) {
             val channel = channels[currentChannelIndex]
             try {
+                tokenRetryHandler.reset()
                 player.stop()
-                val mediaItem = MediaItem.fromUri(channel.streamUrl)
-                player.setMediaItem(mediaItem)
+                // LiveMediaItemFactory wstrzykuje token i ustawia MIME (DASH dla .livx)
+                player.setMediaItem(LiveMediaItemFactory.build(channel.streamUrl))
                 player.prepare()
                 player.playWhenReady = true
                 isError = false
@@ -122,7 +155,7 @@ fun LiveScreen(
 
     // Cleanup
     DisposableEffect(Unit) {
-        onDispose { 
+        onDispose {
             player.release()
         }
     }

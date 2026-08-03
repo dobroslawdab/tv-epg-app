@@ -82,6 +82,11 @@ class LauncherActivity : ComponentActivity() {
         lifecycleScope.launch {
             ConfigManager.refreshConfig(this@LauncherActivity)
         }
+        // Kanały live + token JWT — pobierz jak najwcześniej, żeby pierwszy playback
+        // miał świeży token bez czekania na wejście do MainActivity
+        lifecycleScope.launch {
+            ChannelManager.refreshRemoteChannels(this@LauncherActivity)
+        }
 
         // Register BroadcastReceiver for HOME button events from AccessibilityService
         val filter = IntentFilter(HomeButtonAccessibilityService.HOME_PRESSED_ACTION)

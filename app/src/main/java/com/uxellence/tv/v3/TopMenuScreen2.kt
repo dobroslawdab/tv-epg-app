@@ -18962,7 +18962,22 @@ private object ChannelStreamMapping {
         "Top Movies Polska" to "https://top-movies-rakuten-tv-pl.fast.rakuten.tv/v1/master/0547f18649bd788bec7b67b746e47670f558b6b2/production-LiveChannel-6059/master.m3u8"
     )
 
+    /**
+     * Zwróć szablon URL-a dla kanału.
+     *
+     * Priorytet: [ChannelManager] (czyli Supabase → cache → asset JSON), a dopiero potem
+     * lokalna mapa poniżej jako ostatni fallback. Bez tego zdalna podmiana URL-i nie
+     * obejmowałaby podglądu live w TopMenu — kanały tutaj to osobne, zaszyte źródło.
+     *
+     * ⚠️ Zwracany string to **szablon** (może zawierać `{JWT}`) — podawaj go do
+     * `LiveMediaItemFactory.build()`, nie do `MediaItem.fromUri()`.
+     */
     fun getStreamUrl(channelId: String): String? {
+        com.uxellence.tv.v3.channels.ChannelManager.matchWithEpg(channelId)
+            ?.streamUrl
+            ?.takeIf { it.isNotBlank() }
+            ?.let { return it }
+
         return streamUrls[channelId]
     }
 }
@@ -19065,7 +19080,8 @@ private fun CollectionSliderCard(
                 val streamUrl = ChannelStreamMapping.getStreamUrl(channelId)
                 if (streamUrl != null) {
                     try {
-                        val mediaItem = com.google.android.exoplayer2.MediaItem.fromUri(streamUrl)
+                        // Fabryka wstrzykuje token JWT + ustawia MIME (DASH dla `.livx`)
+                        val mediaItem = com.uxellence.tv.v3.channels.LiveMediaItemFactory.build(streamUrl)
                         player.setMediaItem(mediaItem)
                         player.prepare()
                         player.playWhenReady = true

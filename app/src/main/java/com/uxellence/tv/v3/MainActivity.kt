@@ -66,6 +66,13 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             ConfigManager.refreshConfig(this@MainActivity)
         }
+        // Kanały live + token JWT z Supabase. Token rotuje częściej niż lista kanałów,
+        // dlatego po pierwszym pełnym refreshu startuje osobna pętla samego tokenu —
+        // pozwala podmienić JWT w trakcie badań bez restartu aplikacji i bez rebuilda.
+        lifecycleScope.launch {
+            ChannelManager.refreshRemoteChannels(this@MainActivity)
+            ChannelManager.startTokenPolling(this@MainActivity, lifecycleScope)
+        }
         // Pre-warm the APLIKACJE hero banner cache so the slider renders
         // instantly on first entry instead of waiting for the Supabase round-trip.
         lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {

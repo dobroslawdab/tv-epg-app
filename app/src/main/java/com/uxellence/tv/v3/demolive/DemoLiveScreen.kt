@@ -388,7 +388,8 @@ fun DemoLiveScreen(
             return
         }
         val exo = com.google.android.exoplayer2.ExoPlayer.Builder(context).build()
-        exo.setMediaItem(com.google.android.exoplayer2.MediaItem.fromUri(url))
+        // Fabryka wstrzykuje token JWT + ustawia MIME (DASH dla `.livx` z CDN Play)
+        exo.setMediaItem(com.uxellence.tv.v3.channels.LiveMediaItemFactory.build(url))
         exo.playWhenReady = true
         // Okno live jest krótkie (~38 s): po dłuższej pauzie/cofnięciu pozycja wypada
         // z playlisty → BEHIND_LIVE_WINDOW. Standardowe recovery: resnap do live.
@@ -423,7 +424,8 @@ fun DemoLiveScreen(
             ) {
                 Log.w(TAG, "live watchdog: brak READY po 6 s → retry prepare")
                 exo.stop()
-                exo.setMediaItem(com.google.android.exoplayer2.MediaItem.fromUri(url))
+                // Ponowna budowa przez fabrykę — token mógł się w tym czasie odświeżyć
+                exo.setMediaItem(com.uxellence.tv.v3.channels.LiveMediaItemFactory.build(url))
                 exo.prepare()
                 exo.play()
                 delay(8_000)
