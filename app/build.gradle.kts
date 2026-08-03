@@ -113,6 +113,8 @@ dependencies {
   // ExoPlayer for mini-player
   implementation("com.google.android.exoplayer:exoplayer:2.19.1")
   implementation("com.google.android.exoplayer:exoplayer-hls:2.19.1")
+  // DASH — wymagany dla kanałów live Play (r.playcdn.tv/livedash/.../live.livx)
+  implementation("com.google.android.exoplayer:exoplayer-dash:2.19.1")
   
   // Room Database for EPG cache
   implementation("androidx.room:room-runtime:2.6.1")
