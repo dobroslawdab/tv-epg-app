@@ -1589,6 +1589,53 @@ Pełny flow kanału live z ramówką (barker channel): warstwa EPG jak pod Telew
 
 ---
 
+## Live Channels: Zdalna konfiguracja + token JWT 🆕
+
+**Status**: ✅ Zaimplementowane, czeka na token JWT od zespołu CDN
+**Pattern Guide**: [`docs/patterns/LIVE_TOKEN_REMOTE_CONFIG_PATTERN.md`](docs/patterns/LIVE_TOKEN_REMOTE_CONFIG_PATTERN.md)
+**Data**: 2026-08-03
+
+Kanały live Play (`r.playcdn.tv/livedash/.../live.livx?jwt=<TOKEN>`) wymagają krótkożyciowego
+tokenu JWT. Cel: podmiana **URL-i i tokenu bez rebuilda APK**.
+
+**Zasada**: rozdziel to co się rzadko zmienia od tego co rotuje.
+`live_channels.stream_url` trzyma **szablon** z `{JWT}`; `live_config.jwt` trzyma token.
+Token wstrzykiwany jest **leniwie, przy budowaniu MediaItem** — nigdy nie przechowujemy URL-a
+z wklejonym tokenem.
+
+```kotlin
+// ❌ ŹLE — brak tokenu i brak MIME (ExoPlayer nie rozpozna DASH po `.livx`)
+MediaItem.fromUri(channel.streamUrl)
+
+// ✅ DOBRZE
+LiveMediaItemFactory.build(channel.streamUrl)
+```
+
+**Pliki**: `channels/LiveTokenProvider.kt`, `channels/LiveMediaItemFactory.kt`,
+`channels/LiveTokenRetryHandler.kt`, `channels/SupabaseLiveChannelsRepository.kt`,
+`channels/ChannelManager.kt` (warstwa remote), `admin-panel/sql/create_live_channels.sql`.
+
+**Cztery pułapki** (szczegóły w pattern-doc):
+1. `.livx` nie jest rozpoznawane przez `Util.inferContentType()` → MIME trzeba ustawić ręcznie
+   + wymagany moduł `exoplayer-dash`
+2. Pusty `jwt` z Supabase **nie może** kasować działającego tokenu z cache
+3. Ekrany z `remember { getAllChannels() }` nie widzą zdalnej aktualizacji → klucz
+   `ChannelManager.channelsVersion` (zrobione tylko w `LiveScreen`)
+4. Były **trzy** niezależne źródła URL-i live — `ChannelStreamMapping` odpytuje teraz
+   `ChannelManager` jako pierwszy
+
+**Retry 401/403**: `LiveTokenRetryHandler` dociąga świeży token i ponawia `prepare()`.
+3 próby, reset po `STATE_READY`, stop gdy token się nie zmienił.
+
+**Podmiana tokenu** = jeden UPDATE w Supabase, działa w ≤ `poll_interval_seconds`:
+```sql
+UPDATE public.live_config SET jwt = 'NOWY_TOKEN', updated_at = now() WHERE id = 1;
+```
+
+⚠️ Token leży w tabeli czytanej anon keyem — OK dla makiety badawczej, **nie dla produkcji**.
+
+---
+
 ## MOJE Section Spacing System (2025-09-29)
 
 ### 📋 System Documentation
