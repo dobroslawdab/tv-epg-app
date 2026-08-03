@@ -2,7 +2,15 @@ package com.uxellence.tv.v3.channels
 
 import android.content.Context
 import android.util.Log
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.decodeFromString
 
@@ -10,6 +18,11 @@ import kotlinx.serialization.decodeFromString
  * TV Channel Data Model
  *
  * Represents a live TV channel with stream URL, logo, and EPG matching info
+ *
+ * ⚠️ [streamUrl] to **szablon**, nie gotowy URL. Dla kanałów wymagających autoryzacji
+ * zawiera placeholder `{JWT}` (patrz [LiveTokenProvider]). Nigdy nie podawaj go wprost do
+ * `MediaItem.fromUri()` — użyj [LiveMediaItemFactory.build], które wstrzyknie token
+ * i ustawi poprawny MIME dla DASH.
  */
 @Serializable
 data class TvChannelData(
@@ -22,7 +35,10 @@ data class TvChannelData(
     val isGeoBlocked: Boolean = false,
     val isAvailable: Boolean = true,
     val country: String = "PL"
-)
+) {
+    /** Czy ten kanał wymaga tokenu JWT do odtworzenia. */
+    val requiresToken: Boolean get() = LiveTokenProvider.requiresToken(streamUrl)
+}
 
 /**
  * Channel Manager Singleton
@@ -49,14 +65,50 @@ object ChannelManager {
     private const val TAG = "ChannelManager"
     private const val CHANNELS_JSON_FILE = "tv_channels_with_streams.json"
 
+    private const val PREFS_NAME = "live_channels_cache"
+    private const val KEY_REMOTE_CHANNELS = "remote_channels_json"
+    private const val KEY_POLL_INTERVAL = "poll_interval_seconds"
+
     private var channels: List<TvChannelData> = emptyList()
     private var isInitialized = false
+
+    /** Lista z asset JSON — fallback gdy Supabase niedostępny. */
+    private var assetChannels: List<TvChannelData> = emptyList()
+
+    /** Czy aktualna lista pochodzi z Supabase (true) czy z asset JSON (false). */
+    var isUsingRemoteChannels: Boolean = false
+        private set
+
+    /**
+     * Licznik wersji listy kanałów. Rośnie przy każdej podmianie listy z Supabase.
+     *
+     * Ekrany trzymające kanały w `remember { ChannelManager.getAllChannels() }` **nie**
+     * zauważą zdalnej aktualizacji. Użyj tego jako klucza:
+     * ```kotlin
+     * val version by ChannelManager.channelsVersion.collectAsState()
+     * val channels = remember(version) { ChannelManager.getAllChannels() }
+     * ```
+     */
+    private val _channelsVersion = MutableStateFlow(0)
+    val channelsVersion: StateFlow<Int> = _channelsVersion.asStateFlow()
+
+    private val jsonParser = Json {
+        ignoreUnknownKeys = true
+        isLenient = true
+    }
 
     /**
      * Initialize channel database from JSON asset
      *
      * Should be called once in MainActivity.onCreate()
      * Safe to call multiple times - subsequent calls are no-op
+     *
+     * Kolejność źródeł (od najwyższego priorytetu):
+     * 1. Lista z Supabase zcache'owana w SharedPreferences (przetrwa restart bez sieci)
+     * 2. Asset JSON `tv_channels_with_streams.json`
+     *
+     * Świeże dane z Supabase dociąga [refreshRemoteChannels] — wołane asynchronicznie po
+     * inicjalizacji, żeby nie blokować startu aplikacji.
      */
     fun initialize(context: Context) {
         if (isInitialized) {
@@ -64,25 +116,188 @@ object ChannelManager {
             return
         }
 
+        // Token JWT dla kanałów live — z cache, żeby pierwszy playback nie czekał na sieć
+        LiveTokenProvider.initialize(context)
+
+        // 1) Asset JSON jako baza / fallback
         try {
             val json = context.assets.open(CHANNELS_JSON_FILE)
                 .bufferedReader()
                 .use { it.readText() }
 
-            val jsonParser = Json {
-                ignoreUnknownKeys = true
-                isLenient = true
-            }
-
-            channels = jsonParser.decodeFromString(json)
+            assetChannels = jsonParser.decodeFromString(json)
+            channels = assetChannels
             isInitialized = true
 
-            Log.i(TAG, "Successfully loaded ${channels.size} channels")
+            Log.i(TAG, "Successfully loaded ${channels.size} channels from asset")
             Log.d(TAG, "Categories: ${channels.mapNotNull { it.category }.distinct().joinToString()}")
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to load channels: ${e.message}", e)
+            Log.e(TAG, "Failed to load channels from asset: ${e.message}", e)
+            assetChannels = emptyList()
             channels = emptyList()
+            isInitialized = true
         }
+
+        // 2) Zcache'owana lista z Supabase nadpisuje asset
+        loadCachedRemoteChannels(context)
+    }
+
+    // ========== REMOTE CONFIG (Supabase) ==========
+
+    /**
+     * Pobierz z Supabase listę kanałów **i** token JWT.
+     *
+     * Bezpieczne przy braku sieci: gdy fetch się nie uda, lista zostaje bez zmian
+     * (asset albo poprzedni cache). Nigdy nie czyścimy kanałów na skutek błędu sieci —
+     * to zamieniłoby chwilowy brak internetu w pustą aplikację.
+     *
+     * @return Result z liczbą pobranych kanałów
+     */
+    suspend fun refreshRemoteChannels(context: Context): Result<Int> {
+        val repo = SupabaseLiveChannelsRepository()
+        try {
+            // Token najpierw — jeśli lista się nie uda, token i tak może być świeży
+            val configResult = repo.fetchConfig()
+            configResult.onSuccess { config ->
+                LiveTokenProvider.setToken(context, config.jwt)
+                savePollInterval(context, config.pollIntervalSeconds)
+
+                if (!config.channelsOverrideEnabled) {
+                    Log.i(TAG, "channels_override_enabled=false — zostaję na asset JSON")
+                    return Result.success(0)
+                }
+            }
+
+            val channelsResult = repo.fetchChannels()
+            return channelsResult.fold(
+                onSuccess = { remote ->
+                    if (remote.isEmpty()) {
+                        Log.w(TAG, "Supabase zwrócił 0 kanałów — zostaję na poprzedniej liście")
+                        return@fold Result.success(0)
+                    }
+                    applyRemoteChannels(context, remote)
+                    Result.success(remote.size)
+                },
+                onFailure = { error ->
+                    Log.w(TAG, "Fetch kanałów nieudany, zostaję na ${if (isUsingRemoteChannels) "cache" else "asset"}: ${error.message}")
+                    Result.failure(error)
+                }
+            )
+        } finally {
+            repo.close()
+        }
+    }
+
+    /**
+     * Pobierz **tylko** token JWT (bez listy kanałów).
+     *
+     * Używane przez [LiveTokenRetryHandler] po błędzie 401/403 i przez pętlę pollingu —
+     * lżejsze niż pełny refresh.
+     *
+     * @return Result z zamaskowanym tokenem
+     */
+    suspend fun refreshLiveToken(context: Context): Result<String> {
+        val repo = SupabaseLiveChannelsRepository()
+        try {
+            return repo.fetchConfig().map { config ->
+                LiveTokenProvider.setToken(context, config.jwt)
+                savePollInterval(context, config.pollIntervalSeconds)
+                LiveTokenProvider.maskedToken()
+            }
+        } finally {
+            repo.close()
+        }
+    }
+
+    /**
+     * Uruchom pętlę odpytywania o token.
+     *
+     * Interwał jest sterowany **zdalnie** (`live_config.poll_interval_seconds`), więc podczas
+     * badań można go zacieśnić bez rebuilda. Domyślnie 120 s.
+     *
+     * Wołaj z `lifecycleScope` w MainActivity — pętla kończy się razem ze scope'em.
+     */
+    fun startTokenPolling(context: Context, scope: CoroutineScope) {
+        scope.launch {
+            while (isActive) {
+                val intervalSeconds = getPollInterval(context)
+                delay(intervalSeconds * 1000L)
+
+                if (!isActive) break
+
+                refreshLiveToken(context)
+                    .onSuccess { Log.d(TAG, "Token poll OK: $it") }
+                    .onFailure { Log.d(TAG, "Token poll failed: ${it.message}") }
+            }
+        }
+    }
+
+    private fun applyRemoteChannels(context: Context, remote: List<TvChannelData>) {
+        channels = remote
+        isUsingRemoteChannels = true
+        _channelsVersion.value = _channelsVersion.value + 1
+
+        try {
+            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .putString(KEY_REMOTE_CHANNELS, jsonParser.encodeToString(remote))
+                .apply()
+        } catch (e: Exception) {
+            Log.e(TAG, "Nie udało się zapisać cache kanałów: ${e.message}")
+        }
+
+        val withToken = remote.count { it.requiresToken }
+        Log.i(TAG, "Zastosowano ${remote.size} kanałów z Supabase ($withToken wymaga JWT), version=${_channelsVersion.value}")
+    }
+
+    private fun loadCachedRemoteChannels(context: Context) {
+        val cached = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(KEY_REMOTE_CHANNELS, null) ?: return
+
+        try {
+            val parsed: List<TvChannelData> = jsonParser.decodeFromString(cached)
+            if (parsed.isNotEmpty()) {
+                channels = parsed
+                isUsingRemoteChannels = true
+                Log.i(TAG, "Wczytano ${parsed.size} kanałów z cache Supabase")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Cache kanałów nieczytelny, zostaję na asset: ${e.message}")
+        }
+    }
+
+    private fun savePollInterval(context: Context, seconds: Int) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putInt(KEY_POLL_INTERVAL, seconds.coerceIn(30, 3600))
+            .apply()
+    }
+
+    private fun getPollInterval(context: Context): Int =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getInt(KEY_POLL_INTERVAL, 120)
+
+    /**
+     * Wróć na listę z asset JSON i wyczyść cache Supabase (debug / DevToggles).
+     */
+    fun resetToAssetChannels(context: Context) {
+        channels = assetChannels
+        isUsingRemoteChannels = false
+        _channelsVersion.value = _channelsVersion.value + 1
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .remove(KEY_REMOTE_CHANNELS)
+            .apply()
+        Log.i(TAG, "Powrót do ${assetChannels.size} kanałów z asset JSON")
+    }
+
+    /** Diagnostyka dla DevToggles: skąd lista, ile kanałów z JWT, wiek tokenu. */
+    fun diagnostics(): String {
+        val source = if (isUsingRemoteChannels) "Supabase" else "asset JSON"
+        val withToken = channels.count { it.requiresToken }
+        val age = LiveTokenProvider.ageMinutes()
+        val ageText = if (age < 0) "brak tokenu" else "token: ${age}min"
+        return "$source • ${channels.size} kanałów ($withToken z JWT) • $ageText • ${LiveTokenProvider.maskedToken()}"
     }
 
     /**
