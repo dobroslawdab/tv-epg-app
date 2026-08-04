@@ -5364,7 +5364,8 @@ private fun OdkrywajChannelsScreen(
     }
 
     // Shortcuts V4 data - Figma "Quick links" design (222x244px cards, icon on top)
-    // Order: Oglądaj telewizję, Nagrania, Moja lista kanałów, Do obejrzenia, Netflix, Disney+, Igrzyska Olimpijskie
+    // Order: Oglądaj telewizję, Nagrania, Moja lista kanałów, Do obejrzenia, Netflix, Igrzyska Olimpijskie
+    // (Disney+ usunięty 2026-08-04 na życzenie)
     val shortcutsV4 = remember {
         listOf(
             ShortcutItem("0", "Oglądaj\ntelewizję", ShortcutIcon.VectorIcon(R.drawable.ic_tv)),
@@ -5372,8 +5373,7 @@ private fun OdkrywajChannelsScreen(
             ShortcutItem("2", "Moja lista\nkanałów", ShortcutIcon.VectorIcon(R.drawable.ic_moja_lista_kanalow)),
             ShortcutItem("3", "Do\nobejrzenia", ShortcutIcon.VectorIcon(R.drawable.ic_do_obejrzenia)),
             ShortcutItem("4", "Netflix", ShortcutIcon.VectorIcon(R.drawable.netflix_logo)),
-            ShortcutItem("5", "Disney+", ShortcutIcon.VectorIcon(R.drawable.disney_plus_logo)),
-            ShortcutItem("6", "Mistrzostwa\nFIFA 2026", ShortcutIcon.VectorIcon(R.drawable.ic_fifa_2026))
+            ShortcutItem("5", "Mistrzostwa\nFIFA 2026", ShortcutIcon.VectorIcon(R.drawable.ic_fifa_2026))
         )
     }
 
@@ -5967,14 +5967,12 @@ private fun TelewizjaChannelsScreen(
         )
     }
 
-    // Callback for toggling "Utwórz/Edytuj Moją listę kanałów"
+    // "Utwórz/Edytuj Moją listę kanałów": funkcja jeszcze nie istnieje na makiecie —
+    // pokazujemy zaślepkę prototypu (Figma 4679-49709) zamiast przełączania kolejności
+    // listy (stary toggle isMyListCreated zostaje w kodzie — flow "Moja lista" wróci)
     val onToggleMyList: () -> Unit = {
-        android.util.Log.d("SHORTCUT_V4", "Toggle My List: isMyListCreated = ${!isMyListCreated}")
-        isMyListCreated = !isMyListCreated
-        context.getSharedPreferences("tv_prefs", Context.MODE_PRIVATE)
-            .edit()
-            .putBoolean("my_list_created", isMyListCreated)
-            .apply()
+        android.util.Log.d("SHORTCUT_V4", "Utwórz Moją listę → zaślepka prototypu")
+        com.uxellence.tv.v3.components.PrototypeStub.show()
     }
 
     var focusedRowIndex by remember { mutableStateOf(0) }
@@ -8154,12 +8152,18 @@ private fun ShortcutCardV4(
                             android.util.Log.d("SHORTCUT_V4", "Nawigacja do TV Guide - Program telewizyjny")
                             VodDataCache.openTvGuideTrigger.value++
                         }
-                        // ODKRYWAJ: Oglądaj telewizję -> DEMO: kanał live, start na
-                        // NASZYM TVP1 (kanał 1, nagranie z anteny) — bez klucza demo
-                        // live startował na DEMO TV (po zmianie numeracji: kanał 12)
+                        // ODKRYWAJ: Oglądaj telewizję -> player demo dostrojony na
+                        // PIERWSZY REALNY kanał z tokenem (lineup token-only, bez
+                        // pobierania nagrań) — ta sama ścieżka co zakładka Telewizja.
+                        // Wcześniej: "tvp1rec" (nagranie z anteny) — dostępne nadal
+                        // z dev menu (klawisz "1").
                         plainTitle.contains("telewizję", ignoreCase = true) -> {
-                            android.util.Log.d("SHORTCUT_V4", "Nawigacja do Demo live - Oglądaj telewizję (TVP1)")
-                            VodDataCache.demoLiveInitialChannelKey = "tvp1rec"
+                            val firstTokenChannel = com.uxellence.tv.v3.channels.ChannelManager
+                                .getAllChannels(includeUnavailable = false)
+                                .firstOrNull { it.requiresToken }
+                            android.util.Log.d("SHORTCUT_V4", "Nawigacja do Demo live - Oglądaj telewizję (${firstTokenChannel?.name ?: "fallback"})")
+                            VodDataCache.demoLiveInitialChannelKey =
+                                firstTokenChannel?.epgId ?: firstTokenChannel?.name ?: "TVP 1"
                             VodDataCache.openDemoLiveTrigger.value++
                         }
                         // TELEWIZJA: Widok listy kanałów -> Lista kanałów
@@ -10769,6 +10773,16 @@ fun handleOdkrywajNavigation(
                 if (channelName == "Top 10 w KINIE PLAY") {
                     android.util.Log.d("ODKRYWAJ_NAV", "OK on Top10 '${item.title}' → MovieDetail")
                     onNavigateToMovieDetail(item.toVodSlideData())
+                    return true
+                }
+
+                // Karta EPG (Teraz w Mojej TV — link "start|end|channelId|name") →
+                // player TV demo dostrojony na TEN kanał (lineup token-only, bez
+                // pobierania nagrań) — ta sama ścieżka co skrót "Oglądaj telewizję"
+                if (item.link.contains("|")) {
+                    android.util.Log.d("ODKRYWAJ_NAV", "OK on EPG '${item.title}' → player TV (${item.id})")
+                    VodDataCache.demoLiveInitialChannelKey = item.id
+                    VodDataCache.openDemoLiveTrigger.value++
                     return true
                 }
 
@@ -13699,8 +13713,13 @@ fun TelewizjaUnifiedChannelRow(
                                 FocusRequester()
                             }
 
-                            // Get corresponding mojaListaChannel for this position
-                            val mojaListaChannel = mojaListaChannels.getOrNull(colIndex)
+                            // Logo pozycyjne ze starej listy asset TYLKO dla trybu "Moja lista"
+                            // (flow "Utwórz listę"). Domyślnie karty "Teraz w TV" pokazują
+                            // kanały z tokenem z Supabase — pozycyjna lista (9 starych kanałów)
+                            // podkładała złe loga (np. Polsat News Polityka na karcie TVN);
+                            // null → logo z getTvChannelByEpgId(nazwa) / vodContent.channelLogoUrl
+                            val mojaListaChannel =
+                                if (isMyListCreated) mojaListaChannels.getOrNull(colIndex) else null
 
                             CollectionSliderCard(
                                 vodContent = vodContent,
