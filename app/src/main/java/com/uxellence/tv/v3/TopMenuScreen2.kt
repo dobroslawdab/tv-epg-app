@@ -1967,11 +1967,13 @@ fun TopMenuScreen2(
                                     // In right section - let button handle ENTER/DPAD_CENTER via onPreviewKeyEvent
                                     false // Don't consume, delegate to button
                                 } else if (isPakietyFocused) {
-                                    // Pakiety focused - navigate to PAKIETY section
+                                    // Pill zależy od oferty: CandyBar (punkty) → ekran Punkty,
+                                    // oferta pakietowa → sekcja PAKIETY. Dotąd hardcode "PAKIETY"
+                                    // wysyłał DOWN/OK z CandyBara w pakiety zamiast w Punkty.
                                     isPakietyFocused = false
                                     globalFocusState.value = GlobalFocusManager.transitionToContent(
                                         globalFocusState.value,
-                                        "PAKIETY"
+                                        if (isCandyBarVisible) "POINTS_HISTORY" else "PAKIETY"
                                     )
                                     true
                                 } else if (isLeftProfilFocused &&
@@ -2456,6 +2458,12 @@ fun TopMenuScreen2(
                         context, if (showNagraniaV2) "v2" else "v1"
                     )
                 },
+                candyBarVisible = isCandyBarVisible,
+                onOfferToggle = {
+                    // To samo co klawisz "5": oferta z punktami (CandyBar) ⇄ Pakiety
+                    isCandyBarVisible = !isCandyBarVisible
+                    com.uxellence.tv.v3.utils.VersionTracker.setCandyBarVisibility(context, isCandyBarVisible)
+                },
                 onDismiss = { showDevModal = false }
             )
         }
@@ -2475,6 +2483,8 @@ private fun DevTogglesModal(
     onVodWypozyczoneVariantCycle: () -> Unit,
     showNagraniaV2: Boolean = false,
     onShowNagraniaV2Toggle: () -> Unit = {},
+    candyBarVisible: Boolean = true,
+    onOfferToggle: () -> Unit = {},
     onDismiss: () -> Unit
 ) {
     val aplikacjeVariantLabels = arrayOf("Hero+kanały", "Aplikacje na top + slider")
@@ -2484,6 +2494,9 @@ private fun DevTogglesModal(
     // Read rentals.value so the count label re-renders after clearAll
     val rentalCount = com.uxellence.tv.v3.rental.RentalManager.rentals.value.size
     val items: List<Triple<String, String, () -> Unit>> = listOf(
+        // Oferta klienta decyduje co pokazuje pill w top menu: Punkty (CandyBar)
+        // czy Pakiety. To samo co klawisz "5" na pilocie.
+        Triple("Oferta", if (candyBarVisible) "Punkty (CandyBar)" else "Pakiety", onOfferToggle),
         Triple("Aplikacje variant", aplikacjeVariantLabels.getOrElse(aplikacjeVariant) { aplikacjeVariant.toString() }, onAplikacjeVariantCycle),
         Triple("Profil variant", profileVariantLabels.getOrElse(profileVariant) { profileVariant.toString() }, onProfileVariantCycle),
         Triple("Wypożyczone Kino Play", vodWypLabels.getOrElse(vodWypozyczoneVariant) { vodWypozyczoneVariant.toString() }, onVodWypozyczoneVariantCycle),
@@ -3228,7 +3241,7 @@ internal fun TopMenuBar2(
  */
 @Composable
 private fun CandyBarButton(
-    points: Int = 40,
+    points: Int = 30,   // dostępne punkty: 45 (pula) - 15 (zużycie) — spójne z ekranem Punkty
     days: Int = 21,
     isFocused: Boolean,
     isSelected: Boolean = false,  // NEW: Selected state when POINTS_HISTORY section is active
@@ -22333,7 +22346,9 @@ private fun PointsHistoryScreenContent(
     val usedPts = 15
     val availablePts = poolTotal + extraCyclicPts - usedPts   // 30
 
-    val buttonLabels = listOf("Zwiększ pulę punktów", "Zmniejsz pulę punktów", "Jak to działa?")
+    // Bez "Zmniejsz pulę punktów" (2026-08-04): zmniejszanie ma sens dopiero po
+    // zwiększeniu puli — na makiecie zostaje samo zwiększanie + wyjaśnienie
+    val buttonLabels = listOf("Zwiększ pulę punktów", "Jak to działa?")
     val buttonFocusRequesters = remember { List(buttonLabels.size) { FocusRequester() } }
     var focusedButton by remember { mutableStateOf(0) }
 
@@ -22571,9 +22586,8 @@ private fun PointsHistoryScreenContent(
                 horizontalArrangement = Arrangement.spacedBy(sx(24))
             ) {
                 ActionButton(0, buttonLabels[0])
-                ActionButton(1, buttonLabels[1])
                 Spacer(modifier = Modifier.weight(1f))
-                ActionButton(2, buttonLabels[2])
+                ActionButton(1, buttonLabels[1])
             }
 
             Spacer(modifier = Modifier.height(sy(64)))
@@ -24175,7 +24189,7 @@ private fun WalletCalendarButton(
                 modifier = Modifier.size(sx(66), sy(66))
             )
             Text(
-                text = "40 pkt",
+                text = "30 pkt",  // 45 - 15, spójne z ekranem Punkty
                 style = TextStyle(
                     fontSize = (28 * sy(1).value / 1).sp,
                     fontWeight = FontWeight.Medium,
