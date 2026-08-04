@@ -113,6 +113,27 @@ fun VodPlayerScreen(
         )
     }
 
+    // Sanity-check zawartości cache: plik musi zaczynać się jak znany kontener
+    // wideo. Bez tego strona błędu (HTML z wygasłego linku YouTube) zapisana
+    // jako vod_*.mp4 przechodziła "cache hit" (exists && length>0) i ZATRUWAŁA
+    // cache na zawsze — player kończył na UnrecognizedInputFormatException
+    // ("Zamachowiec nie gra, czarny ekran").
+    fun looksLikeVideoFile(f: File): Boolean {
+        if (f.length() < 16) return false
+        return try {
+            val head = ByteArray(12)
+            f.inputStream().use { it.read(head) }
+            val ftyp = head[4] == 'f'.code.toByte() && head[5] == 't'.code.toByte() &&
+                head[6] == 'y'.code.toByte() && head[7] == 'p'.code.toByte()   // MP4
+            val ebml = head[0] == 0x1A.toByte() && head[1] == 0x45.toByte() &&
+                head[2] == 0xDF.toByte() && head[3] == 0xA3.toByte()           // WebM/MKV
+            val ts = head[0] == 0x47.toByte()                                   // MPEG-TS
+            ftyp || ebml || ts
+        } catch (e: Exception) {
+            false
+        }
+    }
+
     // Step 1: Download MP4 to local cache
     LaunchedEffect(streamUrl) {
         if (streamUrl.isEmpty()) return@LaunchedEffect
@@ -130,9 +151,13 @@ fun VodPlayerScreen(
                 val localFile = File(cacheDir, fileName)
 
                 if (localFile.exists() && localFile.length() > 0) {
-                    Log.i(TAG, "Cache hit: ${localFile.absolutePath}")
-                    localFilePath = localFile.absolutePath
-                    return@withContext
+                    if (looksLikeVideoFile(localFile)) {
+                        Log.i(TAG, "Cache hit: ${localFile.absolutePath}")
+                        localFilePath = localFile.absolutePath
+                        return@withContext
+                    }
+                    Log.w(TAG, "Cache ZATRUTY (nie-wideo, ${localFile.length()} B) — kasuję i pobieram ponownie")
+                    localFile.delete()
                 }
 
                 Log.i(TAG, "Downloading: $streamUrl")
@@ -158,6 +183,11 @@ fun VodPlayerScreen(
                 if (totalSize > 0 && partFile.length() != totalSize.toLong()) {
                     partFile.delete()
                     throw java.io.IOException("Incomplete download: ${partFile.length()}/$totalSize B")
+                }
+                if (!looksLikeVideoFile(partFile)) {
+                    // Serwer oddał 200 z nie-wideo (strona błędu) — nie zapisuj do cache
+                    partFile.delete()
+                    throw java.io.IOException("Pobrany plik nie jest wideo (błąd źródła?)")
                 }
                 partFile.renameTo(localFile)
                 Log.i(TAG, "Downloaded: ${localFile.absolutePath} (${localFile.length()} bytes)")
@@ -192,6 +222,14 @@ fun VodPlayerScreen(
                 }
                 override fun onPlayerError(error: PlaybackException) {
                     Log.e(TAG, "Error: ${error.errorCodeName} - ${error.message}")
+                    // Samonaprawa zatrutego cache: błąd źródła na pliku lokalnym →
+                    // skasuj plik i graj bezpośrednio z sieci (localFilePath to state,
+                    // zmiana odtwarza DisposableEffect z nowym playerem)
+                    if (!path.startsWith("http") && path != streamUrl) {
+                        Log.w(TAG, "Kasuję zatruty cache i przechodzę na stream: $streamUrl")
+                        try { File(path).delete() } catch (_: Exception) {}
+                        localFilePath = streamUrl
+                    }
                 }
             })
         }
