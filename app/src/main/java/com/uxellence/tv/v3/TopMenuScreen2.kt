@@ -22309,7 +22309,15 @@ private fun calculateWideoRowYPosition(
  */
 
 /**
- * PointsHistoryScreenContent - Placeholder for Points History section
+ * PointsHistoryScreenContent — ekran "Punkty" wg Figmy 2271-23377.
+ *
+ * Renderuje tylko treść POD top menu (menu jest wspólne dla sekcji).
+ * Dane 2026-08-04 (decyzja): pula 45 pkt/mies (abonament), BEZ punktów
+ * bonusowych, dodatkowe cykliczne (dokupowane) 0, zużycie 15 → do
+ * wykorzystania 30. Przyciski akcji pokazują zaślepkę prototypu.
+ *
+ * KEY HANDLER: PointsHistory
+ * Scope: LEFT/RIGHT między 3 przyciskami, OK = zaślepka, BACK/UP = menu
  */
 @Composable
 private fun PointsHistoryScreenContent(
@@ -22318,105 +22326,271 @@ private fun PointsHistoryScreenContent(
     sx: (Int) -> Dp,
     sy: (Int) -> Dp
 ) {
-    // Focus requester for the main button
-    val buttonFocusRequester = remember { FocusRequester() }
-    var isButtonFocused by remember { mutableStateOf(false) }
+    // Dane makiety (patrz kdoc)
+    val poolTotal = 45
+    val subscriptionPts = 45
+    val extraCyclicPts = 0
+    val usedPts = 15
+    val availablePts = poolTotal + extraCyclicPts - usedPts   // 30
 
-    // Auto-focus the button when entering content
+    val buttonLabels = listOf("Zwiększ pulę punktów", "Zmniejsz pulę punktów", "Jak to działa?")
+    val buttonFocusRequesters = remember { List(buttonLabels.size) { FocusRequester() } }
+    var focusedButton by remember { mutableStateOf(0) }
+
+    // Auto-focus pierwszego przycisku po wejściu w sekcję
     LaunchedEffect(globalFocusState.value.currentRow) {
         if (globalFocusState.value.currentRow > 0 && globalFocusState.value.sectionId == "POINTS_HISTORY") {
             delay(150)
-            buttonFocusRequester.requestFocus()
+            try { buttonFocusRequesters[0].requestFocus() } catch (_: Exception) {}
+        }
+    }
+
+    // Wiersz "etykieta …… wartość" z kropkowanym łącznikiem (Figma)
+    @Composable
+    fun DottedRow(label: String, subLabel: String?, value: String) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column {
+                Text(
+                    text = label,
+                    color = Color(0xFFEEEEEE),
+                    fontSize = sy(24).value.sp
+                )
+                if (subLabel != null) {
+                    Text(
+                        text = subLabel,
+                        color = Color(0x99EEEEEE),
+                        fontSize = sy(18).value.sp
+                    )
+                }
+            }
+            // Kropkowany łącznik
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = sx(12))
+                    .height(sy(2))
+                    .drawBehind {
+                        drawLine(
+                            color = Color(0x66EEEEEE),
+                            start = androidx.compose.ui.geometry.Offset(0f, size.height / 2),
+                            end = androidx.compose.ui.geometry.Offset(size.width, size.height / 2),
+                            strokeWidth = size.height,
+                            pathEffect = androidx.compose.ui.graphics.PathEffect
+                                .dashPathEffect(floatArrayOf(3f, 10f))
+                        )
+                    }
+            )
+            Text(
+                text = value,
+                color = Color(0xFFEEEEEE),
+                fontSize = sy(24).value.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+
+    @Composable
+    fun ActionButton(index: Int, label: String) {
+        var isFocused by remember { mutableStateOf(false) }
+        Box(
+            modifier = Modifier
+                .focusRequester(buttonFocusRequesters[index])
+                .onFocusChanged {
+                    isFocused = it.isFocused
+                    if (it.isFocused) focusedButton = index
+                }
+                .focusable()
+                .background(
+                    color = if (isFocused) Color(0xFF5AECD3) else Color(0x33EEEEEE),
+                    shape = RoundedCornerShape(sx(12))
+                )
+                .padding(horizontal = sx(32), vertical = sy(18)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = label,
+                color = if (isFocused) Color(0xFF48227C) else Color(0xFFEEEEEE),
+                fontSize = sy(26).value.sp,
+                fontWeight = FontWeight.Medium
+            )
         }
     }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF281443))
             .onPreviewKeyEvent { event ->
-                if (event.type == KeyEventType.KeyDown && event.key == Key.Back) {
-                    // Set button focus state FIRST to prevent "through Start" flash
-                    onPrepareReturnFocus()
-                    globalFocusState.value = GlobalFocusManager.returnToMenu(globalFocusState.value)
-                    return@onPreviewKeyEvent true
+                if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                when (event.key) {
+                    Key.Back, Key.DirectionUp -> {
+                        // Wyjście do menu (jak dotychczasowa zaślepka)
+                        onPrepareReturnFocus()
+                        globalFocusState.value = GlobalFocusManager.returnToMenu(globalFocusState.value)
+                        true
+                    }
+                    Key.DirectionLeft -> {
+                        if (focusedButton > 0) {
+                            try { buttonFocusRequesters[focusedButton - 1].requestFocus() } catch (_: Exception) {}
+                        }
+                        true
+                    }
+                    Key.DirectionRight -> {
+                        if (focusedButton < buttonLabels.lastIndex) {
+                            try { buttonFocusRequesters[focusedButton + 1].requestFocus() } catch (_: Exception) {}
+                        }
+                        true
+                    }
+                    Key.Enter, Key.DirectionCenter -> {
+                        // Akcje punktowe jeszcze nie istnieją na makiecie
+                        com.uxellence.tv.v3.components.PrototypeStub.show()
+                        true
+                    }
+                    else -> false
                 }
-                false
-            },
-        contentAlignment = Alignment.Center
+            }
     ) {
         Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(sy(40))
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(start = sx(390), top = sy(150), end = sx(390))
         ) {
-            // Title
+            // Tytuł
             Text(
-                text = "Historia punktów",
-                color = Color.White,
-                fontSize = sy(48).value.sp,
-                fontWeight = FontWeight.Bold
+                text = "Punkty",
+                color = Color(0xFFEEEEEE),
+                fontSize = sy(57).value.sp,
+                fontWeight = FontWeight.Normal
             )
 
-            // Placeholder info
-            Text(
-                text = "Ekran w przygotowaniu",
-                color = Color(0xCCEEEEEE),
-                fontSize = sy(32).value.sp
-            )
+            Spacer(modifier = Modifier.height(sy(48)))
 
-            // Focusable button (main interaction point)
-            Box(
-                modifier = Modifier
-                    .width(sx(400))
-                    .height(sy(120))
-                    .background(
-                        color = if (isButtonFocused) Color(0xFF5AECD3) else Color(0x33EEEEEE),
-                        shape = RoundedCornerShape(sx(60))
-                    )
-                    .border(
-                        width = if (isButtonFocused) 4.dp else 0.dp,
-                        color = if (isButtonFocused) Color.White else Color.Transparent,
-                        shape = RoundedCornerShape(sx(60))
-                    )
-                    .focusRequester(buttonFocusRequester)
-                    .onFocusChanged { isButtonFocused = it.isFocused }
-                    .focusable()
-                    .onPreviewKeyEvent { event ->
-                        if (event.type == KeyEventType.KeyDown &&
-                            (event.key == Key.Enter || event.key == Key.DirectionCenter)) {
-                            // TODO: Handle button click - show points history details
-                            true
-                        } else {
-                            false
-                        }
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(sx(16)),
-                    verticalAlignment = Alignment.CenterVertically
+            // Dwie karty obok siebie
+            Row(horizontalArrangement = Arrangement.spacedBy(sx(24))) {
+                // Karta 1: Pula punktów
+                Column(
+                    modifier = Modifier
+                        .width(sx(560))
+                        .background(Color(0xFF1B0E30), RoundedCornerShape(sx(16)))
+                        .padding(horizontal = sx(32), vertical = sy(40))
                 ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_wallet),
-                        contentDescription = null,
-                        tint = if (isButtonFocused) Color(0xFF48227C) else Color.White,
-                        modifier = Modifier.size(sx(48), sy(48))
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "$poolTotal pkt",
+                            color = Color(0xFFEEEEEE),
+                            fontSize = sy(64).value.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Spacer(modifier = Modifier.height(sy(8)))
+                        Text(
+                            text = "Pula punktów",
+                            color = Color(0xCCEEEEEE),
+                            fontSize = sy(26).value.sp
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(sy(28)))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(sy(2))
+                            .background(Color(0x33EEEEEE))
                     )
-                    Text(
-                        text = "40 pkt / 21 dni",
-                        color = if (isButtonFocused) Color(0xFF48227C) else Color.White,
-                        fontSize = sy(32).value.sp,
-                        fontWeight = FontWeight.Medium
+                    Spacer(modifier = Modifier.height(sy(28)))
+                    DottedRow(
+                        label = "Punkty w abonamencie",
+                        subLabel = "(odnawiane w każdym cyklu)",
+                        value = "$subscriptionPts pkt"
+                    )
+                    Spacer(modifier = Modifier.height(sy(28)))
+                    // Bez wiersza "Punkty bonusowe" — nie występują (decyzja 2026-08-04)
+                    DottedRow(
+                        label = "Dodatkowe punkty cykliczne",
+                        subLabel = null,
+                        value = "$extraCyclicPts pkt"
+                    )
+                }
+
+                // Karta 2: Punkty do wykorzystania
+                Column(
+                    modifier = Modifier
+                        .width(sx(560))
+                        .background(Color(0xFF1B0E30), RoundedCornerShape(sx(16)))
+                        .padding(horizontal = sx(32), vertical = sy(40))
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(sx(16))
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_wallet),
+                                contentDescription = null,
+                                tint = Color(0xFFEEEEEE),
+                                modifier = Modifier.size(sx(48), sy(48))
+                            )
+                            Text(
+                                text = "$availablePts pkt",
+                                color = Color(0xFFEEEEEE),
+                                fontSize = sy(64).value.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(sy(8)))
+                        Text(
+                            text = "Punkty do wykorzystania",
+                            color = Color(0xCCEEEEEE),
+                            fontSize = sy(26).value.sp
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(sy(28)))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(sy(2))
+                            .background(Color(0x33EEEEEE))
+                    )
+                    Spacer(modifier = Modifier.height(sy(28)))
+                    DottedRow(
+                        label = "Aktualne zużycie punktów",
+                        subLabel = null,
+                        value = "$usedPts pkt"
                     )
                 }
             }
 
-            // Navigation hint
+            Spacer(modifier = Modifier.height(sy(40)))
+
+            // Przyciski akcji: dwa po lewej + "Jak to działa?" po prawej (Figma)
+            Row(
+                modifier = Modifier.width(sx(560 + 24 + 560)),
+                horizontalArrangement = Arrangement.spacedBy(sx(24))
+            ) {
+                ActionButton(0, buttonLabels[0])
+                ActionButton(1, buttonLabels[1])
+                Spacer(modifier = Modifier.weight(1f))
+                ActionButton(2, buttonLabels[2])
+            }
+
+            Spacer(modifier = Modifier.height(sy(64)))
+
+            // Sekcje poniżej (nagłówki jak w Figmie — treść poza kadrem projektu)
             Text(
-                text = "Naciśnij BACK aby wrócić do menu",
-                color = Color(0x80EEEEEE),
-                fontSize = sy(24).value.sp,
-                modifier = Modifier.padding(top = sy(60))
+                text = "Aktywne pakiety",
+                color = Color(0xFFEEEEEE),
+                fontSize = sy(44).value.sp,
+                fontWeight = FontWeight.Normal
+            )
+            Spacer(modifier = Modifier.height(sy(40)))
+            Text(
+                text = "Cykl rozliczeniowy",
+                color = Color(0xFFEEEEEE),
+                fontSize = sy(44).value.sp,
+                fontWeight = FontWeight.Normal
             )
         }
     }
