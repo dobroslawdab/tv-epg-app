@@ -1689,7 +1689,21 @@ fun DemoLiveScreen(
     // ============ SEKWENCJA STARTOWA: download → player → ekstrakcja ============
     // Primary (DEMO TV) blokuje isReady; pozostałe barkery pobierane leniwie przy
     // pierwszym dostrojeniu (ensureBarkerReady).
+    //
+    // WYJĄTEK — wejście z zakładki TV na realny kanał (initialKey nie wskazuje
+    // barkera): NIE pobieraj nagrań demo na starcie (Sintel itd. z archive.org to
+    // setki MB — user widział pasek "Pobieranie…" zamiast live TV). isReady=true
+    // od razu → realne kanały ładują się natychmiast, a DEMO TV pobierze się
+    // leniwie dopiero przy pierwszym dostrojeniu na nie (ensureBarkerReady).
     LaunchedEffect(Unit) {
+        val startKey = com.uxellence.tv.v3.VodDataCache.demoLiveInitialChannelKey
+        val skipPrimaryDownload = !startKey.isNullOrBlank() &&
+            barkers.values.none { it.channelId.equals(startKey, true) }
+        if (skipPrimaryDownload) {
+            Log.i(TAG, "Start na realnym kanale ('$startKey') — pomijam pobieranie demo")
+            isReady = true
+            return@LaunchedEffect
+        }
         try {
             val files = ArrayList<java.io.File>()
             demoBundle.schedule.items.forEachIndexed { i, it ->
@@ -1750,16 +1764,21 @@ fun DemoLiveScreen(
                     !now.isBefore(p.startUtc) && now.isBefore(p.endUtc)
                 }.coerceAtLeast(0)
                 channelNumber++
-                // Przemapowanie 2026-07-14: realny TVP1 HD → 10 (nasz TVP1 z nagrania
-                // gra pod 1), Polsat 2→3, realny Polsat News Polityka → 11 z nazwą
-                // "… HD" (nasz retro przejmuje nazwę pod 2); reszta zostaje (4..9)
-                val mappedNumber = when (channelNumber) {
-                    1 -> 10
-                    2 -> 3
-                    3 -> 11
-                    else -> channelNumber
+                // Przemapowanie PO NAZWACH (2026-08-04): stara arytmetyka pozycyjna
+                // (1→10, 2→3, 3→11 + rename "… HD") zakładała 9-kanałową listę z asset
+                // JSON; po przejściu na 6 kanałów Play z Supabase przemianowywała TVN
+                // na "TVN HD" pod numerem 11. Zasada bez zmian merytorycznych: kanały
+                // kolidujące nazwą z nagraniami (TVP1 pod 1, Polsat News Polityka pod 2)
+                // schodzą na 10/11 z dopiskiem HD, reszta dostaje kolejne numery od 3
+                // (livesim2=13, safari=14, stargaze=18, barkery 122+ — bez kolizji).
+                val collidesWithRecording = channel.name.equals("TVP1", true) ||
+                    channel.name.equals("Polsat News Polityka", true)
+                val mappedNumber = when {
+                    channel.name.equals("TVP1", true) -> 10
+                    channel.name.equals("Polsat News Polityka", true) -> 11
+                    else -> 2 + channelNumber
                 }
-                val mappedChannel = if (channelNumber == 3) {
+                val mappedChannel = if (collidesWithRecording) {
                     channel.copy(name = channel.name + " HD")
                 } else channel
                 rows.add(
@@ -1823,6 +1842,15 @@ fun DemoLiveScreen(
                             barkers.values.forEach { it.controller.player?.pause() }
                         }
                         Log.i(TAG, "Initial channel '$norm' → ${rows[idx].channel.name}")
+                    } else if (rows.isNotEmpty() && !demoBundle.ready.value) {
+                        // Klucz nie pasuje, a demo nie jest pobrane (wejście z zakładki
+                        // TV ze skipPrimaryDownload) — dostrój pierwszy realny kanał
+                        // zamiast martwego ekranu / pobierania nagrań demo
+                        matchedChannelId = rows[0].channel.id
+                        barkers.values.forEach { it.controller.player?.pause() }
+                        tuneLive(rows[0].channel.streamUrl)
+                        isPaused = false
+                        Log.i(TAG, "Initial channel '$norm' not matched → pierwszy realny: ${rows[0].channel.name}")
                     } else {
                         Log.i(TAG, "Initial channel '$norm' not matched — DEMO TV")
                     }
