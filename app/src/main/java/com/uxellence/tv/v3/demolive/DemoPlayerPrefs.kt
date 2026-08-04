@@ -6,13 +6,17 @@ import androidx.compose.runtime.mutableStateOf
 /**
  * Trwały przełącznik wyglądu paska przycisków playera w demo (klawisz "3"):
  *  - false = pasek tekstowy,
- *  - true  = pasek ikonowy wg Figmy.
+ *  - true  = pasek ikonowy wg Figmy (DOMYŚLNY od 2026-08-04).
  *
  * Compose-observable [mutableStateOf] (każdy odczyt `.value` w scope Composable
  * subskrybuje recompose) + backing SharedPreferences, więc wybór przeżywa nawigację
  * (wyjście/powrót do demo) ORAZ restart aplikacji — aż do ponownego "3".
  *
  * Wzorzec jak RentalManager (object z publicznym MutableState bez `private`).
+ *
+ * ⚠️ Zmiana domyślnej wartości NIE dotknie urządzeń, które już raz przełączyły
+ * klawiszem "3" (mają zapisany stan w SharedPreferences) — tylko świeże instalacje
+ * i te, które nigdy nie dotknęły przełącznika.
  */
 object DemoPlayerPrefs {
     private const val PREFS = "demo_player_prefs"
@@ -20,7 +24,8 @@ object DemoPlayerPrefs {
     private const val KEY_HINT_BUBBLE = "long_press_hint_bubble"
     private const val KEY_PLAYER_VERSION = "player_version"
 
-    val useFigmaButtons = mutableStateOf(false)
+    // Default true: pasek IKONOWY wg Figmy (decyzja 2026-08-04)
+    val useFigmaButtons = mutableStateOf(true)
     // Klawisz "0" NA PLAYERZE demo: wersja playera (badanie A/B/C)
     //  1 = obecny (opis pod przyciskami)
     //  2 = jak 1, ale zamiast bloku opisu ikonka ⓘ "Zobacz opis"
@@ -40,7 +45,7 @@ object DemoPlayerPrefs {
         if (loaded) return
         val prefs = context.applicationContext
             .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        useFigmaButtons.value = prefs.getBoolean(KEY_FIGMA_BUTTONS, false)
+        useFigmaButtons.value = prefs.getBoolean(KEY_FIGMA_BUTTONS, true)
         longPressHintBubble.value = prefs.getBoolean(KEY_HINT_BUBBLE, false)
         playerVersion.value = prefs.getInt(KEY_PLAYER_VERSION, 1)
         loaded = true

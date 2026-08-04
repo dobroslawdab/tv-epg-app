@@ -341,6 +341,12 @@ fun DemoLiveScreen(
 
     var layer by remember { mutableStateOf(DemoLayer.EPG) }
     var isReady by remember { mutableStateOf(false) }
+    // Wejście z zakładki TV (realny kanał z tokenem): lineup EPG ograniczony
+    // WYŁĄCZNIE do kanałów z tokenem JWT — barkery (DEMO/Kino/Kosmos/Kids),
+    // strumienie testowe (Stargaze/DASH-IF/Safari) i kanały bez tokenu ukryte.
+    // Wejście jawne w demo (dev menu, skrót "Oglądaj telewizję" → tvp1rec)
+    // zachowuje pełną listę.
+    var tokenOnlyLineup by remember { mutableStateOf(false) }
     // Player jako stan Compose — inaczej update AndroidView nie wykona się ponownie
     // po utworzeniu playera (lambda obserwuje wyłącznie snapshot state)
     var playerRef by remember { mutableStateOf<com.google.android.exoplayer2.ExoPlayer?>(null) }
@@ -1114,12 +1120,20 @@ fun DemoLiveScreen(
 
     fun openEpg() {
         // Kolejność: barkery (122 DEMO, 127 Kino, 128 Kosmos, 129 Kids), potem kanały
-        // live-stream (Stargaze/DASH-IF/Safari), potem realne z EPG
-        val barkerRows = barkers.values.map { buildBarkerRow(it) }
-        val demoRow = barkerRows.first()
-        epgRows = (barkerRows +
-            listOf(buildStargazeRow(), buildLivesim2Row(), buildSafariRow()) +
-            realChannelRows).sortedBy { it.channelNumber }
+        // live-stream (Stargaze/DASH-IF/Safari), potem realne z EPG.
+        // Tryb tokenOnlyLineup (wejście z zakładki TV): tylko kanały z tokenem JWT,
+        // przenumerowane od 1 w kolejności z Supabase (sort_order) — bez dziur po
+        // ukrytych barkerach.
+        epgRows = if (tokenOnlyLineup) {
+            realChannelRows
+                .filter { it.channel.requiresToken }
+                .mapIndexed { i, row -> row.copy(channelNumber = i + 1) }
+        } else {
+            val barkerRows = barkers.values.map { buildBarkerRow(it) }
+            (barkerRows +
+                listOf(buildStargazeRow(), buildLivesim2Row(), buildSafariRow()) +
+                realChannelRows).sortedBy { it.channelNumber }
+        }
         // Start jak pod Telewizją: pasek 1 kanału (tego, który jest na ekranie)
         epgExpanded = false
         epgChannelIndex = tunedChannelIndex.coerceIn(0, (epgRows.size - 1).coerceAtLeast(0))
@@ -1700,7 +1714,8 @@ fun DemoLiveScreen(
         val skipPrimaryDownload = !startKey.isNullOrBlank() &&
             barkers.values.none { it.channelId.equals(startKey, true) }
         if (skipPrimaryDownload) {
-            Log.i(TAG, "Start na realnym kanale ('$startKey') — pomijam pobieranie demo")
+            Log.i(TAG, "Start na realnym kanale ('$startKey') — pomijam pobieranie demo, lineup tylko z tokenem")
+            tokenOnlyLineup = true
             isReady = true
             return@LaunchedEffect
         }
