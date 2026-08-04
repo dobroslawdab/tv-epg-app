@@ -1525,10 +1525,11 @@ fun TopMenuScreen2(
 
     // State for keyboard shortcuts (loaded from SharedPreferences)
     var isCandyBarVisible by remember { mutableStateOf(com.uxellence.tv.v3.utils.VersionTracker.getCandyBarVisibility(context)) }
-    var showProfileNotificationBadge by remember { mutableStateOf(com.uxellence.tv.v3.utils.VersionTracker.getNotificationBadge(context)) }
-    var showKontoUpdateBadge by remember {
-        mutableStateOf(com.uxellence.tv.v3.utils.VersionTracker.getKontoUpdateBadge(context))
-    }
+    // Czerwona kropka na Koncie/Profilu WYŁĄCZONA (decyzja 2026-08-04) — flagi
+    // z VersionTracker (update flow) ignorowane przy inicjalizacji; mechanizm
+    // zostaje w kodzie na wypadek powrotu notyfikacji
+    var showProfileNotificationBadge by remember { mutableStateOf(false) }
+    var showKontoUpdateBadge by remember { mutableStateOf(false) }
 
     // TopMenu design variant (1-4, cycled with key "4")
     val menuPrefs = remember { context.getSharedPreferences("top_menu_prefs", android.content.Context.MODE_PRIVATE) }
@@ -10785,6 +10786,14 @@ fun handleOdkrywajNavigation(
                 if (channelName == "Top 10 w KINIE PLAY") {
                     android.util.Log.d("ODKRYWAJ_NAV", "OK on Top10 '${item.title}' → MovieDetail")
                     onNavigateToMovieDetail(item.toVodSlideData())
+                    return true
+                }
+
+                // Kafel pakietu (kanał "Pakiety" na ODKRYWAJ) → detal pakietu —
+                // ta sama ścieżka co kafle sekcji PAKIETY (Figma 4092-26732)
+                if (item.category == "Pakiet") {
+                    android.util.Log.d("ODKRYWAJ_NAV", "OK on Pakiet '${item.title}' → PackageDetail")
+                    VodDataCache.openPackageDetailName.value = item.title
                     return true
                 }
 
@@ -23027,7 +23036,11 @@ private fun PakietyWithHeroScreen(
                         focusedColIndex = -2
                         onReturnToMenu()
                     },
-                    onMovieClicked = { /* Pakiety: ENTER on a tile is a no-op for now. */ }
+                    onMovieClicked = { vodContent ->
+                        // Kafel pakietu → detal pakietu (Figma 4092-26732)
+                        android.util.Log.d("PAKIETY", "Kafel '${vodContent.title}' → PackageDetail")
+                        VodDataCache.openPackageDetailName.value = vodContent.title
+                    }
                 )
             }
             .focusable()

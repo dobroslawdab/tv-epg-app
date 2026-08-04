@@ -107,7 +107,7 @@ class MainActivity : ComponentActivity() {
 }
 
 enum class NavigationScreen {
-    HOME, LIVE, COMPONENT_SHOWCASE, TOP_MENU2, SHORTCUT, CHANNELE, VIDEOSLIDER, SLIDER, SLIDER_MIX, EPG, EPG_DAY, FOCUS_MINI_CARD, VOICE_TEST, SPLASH, WHATS_NEW, STARTUP_MODE_SELECTION, LAUNCHER_SETUP, ZAPPING_BAR, CHANNEL_GRID, WIDEO_GRID, KINO_GRID, VOD_GRID, RECORDINGS_GRID, APPS_GRID, SERIES_EPISODES, MOVIE_DETAIL, PURCHASE, RENTAL_PROCESSING, OLYMPICS, VOD_PLAYER, DEMO_LIVE, DEMO_VOD
+    HOME, LIVE, COMPONENT_SHOWCASE, TOP_MENU2, SHORTCUT, CHANNELE, VIDEOSLIDER, SLIDER, SLIDER_MIX, EPG, EPG_DAY, FOCUS_MINI_CARD, VOICE_TEST, SPLASH, WHATS_NEW, STARTUP_MODE_SELECTION, LAUNCHER_SETUP, ZAPPING_BAR, CHANNEL_GRID, WIDEO_GRID, KINO_GRID, VOD_GRID, RECORDINGS_GRID, APPS_GRID, SERIES_EPISODES, MOVIE_DETAIL, PURCHASE, RENTAL_PROCESSING, OLYMPICS, VOD_PLAYER, DEMO_LIVE, DEMO_VOD, PACKAGE_DETAIL
 }
 
 // Helper functions for launcher setup
@@ -359,6 +359,25 @@ fun TvRoot(
     // przełączeniu ekranu zabłąkany KeyUp trafia w okno bez fokusu i domyślna
     // obsługa aktywności zamykałaby całą makietę. Wyjście z apki = tylko HOME.
     androidx.activity.compose.BackHandler(enabled = true) { }
+
+    // Detal pakietu — wejścia (kafle PAKIETY, kanał Pakiety na ODKRYWAJ) ustawiają
+    // NAZWĘ; tu rozwiązujemy PaketDom z repozytorium i nawigujemy
+    var selectedPaket by remember { mutableStateOf<com.uxellence.tv.v3.pakiety.PaketDom?>(null) }
+    val packageDetailRequest = VodDataCache.openPackageDetailName.value
+    LaunchedEffect(packageDetailRequest) {
+        if (packageDetailRequest != null) {
+            VodDataCache.openPackageDetailName.value = null   // konsumuj
+            val paket = com.uxellence.tv.v3.pakiety.PaketRepository
+                .loadAll(context)
+                .firstOrNull { it.name == packageDetailRequest }
+            if (paket != null) {
+                selectedPaket = paket
+                currentScreen = NavigationScreen.PACKAGE_DETAIL
+            } else {
+                android.util.Log.w("PACKAGE_DETAIL", "Pakiet '$packageDetailRequest' nie znaleziony")
+            }
+        }
+    }
 
     // Skrót "Oglądaj telewizję" (Start/Odkrywaj) → Demo: kanał live
     val demoLiveTrigger = VodDataCache.openDemoLiveTrigger.value
@@ -1543,6 +1562,29 @@ fun TvRoot(
                         currentScreen = NavigationScreen.TOP_MENU2
                         savedTelewizjaSection = "KINO_PLAY"
                     }
+                }
+            }
+            NavigationScreen.PACKAGE_DETAIL -> {
+                val paket = selectedPaket
+                if (paket == null) {
+                    // Stan nieosiągalny normalną nawigacją — wróć do menu
+                    currentScreen = NavigationScreen.TOP_MENU2
+                } else {
+                    com.uxellence.tv.v3.pakiety.PackageDetailScreen(
+                        paket = paket,
+                        // Oferta punktowa (CandyBar) → cena w pkt; pakietowa → zł
+                        isPointsOffer = com.uxellence.tv.v3.utils.VersionTracker
+                            .getCandyBarVisibility(LocalContext.current),
+                        onActivate = {
+                            // Aktywacja pakietu nie istnieje na makiecie
+                            com.uxellence.tv.v3.components.PrototypeStub.show()
+                        },
+                        onBackPressed = {
+                            selectedPaket = null
+                            savedTelewizjaSection = "PAKIETY"
+                            currentScreen = NavigationScreen.TOP_MENU2
+                        }
+                    )
                 }
             }
             NavigationScreen.VOD_PLAYER -> {

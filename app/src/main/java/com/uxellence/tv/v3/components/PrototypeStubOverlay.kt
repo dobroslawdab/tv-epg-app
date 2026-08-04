@@ -37,7 +37,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
-import com.uxellence.tv.v3.ui.theme.figmaRadialBackground
 
 /**
  * Zaślepka prototypu — pełnoekranowy modal "W prototypie ta funkcja jest niedostępna"
@@ -85,7 +84,9 @@ fun PrototypeStubOverlay() {
         modifier = Modifier
             .fillMaxSize()
             .zIndex(100f)
-            .figmaRadialBackground()
+            // SOLID ciemny fiolet (#281443) — bez gradientów; z radialu projekt
+            // zrezygnował dawno temu i nie ma go w Figmie (decyzja 2026-08-04)
+            .background(Color(0xFF281443))
             .onPreviewKeyEvent { event ->
                 // Input gate: modal konsumuje WSZYSTKO. OK zamyka (fokus i tak
                 // siedzi na jedynym przycisku), BACK łapie BackHandler wyżej.

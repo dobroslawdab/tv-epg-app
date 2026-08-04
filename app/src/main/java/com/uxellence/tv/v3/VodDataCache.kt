@@ -87,6 +87,12 @@ object VodDataCache {
     // trigger obserwowany w MainActivity (nawigacja między ekranami)
     val openDemoLiveTrigger: MutableState<Int> = mutableStateOf(0)
 
+    // Detal pakietu (Figma 4092-26732): ustawienie NAZWY pakietu otwiera
+    // PACKAGE_DETAIL (MainActivity rozwiązuje PaketDom przez PaketRepository
+    // i konsumuje). Wejścia z różnych miejsc: kafle sekcji PAKIETY, kanał
+    // "Pakiety" na ODKRYWAJ itd.
+    val openPackageDetailName: MutableState<String?> = mutableStateOf(null)
+
     // true = demo live otwarte ze skrótu Start/Odkrywaj → BACK wraca do
     // TopMenu; false = otwarte z menu deweloperskiego → BACK wraca do HOME
     var demoLiveOpenedFromShortcut: Boolean = false
