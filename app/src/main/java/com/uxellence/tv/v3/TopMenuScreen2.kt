@@ -4173,11 +4173,11 @@ private fun FullPageContent(
                         sx = sx,
                         sy = sy,
                         onNavigateToEpg = onNavigateToEpg,
-                        onNavigateToEpgDay = { ch, item, scroll, sec ->
-                            // Zakładka TV: live otwieramy playerem DEMO (nie EpgDay)
-                            VodDataCache.epgDayViaDemoLive = true
-                            onNavigateToEpgDay(ch, item, scroll, sec)
-                        },
+                        // Zakładka TV: produkcyjny player (EpgDay) z kanałami live z Supabase
+                        // (JWT z live_config). Player DEMO z przewijaniem (pobiera nagrania
+                        // Sintel/BBB do cache — setki MB!) zostaje dostępny przez skrót
+                        // "Oglądaj telewizję" w ODKRYWAJ i dev menu (klawisz "1").
+                        onNavigateToEpgDay = onNavigateToEpgDay,
                         onNavigateToOlympics = onNavigateToOlympics,
                         onFocusRestored = onFocusRestored,
                         restoredTelewizjaFocus = restoredTelewizjaFocus,
