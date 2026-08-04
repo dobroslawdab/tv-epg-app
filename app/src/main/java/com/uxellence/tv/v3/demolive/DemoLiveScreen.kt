@@ -164,6 +164,32 @@ private class DemoVideoView(
 }
 
 /**
+ * Opisy programów z epg.ovh zaczynają się linijką metadanych:
+ * "G: teleturniej. E1916. R: 2025. W: 0. \n \nWłaściwy opis…"
+ * — czasem oddzieloną pustą linią, czasem sklejoną z opisem w jednym akapicie,
+ * a czasem będącą CAŁYM opisem (brak właściwej treści). Do UI idzie wyłącznie
+ * właściwy opis (ten sam wzorzec co RecordedChannelLoader.splitEpgDescription).
+ */
+private val epgMetaPrefixRegex = Regex("""^G:.*?W:\s*\d+\.?\s*""", RegexOption.DOT_MATCHES_ALL)
+private val epgYearRegex = Regex("""R:\s*(\d{4})""")
+
+private fun cleanEpgDescription(raw: String?): String? {
+    if (raw.isNullOrBlank()) return null
+    val parts = raw.split(Regex("\n\\s*\n"), limit = 2)
+    val body = when {
+        parts.size == 2 -> parts[1].trim()
+        // Metadane sklejone z opisem (lub same metadane) — zdejmij prefiks do "W: n."
+        raw.trimStart().startsWith("G:") -> raw.trim().replace(epgMetaPrefixRegex, "").trim()
+        else -> raw.trim()
+    }
+    return body.ifBlank { null }   // same metadane → null (wywołujący da fallback)
+}
+
+/** Rok produkcji z prefiksu metadanych ("R: 2025" → "2025 r."), pusty gdy brak. */
+private fun epgYearFrom(raw: String?): String =
+    raw?.let { epgYearRegex.find(it)?.groupValues?.get(1)?.plus(" r.") } ?: ""
+
+/**
  * Kanał barker: schedule + kontroler + filmstrip + stan pobierania (Compose states —
  * odczyt w kompozycji subskrybuje recompose). Primary (DEMO TV) pobierany na starcie;
  * pozostałe leniwie przy pierwszym dostrojeniu.
@@ -835,10 +861,12 @@ fun DemoLiveScreen(
             startVirtualMs = program.startUtc.toEpochMilli() - controller.antennaStartWallMs,
             endVirtualMs = program.endUtc.toEpochMilli() - controller.antennaStartWallMs,
             genre = program.categories.firstOrNull { it.isNotBlank() } ?: "",
-            year = "",
+            year = epgYearFrom(program.description),
             country = "",
             age = "",
-            description = program.description ?: "Brak opisu programu w danych EPG."
+            // Bez prefiksu metadanych "G: … W: n." z epg.ovh — tylko właściwy opis
+            description = cleanEpgDescription(program.description)
+                ?: "Brak opisu programu w danych EPG."
         )
     }
 
@@ -874,10 +902,12 @@ fun DemoLiveScreen(
             title = program.title,
             genre = program.categories.filter { it.isNotBlank() }.take(2).joinToString(", "),
             duration = "$durationMin min",
-            year = "",
+            year = epgYearFrom(program.description),
             country = "",
             ageRating = "13 lat",
-            description = program.description ?: "Brak opisu programu w danych EPG.",
+            // Bez prefiksu metadanych "G: … W: n." z epg.ovh — tylko właściwy opis
+            description = cleanEpgDescription(program.description)
+                ?: "Brak opisu programu w danych EPG.",
             price = "",
             backgroundUrl = program.iconUrl ?: "",
             posterUrl = program.iconUrl ?: "",
