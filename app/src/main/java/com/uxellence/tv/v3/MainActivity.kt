@@ -423,6 +423,9 @@ fun TvRoot(
     // VOD Player navigation parameters
     var vodPlayerUrl by remember { mutableStateOf("") }
     var vodPlayerTitle by remember { mutableStateOf("") }
+    // "Oglądaj" z MovieDetail (WIDEO): BACK z playera wraca do DETALU, nie do
+    // TopMenu — selectedMovieData wciąż żyje, więc detal odtwarza się bez zmian
+    var vodPlayerReturnToDetail by remember { mutableStateOf(false) }
 
     // Save TELEWIZJA focus state for smart BACK navigation (ID-based)
     var savedTelewizjaFocus by remember { mutableStateOf<FocusState?>(null) }
@@ -1367,9 +1370,33 @@ fun TvRoot(
                             currentScreen = NavigationScreen.PURCHASE
                         },
                         onWatchClicked = {
-                            // TODO: route to VOD player once player integration lands.
-                            // For now we just log — visual UX (Oglądaj button + countdown) is in place.
-                            android.util.Log.d("MOVIE_DETAIL", "Watch clicked: ${movieData.title}")
+                            // "Oglądaj" → pełnoekranowy player VOD z wideo tytułu.
+                            // To samo wideo co preview na najechaniu (youtubeUrl):
+                            // direct MP4/Supabase gra od razu, link YouTube przechodzi
+                            // przez ekstrakcję (yt-extract-api) jak w YouTubeTrailerPlayer.
+                            val raw = movieData.youtubeUrl
+                            if (raw.isNullOrBlank()) {
+                                android.widget.Toast.makeText(
+                                    context, "Brak wideo dla tego tytułu", android.widget.Toast.LENGTH_SHORT
+                                ).show()
+                            } else {
+                                coroutineScope.launch {
+                                    val direct = if (raw.contains("youtube.com") || raw.contains("youtu.be")) {
+                                        com.uxellence.tv.v3.utils.YouTubeStreamExtractor.extractStreamUrl(raw)
+                                    } else raw
+                                    if (direct.isNullOrBlank()) {
+                                        android.widget.Toast.makeText(
+                                            context, "Nie udało się załadować wideo", android.widget.Toast.LENGTH_SHORT
+                                        ).show()
+                                    } else {
+                                        android.util.Log.d("MOVIE_DETAIL", "Watch: ${movieData.title} → VOD player")
+                                        vodPlayerUrl = direct
+                                        vodPlayerTitle = movieData.title
+                                        vodPlayerReturnToDetail = true
+                                        currentScreen = NavigationScreen.VOD_PLAYER
+                                    }
+                                }
+                            }
                         },
                         onTrailerClicked = {
                             // TODO: Play trailer
@@ -1528,8 +1555,15 @@ fun TvRoot(
                     streamUrl = vodPlayerUrl,
                     title = vodPlayerTitle,
                     onBackPressed = {
-                        currentScreen = NavigationScreen.TOP_MENU2
-                        savedTelewizjaSection = "KINO_PLAY"
+                        if (vodPlayerReturnToDetail) {
+                            // Wejście przez "Oglądaj" z MovieDetail (WIDEO) —
+                            // wróć do detalu (selectedMovieData wciąż ustawione)
+                            vodPlayerReturnToDetail = false
+                            currentScreen = NavigationScreen.MOVIE_DETAIL
+                        } else {
+                            currentScreen = NavigationScreen.TOP_MENU2
+                            savedTelewizjaSection = "KINO_PLAY"
+                        }
                     },
                     sx = ::sx,
                     sy = ::sy
