@@ -23057,7 +23057,12 @@ private fun PakietyWithHeroScreen(
                 focusedColIndex = col
             },
             onNavigateToVodGrid = { _, _, _ -> /* not used in PAKIETY */ },
-            onNavigateToMovieDetail = { /* not used in PAKIETY */ },
+            // Przycisk "Aktywuj" na hero sliderze → detal pakietu (slide.title
+            // = nazwa pakietu; ta sama ścieżka co kafle rzędów)
+            onNavigateToMovieDetail = { slide ->
+                android.util.Log.d("PAKIETY", "Slider Aktywuj '${slide.title}' → PackageDetail")
+                VodDataCache.openPackageDetailName.value = slide.title
+            },
             lazyListStates = lazyListStates,
             sx = sx,
             sy = sy,
