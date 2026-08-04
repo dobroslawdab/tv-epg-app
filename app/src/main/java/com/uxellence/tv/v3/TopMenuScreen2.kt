@@ -10778,11 +10778,23 @@ fun handleOdkrywajNavigation(
 
                 // Karta EPG (Teraz w Mojej TV — link "start|end|channelId|name") →
                 // player TV demo dostrojony na TEN kanał (lineup token-only, bez
-                // pobierania nagrań) — ta sama ścieżka co skrót "Oglądaj telewizję"
+                // pobierania nagrań) — ta sama ścieżka co skrót "Oglądaj telewizję".
+                // Czekamy aż animateScrollToItem osiądzie — indeks czytany w trakcie
+                // animacji wskazywałby poprzedni kanał (race jak w TELEWIZJA_CLICK).
                 if (item.link.contains("|")) {
-                    android.util.Log.d("ODKRYWAJ_NAV", "OK on EPG '${item.title}' → player TV (${item.id})")
-                    VodDataCache.demoLiveInitialChannelKey = item.id
-                    VodDataCache.openDemoLiveTrigger.value++
+                    coroutineScope.launch {
+                        var guard = 0
+                        while (lazyListState?.isScrollInProgress == true && guard < 60) {
+                            kotlinx.coroutines.delay(16)
+                            guard++
+                        }
+                        val settledIndex = ((lazyListState?.firstVisibleItemIndex ?: 0) +
+                            focusedColIndex).coerceIn(0, rowContent.lastIndex)
+                        val settled = rowContent.getOrNull(settledIndex) ?: item
+                        android.util.Log.d("ODKRYWAJ_NAV", "OK on EPG '${settled.title}' → player TV (${settled.id})")
+                        VodDataCache.demoLiveInitialChannelKey = settled.id
+                        VodDataCache.openDemoLiveTrigger.value++
+                    }
                     return true
                 }
 
@@ -13335,6 +13347,9 @@ fun TelewizjaUnifiedChannelRow(
     isMyListCreated: Boolean = false  // NEW: for zero-padding (01-09) when true
 ) {
     val isCurrentRow = rowIndex == focusedRowIndex
+    // Scope dla kliku "Teraz w TV": klik czeka aż animateScrollToItem osiądzie
+    // (patrz komentarz RACE przy onClick karty)
+    val cardClickScope = rememberCoroutineScope()
     val isShortcutsV2 = channel == "Skróty v2"
 
     var showDetailsWithDelay by remember { mutableStateOf(false) }
@@ -13730,12 +13745,25 @@ fun TelewizjaUnifiedChannelRow(
                                     // Klik wg WIZUALNEGO fokusu (firstVisibleItemIndex) —
                                     // fizyczny fokus Compose siedzi na jednej karcie
                                     // (fixed-focus model) i vodContent z lambdy items()
-                                    // wskazywałby zawsze pierwszą kartę
-                                    val visIdx = lazyListState.firstVisibleItemIndex
-                                        .coerceIn(0, (rowContent.size - 1).coerceAtLeast(0))
-                                    val target = rowContent.getOrNull(visIdx) ?: vodContent
-                                    android.util.Log.d("TELEWIZJA_CLICK", "Opening EPG Day Test from $channel: itemId=${target.id}, scroll=$visIdx, section=$sectionId")
-                                    onNavigateToEpgDay(channel, target.id, visIdx, sectionId)  // ID-based: channelId, itemId, scrollPosition
+                                    // wskazywałby zawsze pierwszą kartę.
+                                    //
+                                    // RACE (2026-08-04): RIGHT robi animateScrollToItem w tle;
+                                    // szybkie RIGHT→OK czytało firstVisibleItemIndex W TRAKCIE
+                                    // animacji (stary indeks → zawsze pierwszy kanał, np. TVP1
+                                    // zamiast TVP2). Klik czeka aż scroll osiądzie — wtedy
+                                    // indeks == karta, którą user widzi podświetloną.
+                                    cardClickScope.launch {
+                                        var guard = 0
+                                        while (lazyListState.isScrollInProgress && guard < 60) {
+                                            kotlinx.coroutines.delay(16)
+                                            guard++
+                                        }
+                                        val visIdx = lazyListState.firstVisibleItemIndex
+                                            .coerceIn(0, (rowContent.size - 1).coerceAtLeast(0))
+                                        val target = rowContent.getOrNull(visIdx) ?: vodContent
+                                        android.util.Log.d("TELEWIZJA_CLICK", "Opening EPG Day Test from $channel: itemId=${target.id}, scroll=$visIdx, section=$sectionId")
+                                        onNavigateToEpgDay(channel, target.id, visIdx, sectionId)  // ID-based: channelId, itemId, scrollPosition
+                                    }
                                 },
                                 sx = sx,
                                 sy = sy,

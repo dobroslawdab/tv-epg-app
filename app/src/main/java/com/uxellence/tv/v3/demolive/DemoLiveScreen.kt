@@ -1786,6 +1786,12 @@ fun DemoLiveScreen(
             }
             val repo = com.uxellence.tv.v3.repository.EpgRepository.getInstance(context)
             val now = java.time.Instant.now()
+
+            // Builder wierszy jako lokalna funkcja — EPG ładuje się PROGRESYWNIE
+            // (pierwszy przebieg potrafi zwrócić 1 kanał, kolejne 6), więc przy
+            // wejściu z klikniętym kanałem budowanie jest ponawiane aż wiersz
+            // tego kanału istnieje (patrz retry niżej).
+            suspend fun buildRealRows(): MutableList<com.uxellence.tv.v3.epg.ChannelEpgRow> {
             val rows = mutableListOf<com.uxellence.tv.v3.epg.ChannelEpgRow>()
             var channelNumber = 0
             for (channel in com.uxellence.tv.v3.channels.ChannelManager.getAllChannels(includeUnavailable = false)) {
@@ -1837,13 +1843,43 @@ fun DemoLiveScreen(
                 )
                 if (channelNumber >= 9) break
             }
-            realChannelRows = rows
-            Log.i(TAG, "Real EPG rows loaded: ${rows.size}")
+            return rows
+            }
+
+            var rows = buildRealRows()
 
             // Kanał startowy z zakładki TV (karta "Teraz w TV"): dopasuj klucz
             // kliknięcia (np. "epg_Polsat_News_1783848600") do realnego kanału
             // i dostrój PRZED openEpg — pasek single wystartuje na tym kanale.
             val initialKey = com.uxellence.tv.v3.VodDataCache.demoLiveInitialChannelKey
+
+            // RETRY (2026-08-04): pierwszy przebieg EPG potrafi mieć tylko 1 kanał
+            // (repo dopiero się ładuje) — matching konsumował klucz "TVP 2" na
+            // fallbacku i grał TVP1 ("klikam TVP2 a włącza TVP1"). Czekaj aż wiersz
+            // klikanego kanału istnieje, maks. ~8 s.
+            if (!initialKey.isNullOrBlank() &&
+                barkers.values.none { it.channelId.equals(initialKey, true) }
+            ) {
+                val normKey = initialKey.removePrefix("epg_")
+                    .substringBeforeLast('_').replace('_', ' ').trim()
+                fun rowsHaveKey() = rows.any { r ->
+                    listOfNotNull(r.channel.epgId, r.channel.name, r.channel.id).any {
+                        it.equals(initialKey, true) || it.equals(normKey, true)
+                    }
+                }
+                var waited = 0
+                while (!rowsHaveKey() && waited < 16) {
+                    delay(500)
+                    waited++
+                    rows = buildRealRows()
+                }
+                if (waited > 0) {
+                    Log.i(TAG, "Retry EPG rows dla '$normKey': ${waited}x500ms, rows=${rows.size}, match=${rowsHaveKey()}")
+                }
+            }
+            realChannelRows = rows
+            Log.i(TAG, "Real EPG rows loaded: ${rows.size}")
+
             var matchedChannelId: String? = null
             if (!initialKey.isNullOrBlank()) {
                 com.uxellence.tv.v3.VodDataCache.demoLiveInitialChannelKey = null
