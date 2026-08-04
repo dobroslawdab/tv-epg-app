@@ -15183,6 +15183,9 @@ private fun VodWithChannels(
         val hintOnFirstTile = focusedRowIndex != sliderRowIndex && focusedColIndex == 0 &&
             (lazyListStates[hintChannelIdx]?.firstVisibleItemIndex ?: 1) == 0 &&
             kinoFocusedItem() != null &&
+            // Bez podpowiedzi na "Polecane" (pierwszy wiersz pod sliderem, np.
+            // Awatar) — decyzja 2026-08-04; pozostałe wiersze bez zmian
+            channels.getOrNull(hintChannelIdx) != "Polecane" &&
             // BACK wraca do MENU (currentRow=0), ale lokalne focusedRow/Col
             // zostają — bez tego warunku dymek wisiał nad stroną mimo
             // fokusa na zakładkach
