@@ -1668,6 +1668,12 @@ fun TvRoot(
                 }
             )
         }
+
+        // Zaślepka prototypu "W prototypie ta funkcja jest niedostępna" (Figma
+        // 4679-49709) — OSTATNIE dziecko root Boxa: rysuje się NAD każdym ekranem.
+        // Trigger: PrototypeStub.show() z dowolnego miejsca (np. skrót "Utwórz
+        // Moją listę kanałów"). Własny input gate + BackHandler.
+        com.uxellence.tv.v3.components.PrototypeStubOverlay()
     }
 }
 
