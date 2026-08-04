@@ -34,7 +34,15 @@ data class TvChannelData(
     val category: String? = null,
     val isGeoBlocked: Boolean = false,
     val isAvailable: Boolean = true,
-    val country: String = "PL"
+    val country: String = "PL",
+    /**
+     * Czy kanał wspiera pauzę/przewijanie (timeshift).
+     *
+     * Kanały live Play (CDN Redge) mają `timeShiftBufferDepth=PT36S` — okno 36 s, więc
+     * pauza/seek nie ma prawa działać sensownie i jest wyłączona w playerze.
+     * Stare kanały z asset JSON nie mają tego pola → default true (przewijanie zostaje).
+     */
+    val supportsTimeshift: Boolean = true
 ) {
     /** Czy ten kanał wymaga tokenu JWT do odtworzenia. */
     val requiresToken: Boolean get() = LiveTokenProvider.requiresToken(streamUrl)

@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS public.live_channels (
     is_available      boolean NOT NULL DEFAULT true,
     country           text NOT NULL DEFAULT 'PL',
     sort_order        integer NOT NULL DEFAULT 0,             -- kolejność = numeracja kanałów w apce
+    supports_timeshift boolean NOT NULL DEFAULT true,         -- false = player wyłącza pauzę/przewijanie (okno live 36 s)
     created_at        timestamptz NOT NULL DEFAULT now(),
     updated_at        timestamptz NOT NULL DEFAULT now()
 );
@@ -67,14 +68,14 @@ ON CONFLICT (id) DO NOTHING;
 --    Źródło: komentarz Bartłomieja Czechowskiego, 29/07/26
 -- ============================================================
 INSERT INTO public.live_channels
-    (id, name, stream_url, logo_url, epg_id, category, is_geo_blocked, sort_order)
+    (id, name, stream_url, logo_url, epg_id, category, is_geo_blocked, sort_order, supports_timeshift)
 VALUES
-    ('play_tvp1',   'TVP1',   'https://r.playcdn.tv/livedash/play/playtv/indigo/live/yVJZ2dq8bJ8/live.livx?jwt={JWT}', 'https://epg.ovh/logo/TVP1.pl.png',   'TVP 1',  'general', true, 1),
-    ('play_tvp2',   'TVP2',   'https://r.playcdn.tv/livedash/play/playtv/indigo/live/x0XbrakDOZM/live.livx?jwt={JWT}', 'https://epg.ovh/logo/TVP2.pl.png',   'TVP 2',  'general', true, 2),
-    ('play_tvn',    'TVN',    'https://r.playcdn.tv/livedash/play/playtv/indigo/live/wyWodZqb4aQ/live.livx?jwt={JWT}', 'https://epg.ovh/logo/TVN.pl.png',    'TVN',    'general', true, 3),
-    ('play_tvn7',   'TVN7',   'https://r.playcdn.tv/livedash/play/playtv/indigo/live/XUbDR6RSD3Y/live.livx?jwt={JWT}', 'https://epg.ovh/logo/TVN7.pl.png',   'TVN 7',  'general', true, 4),
-    ('play_polsat', 'Polsat', 'https://r.playcdn.tv/livedash/play/playtv/indigo/live/8MKHunTfwvg/live.livx?jwt={JWT}', 'https://epg.ovh/logo/Polsat.pl.png', 'Polsat', 'general', true, 5),
-    ('play_tv4',    'TV4',    'https://r.playcdn.tv/livedash/play/playtv/indigo/live/ZpUBncvIyP4/live.livx?jwt={JWT}', 'https://epg.ovh/logo/TV4.pl.png',    'TV 4',   'general', true, 6)
+    ('play_tvp1',   'TVP1',   'https://r.playcdn.tv/livedash/play/playtv/indigo/live/yVJZ2dq8bJ8/live.livx?jwt={JWT}', 'https://epg.ovh/logo/TVP1.pl.png',   'TVP 1',  'general', true, 1, false),
+    ('play_tvp2',   'TVP2',   'https://r.playcdn.tv/livedash/play/playtv/indigo/live/x0XbrakDOZM/live.livx?jwt={JWT}', 'https://epg.ovh/logo/TVP2.pl.png',   'TVP 2',  'general', true, 2, false),
+    ('play_tvn',    'TVN',    'https://r.playcdn.tv/livedash/play/playtv/indigo/live/wyWodZqb4aQ/live.livx?jwt={JWT}', 'https://epg.ovh/logo/TVN.pl.png',    'TVN',    'general', true, 3, false),
+    ('play_tvn7',   'TVN7',   'https://r.playcdn.tv/livedash/play/playtv/indigo/live/XUbDR6RSD3Y/live.livx?jwt={JWT}', 'https://epg.ovh/logo/TVN7.pl.png',   'TVN 7',  'general', true, 4, false),
+    ('play_polsat', 'Polsat', 'https://r.playcdn.tv/livedash/play/playtv/indigo/live/8MKHunTfwvg/live.livx?jwt={JWT}', 'https://epg.ovh/logo/Polsat.pl.png', 'Polsat', 'general', true, 5, false),
+    ('play_tv4',    'TV4',    'https://r.playcdn.tv/livedash/play/playtv/indigo/live/ZpUBncvIyP4/live.livx?jwt={JWT}', 'https://epg.ovh/logo/TV4.pl.png',    'TV 4',   'general', true, 6, false)
 ON CONFLICT (id) DO UPDATE SET
     stream_url = EXCLUDED.stream_url,
     name       = EXCLUDED.name,

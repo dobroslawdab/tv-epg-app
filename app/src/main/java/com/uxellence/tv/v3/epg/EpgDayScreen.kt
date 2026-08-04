@@ -1111,10 +1111,14 @@ fun EpgDayScreen(
                 // PRIORITY 2.5: Timeshift (LEFT/RIGHT when GUI hidden → seek ±5s)
                 // When GUI visible: return false → LEFT/RIGHT goes to EPG navigation below
                 // When GUI hidden: LEFT=seek back, RIGHT=seek forward
+                // Kanały Play (supportsTimeshift=false) mają okno live 36 s — pauza/seek
+                // wyrzuciłyby playback poza playlistę (BEHIND_LIVE_WINDOW), więc timeshift
+                // jest dla nich w całości wyłączony (flaga z Supabase live_channels).
                 if (timeshiftController.handleTimeshiftKeys(
                         event = event,
                         interfaceVisible = interfaceVisible,
-                        isTimeshiftAvailable = player != null,
+                        isTimeshiftAvailable = player != null &&
+                            currentChannel?.supportsTimeshift != false,
                         isTimeshiftActive = isTimeshiftActive || timeshiftOffsetMs > 0
                     )
                 ) {

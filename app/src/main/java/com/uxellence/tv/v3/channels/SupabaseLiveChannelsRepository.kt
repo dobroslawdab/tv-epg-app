@@ -30,7 +30,9 @@ data class RemoteLiveChannel(
     @SerialName("is_geo_blocked") val isGeoBlocked: Boolean = false,
     @SerialName("is_available") val isAvailable: Boolean = true,
     @SerialName("country") val country: String = "PL",
-    @SerialName("sort_order") val sortOrder: Int = 0
+    @SerialName("sort_order") val sortOrder: Int = 0,
+    /** false dla kanałów Play (okno live 36 s) — player wyłącza pauzę/przewijanie. */
+    @SerialName("supports_timeshift") val supportsTimeshift: Boolean = true
 ) {
     /** Konwersja do modelu używanego w całej aplikacji. */
     fun toTvChannelData(): TvChannelData = TvChannelData(
@@ -42,7 +44,8 @@ data class RemoteLiveChannel(
         category = category,
         isGeoBlocked = isGeoBlocked,
         isAvailable = isAvailable,
-        country = country
+        country = country,
+        supportsTimeshift = supportsTimeshift
     )
 }
 
