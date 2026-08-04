@@ -22479,12 +22479,17 @@ private fun PointsHistoryScreenContent(
 
             Spacer(modifier = Modifier.height(sy(48)))
 
-            // Dwie karty obok siebie
-            Row(horizontalArrangement = Arrangement.spacedBy(sx(24))) {
+            // Dwie karty obok siebie — RÓWNEJ wysokości (IntrinsicSize.Max:
+            // niższa karta "do wykorzystania" rozciąga ciemne tło do wysokości puli)
+            Row(
+                modifier = Modifier.height(androidx.compose.foundation.layout.IntrinsicSize.Max),
+                horizontalArrangement = Arrangement.spacedBy(sx(24))
+            ) {
                 // Karta 1: Pula punktów
                 Column(
                     modifier = Modifier
                         .width(sx(560))
+                        .fillMaxHeight()
                         .background(Color(0xFF1B0E30), RoundedCornerShape(sx(16)))
                         .padding(horizontal = sx(32), vertical = sy(40))
                 ) {
@@ -22527,10 +22532,11 @@ private fun PointsHistoryScreenContent(
                     )
                 }
 
-                // Karta 2: Punkty do wykorzystania
+                // Karta 2: Punkty do wykorzystania (ta sama wysokość co karta 1)
                 Column(
                     modifier = Modifier
                         .width(sx(560))
+                        .fillMaxHeight()
                         .background(Color(0xFF1B0E30), RoundedCornerShape(sx(16)))
                         .padding(horizontal = sx(32), vertical = sy(40))
                 ) {
