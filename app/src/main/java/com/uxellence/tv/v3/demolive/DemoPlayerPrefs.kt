@@ -22,6 +22,7 @@ object DemoPlayerPrefs {
     private const val PREFS = "demo_player_prefs"
     private const val KEY_FIGMA_BUTTONS = "use_figma_buttons"
     private const val KEY_HINT_BUBBLE = "long_press_hint_bubble"
+    private const val KEY_HINT_ENABLED = "long_press_hint_enabled"
     private const val KEY_PLAYER_VERSION = "player_version"
 
     // Default true: pasek IKONOWY wg Figmy (decyzja 2026-08-04)
@@ -38,6 +39,9 @@ object DemoPlayerPrefs {
     //  - false = v1: ciemny toast-pigułka pod kaflem (Figma 4100-1747)
     //  - true  = v2: biały dymek z karetką i badge OK
     val longPressHintBubble = mutableStateOf(false)
+    // Czy podpowiedź long-press w ogóle się pokazuje (dev modal "0", 3 stany:
+    // Wyłączona → Toast v1 → Dymek v2). DOMYŚLNIE WYŁĄCZONA (decyzja 2026-08-04).
+    val longPressHintEnabled = mutableStateOf(false)
     private var loaded = false
 
     /** Wczytaj zapamiętany stan (idempotentne — robi to tylko raz na proces). */
@@ -47,18 +51,38 @@ object DemoPlayerPrefs {
             .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         useFigmaButtons.value = prefs.getBoolean(KEY_FIGMA_BUTTONS, true)
         longPressHintBubble.value = prefs.getBoolean(KEY_HINT_BUBBLE, false)
+        longPressHintEnabled.value = prefs.getBoolean(KEY_HINT_ENABLED, false)
         playerVersion.value = prefs.getInt(KEY_PLAYER_VERSION, 1)
         loaded = true
     }
 
-    /** Przełącz wariant podpowiedzi long-press (dev modal "0"). */
-    fun toggleLongPressHint(context: Context): Boolean {
-        val newValue = !longPressHintBubble.value
-        longPressHintBubble.value = newValue
+    /**
+     * Cykl podpowiedzi long-press (dev modal "0"):
+     * Wyłączona → Toast v1 → Dymek v2 → Wyłączona…
+     * @return etykieta nowego stanu (do wyświetlenia w modalu)
+     */
+    fun cycleLongPressHint(context: Context): String {
+        val (enabled, bubble) = when {
+            !longPressHintEnabled.value -> true to false          // → Toast v1
+            !longPressHintBubble.value -> true to true            // → Dymek v2
+            else -> false to false                                 // → Wyłączona
+        }
+        longPressHintEnabled.value = enabled
+        longPressHintBubble.value = bubble
         context.applicationContext
             .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit().putBoolean(KEY_HINT_BUBBLE, newValue).apply()
-        return newValue
+            .edit()
+            .putBoolean(KEY_HINT_ENABLED, enabled)
+            .putBoolean(KEY_HINT_BUBBLE, bubble)
+            .apply()
+        return longPressHintLabel()
+    }
+
+    /** Etykieta bieżącego stanu podpowiedzi long-press (dev modal "0"). */
+    fun longPressHintLabel(): String = when {
+        !longPressHintEnabled.value -> "Wyłączona"
+        !longPressHintBubble.value -> "v1: toast (Figma 4100-1747)"
+        else -> "v2: dymek pod miniaturą"
     }
 
     /** Cykl wersji playera 1→2→3→1 (klawisz "0" na playerze demo). */

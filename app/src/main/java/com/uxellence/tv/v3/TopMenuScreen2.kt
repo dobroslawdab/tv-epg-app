@@ -2499,9 +2499,8 @@ private fun DevTogglesModal(
         ),
         Triple(
             "Hint long-press (Kino Play)",
-            if (com.uxellence.tv.v3.demolive.DemoPlayerPrefs.longPressHintBubble.value)
-                "v2: dymek pod miniaturą" else "v1: toast (Figma 4100-1747)",
-            { com.uxellence.tv.v3.demolive.DemoPlayerPrefs.toggleLongPressHint(ctx) }
+            com.uxellence.tv.v3.demolive.DemoPlayerPrefs.longPressHintLabel(),
+            { com.uxellence.tv.v3.demolive.DemoPlayerPrefs.cycleLongPressHint(ctx) }
         )
     )
     var selectedIndex by remember { mutableStateOf(0) }
@@ -15181,11 +15180,11 @@ private fun VodWithChannels(
         // ===== PODPOWIEDŹ LONG-PRESS (pierwsza miniaturka wiersza) =====
         val hintChannelIdx = if (sliderRowIndex == 2 && focusedRowIndex == 1) 0 else focusedRowIndex - 2
         val hintOnFirstTile = focusedRowIndex != sliderRowIndex && focusedColIndex == 0 &&
+            // Globalny przełącznik z dev modala "0" (Wyłączona → Toast v1 → Dymek v2);
+            // DOMYŚLNIE wyłączona dla WSZYSTKICH wierszy (decyzja 2026-08-04)
+            com.uxellence.tv.v3.demolive.DemoPlayerPrefs.longPressHintEnabled.value &&
             (lazyListStates[hintChannelIdx]?.firstVisibleItemIndex ?: 1) == 0 &&
             kinoFocusedItem() != null &&
-            // Bez podpowiedzi na "Polecane" (pierwszy wiersz pod sliderem, np.
-            // Awatar) — decyzja 2026-08-04; pozostałe wiersze bez zmian
-            channels.getOrNull(hintChannelIdx) != "Polecane" &&
             // BACK wraca do MENU (currentRow=0), ale lokalne focusedRow/Col
             // zostają — bez tego warunku dymek wisiał nad stroną mimo
             // fokusa na zakładkach
