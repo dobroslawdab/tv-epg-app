@@ -774,7 +774,15 @@ fun DemoLiveScreen(
     // Polityka przewijania dostrojonego kanału (blokady per kanał, nie per program)
     fun tunedSeekPolicy(): DemoSeekPolicy {
         if (tunedChannelIndex == 0 && demoPolicyOverride != null) return demoPolicyOverride!!
-        val name = epgRows.getOrNull(tunedChannelIndex)?.channel?.name ?: ""
+        val channel = epgRows.getOrNull(tunedChannelIndex)?.channel
+        // Kanały live Play (token JWT): okno live 36 s — przewijanie nie ma prawa
+        // działać, więc polityka NONE (komunikat zamiast taśmy miniatur).
+        // requiresToken działa od razu, niezależnie od kolumny supports_timeshift
+        // w Supabase (może jeszcze nie istnieć).
+        if (channel != null && (channel.requiresToken || !channel.supportsTimeshift)) {
+            return DemoSeekPolicy.NONE
+        }
+        val name = channel?.name ?: ""
         // Każdy kanał barker (lokalne pliki) = pełne przewijanie
         return DemoSeekPolicyClassifier.policyForChannel(name, isDemoBarker = activeBarker() != null)
     }
@@ -1239,6 +1247,7 @@ fun DemoLiveScreen(
         when {
             policy == DemoSeekPolicy.NONE -> {
                 // Kanał bez przewijania — komunikat przy PRÓBIE przewijania
+                Log.i(TAG, "SEEK BLOCKED (LEFT/RIGHT) — kanał bez przewijania")
                 demoToast = "Przewijanie tego kanału nie jest możliwe — " +
                     "nadawca udostępnia tylko bieżący fragment"
             }
@@ -1627,6 +1636,7 @@ fun DemoLiveScreen(
                         if (tunedSeekPolicy() == DemoSeekPolicy.NONE) {
                             // Kanał bez przewijania (np. Stargaze, okno ~30 s):
                             // komunikat przy PRÓBIE wejścia na taśmę
+                            Log.i(TAG, "SEEK BLOCKED (v1, wejście na taśmę) — kanał bez przewijania")
                             demoToast = "Przewijanie tego kanału nie jest możliwe — " +
                                 "nadawca udostępnia tylko bieżący fragment"
                         } else if (isTunedLiveStream()) {
@@ -2095,7 +2105,15 @@ fun DemoLiveScreen(
             epgInteractionAt = System.currentTimeMillis()
             when (keyCode) {
                 android.view.KeyEvent.KEYCODE_DPAD_UP -> {
-                    if (figmaZone < 2) figmaZone++ else {
+                    if (figmaZone == 0 && tunedSeekPolicy() == DemoSeekPolicy.NONE) {
+                        // Kanał bez przewijania (live Play, okno 36 s): NIE wchodzimy
+                        // na pasek postępu — komunikat przy próbie. Ramówka pozostaje
+                        // dostępna (DOWN z kontrolek → widok 3 kanałów), więc to nie
+                        // jest ślepy zaułek.
+                        demoToast = "Przewijanie tego kanału nie jest możliwe — " +
+                            "nadawca udostępnia tylko bieżący fragment"
+                        Log.i(TAG, "SEEK BLOCKED (v3, wejście na pasek) — kanał bez przewijania")
+                    } else if (figmaZone < 2) figmaZone++ else {
                         epgExpanded = true
                         figmaZone = 0
                     }
