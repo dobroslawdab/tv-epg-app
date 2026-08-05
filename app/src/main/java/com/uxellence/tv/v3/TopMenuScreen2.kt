@@ -5254,6 +5254,9 @@ private fun OdkrywajChannelsScreen(
 
     // === Supabase initialization state for recomposition ===
     var supabaseInitialized by remember { mutableStateOf(VodDataCache.isSupabaseInitialized()) }
+    // Assety (vod_data/kino_play) wczytują się na IO — bez tego klucza wiersze
+    // zbudowane przed końcem parsowania zostałyby puste na zawsze
+    val assetsVersion by VodDataCache.assetsVersion
 
     // Initialize Supabase data when ODKRYWAJ section is loaded
     LaunchedEffect(Unit) {
@@ -5322,7 +5325,7 @@ private fun OdkrywajChannelsScreen(
     }
 
     // Grid content - recomposes when Supabase data or EPG data becomes available
-    val gridContent = remember(supabaseInitialized, terazWTvPrograms) {
+    val gridContent = remember(supabaseInitialized, assetsVersion, terazWTvPrograms) {
         val vodContentList = VodDataCache.getVodContentList()
         val kinoPlayMovies = VodDataCache.getKinoPlayMovies()
 
@@ -14757,6 +14760,9 @@ private fun VodWithChannels(
 
     // State to track Supabase initialization for recomposition
     var supabaseInitialized by remember { mutableStateOf(VodDataCache.isSupabaseInitialized()) }
+    // Assety (vod_data/kino_play) wczytują się na IO — bez tego klucza wiersze
+    // zbudowane przed końcem parsowania zostałyby puste na zawsze
+    val assetsVersion by VodDataCache.assetsVersion
 
     // Initialize Supabase data when VOD section is loaded
     LaunchedEffect(Unit) {
@@ -14782,6 +14788,7 @@ private fun VodWithChannels(
     val gridContent by produceState<Map<String, List<VodContent>>>(
         initialValue = KinoPlayGridCache.get(supabaseInitialized, rentalsSnapshot) ?: emptyMap(),
         supabaseInitialized,
+        assetsVersion,
         rentalsSnapshot
     ) {
         val cached = KinoPlayGridCache.get(supabaseInitialized, rentalsSnapshot)

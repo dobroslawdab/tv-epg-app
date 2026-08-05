@@ -14,6 +14,7 @@ import androidx.compose.runtime.mutableStateOf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.decodeFromString
 
@@ -160,14 +161,54 @@ object VodDataCache {
     private val json = Json { ignoreUnknownKeys = true }
 
     /**
+     * Compose-observable licznik wersji danych z assetów. Rośnie po zakończeniu
+     * wczytywania w [initialize].
+     *
+     * Potrzebny, bo od 2026-08-05 parsowanie idzie na wątek IO (patrz niżej) —
+     * ekrany startujące PRZED jego zakończeniem dostałyby pustą listę i już nigdy
+     * się nie odświeżyły. Użyj jako klucza remember, tak jak istniejące
+     * `supabaseInitialized`:
+     * ```kotlin
+     * val assetsVersion by VodDataCache.assetsVersion
+     * val content = remember(assetsVersion) { VodDataCache.getVodContentList() }
+     * ```
+     */
+    val assetsVersion: MutableState<Int> = mutableStateOf(0)
+
+    @Volatile
+    private var initStarted = false
+
+    /**
      * Initialize cache - call this once in MainActivity.onCreate()
+     *
+     * ⚠️ NIE BLOKUJE wątku głównego. Parsowanie vod_data.json + kino_play.json
+     * (setki KB) trwało na MIBOX3 (4 rdzenie, 2 GB, Android 9) tyle, że okno
+     * aplikacji nie zdążyło przyjąć fokusu — pierwsze naciśnięcie pilota kończyło
+     * się ANR-em "Input dispatching timed out (no window has focus)" i systemowym
+     * zabiciem procesu. Teraz UI wstaje od razu, dane doklejają się chwilę później
+     * i ekrany odświeżają się przez [assetsVersion].
+     *
+     * Idempotentne: kolejne wywołania (LauncherActivity → MainActivity → EpgActivity)
+     * nie startują drugiego parsowania.
      */
     fun initialize(context: Context) {
-        if (vodContentList == null) {
-            vodContentList = loadVodContentFromAssets(context)
-        }
-        if (kinoPlayMovies == null) {
-            kinoPlayMovies = loadKinoPlayMoviesFromAssets(context)
+        if (initStarted) return
+        initStarted = true
+        val appContext = context.applicationContext
+        CoroutineScope(Dispatchers.IO).launch {
+            val t0 = System.currentTimeMillis()
+            if (vodContentList == null) {
+                vodContentList = loadVodContentFromAssets(appContext)
+            }
+            if (kinoPlayMovies == null) {
+                kinoPlayMovies = loadKinoPlayMoviesFromAssets(appContext)
+            }
+            val took = System.currentTimeMillis() - t0
+            // Bump na wątku głównym — MutableState czytany w kompozycji
+            withContext(Dispatchers.Main) {
+                assetsVersion.value = assetsVersion.value + 1
+                Log.i(TAG, "Assety wczytane w ${took}ms (vod=${vodContentList?.size}, kino=${kinoPlayMovies?.size}), version=${assetsVersion.value}")
+            }
         }
     }
 
