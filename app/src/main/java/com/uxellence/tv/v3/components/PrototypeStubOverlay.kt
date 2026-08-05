@@ -54,12 +54,38 @@ object PrototypeStub {
     /** true = modal widoczny. Publiczny MutableState — odczyt w kompozycji subskrybuje. */
     val visible = mutableStateOf(false)
 
-    fun show() {
+    /**
+     * FocusRequester ekranu, który ma odzyskać fokus po zamknięciu zaślepki.
+     *
+     * Bez tego po BACK/OK modal znikał z kompozycji razem ze swoim focusable
+     * przyciskiem, a Compose zostawał BEZ właściciela fokusu — strzałki nie
+     * działały, dopóki user nie nacisnął BACK po raz drugi (co dopiero
+     * przywracało fokus przez nawigację). Patrz lekcja #11 w CLAUDE.md:
+     * "Focus the container, not the item".
+     */
+    private var restoreFocus: FocusRequester? = null
+
+    /**
+     * @param restoreFocusTo FocusRequester kontenera pod modalem (zwykle root Box
+     *        sekcji z onPreviewKeyEvent) — odzyska fokus po zamknięciu.
+     */
+    fun show(restoreFocusTo: FocusRequester? = null) {
+        restoreFocus = restoreFocusTo
         visible.value = true
     }
 
     fun dismiss() {
         visible.value = false
+        val fr = restoreFocus
+        restoreFocus = null
+        if (fr != null) {
+            try {
+                fr.requestFocus()
+            } catch (e: Exception) {
+                // FocusRequester bez przypiętego node'a (ekran w trakcie zmiany) —
+                // nawigacja odzyska fokus własnym mechanizmem
+            }
+        }
     }
 }
 

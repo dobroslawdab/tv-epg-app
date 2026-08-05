@@ -6004,9 +6004,16 @@ private fun TelewizjaChannelsScreen(
     // "Utwórz/Edytuj Moją listę kanałów": funkcja jeszcze nie istnieje na makiecie —
     // pokazujemy zaślepkę prototypu (Figma 4679-49709) zamiast przełączania kolejności
     // listy (stary toggle isMyListCreated zostaje w kodzie — flow "Moja lista" wróci)
+    // Restore fokusa po zamknięciu menu kontekstowego / zaślepki: na KONTENER
+    // z handlerem (lekcja #11), nie na FR karty — przy fixed-focus FR Pair(row,0)
+    // wisi na widocznej karcie i po przewinięciu taśmy requestFocus padał w ciszy
+    val telewizjaRootBoxFocusRequester = remember { FocusRequester() }
+
     val onToggleMyList: () -> Unit = {
         android.util.Log.d("SHORTCUT_V4", "Utwórz Moją listę → zaślepka prototypu")
-        com.uxellence.tv.v3.components.PrototypeStub.show()
+        // restoreFocusTo: bez tego po zamknięciu zaślepki Compose zostawał bez
+        // właściciela fokusu i strzałki nie działały do drugiego BACK
+        com.uxellence.tv.v3.components.PrototypeStub.show(telewizjaRootBoxFocusRequester)
     }
 
     var focusedRowIndex by remember { mutableStateOf(0) }
@@ -6107,10 +6114,6 @@ private fun TelewizjaChannelsScreen(
     LaunchedEffect(tvCtxChannel, tvCtxProgram) {
         VodDataCache.contextMenuOpen.value = tvCtxChannel != null || tvCtxProgram != null
     }
-    // Restore fokusa po zamknięciu menu: na KONTENER z handlerem (lekcja #11),
-    // nie na FR karty — przy fixed-focus FR Pair(row,0) wisi na widocznej karcie
-    // i po przewinięciu taśmy requestFocus padał w ciszy (fokus znikał)
-    val telewizjaRootBoxFocusRequester = remember { FocusRequester() }
     var isInitialized by remember { mutableStateOf(false) }
 
     // ✅ INITIALIZATION: ALWAYS set to true (no conditions) - enables navigation
