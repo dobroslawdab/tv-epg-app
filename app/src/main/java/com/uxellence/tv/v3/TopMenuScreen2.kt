@@ -12408,7 +12408,24 @@ fun OdkrywajUnifiedChannelRow(
                     // Mirror KINO PLAY hero behaviour:
                     //   - Button 0 "Wypożycz"          → PurchaseScreen (quick mode)
                     //   - Button 1 "Dowiedz się więcej" → MovieDetail (info card)
-                    onSlideClicked = { item -> onNavigateToPurchase(item) },
+                    onSlideClicked = { item ->
+                        // Slajdy KINO PLAY: "Wypożycz" → PurchaseScreen (działa).
+                        // Pozostałe CTA na ODKRYWAJ ("Przypomnij", "Oglądaj" dla
+                        // treści bez playbacku) nie są objęte makietą — pokazujemy
+                        // zaślepkę zamiast wrzucać usera w ekran zakupu, w który
+                        // wpadały przez wspólną gałąź onSlideClicked.
+                        if (item.isKinoPlay) {
+                            onNavigateToPurchase(item)
+                        } else {
+                            android.util.Log.d("ODKRYWAJ_NAV", "CTA '${item.price}' → zaślepka prototypu")
+                            com.uxellence.tv.v3.components.PrototypeStub.show(
+                                onDismissed = {
+                                    // Slider odzyskuje fokus swoim triggerem
+                                    com.uxellence.tv.v3.VodDataCache.odkrywajRefocusTrigger.value++
+                                }
+                            )
+                        }
+                    },
                     onMoreInfoClicked = { item -> onNavigateToMovieDetail(item) },
                     // Refocus from MovieDetail / Purchase / RentalProcessing back
                     // onto the still-mounted slider — without this, after BACK

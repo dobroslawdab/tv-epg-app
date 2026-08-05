@@ -65,19 +65,30 @@ object PrototypeStub {
      */
     private var restoreFocus: FocusRequester? = null
 
+    /** Akcja po zamknięciu — dla ekranów, które mają własny trigger refocusu. */
+    private var onDismissed: (() -> Unit)? = null
+
     /**
      * @param restoreFocusTo FocusRequester kontenera pod modalem (zwykle root Box
      *        sekcji z onPreviewKeyEvent) — odzyska fokus po zamknięciu.
+     * @param onDismissed alternatywa dla ekranów z własnym mechanizmem refocusu
+     *        (np. slider ODKRYWAJ ma refocusTriggerKey) — wołane po zamknięciu.
      */
-    fun show(restoreFocusTo: FocusRequester? = null) {
+    fun show(
+        restoreFocusTo: FocusRequester? = null,
+        onDismissed: (() -> Unit)? = null
+    ) {
         restoreFocus = restoreFocusTo
+        this.onDismissed = onDismissed
         visible.value = true
     }
 
     fun dismiss() {
         visible.value = false
         val fr = restoreFocus
+        val cb = onDismissed
         restoreFocus = null
+        onDismissed = null
         if (fr != null) {
             try {
                 fr.requestFocus()
@@ -86,6 +97,7 @@ object PrototypeStub {
                 // nawigacja odzyska fokus własnym mechanizmem
             }
         }
+        cb?.invoke()
     }
 }
 
