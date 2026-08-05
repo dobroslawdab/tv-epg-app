@@ -407,18 +407,23 @@ class RecordingRepository private constructor(private val context: Context) {
     ): Recording {
         val status = Recording.calculateStatus(program.startUtc, program.endUtc, now)
 
-        // Generate mock watch progress and expiration
-        // For RECORDED: 30% fully watched (1.0), 40% partial (0.1-0.9), 30% not started (0.0)
+        // Postęp obejrzenia — SEEDOWANY po ID nagrania (kanał + czas startu), nie
+        // globalnym Random. Wcześniej `Random.nextFloat()` losował od nowa przy
+        // każdym odświeżeniu cache (restart apki / 30 min), więc paski postępu
+        // w gridzie "Zarządzanie nagraniami" skakały między sesjami badawczymi.
+        // Ten sam wzorzec co generateMockSeriesMetadata (seed po tytule).
+        val recordingId = "rec_${program.channelId}_${program.startUtc.epochSecond}"
+        val seeded = Random(recordingId.hashCode())
         val watchProgress = when (status) {
             RecordingStatus.RECORDED -> {
-                val rand = Random.nextFloat()
+                val rand = seeded.nextFloat()
                 when {
                     rand < 0.30f -> 1.0f  // 30% fully watched
-                    rand < 0.70f -> 0.1f + Random.nextFloat() * 0.8f  // 40% partial (0.1-0.9)
+                    rand < 0.70f -> 0.1f + seeded.nextFloat() * 0.8f  // 40% partial (0.1-0.9)
                     else -> 0f  // 30% not started
                 }
             }
-            RecordingStatus.RECORDING -> Random.nextFloat() * 0.5f // 0.0 - 0.5 (partial)
+            RecordingStatus.RECORDING -> seeded.nextFloat() * 0.5f // 0.0 - 0.5 (partial)
             RecordingStatus.SCHEDULED -> 0f
         }
 
@@ -430,7 +435,7 @@ class RecordingRepository private constructor(private val context: Context) {
         val subTitle = extractEpisodeSubtitle(program)
 
         return Recording(
-            id = "rec_${program.channelId}_${program.startUtc.epochSecond}",
+            id = recordingId,
             title = program.title,
             description = program.description,
             subTitle = subTitle,
