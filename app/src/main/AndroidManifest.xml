@@ -90,6 +90,20 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+        <!-- Szybka podmiana tokenu JWT kanałów live z adb (token rotuje codziennie,
+             wpisywanie 285 znaków pilotem jest niewykonalne). Patrz LiveTokenReceiver.
+             exported=true jest konieczne, żeby `adb shell am broadcast` dosięgnął
+             receivera — świadome ustępstwo makiety badawczej. -->
+        <receiver
+            android:name=".channels.LiveTokenReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.uxellence.tv.prod.SET_LIVE_TOKEN" />
+                <action android:name="com.uxellence.tv.prod.CLEAR_LIVE_TOKEN" />
+                <action android:name="com.uxellence.tv.prod.REFRESH_LIVE_TOKEN" />
+            </intent-filter>
+        </receiver>
+
     </application>
 
 </manifest>

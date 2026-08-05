@@ -2511,6 +2511,27 @@ private fun DevTogglesModal(
             "Wyczyść ($rentalCount)",
             { com.uxellence.tv.v3.rental.RentalManager.clearAll(ctx) }
         ),
+        // Stan tokenu kanałów live: zamaskowany token + wiek. Klik = wymuś
+        // pobranie z Supabase (przydatne po podmianie tokenu w bazie).
+        Triple(
+            "Token live",
+            com.uxellence.tv.v3.channels.LiveTokenProvider.maskedToken().let { masked ->
+                val age = com.uxellence.tv.v3.channels.LiveTokenProvider.ageMinutes()
+                if (age < 0) masked else "$masked • ${age}min"
+            },
+            {
+                kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                    val r = com.uxellence.tv.v3.channels.ChannelManager.refreshLiveToken(ctx)
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        android.widget.Toast.makeText(
+                            ctx,
+                            r.fold({ "Token z Supabase: $it" }, { "Błąd: ${it.message}" }),
+                            android.widget.Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+            }
+        ),
         Triple(
             "Hint long-press (Kino Play)",
             com.uxellence.tv.v3.demolive.DemoPlayerPrefs.longPressHintLabel(),
