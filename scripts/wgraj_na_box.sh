@@ -7,11 +7,22 @@
 #   ./scripts/wgraj_na_box.sh ~/Desktop/x.apk # albo wskaż plik
 #
 # NA BOXIE (jednorazowo, przed pierwszym wgraniem):
-#   1. Ustawienia → Preferencje urządzenia → Informacje
-#   2. Kliknij 7× w "Kompilacja" — pojawi się "Opcje programisty"
+#
+#   Boxy operatorskie NIE odblokowują opcji programisty siedmioma kliknięciami
+#   w "Kompilację" — jest SEKWENCJA klawiszy, inna per producent.
+#
+#   1. Ustawienia → Informacje → zjedź na SAM DÓŁ listy
+#   2. Wprowadź sekwencję dla swojego producenta:
+#
+#      DMC:   OK, GÓRA, DÓŁ, OK, DÓŁ, GÓRA, OK, OK, GÓRA, OK, DÓŁ
+#      Kaon:  OK, PRAWO, LEWO, OK, LEWO, PRAWO, OK, OK, PRAWO, OK, LEWO, PRAWO
+#
 #   3. Opcje programisty → włącz "Debugowanie USB" (i "Debugowanie ADB" jeśli jest)
 #   4. Po podpięciu kabla box pokaże pytanie "Zezwolić na debugowanie?" —
 #      zaznacz "Zawsze zezwalaj z tego komputera" i potwierdź PILOTEM
+#
+#   (Te boxy nie mają Play Store ani konta Google, więc karta SD odpada —
+#   nie ma czym otworzyć pliku APK. Kabel to jedyna sensowna droga.)
 
 set -u
 
