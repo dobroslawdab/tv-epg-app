@@ -85,9 +85,11 @@ object MojeContentCache {
                         price = null
                     )
                 }
-            val mocks = channelContentCache.getOrPut(channelName) {
-                VodDataCache.getVodContentList().shuffled().take(10)
-            }
+            // Ogon wiersza: STAŁA lista z assets/nagrania.json (dawniej losowe
+            // .shuffled() — skład zmieniał się przy każdym starcie procesu)
+            val mocks = if (context != null) {
+                com.uxellence.tv.v3.recordings.RecordingsRepository.scheduled(context)
+            } else emptyList()
             return user + mocks
         }
 
@@ -116,8 +118,20 @@ object MojeContentCache {
                 "Skróty" -> emptyList()  // Uses custom MojeSingleShortcutRow component
                 "[HEADER-RIGHT] Miejsce na nagrania" -> emptyList()  // Header - no content needed
                 "Skróty v2 Moje" -> emptyList()  // Shortcuts - no grid content needed
-                "Pojedyncze nagrania", "SERIE", "ZAPLANOWANE" -> vodContentList.shuffled().take(10)
-                "Nagrania" -> vodContentList.shuffled().take(10)  // New channel (renamed from "Nagrania v2")
+                // Nagrania: STAŁA lista z assets/nagrania.json — ten sam zestaw
+                // i kolejność na każdym urządzeniu i po każdym restarcie
+                // (wcześniej .shuffled() → każdy uczestnik badania widział inne)
+                "Pojedyncze nagrania" ->
+                    context?.let { com.uxellence.tv.v3.recordings.RecordingsRepository.single(it) }
+                        ?: emptyList()
+                "SERIE" ->
+                    context?.let { com.uxellence.tv.v3.recordings.RecordingsRepository.series(it) }
+                        ?: emptyList()
+                // "Moje nagrania" = wiersz-rodzic (v1, zwinięty/rozwijany),
+                // "Nagrania" = wiersz v2. Oba pokazują pełny zestaw.
+                "Moje nagrania", "Nagrania" ->
+                    context?.let { com.uxellence.tv.v3.recordings.RecordingsRepository.all(it) }
+                        ?: emptyList()
                 else -> vodContentList.shuffled().take(10) // Oglądaj dalej, Moje nagrania, Do obejrzenia
             }
         } else {

@@ -1,0 +1,275 @@
+{
+  "source": "vygenerowane z vod_data.json — STAŁA lista nagrań makiety",
+  "wygenerowano": "2026-08-05",
+  "uwaga": "Kolejność i skład są stałe. Edytuj ręcznie, żeby zmienić nagrania.",
+  "pojedyncze": [
+    {
+      "tytul": "II wojna światowa w kolorze - przełomowe momenty",
+      "kategoria": "Dokument",
+      "opis": "Dzięki zastosowaniu najnowszych technik koloryzacyjnych obrazu filmowego serial prezentuje historię II wojny światowej, w sposób dotąd nie pokazywany.",
+      "logo_kanalu": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/8/images/1028899355?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0",
+      "miniaturka_programu": "https://r.dcs.redcdn.pl/scale/play/playtv/images/catchup/d26ba165-d22e-4a9c-a6f1-54d87a826e68/AEL0168285_POST_SN_1920x1080.jpg?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&quality=95&type=1",
+      "kanal": "TVP1 HD",
+      "nagrane_dnia": "2026-08-03T20:15",
+      "dlugosc_min": 45,
+      "typ": "pojedyncze"
+    },
+    {
+      "tytul": "W poszukiwaniu biblijnej prawdy",
+      "kategoria": "Historyczny",
+      "opis": "W 1908 roku Charles Freer, Chester Beatty i finansista J.P. Morgan wyruszyli na wyprawę przez Bliski Wschód w poszukiwaniu najwcześniejszych pisemnych wzmianek - dowodów chrześcijaństwa. Udało im się dotrzeć do serii wczesnych tekstów biblijnych, od wieków zaginionych, zagrzebanych w piaskach pustyni i ukrytych w bibliotekach starych klasztorów. Odkryli namacalne dowody chrześcijaństwa, z których pobrzmiewało jeszcze echo głosu samego Jezusa. Kiedy jednak teksty te zostały ze sobą połączone i przetłumaczone rozumienie źródła i ewolucji Nowego Testamentu, a zatem chrześcijaństwa, zostało odmienione. Poszukiwania, zamierzone jako znalezienie dowodów na umocnienie wiary, odkryły prawdę inną od spodziewanej. W programie poznajemy ich historię pełną tak zaskakujących odkryć, jak i pięknych pejzaży.",
+      "logo_kanalu": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38024/images/913218410?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0",
+      "miniaturka_programu": "https://r.dcs.redcdn.pl/scale/play/playtv/images/catchup/ba1e40d5-bb41-4039-b430-20a9b3b3f567/BIBLE_HUNTERS_S1_EP1_10043297.jpg?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&quality=95&type=1",
+      "kanal": "TVP2",
+      "nagrane_dnia": "2026-08-02T17:15",
+      "dlugosc_min": 50,
+      "typ": "pojedyncze"
+    },
+    {
+      "tytul": "Wszystkie stworzenia duże i małe",
+      "kategoria": "Dramat",
+      "opis": "James Herriot spełnia swoje marzenia i zaczyna pracę jako weterynarz na północy hrabstwa Yorkshire. Szybko odkrywa, że leczenie zwierząt to także relacje z ich właścicielami — a te bywają trudne...",
+      "logo_kanalu": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2060267/images/908106481?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0",
+      "miniaturka_programu": "https://r.dcs.redcdn.pl/scale/play/playtv/images/catchup/2a9b1db4-21ea-4264-8745-9422de895ce4/ALL_CREATURES_GREAT_AND_SMALL_S1_EP4_A51011994.jpg?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&quality=95&type=1",
+      "kanal": "TVN",
+      "nagrane_dnia": "2026-08-01T14:15",
+      "dlugosc_min": 60,
+      "typ": "pojedyncze"
+    },
+    {
+      "tytul": "Kroniki więzienne",
+      "kategoria": "Dokument",
+      "opis": "Każdy odcinek programu zabiera widzów w niezapomnianą podróż do wnętrza innego słynnego więzienia, odkrywając jego historię oraz historie, schematy i przestępców, przez których te miejsca cieszą się złą sławą.",
+      "logo_kanalu": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9/images/1025055487?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0",
+      "miniaturka_programu": "https://r.dcs.redcdn.pl/scale/play/playtv/images/catchup/c15742a2-1e72-414a-b167-7f72a839ece6/AEL0156231_POST_SN_1920x1080.jpg?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&quality=95&type=1",
+      "kanal": "TVN7",
+      "nagrane_dnia": "2026-07-31T11:15",
+      "dlugosc_min": 75,
+      "typ": "pojedyncze"
+    },
+    {
+      "tytul": "Zagadki starożytnego świata",
+      "kategoria": "Dokument",
+      "opis": "Badacz i odkrywca Josh Bernstein podróżuje po całym świecie, zgłębiając tajemnice starożytności. Korzystając z najnowszych technologii Josh bada i weryfikuje nowe teorie.",
+      "logo_kanalu": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/8/images/1028899355?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0",
+      "miniaturka_programu": "https://r.dcs.redcdn.pl/scale/play/playtv/images/catchup/d24f9288-436a-4c05-b552-cd70493abbcd/AEL0066941_POST_SN_1920x1080.jpg?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&quality=95&type=1",
+      "kanal": "Polsat",
+      "nagrane_dnia": "2026-07-30T19:15",
+      "dlugosc_min": 90,
+      "typ": "pojedyncze"
+    },
+    {
+      "tytul": "48 godzin",
+      "kategoria": "Dokument",
+      "opis": "Od chwili zgłoszenia morderstwa policjanci z wydziału zabójstw zaczynają wyścig z czasem. Jeśli w ciągu pierwszych 48 godzin nie wpadną na żaden trop, ich szanse na rozwikłanie sprawy spadają o połowę.",
+      "logo_kanalu": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/5511368/images/1025055463?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0",
+      "miniaturka_programu": "https://r.dcs.redcdn.pl/scale/play/playtv/images/catchup/120f6a9d-a47c-4677-a0d1-4187c532e73f/AEL0171295_POST_SN_1920x1080.jpg?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&quality=95&type=1",
+      "kanal": "TV4",
+      "nagrane_dnia": "2026-07-29T16:15",
+      "dlugosc_min": 100,
+      "typ": "pojedyncze"
+    },
+    {
+      "tytul": "DRUGA WOJNA ŚWIATOWA",
+      "kategoria": "Historyczny",
+      "opis": "Złożony wyłącznie z czarnych żołnierzy 320. Batalion Balonów Zaporowych brał udział w lądowaniu aliantów w Normandii, ale ich wkład w zwycięstwo nad nazizmem został niemal całkowicie zapomniany. Odkrywamy niezwykłe opowieści o bohaterach, którzy mimo odważnej walki o swój kraj, musieli się zmagać z dotkliwym rasizmem oraz umniejszaniem ich zasług.",
+      "logo_kanalu": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/packet/4682418/images/259965422?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0",
+      "miniaturka_programu": "https://r.dcs.redcdn.pl/scale/play/playtv/images/catchup/9fafabc1-87b4-40b3-b51e-348816704d90/2209_733364-2065-575380_P0962924_Topic_1920x1080.jpg?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&quality=95&type=1",
+      "kanal": "TVP Sport",
+      "nagrane_dnia": "2026-07-28T13:15",
+      "dlugosc_min": 45,
+      "typ": "pojedyncze"
+    },
+    {
+      "tytul": "Rzeka skarbów",
+      "kategoria": "Dokument",
+      "opis": "Rick Edwards i znany poszukiwacz, Beau Ouimette, polują na historyczne znaleziska w niezbadanych brytyjskich arteriach wodnych. Wydobyte przez nich skarby z przeszłości dostarczą informacji na temat naszych przodków i tego, jak żyli.",
+      "logo_kanalu": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/8/images/1028899355?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0",
+      "miniaturka_programu": "https://r.dcs.redcdn.pl/scale/play/playtv/images/catchup/e04ecf64-b8b9-4750-a77a-f8886f5cbdaa/AEL0040064_POST_SN_1920x1080.jpg?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&quality=95&type=1",
+      "kanal": "Polsat News",
+      "nagrane_dnia": "2026-07-27T10:15",
+      "dlugosc_min": 50,
+      "typ": "pojedyncze"
+    },
+    {
+      "tytul": "Poirot",
+      "kategoria": "Dramat",
+      "opis": "Słynny belgijski detektyw Herkules Poirot, obdarzony niezwykłym talentem do rozwiązywania zagadek kryminalnych, współpracuje z kapitanem Hastingsem i nadinspektorem ze Scotland Yardu, Jamesem Jappem.",
+      "logo_kanalu": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2060267/images/908106481?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0",
+      "miniaturka_programu": "https://r.dcs.redcdn.pl/scale/play/playtv/images/catchup/bdf17525-6494-4f03-8c4d-9ab1caf007af/AGATHA_CHRISTIES_POIROT_S11_EP3_A51026772.jpg?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&quality=95&type=1",
+      "kanal": "TVP1 HD",
+      "nagrane_dnia": "2026-07-26T18:15",
+      "dlugosc_min": 60,
+      "typ": "pojedyncze"
+    },
+    {
+      "tytul": "Komandosi kontra naziści",
+      "kategoria": "Dokument",
+      "opis": "W 1942 roku, osłabieni przez nazistowską machinę wojenną, alianci postanowili wdrożyć nową, śmiałą strategię prowadzenia wojny. Ich plan zakładał uderzenie w samo serce Trzeciej Rzeszy — od środka. „Komandosi kontra naziści” to poruszająca opowieść o tajnych operacjach specjalnych, ukazana poprzez relacje żołnierzy, którzy z narażeniem życia przedzierali się głęboko za linię wroga.",
+      "logo_kanalu": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/9/images/1025055487?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0",
+      "miniaturka_programu": "https://r.dcs.redcdn.pl/scale/play/playtv/images/catchup/bf9db74c-7755-4f33-899a-543360bb41cb/AEL0168007_POST_SN_1920x1080.jpg?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&quality=95&type=1",
+      "kanal": "TVP2",
+      "nagrane_dnia": "2026-08-03T15:15",
+      "dlugosc_min": 75,
+      "typ": "pojedyncze"
+    }
+  ],
+  "serie": [
+    {
+      "tytul": "Siła Wyższa",
+      "kategoria": "Serial obyczajowy",
+      "opis": "Sześć opowieści, które łączy jedno tragiczne wydarzenie prowadzące ostatecznie do śmierci dziecka. W kolejnych odcinkach widzowie poznają historie każdego z sześciu bohaterów, zmagającego się z osobistą tragedią, toczącego bój z Bogiem i z samym sobą. Cel trudnej walki to rozwiązanie problemu bólu, a więc znalezienie odpowiedzi na najtrudniejsze życiowe wyzwanie. Sytuację przedstawioną na ekranie interpretuje pastor Bob Russell, tłumacząc ludzkie cierpienie z punktu widzenia Boga.",
+      "logo_kanalu": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/18187556/images/1023144184?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0",
+      "miniaturka_programu": "https://r.dcs.redcdn.pl/scale/play/playtv/images/epg_play_sndf49nbfkU_r320B7F65DlnbfsEFcaB2h4o6bJ79X/m/e/diaakpa5028560.jpg?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&quality=95&type=1",
+      "kanal": "TVP1 HD",
+      "nagrane_dnia": "2026-08-02T20:15",
+      "dlugosc_min": 45,
+      "typ": "seria"
+    },
+    {
+      "tytul": "Simpsonowie 35",
+      "kategoria": "Serial animowany dla dorosłych",
+      "opis": "Dalsze perypetie typowej amerykańskiej rodziny mieszkającej na przedmieściach Springfield. Satyryczna animacja, która weszła do kanonu popkultury, jest jednym z najdłużej emitowanych seriali w historii. Widzowie mogą śledzić losy Simpsonów od 1989 roku. Homer, pan domu, pracuje w elektrowni jądrowej. Lubi przesiadywać na kanapie przed telewizorem i w knajpie z kolegami. Marge to przykładna pani domu. Bierze udział w akcjach społecznych i rzadko pozwala sobie na odstępstwa od perfekcyjnego wizerunku. Bart nie lubi szkoły, zdarza mu się nawet popaść w konflikt z prawem. Jego siostra Lisa ma zadatki na geniusza.",
+      "logo_kanalu": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/3294207/images/926573289?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0",
+      "miniaturka_programu": "https://r.dcs.redcdn.pl/scale/play/playtv/images/epg_play_sndf49nbfkU_r320B7F65DlnbfsEFcaB2h4o6bJ79X/m/e/diaakpa3685273.jpg?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&quality=95&type=1",
+      "kanal": "TVP2",
+      "nagrane_dnia": "2026-08-01T17:15",
+      "dlugosc_min": 50,
+      "typ": "seria"
+    },
+    {
+      "tytul": "Miasteczko South Park 15",
+      "kategoria": "Serial animowany dla dorosłych",
+      "opis": "Mieszkająca w malowniczej miejscowości w stanie Kolorado grupa dziewięciolatków, Kyle, Cartman, Stan i Kenny przeżywa kolejne przygody. Tym razem będą musieli m.in. zmierzyć się z korporacją Apple i problemem dorastania, trafią na terapię walki z gniewem oraz spowodują konflikt z Niemcami. Piętnasta seria kultowego dzieła Treya Parkera i Matta Stone'a porusza kolejne tematy tabu i wywołuje kontrowersje w znanym fanom stylu.",
+      "logo_kanalu": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/22/images/908106479?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0",
+      "miniaturka_programu": "https://r.dcs.redcdn.pl/scale/play/playtv/images/epg_play_sndf49nbfkU_r320B7F65DlnbfsEFcaB2h4o6bJ79X/m/e/diaakpa4612511.jpg?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&quality=95&type=1",
+      "kanal": "TVN",
+      "nagrane_dnia": "2026-07-31T14:15",
+      "dlugosc_min": 60,
+      "typ": "seria"
+    },
+    {
+      "tytul": "Bonanza",
+      "kategoria": "Serial obyczajowy",
+      "opis": "Legendarna saga westernowa o rodzinie Cartwrightów i prowadzonym przez nich olbrzymim ranczu Ponderosa. Patriarchą rodu jest Ben (Lorne Greene), który jako jeden z pionierów przybył do Nevady i skolonizował ziemie wśród wzgórz, które stały się w przyszłości powodem dumy i zarazem zazdrości całej okolicy. Jego najstarszym synem jest Adam (Pernell Roberts). Pięć lat młodszy jest Hoss (Dan Blocker), człowiek o gołębim sercu, słabej głowie do alkoholu i mocnej pięści. Największym dżentelmenem pośród braci jest najmłodszy z nich, Joe (Michael Landon).",
+      "logo_kanalu": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/23942342/images/931923694?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0",
+      "miniaturka_programu": "https://r.dcs.redcdn.pl/scale/play/playtv/images/epg_play_sndf49nbfkU_r320B7F65DlnbfsEFcaB2h4o6bJ79X/m/e/diaakpa3501966.jpg?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&quality=95&type=1",
+      "kanal": "TVN7",
+      "nagrane_dnia": "2026-07-30T11:15",
+      "dlugosc_min": 75,
+      "typ": "seria"
+    },
+    {
+      "tytul": "Smoketown",
+      "kategoria": "Serial obyczajowy",
+      "opis": "Dochodzi do tajemniczego i szokującego morderstwa. W jego konsekwencji trzy wyjątkowe osoby - zastępca szefa policji, reporter i nastolatka - zyskują nadprzyrodzone zdolności. Nowe umiejętności służą im do walki o najbiedniejszą, najbardziej zróżnicowaną rasowo dzielnicę miasta.",
+      "logo_kanalu": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/18187556/images/1023144184?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0",
+      "miniaturka_programu": "https://r.dcs.redcdn.pl/scale/play/playtv/images/epg_play_sndf49nbfkU_r320B7F65DlnbfsEFcaB2h4o6bJ79X/m/e/diaakpa4777374.jpg?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&quality=95&type=1",
+      "kanal": "Polsat",
+      "nagrane_dnia": "2026-07-29T19:15",
+      "dlugosc_min": 90,
+      "typ": "seria"
+    },
+    {
+      "tytul": "Boże rozwiązania",
+      "kategoria": "Serial religijny",
+      "opis": "Przeniesione na ekran biblijne przypowieści ukazują działanie Boga, który nawet w najtrudniejszej sytuacji nie porzuca człowieka. Czasami Jego milczenie ma konkretny cel. Opowieści te utwierdzają w wierze, nadziei i pewności, że Bóg panuje nad wszystkim, rozwiązując ludzkie problemy w zaskakujący sposób.",
+      "logo_kanalu": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/18187556/images/1023144184?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0",
+      "miniaturka_programu": "https://r.dcs.redcdn.pl/scale/play/playtv/images/epg_play_sndf49nbfkU_r320B7F65DlnbfsEFcaB2h4o6bJ79X/m/e/diaakpa4984466.jpg?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&quality=95&type=1",
+      "kanal": "TV4",
+      "nagrane_dnia": "2026-07-28T16:15",
+      "dlugosc_min": 100,
+      "typ": "seria"
+    },
+    {
+      "tytul": "Mit Herz und Holly: Diagnose Neustart",
+      "kategoria": "Serial obyczajowy",
+      "opis": "Doktor Katrin Herz (Inka Friedrich) znajduje się w trudnej sytuacji - w przychodni w Tangermünde brakuje rąk do pracy, a pacjentów przybywa z każdym dniem. Właśnie wtedy pojawia się młoda lekarka, doktor Holly Sass (Karoline Teska), która przyjeżdża do miasteczka w idealnym momencie, by udzielić niezbędnego wsparcia. Mieszkańcy i zespół przychodni witają ją z nadzieją na poprawę sytuacji. Jednak prawdziwy powód przyjazdu Holly jest zupełnie inny - młoda lekarka opuściła Berlin, by w Tangermünde spróbować odnaleźć swoją biologiczną matkę, co staje się jej osobistą misją.",
+      "logo_kanalu": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/24/images/874819430?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0",
+      "miniaturka_programu": "https://r.dcs.redcdn.pl/scale/play/playtv/images/epg_play_sndf49nbfkU_r320B7F65DlnbfsEFcaB2h4o6bJ79X/m/e/diaakpa4777374.jpg?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&quality=95&type=1",
+      "kanal": "TVP Sport",
+      "nagrane_dnia": "2026-07-27T13:15",
+      "dlugosc_min": 45,
+      "typ": "seria"
+    },
+    {
+      "tytul": "H2O",
+      "kategoria": "Serial obyczajowy",
+      "opis": "Młody człowiek stoi u brzegu zanieczyszczonej, brudnej rzeki. Jest rozgoryczony i rozczarowany. Decyduje się odwrócić od niej i poszukać czystego źródła inspiracji. Odsuwa negatywne myślenie, by jasno myśleć o Jezusie.",
+      "logo_kanalu": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/18187556/images/1023144184?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0",
+      "miniaturka_programu": "https://r.dcs.redcdn.pl/scale/play/playtv/images/epg_play_sndf49nbfkU_r320B7F65DlnbfsEFcaB2h4o6bJ79X/m/e/diaakpa4777374.jpg?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&quality=95&type=1",
+      "kanal": "Polsat News",
+      "nagrane_dnia": "2026-08-02T10:15",
+      "dlugosc_min": 50,
+      "typ": "seria"
+    }
+  ],
+  "zaplanowane": [
+    {
+      "tytul": "II wojna światowa: agentki",
+      "kategoria": "Historyczny",
+      "opis": "Serial opowiada historie kobiet-szpiegów, które przezwyciężyły systemowy seksizm, aby poświęcić życie dla swoich krajów; ich szpiegowskie wysiłki pomogły odwrócić losy II wojny światowej.",
+      "logo_kanalu": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38024/images/913218410?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0",
+      "miniaturka_programu": "https://r.dcs.redcdn.pl/scale/play/playtv/images/catchup/87ed1c2e-3220-4dfa-a253-8b16c5b20761/FEMALE_SPIES_OF_WWII_S1_EP2_A51026720.jpg?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&quality=95&type=1",
+      "kanal": "TVP1 HD",
+      "nagrane_dnia": "2026-08-06T20:15",
+      "dlugosc_min": 45,
+      "typ": "zaplanowane"
+    },
+    {
+      "tytul": "ZAGINIONE OKRĘTY II WOJNY ŚWIATOWEJ",
+      "kategoria": "Historyczny",
+      "opis": "Skanując głębiny Rowu Filipińskiego, zespół Petrela odkrywa to, co ich zdaniem jest śladem szczątków okrętu USS Johnston, zaginionego podczas bitwy u wybrzeży Samar w 1944 roku. Kiedy odkrywają, że wrak leży prawie 2400 metrów głębiej niż wrak Titanica, naukowcy wysyłają na powierzchnię pilotowaną łódź podwodną, aby przyjrzeć się najgłębiej położonemu wrakowi statku na świecie.",
+      "logo_kanalu": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/packet/4682418/images/259965422?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0",
+      "miniaturka_programu": "https://r.dcs.redcdn.pl/scale/play/playtv/images/catchup/4d8a0480-5eee-4f63-acd3-8c1de0e37eee/2508_2065_15471245599668_FNG0020828_Episode_1920x1080.jpg?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&quality=95&type=1",
+      "kanal": "TVP2",
+      "nagrane_dnia": "2026-08-07T17:15",
+      "dlugosc_min": 50,
+      "typ": "zaplanowane"
+    },
+    {
+      "tytul": "Grantchester",
+      "kategoria": "Dramat",
+      "opis": "Sidney Chambers jest anglikańskim księdzem w Grantchester. Kiedy wbrew swojej woli trafia do świata kłamstw, zdrad i morderstw, okazuje się, że świetnie sprawdza się w nowej dla siebie roli detektywa...",
+      "logo_kanalu": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2060267/images/908106481?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0",
+      "miniaturka_programu": "https://r.dcs.redcdn.pl/scale/play/playtv/images/catchup/ea15c040-4d01-4ff7-b4d8-e6504c4db657/GRANTCHESTER_S3_EP5_A51019310.jpg?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&quality=95&type=1",
+      "kanal": "TVN",
+      "nagrane_dnia": "2026-08-08T14:15",
+      "dlugosc_min": 60,
+      "typ": "zaplanowane"
+    },
+    {
+      "tytul": "Zbrodnia prawie doskonała",
+      "kategoria": "Dokument",
+      "opis": "Sprawcy zabójstw, które nie zostały rozwiązane, często sądzą, że zbrodnia uszła im na sucho. Niezależnie od tego, czy jest to spowodowane nieudanymi dochodzeniami, brakiem dowodów, czy brakiem dostępu do współczesnej nauki, domagamy się sprawiedliwości dla ofiar. Program kryminalny „Zbrodnia prawie doskonała” koncentruje się na tym, jak te „zimne spraw” zostały ponownie prześledzone z pomocą akt policyjnych, ekspertów i świadków. Wszystko to aby zabójcy w końcu zostali złapani.",
+      "logo_kanalu": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/5511368/images/1025055463?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0",
+      "miniaturka_programu": "https://r.dcs.redcdn.pl/scale/play/playtv/images/catchup/e4e190ea-72a6-4961-8865-6344fba0f4ad/AEL0152818_POST_SN_1920x1080.jpg?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&quality=95&type=1",
+      "kanal": "TVN7",
+      "nagrane_dnia": "2026-08-09T11:15",
+      "dlugosc_min": 75,
+      "typ": "zaplanowane"
+    },
+    {
+      "tytul": "Naziści: ściśle tajna nauka",
+      "kategoria": "Historyczny",
+      "opis": "Pod koniec II wojny światowej, kiedy zbliżał się upadek nazistowskiego imperium, wyszły na jaw najmroczniejsze sekrety III Rzeszy. Seria ukazuje historię badań naukowych prowadzonych przez nazistów.",
+      "logo_kanalu": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/38024/images/913218410?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0",
+      "miniaturka_programu": "https://r.dcs.redcdn.pl/scale/play/playtv/images/catchup/31ba0829-66b5-402a-9d30-7fa34692457b/SECRET_NAZI_SCIENCE_S1_EP1_A51026826.jpg?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&quality=95&type=1",
+      "kanal": "Polsat",
+      "nagrane_dnia": "2026-08-10T19:15",
+      "dlugosc_min": 90,
+      "typ": "zaplanowane"
+    },
+    {
+      "tytul": "Joan",
+      "kategoria": "Dramat",
+      "opis": "Serial zainspirowany prawdziwą historią Joan Hannington — najbardziej znanej złodziejki klejnotów w Wielkiej Brytanii. Historia rozgrywa się na tle Londynu z lat 80. XX w.",
+      "logo_kanalu": "https://r.dcs.redcdn.pl/scale/play/playtv/upload/live/2060267/images/908106481?srcmode=3&srcx=0&srcy=0&srcw=1&srch=1&dstw=512&dsth=512&type=0",
+      "miniaturka_programu": "https://r.dcs.redcdn.pl/scale/play/playtv/images/catchup/9aa326d3-8d39-411b-9f39-7e5d849a5076/JOAN_S1_EP5_A51027566.jpg?srcmode=3&srcw=16&srch=9&dstw=1920&dsth=1080&quality=95&type=1",
+      "kanal": "TV4",
+      "nagrane_dnia": "2026-08-11T16:15",
+      "dlugosc_min": 100,
+      "typ": "zaplanowane"
+    }
+  ]
+}
