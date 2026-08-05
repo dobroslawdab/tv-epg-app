@@ -445,6 +445,10 @@ fun TvRoot(
     // "Oglądaj" z MovieDetail (WIDEO): BACK z playera wraca do DETALU, nie do
     // TopMenu — selectedMovieData wciąż żyje, więc detal odtwarza się bez zmian
     var vodPlayerReturnToDetail by remember { mutableStateOf(false) }
+    // Metadane do playera demo (DemoVodPlayerScreen pokazuje je w warstwie opisu)
+    var vodPlayerDescription by remember { mutableStateOf("") }
+    var vodPlayerGenre by remember { mutableStateOf("zwiastun") }
+    var vodPlayerYear by remember { mutableStateOf("") }
 
     // Save TELEWIZJA focus state for smart BACK navigation (ID-based)
     var savedTelewizjaFocus by remember { mutableStateOf<FocusState?>(null) }
@@ -1411,6 +1415,9 @@ fun TvRoot(
                                         android.util.Log.d("MOVIE_DETAIL", "Watch: ${movieData.title} → VOD player")
                                         vodPlayerUrl = direct
                                         vodPlayerTitle = movieData.title
+                                        vodPlayerDescription = movieData.description
+                                        vodPlayerGenre = movieData.genre.ifBlank { "zwiastun" }
+                                        vodPlayerYear = movieData.year
                                         vodPlayerReturnToDetail = true
                                         currentScreen = NavigationScreen.VOD_PLAYER
                                     }
@@ -1593,23 +1600,40 @@ fun TvRoot(
                 val scaleY = vodConfig.screenHeightDp / 1080f
                 fun sx(px: Int) = (px * scaleX).dp
                 fun sy(px: Int) = (px * scaleY).dp
-                com.uxellence.tv.v3.vodplayer.VodPlayerScreen(
-                    streamUrl = vodPlayerUrl,
-                    title = vodPlayerTitle,
-                    onBackPressed = {
-                        if (vodPlayerReturnToDetail) {
-                            // Wejście przez "Oglądaj" z MovieDetail (WIDEO) —
-                            // wróć do detalu (selectedMovieData wciąż ustawione)
+                // WYŁĄCZNIE wejście przez "Oglądaj" w detalu (WIDEO) dostaje player
+                // z demo — ten z dev menu "Demo: VOD + miniaturki" (OK=kontrolki,
+                // GÓRA=taśma miniatur, DÓŁ=opis, LEWO/PRAWO=przewijanie ze
+                // stopklatką). Pozostałe wejścia do VOD_PLAYER (kliki youtubeUrl
+                // z Odkrywaj/Kino Play) zostają na dotychczasowym VodPlayerScreen.
+                // Player LIVE TV to osobna ścieżka (EpgDayScreen / DemoLiveScreen)
+                // i NIE jest tym objęty.
+                if (vodPlayerReturnToDetail) {
+                    com.uxellence.tv.v3.demolive.DemoVodPlayerScreen(
+                        streamUrl = vodPlayerUrl,
+                        title = vodPlayerTitle,
+                        description = vodPlayerDescription,
+                        genre = vodPlayerGenre,
+                        year = vodPlayerYear,
+                        onBackPressed = {
+                            // Wróć do detalu (selectedMovieData wciąż ustawione)
                             vodPlayerReturnToDetail = false
                             currentScreen = NavigationScreen.MOVIE_DETAIL
-                        } else {
+                        },
+                        sx = ::sx,
+                        sy = ::sy
+                    )
+                } else {
+                    com.uxellence.tv.v3.vodplayer.VodPlayerScreen(
+                        streamUrl = vodPlayerUrl,
+                        title = vodPlayerTitle,
+                        onBackPressed = {
                             currentScreen = NavigationScreen.TOP_MENU2
                             savedTelewizjaSection = "KINO_PLAY"
-                        }
-                    },
-                    sx = ::sx,
-                    sy = ::sy
-                )
+                        },
+                        sx = ::sx,
+                        sy = ::sy
+                    )
+                }
             }
             NavigationScreen.DEMO_LIVE -> {
                 val demoConfig = LocalConfiguration.current

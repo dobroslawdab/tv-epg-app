@@ -143,6 +143,17 @@ fun VodPlayerScreen(
             return@LaunchedEffect
         }
 
+        // MANIFEST (DASH .smil/.mpd, HLS .m3u8) — NIE pobieramy do cache: manifest
+        // to XML z listą segmentów, nie plik wideo. Zapis do vod_*.mp4 kończył się
+        // "Pobrany plik nie jest wideo", a potem odtwarzanie bez MIME dawało
+        // ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED (zwiastuny redcdn: .../dash.smil).
+        // Gramy streamingowo, MIME ustawia LiveMediaItemFactory (patrz Step 2).
+        if (com.uxellence.tv.v3.channels.LiveMediaItemFactory.inferMimeType(streamUrl) != null) {
+            Log.i(TAG, "Manifest (DASH/HLS) — streaming bez cache: $streamUrl")
+            localFilePath = streamUrl
+            return@LaunchedEffect
+        }
+
         withContext(Dispatchers.IO) {
             try {
                 val cacheDir = File(context.cacheDir, "vod_cache")
@@ -236,7 +247,12 @@ fun VodPlayerScreen(
 
         val uri = if (path.startsWith("http")) Uri.parse(path) else Uri.fromFile(File(path))
         Log.i(TAG, "Creating player for: $uri (playWhenReady=true)")
-        exo.setMediaItem(MediaItem.fromUri(uri))
+        // Fabryka ustawia MIME dla manifestów (DASH/HLS) — bez tego ExoPlayer nie
+        // rozpoznaje .smil/.livx i pada na UnrecognizedInputFormatException.
+        // isLive=false: to VOD, bez LiveConfiguration blokującego catch-up.
+        exo.setMediaItem(
+            com.uxellence.tv.v3.channels.LiveMediaItemFactory.build(uri.toString(), isLive = false)
+        )
         exo.prepare()
         player = exo
         isPlaying = true

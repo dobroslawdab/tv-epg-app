@@ -97,8 +97,21 @@ fun DemoVodPlayerScreen(
         )
     }
 
+    // Czy URL to MANIFEST (DASH .smil/.mpd, HLS .m3u8)? Manifestu nie da się
+    // pobrać "jako plik" — to XML z listą segmentów. Gramy go streamingowo,
+    // a taśma miniatur łapie klatki na bieżąco (ekstrakcja z pliku wymaga
+    // lokalnego MP4). Zwiastuny redcdn to właśnie .../dash.smil.
+    val isManifest = remember(streamUrl) {
+        com.uxellence.tv.v3.channels.LiveMediaItemFactory.inferMimeType(streamUrl) != null
+    }
+
     // Pobranie MP4 do cache (progressive; jak VodPlayerScreen — .part → rename)
     LaunchedEffect(streamUrl) {
+        if (isManifest) {
+            Log.i(TAG, "Manifest (DASH/HLS) — streaming bez cache: $streamUrl")
+            localPath = streamUrl
+            return@LaunchedEffect
+        }
         withContext(Dispatchers.IO) {
             try {
                 val dir = File(context.cacheDir, "vod_cache").apply { mkdirs() }
@@ -137,7 +150,15 @@ fun DemoVodPlayerScreen(
     LaunchedEffect(localPath) {
         val path = localPath ?: return@LaunchedEffect
         val p = ExoPlayer.Builder(context).build().apply {
-            setMediaItem(MediaItem.fromUri(File(path).toURI().toString()))
+            // Manifest → fabryka ustawia MIME (bez tego ExoPlayer nie rozpozna
+            // .smil i pada na UnrecognizedInputFormatException); plik → z dysku
+            setMediaItem(
+                if (isManifest) {
+                    com.uxellence.tv.v3.channels.LiveMediaItemFactory.build(path, isLive = false)
+                } else {
+                    MediaItem.fromUri(File(path).toURI().toString())
+                }
+            )
             prepare()
             playWhenReady = true
             addListener(object : Player.Listener {
@@ -150,9 +171,13 @@ fun DemoVodPlayerScreen(
         // Klatki na całej długości (co ~5 s) — miniaturki taśmy
         while (p.duration <= 0) delay(100)
         durationMs = p.duration
-        val count = (durationMs / 5_000L).toInt()
-            .coerceIn(1, FrameCaptureManager.MAX_FRAMES - 2)
-        frameCapture.extractKeyFrames(path, durationMs, count = count)
+        if (!isManifest) {
+            val count = (durationMs / 5_000L).toInt()
+                .coerceIn(1, FrameCaptureManager.MAX_FRAMES - 2)
+            frameCapture.extractKeyFrames(path, durationMs, count = count)
+        }
+        // Manifest: brak ekstrakcji z pliku — taśma pokazuje klatki łapane
+        // podczas odtwarzania (ten sam mechanizm co live w demo)
     }
 
     DisposableEffect(Unit) {
