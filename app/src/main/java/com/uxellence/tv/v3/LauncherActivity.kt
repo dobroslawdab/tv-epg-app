@@ -86,6 +86,13 @@ class LauncherActivity : ComponentActivity() {
         // miał świeży token bez czekania na wejście do MainActivity
         lifecycleScope.launch {
             ChannelManager.refreshRemoteChannels(this@LauncherActivity)
+            // Polling tokenu MUSI startować także tutaj. Na boxie makieta jest
+            // LAUNCHEREM, więc wejście idzie przez tę aktywność, a MainActivity
+            // (gdzie polling był jedynie) potrafi nigdy nie powstać. Efekt: token
+            // odświeżał się tylko przy starcie procesu — box chodzący non-stop
+            // nie zauważał podmiany JWT w Supabase i kanały leciały na 401
+            // (objaw: "Kanał niedostępny", ERROR_CODE_IO_BAD_HTTP_STATUS).
+            ChannelManager.startTokenPolling(this@LauncherActivity, lifecycleScope)
         }
 
         // Register BroadcastReceiver for HOME button events from AccessibilityService

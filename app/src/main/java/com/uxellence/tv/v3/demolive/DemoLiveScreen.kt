@@ -435,6 +435,31 @@ fun DemoLiveScreen(
                     exo.prepare()
                     exo.play()
                     isPaused = false
+                } else if (com.uxellence.tv.v3.channels.LiveTokenRetryHandler.isAuthError(error)) {
+                    // 401/403 = wygasły/podmieniony token JWT. Dociągnij świeży
+                    // z Supabase i ponów — bez tego kanał umierał na planszy
+                    // "Kanał niedostępny" (ERROR_CODE_IO_BAD_HTTP_STATUS) aż do
+                    // restartu apki. Ten player (demo live) gra na zakładce TV,
+                    // więc musi mieć własne odzyskiwanie — LiveTokenRetryHandler
+                    // jest podpięty tylko w LiveScreen/EpgDayScreen.
+                    Log.w(TAG, "live: 401/403 → odświeżam token i ponawiam")
+                    demoScope.launch {
+                        val before = com.uxellence.tv.v3.channels.LiveTokenProvider.token
+                        com.uxellence.tv.v3.channels.ChannelManager.refreshLiveToken(context)
+                        val after = com.uxellence.tv.v3.channels.LiveTokenProvider.token
+                        if (after != before && after.isNotBlank()) {
+                            Log.i(TAG, "live: nowy token — ponawiam odtwarzanie")
+                            exo.setMediaItem(
+                                com.uxellence.tv.v3.channels.LiveMediaItemFactory.build(url)
+                            )
+                            exo.prepare()
+                            exo.play()
+                            livePlaybackError = null
+                        } else {
+                            Log.e(TAG, "live: token bez zmian — pokazuję planszę")
+                            livePlaybackError = error.errorCodeName
+                        }
+                    }
                 } else {
                     Log.e(TAG, "live playback error: ${error.errorCodeName}")
                     livePlaybackError = error.errorCodeName
