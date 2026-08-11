@@ -6012,6 +6012,33 @@ private fun TelewizjaChannelsScreen(
     // wisi na widocznej karcie i po przewinięciu taśmy requestFocus padał w ciszy
     val telewizjaRootBoxFocusRequester = remember { FocusRequester() }
 
+    // ODZYSKANIE FOKUSU PO DOJŚCIU DANYCH EPG.
+    //
+    // Wchodząc na zakładkę TV zanim EPG się doczyta, wiersz "Teraz w TV" renderuje
+    // placeholder "Brak programów EPG" (focusable Box). Gdy programy dojdą, wiersz
+    // przełącza się na LazyRow z kartami — placeholder jest ODMONTOWYWANY razem ze
+    // swoim fokusem, a Compose zostaje BEZ właściciela fokusu. Objaw zgłoszony przez
+    // usera: "klikam OK i blokuje się na pierwszej pozycji Teraz w TV" — klawisze
+    // przestają cokolwiek robić.
+    //
+    // Fokusujemy KONTENER z onPreviewKeyEvent (lekcja #11 w CLAUDE.md), nie kartę:
+    // przy fixed-focus FR karty wisi na konkretnym itemie LazyRow, który może być
+    // jeszcze nieskomponowany.
+    val terazWTvIsEmpty = gridContent["Teraz w TV"].isNullOrEmpty()
+    LaunchedEffect(terazWTvIsEmpty) {
+        // Tylko przejście puste → pełne i tylko gdy user JEST w sekcji (nie w menu)
+        // shouldAutoFocus = globalFocusState.currentRow != 0 (user w sekcji, nie w menu)
+        if (!terazWTvIsEmpty && shouldAutoFocus) {
+            delay(100)   // daj LazyRow skomponować się przed requestFocus
+            try {
+                telewizjaRootBoxFocusRequester.requestFocus()
+                android.util.Log.d("TELEWIZJA_FOCUS", "EPG doszło → przywrócono fokus na kontener")
+            } catch (e: Exception) {
+                android.util.Log.w("TELEWIZJA_FOCUS", "Nie udało się przywrócić fokusu: ${e.message}")
+            }
+        }
+    }
+
     val onToggleMyList: () -> Unit = {
         android.util.Log.d("SHORTCUT_V4", "Utwórz Moją listę → zaślepka prototypu")
         // restoreFocusTo: bez tego po zamknięciu zaślepki Compose zostawał bez
