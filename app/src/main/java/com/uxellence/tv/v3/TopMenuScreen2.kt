@@ -9995,8 +9995,23 @@ fun MojeUnifiedChannelRow(
                 text = channel,
                 isFocused = categoryIsFocused,
                 onClick = {
-                    // Empty - expansion for "Moje nagrania" is handled by chevron click (onChevronClick)
-                    // MOJE CategoryIcons don't navigate to grids (unlike START section)
+                    // Wiersze nagrań linkują do gridu zarządzania — wariant 3
+                    // ("Moje nagrania" → wszystkie) i wariant 4 (każdy wiersz →
+                    // grid zawężony do swojej kategorii). To odpowiedź na "trudny
+                    // dostęp do zarządzania nagraniami" z warsztatu: bez wiersza
+                    // "wszystkie" wejście idzie przez ikonę wiersza.
+                    // Rozwijanie w wariancie 1 zostaje na chevronie (onChevronClick).
+                    when (channel) {
+                        "Moje nagrania", "Nagrania" ->
+                            onNavigateToRecordingsGrid("Zarządzaj nagraniami", "MOJE")
+                        "Pojedyncze nagrania" ->
+                            onNavigateToRecordingsGrid("Pojedyncze nagrania", "MOJE")
+                        "SERIE" ->
+                            onNavigateToRecordingsGrid("SERIE", "MOJE")
+                        "ZAPLANOWANE" ->
+                            onNavigateToRecordingsGrid("ZAPLANOWANE", "MOJE")
+                        // pozostałe wiersze MOJE nie nawigują (jak dotąd)
+                    }
                 },
                 onFocused = { isFocused ->
                     if (isFocused) {

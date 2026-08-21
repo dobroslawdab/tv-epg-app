@@ -445,6 +445,11 @@ fun TvRoot(
     // "Oglądaj" z MovieDetail (WIDEO): BACK z playera wraca do DETALU, nie do
     // TopMenu — selectedMovieData wciąż żyje, więc detal odtwarza się bez zmian
     var vodPlayerReturnToDetail by remember { mutableStateOf(false) }
+    // Filtr, z jakim otworzyć grid nagrań — ustawiany przez wywołującego
+    // (wiersz/skrót w MOJE), żeby OK na "SERIE" pokazało od razu tylko serie
+    var recordingsGridFilter by remember {
+        mutableStateOf(com.uxellence.tv.v3.ContentFilter.ALL)
+    }
     // Metadane do playera demo (DemoVodPlayerScreen pokazuje je w warstwie opisu)
     var vodPlayerDescription by remember { mutableStateOf("") }
     var vodPlayerGenre by remember { mutableStateOf("zwiastun") }
@@ -769,8 +774,19 @@ fun TvRoot(
                         previousScreen = NavigationScreen.TOP_MENU2
                         currentScreen = NavigationScreen.KINO_GRID
                     },
-                    onNavigateToRecordingsGrid = { _, sourceSection ->
+                    onNavigateToRecordingsGrid = { title, sourceSection ->
                         recordingsGridSourceSection = sourceSection
+                        // Tytuł niesie intencję filtra (dotąd był ignorowany)
+                        recordingsGridFilter = when (title) {
+                            "Pojedyncze nagrania", "Pojedyncze" ->
+                                com.uxellence.tv.v3.ContentFilter.INDIVIDUAL
+                            "SERIE", "Serie" ->
+                                com.uxellence.tv.v3.ContentFilter.SERIES
+                            "ZAPLANOWANE", "Zaplanowane" ->
+                                com.uxellence.tv.v3.ContentFilter.SCHEDULED
+                            else -> com.uxellence.tv.v3.ContentFilter.ALL
+                        }
+                        android.util.Log.d("RECORDINGS_GRID", "Wejście '$title' → filtr $recordingsGridFilter")
                         previousScreen = NavigationScreen.TOP_MENU2
                         currentScreen = NavigationScreen.RECORDINGS_GRID
                     },
@@ -1309,7 +1325,8 @@ fun TvRoot(
                         seriesEpisodesTitle = title
                         previousScreen = NavigationScreen.RECORDINGS_GRID
                         currentScreen = NavigationScreen.SERIES_EPISODES
-                    }
+                    },
+                    initialFilter = recordingsGridFilter
                 )
             }
             NavigationScreen.OLYMPICS -> {

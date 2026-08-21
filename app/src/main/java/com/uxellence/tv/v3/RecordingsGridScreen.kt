@@ -69,7 +69,7 @@ private enum class SortOption(val label: String) {
 }
 
 // Filter options for content type (Figma: node 7204-46387)
-private enum class ContentFilter(val label: String, val screenTitle: String) {
+enum class ContentFilter(val label: String, val screenTitle: String) {
     ALL("Wszystkie nagrania", "Wszystkie nagrania"),
     INDIVIDUAL("Pojedyncze nagrania", "Pojedyncze nagrania"),
     SERIES("Serie", "Serie"),
@@ -93,6 +93,10 @@ private const val TAG = "RecordingsGridScreen"
 fun RecordingsGridScreen(
     onBackPressed: () -> Unit,
     onSeriesClick: (String, String) -> Unit,  // seriesId, title -> navigate to drill-down
+    // Filtr startowy — wejście z konkretnego wiersza/skrótu w MOJE otwiera grid
+    // od razu zawężony (np. OK na "SERIE" → tylko serie). Bez tego każde wejście
+    // pokazywało "Wszystkie nagrania" i user musiał filtrować ręcznie.
+    initialFilter: ContentFilter = ContentFilter.ALL,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -111,7 +115,7 @@ fun RecordingsGridScreen(
     var allRecordings by remember { mutableStateOf<List<RecordingContent>>(emptyList()) }
     var displayedRecordings by remember { mutableStateOf<List<RecordingContent>>(emptyList()) }
     var selectedSort by remember { mutableStateOf(SortOption.NEWEST_FIRST) }
-    var selectedFilter by remember { mutableStateOf(ContentFilter.ALL) }
+    var selectedFilter by remember { mutableStateOf(initialFilter) }
     var storageInfo by remember { mutableStateOf<RecordingStorageInfo?>(null) }
     var isLoading by remember { mutableStateOf(true) }
 
