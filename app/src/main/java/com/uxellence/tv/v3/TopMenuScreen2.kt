@@ -68,6 +68,11 @@ import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Lock
+// Ikony skrótów nagrań (MOJE) — bez importów mapowanie spadało na gwiazdkę
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.VideoLibrary
+import androidx.compose.material.icons.filled.Subscriptions
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.DateRange
@@ -1378,6 +1383,7 @@ fun TopMenuScreen2(
             when (com.uxellence.tv.v3.utils.VersionTracker.getNagraniaVersion(context)) {
                 "v2" -> 2
                 "v3" -> 3
+                "v4" -> 4
                 else -> 1
             }
         )
@@ -2470,8 +2476,8 @@ fun TopMenuScreen2(
                 },
                 nagraniaVariant = nagraniaVariant,
                 onNagraniaVariantCycle = {
-                    // 1 → 2 → 3 → 1
-                    nagraniaVariant = (nagraniaVariant % 3) + 1
+                    // 1 → 2 → 3 → 4 → 1
+                    nagraniaVariant = (nagraniaVariant % 4) + 1
                     com.uxellence.tv.v3.utils.VersionTracker.setNagraniaVersion(
                         context, "v$nagraniaVariant"
                     )
@@ -2522,7 +2528,8 @@ private fun DevTogglesModal(
             "MOJE wersja",
             when (nagraniaVariant) {
                 2 -> "2: płasko + licznik miejsca"
-                3 -> "3: trzy wiersze w Moje"
+                3 -> "3: wiersz + skróty (małe ikony)"
+                4 -> "4: trzy wiersze z ikonami"
                 else -> "1: drzewko (odrzucone przez dev)"
             },
             onNagraniaVariantCycle
@@ -6637,22 +6644,38 @@ private fun MojeChannelsScreen(
     // Faza 3: Dynamic channel list - Toggle between v1 (Moje nagrania) and v2 (Header+Nagrania+Skróty)
     // Wariant przełączany w dev menu "0" → "Nagrania (MOJE)"
     val channels = remember(isNagraniaExpanded, nagraniaVariant) {
-        if (nagraniaVariant == 3) {
+        if (nagraniaVariant == 4) {
             // ═══════════════════════════════════════════════════════════════
-            // WARIANT 3: trzy wiersze nagrań WPROST w "Moje" — bez rozwijania.
-            // Kierunek "wyniesione o poziom wyżej" (warsztat 19.08): user wchodzi
-            // w MOJE i od razu widzi nagrania, bez przechodzenia na podstronę.
-            // Nie ma wiersza "wszystkie" — wejście do zarządzania nagraniami
-            // idzie skrótem "Nagrania" w wierszu Skróty.
+            // WARIANT 4: trzy osobne wiersze nagrań (Pojedyncze / SERIE /
+            // ZAPLANOWANE) wprost w "Moje", każdy z własną ikoną kategorii.
+            // Kierunek "wyniesione o poziom wyżej" (warsztat 19.08) w czystej
+            // formie: bez wiersza-rodzica i bez skrótów.
             // ═══════════════════════════════════════════════════════════════
             listOf(
                 "Oglądaj dalej",
                 "Moja lista kanałów",
-                "[HEADER-RIGHT] Miejsce na nagrania",  // licznik pojemności
+                "[HEADER-RIGHT] Miejsce na nagrania",  // status pojemności
                 "Pojedyncze nagrania",
                 "SERIE",
                 "ZAPLANOWANE",
-                "Skróty v2 Moje",
+                "Do obejrzenia",
+                "Wypożyczone",
+                "Aktywne pakiety"
+            )
+        } else if (nagraniaVariant == 3) {
+            // ═══════════════════════════════════════════════════════════════
+            // WARIANT 3: JEDEN wiersz "Moje nagrania", a POD NIM skróty
+            // (Zarządzaj nagraniami / Pojedyncze / Serie / Zaplanowane)
+            // z ikonami zmniejszonymi o połowę. Status pojemności zostaje.
+            // Nagrania widoczne od razu, a rozbicie na kategorie dostępne
+            // skrótem — bez rozwijania sekcji (dev odrzucili rozwijanie).
+            // ═══════════════════════════════════════════════════════════════
+            listOf(
+                "Oglądaj dalej",
+                "Moja lista kanałów",
+                "[HEADER-RIGHT] Miejsce na nagrania",  // status pojemności
+                "Moje nagrania",                       // jeden wiersz z nagraniami
+                "Skróty v2 Moje",                      // skróty pod nim (małe ikony)
                 "Do obejrzenia",
                 "Wypożyczone",
                 "Aktywne pakiety"
@@ -6716,7 +6739,7 @@ private fun MojeChannelsScreen(
     // slidera V3 w ODKRYWAJ, `return@onPreviewKeyEvent true`) i nigdy nie docierał
     // do MOJE — dlatego cykl trybów przeniesiony do dev menu.
     val toggleNagraniaVersion: () -> Unit = {
-        onNagraniaVariantChange((nagraniaVariant % 3) + 1)
+        onNagraniaVariantChange((nagraniaVariant % 4) + 1)
         Log.d("MOJE_DEBUG", "Wariant nagrań → ${(nagraniaVariant % 3) + 1} (channels: ${channels.size})")
     }
 
@@ -7855,6 +7878,12 @@ private fun StartShortcutCard(
                         "star" -> Icons.Default.Star
                         "search" -> Icons.Default.Search
                         "person" -> Icons.Default.Person
+                        // Skróty nagrań (MOJE) — bez tych wpisów wszystkie cztery
+                        // lądowały w `else` i rysowały GWIAZDKĘ
+                        "settings" -> Icons.Default.Settings
+                        "video_library" -> Icons.Default.VideoLibrary
+                        "live_tv" -> Icons.Default.Subscriptions
+                        "schedule" -> Icons.Default.Schedule
                         else -> Icons.Default.Star
                     }
                     Icon(
@@ -7897,7 +7926,9 @@ private fun ShortcutCardV2(
     onFocusChange: (Boolean) -> Unit,
     onClick: () -> Unit = {},
     heightPx: Int = 179  // Configurable height (default 179px, MOJE v2 uses 120px)
-) {
+,
+    // 0.5f = ikona o połowę mniejsza (skróty pod wierszem nagrań, wariant 3)
+    iconScale: Float = 1f) {
     val cardWidth = sx(310)
     val cardHeight = sy(heightPx)  // Use parameter instead of hardcoded value
     val borderColor = if (isFocused) Color(0xFF5AECD3) else Color.Transparent
@@ -7935,7 +7966,7 @@ private fun ShortcutCardV2(
                         painter = painterResource(shortcut.icon.iconRes),
                         contentDescription = shortcut.title,
                         modifier = Modifier
-                            .size(sx(69), sy(54))
+                            .size(sx((69 * iconScale).toInt()), sy((54 * iconScale).toInt()))
                             .alpha(0.7f)
                             .align(Alignment.TopEnd),  // Prawy górny róg
                         tint = Color(0xFFEEEEEE)
@@ -7947,13 +7978,19 @@ private fun ShortcutCardV2(
                         "star" -> Icons.Default.Star
                         "search" -> Icons.Default.Search
                         "person" -> Icons.Default.Person
+                        // Skróty nagrań (MOJE) — bez tych wpisów wszystkie cztery
+                        // lądowały w `else` i rysowały GWIAZDKĘ
+                        "settings" -> Icons.Default.Settings
+                        "video_library" -> Icons.Default.VideoLibrary
+                        "live_tv" -> Icons.Default.Subscriptions
+                        "schedule" -> Icons.Default.Schedule
                         else -> Icons.Default.Star
                     }
                     Icon(
                         imageVector = materialIcon,
                         contentDescription = shortcut.title,
                         modifier = Modifier
-                            .size(sx(69), sy(54))
+                            .size(sx((69 * iconScale).toInt()), sy((54 * iconScale).toInt()))
                             .alpha(0.7f)
                             .align(Alignment.TopEnd),  // Prawy górny róg
                         tint = Color(0xFFEEEEEE)
@@ -7972,7 +8009,7 @@ private fun ShortcutCardV2(
                         composition = composition,
                         progress = { if (isFocused) progress else 1f },
                         modifier = Modifier
-                            .size(sx(69), sy(54))
+                            .size(sx((69 * iconScale).toInt()), sy((54 * iconScale).toInt()))
                             .alpha(0.7f)
                             .align(Alignment.TopEnd)  // Prawy górny róg
                     )
@@ -8178,9 +8215,9 @@ private fun ShortcutCardV3(
                             "search" -> Icons.Default.Search
                             "person" -> Icons.Default.Person
                             "settings" -> Icons.Default.Settings
-                            "video_library" -> Icons.Default.PlayArrow
+                            "video_library" -> Icons.Default.VideoLibrary
                             "live_tv" -> Icons.Default.PlayArrow  // Using PlayArrow as fallback for live_tv
-                            "schedule" -> Icons.Default.DateRange  // Using DateRange as fallback for schedule
+                            "schedule" -> Icons.Default.Schedule  // Using DateRange as fallback for schedule
                             "favorite" -> Icons.Default.Star  // Using Star as fallback for favorite
                             else -> Icons.Default.Star
                         }
@@ -9579,7 +9616,10 @@ fun MojeUnifiedChannelRow(
                         },
                         sx = sx,
                         sy = sy,
-                        heightPx = 120  // MOJE v2: Reduced height for compact layout
+                        heightPx = 120,  // MOJE v2: Reduced height for compact layout
+                        // Ikony o połowę mniejsze — skróty siedzą POD wierszem
+                        // nagrań (wariant 3) i mają być wizualnie drugorzędne
+                        iconScale = 0.5f
                     )
                 }
             }
@@ -9903,6 +9943,11 @@ fun MojeUnifiedChannelRow(
                 "Oglądaj dalej" -> R.drawable.ic_keep_watching
                 "Moje nagrania" -> R.drawable.ic_records  // Old expandable channel
                 "Nagrania" -> R.drawable.ic_records       // New channel with icon
+                // Wariant 4: każdy wiersz nagrań ma własną, pasującą ikonę
+                // (wcześniej były text-only jako pod-wiersze drzewka)
+                "Pojedyncze nagrania" -> R.drawable.ic_records
+                "SERIE" -> R.drawable.ic_recordings_tv
+                "ZAPLANOWANE" -> R.drawable.ic_calendar
                 "Do obejrzenia" -> R.drawable.ic_add_to_watch
                 "Aktywne pakiety" -> R.drawable.ic_packages
                 "Wypożyczone" -> R.drawable.ic_rented
@@ -9911,11 +9956,12 @@ fun MojeUnifiedChannelRow(
             }
 
             // Sub-channels and app-icons channels use WIDEO style (text-only, bg on focus)
+            // "Pojedyncze nagrania"/"SERIE"/"ZAPLANOWANE" wypadły z tej listy —
+            // w warianice 4 są samodzielnymi wierszami z własną ikoną, nie
+            // pod-wierszami drzewka (styl text-only zostaje tylko dla Skrótów
+            // i app-iconowej "Mojej listy kanałów")
             val isSubChannel = channel in listOf(
                 "Skróty",
-                "Pojedyncze nagrania",
-                "SERIE",
-                "ZAPLANOWANE",
                 "Moja lista kanałów"  // App-icons channel - text-only like TELEWIZJA
             )
 
@@ -9942,7 +9988,10 @@ fun MojeUnifiedChannelRow(
                 showIcon = !isSubChannel,                      // Sub-channels: false (text-only like WIDEO)
                 showBackgroundWhenFocused = isSubChannel,      // Sub-channels: true (background on focus)
                 isExpanded = (channel == "Moje nagrania") && isNagraniaExpanded,
-                showChevron = (channel == "Moje nagrania"),
+                // Chevron tylko dla rozwijalnego wiersza (wariant 1). W wariancie 3
+                // "Moje nagrania" to zwykły wiersz — chevron obiecywałby rozwijanie,
+                // które deweloperzy odrzucili
+                showChevron = (channel == "Moje nagrania" && toggleNagraniaExpansion != null),
                 onChevronClick = if (channel == "Moje nagrania") { { toggleNagraniaExpansion?.invoke() } } else null
             )
         }

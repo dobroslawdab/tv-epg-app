@@ -88,7 +88,7 @@ object MojeContentCache {
             // Ogon wiersza: STAŁA lista z assets/nagrania.json (dawniej losowe
             // .shuffled() — skład zmieniał się przy każdym starcie procesu)
             val mocks = if (context != null) {
-                com.uxellence.tv.v3.recordings.RecordingsRepository.scheduled(context).take(3)
+                com.uxellence.tv.v3.recordings.RecordingsRepository.scheduled(context).take(5)
             } else emptyList()
             return user + mocks
         }
@@ -121,16 +121,14 @@ object MojeContentCache {
                 // Nagrania: STAŁA lista z assets/nagrania.json — ten sam zestaw
                 // i kolejność na każdym urządzeniu i po każdym restarcie
                 // (wcześniej .shuffled() → każdy uczestnik badania widział inne)
-                // Wariant 3 (trzy wiersze wprost w MOJE) pokazuje po 3 pozycje
-                // w wierszu — tyle, ile widać bez przewijania; przy dłuższych
-                // listach wiersz sugerowałby, że to pełne zarządzanie nagraniami
+                // Wiersze nagrań (warianty 3 i 4) pokazują po 5 pozycji
                 "Pojedyncze nagrania" ->
                     context?.let {
-                        com.uxellence.tv.v3.recordings.RecordingsRepository.single(it).take(3)
+                        com.uxellence.tv.v3.recordings.RecordingsRepository.single(it).take(5)
                     } ?: emptyList()
                 "SERIE" ->
                     context?.let {
-                        com.uxellence.tv.v3.recordings.RecordingsRepository.series(it).take(3)
+                        com.uxellence.tv.v3.recordings.RecordingsRepository.series(it).take(5)
                     } ?: emptyList()
                 // "Moje nagrania" = wiersz-rodzic (v1, zwinięty/rozwijany),
                 // "Nagrania" = wiersz v2. Oba pokazują pełny zestaw.
