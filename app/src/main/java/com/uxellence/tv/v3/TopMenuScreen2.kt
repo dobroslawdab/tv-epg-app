@@ -158,6 +158,7 @@ import com.uxellence.tv.v3.repository.toVodSlideData
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import com.uxellence.tv.v3.components.PrototypeStub
 import com.uxellence.tv.v3.components.YouTubeTrailerPlayer
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.LifecycleEventObserver
@@ -6638,8 +6639,12 @@ private fun MojeChannelsScreen(
     // wypada — warsztat 19.08, punkt 2).
     val mojeNagraniaShortcuts = remember(nagraniaVariant) {
         if (nagraniaVariant == 4) {
+            // DWA focusable elementy: przycisk + "Dokup przestrzeń" w panelu
+            // zajętości. Lista steruje alokacją FocusRequesterów i granicą
+            // nawigacji w prawo — sam render tego wiersza jest osobny.
             listOf(
-                ShortcutItem("1", "Zarządzaj nagraniami", ShortcutIcon.MaterialIcon("settings"))
+                ShortcutItem("1", "Zarządzaj nagraniami", ShortcutIcon.MaterialIcon("settings")),
+                ShortcutItem("2", "Dokup przestrzeń", ShortcutIcon.MaterialIcon("add"))
             )
         } else {
             listOf(
@@ -9227,6 +9232,9 @@ fun StorageCounterHeader(
     // wiersza-rodzica "Moje nagrania", więc bez tego nic nie nazywa sekcji.
     // Pusty = tylko belka po prawej (warianty 2 i 3, gdzie tytuł niesie wiersz).
     sectionTitle: String = "",
+    // false = renderuj tylko tytuł sekcji (wariant 4 ma belkę zajętości na dole,
+    // w panelu obok przycisku "Zarządzaj nagraniami")
+    showStorageBar: Boolean = true,
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp
 ) {
@@ -9251,7 +9259,7 @@ fun StorageCounterHeader(
         }
 
         // Semi-transparent pill container - right-aligned
-        Box(
+        if (showStorageBar) Box(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
                 .background(
@@ -9615,22 +9623,30 @@ fun MojeUnifiedChannelRow(
             // "[HEADER-RIGHT] Miejsce na nagrania", która tytułu nie wyświetla
             // (tam sekcję nazywa CategoryIcon wiersza).
             val headerLabel = channel.removePrefix("[HEADER-RIGHT]").trim()
+            val isVariant4Header = headerLabel == "Moje nagrania"
             StorageCounterHeader(
                 usedHours = 140,
                 totalHours = 220,
-                sectionTitle = if (headerLabel == "Moje nagrania") headerLabel else "",
+                sectionTitle = if (isVariant4Header) headerLabel else "",
+                // Wariant 4 pokazuje zajętość NA DOLE, w panelu obok przycisku
+                // "Zarządzaj nagraniami" (ten sam co na gridzie) — tutaj zostaje
+                // sam tytuł sekcji, bez belki, żeby nie dublować informacji.
+                showStorageBar = !isVariant4Header,
                 sx = sx,
                 sy = sy
             )
-        } else if (channel == "Skróty v2 Moje" && mojeNagraniaShortcuts.size == 1) {
-            // WARIANT 4: pojedynczy przycisk "Zarządzaj nagraniami" pod channelami.
-            // BEZ ikony i w stylu przycisku z widoku zarządzania ("Dokup przestrzeń",
-            // RecordingsGridScreen.FigmaButton): wysokość 72, radius 8, aqua na fokusie.
-            // Nie ShortcutCardV2 — tam ikona jest częścią kompozycji karty.
-            Box(
+        } else if (channel == "Skróty v2 Moje" && mojeNagraniaShortcuts.size == 2) {
+            // WARIANT 4: przycisk "Zarządzaj nagraniami" + panel zajętości POD
+            // channelami nagrań. Belki u góry ekranu tu nie ma — status pojemności
+            // pokazujemy dokładnie tak jak w widoku zarządzania (ten sam
+            // StorageInfoPanel z "Dokup przestrzeń"), żeby oba miejsca wyglądały
+            // spójnie i żeby dokupienie było dostępne bez wchodzenia w grid.
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = sx(400))
+                    .padding(start = sx(400), end = sx(120)),
+                horizontalArrangement = Arrangement.spacedBy(sx(40)),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 MojeManageRecordingsButton(
                     isFocused = isCurrentRow && focusedColIndex == 0,
@@ -9639,6 +9655,27 @@ fun MojeUnifiedChannelRow(
                     onClick = { onNavigateToRecordingsGrid("Zarządzaj nagraniami", "MOJE") },
                     sx = sx,
                     sy = sy
+                )
+
+                StorageInfoPanel(
+                    usedHours = 220,
+                    totalHours = 300,
+                    isBuyButtonFocused = isCurrentRow && focusedColIndex == 1,
+                    buyButtonFocusRequester = channelFocusRequesters[Pair(rowIndex, 1)]
+                        ?: FocusRequester(),
+                    onBuyButtonFocusChange = { onChannelContentFocusChange(rowIndex, 1) },
+                    // restoreFocusTo OBOWIĄZKOWO: bez niego zaślepka zabiera fokus
+                    // i po jej zamknięciu nikt go nie ma — strzałki przestają
+                    // działać do następnego BACK. Wracamy na ten sam przycisk.
+                    onBuyButtonClick = {
+                        PrototypeStub.show(
+                            restoreFocusTo = channelFocusRequesters[Pair(rowIndex, 1)]
+                        )
+                    },
+                    sx = sx,
+                    sy = sy,
+                    scaleY = sy(1).value / 1.dp.value,
+                    modifier = Modifier.weight(1f)
                 )
             }
         } else if (channel == "Skróty v2 Moje") {
@@ -10125,10 +10162,27 @@ private fun MojeManageRecordingsButton(
                 shape = RoundedCornerShape(sx(8))
             )
             .focusRequester(focusRequester)
-            // KOLEJNOŚĆ: clickable PRZED focusable — inaczej element dostaje dwa
-            // focus targety i ENTER trafia w ten pierwszy, bez akcji
-            .clickable { onClick() }
             .onFocusChanged { if (it.isFocused) onFocusChange() }
+            // ENTER przez onPreviewKeyEvent, NIE przez clickable. clickable wstawia
+            // WŁASNY focus target między focusRequester i focusable — requestFocus()
+            // z nawigacji trafiał wtedy w niego, onFocusChanged (niżej w łańcuchu)
+            // się nie odpalał, wiersz nie rejestrował fokusu i DOWN "przeskakiwał"
+            // przycisk na kolejny channel. Ten sam wzorzec co FigmaButton na gridzie.
+            .onPreviewKeyEvent { event ->
+                if ((event.key == Key.Back || event.key == Key.Escape) &&
+                    event.type == KeyEventType.KeyUp
+                ) {
+                    return@onPreviewKeyEvent true
+                }
+                if (event.type == KeyEventType.KeyDown &&
+                    (event.key == Key.Enter || event.key == Key.DirectionCenter)
+                ) {
+                    onClick()
+                    true
+                } else {
+                    false
+                }
+            }
             .focusable()
             .padding(horizontal = sx(32)),
         contentAlignment = Alignment.Center
@@ -10146,6 +10200,10 @@ private fun MojeManageRecordingsButton(
 // Shortcuts v2 (Skróty v2 Moje) - fixed height, NO expansion, larger card
 private const val MOJE_SHORTCUTS_V2_NORMAL_ROW_HEIGHT = 160 // Shortcut card (120px) + spacing (40px)
 private const val MOJE_SHORTCUTS_V2_EXPANDED_ROW_HEIGHT = 160 // NO expansion - always 160px
+// Wariant 4: ten sam wiersz mieści przycisk "Zarządzaj nagraniami" + panel
+// zajętości (StorageInfoPanel ~150px, wyższy niż karta skrótu 120px). Bez własnej
+// wysokości "Do obejrzenia" podchodziło pod panel. 200 = panel (~150) + odstęp 40.
+private const val MOJE_SHORTCUTS_V4_STORAGE_ROW_HEIGHT = 200
 private const val MOJE_CONTENT_FOCUS_EXTRA_SPACING = 100 // Extra spacing above focused content row
 // App-icons (Moja lista kanałów) - NO expansion like TELEWIZJA
 private const val MOJE_APP_ICONS_NORMAL_ROW_HEIGHT = 256  // CategoryIcon (216px) + spacing (40px)
@@ -10246,10 +10304,18 @@ private fun calculateMojeChannelYPosition(
     val isShortcutsV2 = channelName == "Skróty v2 Moje"
     val isVertical = channelName == "Wypożyczone"
     val isAppIcons = channelName == "Moja lista kanałów"  // App-icons - NO expansion
+    // Wariant 4 rozpoznajemy po nazwie headera (tylko on ma tytuł sekcji w wierszu
+    // nagłówka). W nim wiersz "Skróty v2 Moje" mieści panel zajętości, więc jest
+    // wyższy niż w wariantach 2/3, gdzie są tam karty skrótów.
+    val shortcutsV2Height = if (channels.contains("[HEADER-RIGHT] Moje nagrania")) {
+        MOJE_SHORTCUTS_V4_STORAGE_ROW_HEIGHT
+    } else {
+        MOJE_SHORTCUTS_V2_NORMAL_ROW_HEIGHT
+    }
     val normalRowHeight = when {
         isHeader -> 80                               // Header: 80px content, 0px spacing
         isShortcuts -> MOJE_SHORTCUTS_NORMAL_ROW_HEIGHT
-        isShortcutsV2 -> MOJE_SHORTCUTS_V2_NORMAL_ROW_HEIGHT
+        isShortcutsV2 -> shortcutsV2Height
         isVertical -> MOJE_VERTICAL_NORMAL_ROW_HEIGHT
         isAppIcons -> MOJE_APP_ICONS_NORMAL_ROW_HEIGHT   // App-icons: no expansion
         else -> MOJE_HORIZONTAL_NORMAL_ROW_HEIGHT
@@ -10257,7 +10323,7 @@ private fun calculateMojeChannelYPosition(
     val expandedRowHeight = when {
         isHeader -> 80                               // Header: no expansion
         isShortcuts -> MOJE_SHORTCUTS_EXPANDED_ROW_HEIGHT
-        isShortcutsV2 -> MOJE_SHORTCUTS_V2_EXPANDED_ROW_HEIGHT
+        isShortcutsV2 -> shortcutsV2Height   // brak rozwijania — ta sama wysokość
         isVertical -> MOJE_VERTICAL_EXPANDED_ROW_HEIGHT
         isAppIcons -> MOJE_APP_ICONS_EXPANDED_ROW_HEIGHT // App-icons: no expansion (256=256)
         else -> MOJE_HORIZONTAL_EXPANDED_ROW_HEIGHT
@@ -10291,7 +10357,7 @@ private fun calculateMojeChannelYPosition(
                 val betweenRowHeight = when {
                     betweenIsHeader -> 80                        // Header: 0px spacing
                     betweenIsShortcuts -> MOJE_SHORTCUTS_NORMAL_ROW_HEIGHT
-                    betweenIsShortcutsV2 -> MOJE_SHORTCUTS_V2_NORMAL_ROW_HEIGHT
+                    betweenIsShortcutsV2 -> shortcutsV2Height
                     betweenIsVertical -> MOJE_VERTICAL_NORMAL_ROW_HEIGHT
                     betweenIsAppIcons -> MOJE_APP_ICONS_NORMAL_ROW_HEIGHT
                     else -> MOJE_HORIZONTAL_NORMAL_ROW_HEIGHT
@@ -10338,7 +10404,7 @@ private fun calculateMojeChannelYPosition(
                 val betweenRowHeight = when {
                     betweenIsHeader -> 80                        // Header: 0px spacing
                     betweenIsShortcuts -> MOJE_SHORTCUTS_NORMAL_ROW_HEIGHT
-                    betweenIsShortcutsV2 -> MOJE_SHORTCUTS_V2_NORMAL_ROW_HEIGHT
+                    betweenIsShortcutsV2 -> shortcutsV2Height
                     betweenIsVertical -> MOJE_VERTICAL_NORMAL_ROW_HEIGHT
                     betweenIsAppIcons -> MOJE_APP_ICONS_NORMAL_ROW_HEIGHT
                     else -> MOJE_HORIZONTAL_NORMAL_ROW_HEIGHT

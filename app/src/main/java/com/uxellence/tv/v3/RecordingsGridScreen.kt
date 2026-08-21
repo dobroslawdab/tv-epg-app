@@ -1051,7 +1051,7 @@ private fun getContentDuration(content: RecordingContent): Long {
  * - Font: Manrope Bold 24sp, letter-spacing: -0.48
  */
 @Composable
-private fun FigmaButton(
+internal fun FigmaButton(
     text: String,
     isFocused: Boolean,
     focusRequester: FocusRequester,
@@ -1118,9 +1118,12 @@ private fun FigmaButton(
  * - "Miejsce na Twoje nagrania" label
  * - Progress bar (527px width, 8px height)
  * - "220 h zajęte" / "pozostało 80 h" labels
+ *
+ * internal, bo wariant 4 sekcji MOJE renderuje ten sam panel pod channelami
+ * nagrań (obok przycisku "Zarządzaj nagraniami") — zamiast belki u góry ekranu.
  */
 @Composable
-private fun StorageInfoPanel(
+internal fun StorageInfoPanel(
     usedHours: Int,
     totalHours: Int,
     isBuyButtonFocused: Boolean,
