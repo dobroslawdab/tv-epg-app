@@ -6621,21 +6621,34 @@ private fun MojeChannelsScreen(
 
     // MARK: - Faza 3: Simple expansion state tracker
     // Only tracks whether NAGRANIA is expanded (no nested data)
-    var isNagraniaExpanded by remember { mutableStateOf(false) }
+    // Wariant 1 startuje ROZWINIĘTY — to jedyny wariant z drzewkiem, a jego sens
+    // (porównanie z 3/4, gdzie rozwijania nie ma) widać tylko gdy sub-kanały są
+    // od razu widoczne. Klucz na wariancie: przełączenie w dev menu resetuje stan.
+    var isNagraniaExpanded by remember(nagraniaVariant) { mutableStateOf(nagraniaVariant == 1) }
 
     // Toggle between v1 (Moje nagrania expandable) and v2 (Header + Nagrania + Skróty v2)
     // Key "8" on remote toggles this state (loaded from SharedPreferences)
     // MOVED TO TOP (now defined globally for keyboard shortcut access at line ~711)
     // nagraniaVariant — przekazywany z TopMenuScreen2 (dev menu "0")
 
-    // Shortcuts data for "Skróty v2 Moje" channel (4 buttons)
-    val mojeNagraniaShortcuts = remember {
-        listOf(
-            ShortcutItem("1", "Zarządzaj nagraniami", ShortcutIcon.MaterialIcon("settings")),
-            ShortcutItem("2", "Pojedyncze", ShortcutIcon.MaterialIcon("video_library")),
-            ShortcutItem("3", "Serie", ShortcutIcon.MaterialIcon("live_tv")),
-            ShortcutItem("4", "Zaplanowane", ShortcutIcon.MaterialIcon("schedule"))
-        )
+    // Shortcuts data for "Skróty v2 Moje" channel.
+    // Wariant 4 ma osobne wiersze Pojedyncze/SERIE/ZAPLANOWANE, więc skróty do nich
+    // byłyby duplikatem — zostaje JEDEN przycisk "Zarządzaj nagraniami" pod channelami
+    // (jedyne dojście do widoku zbiorczego, bo channel "wszystkie" w tym wariancie
+    // wypada — warsztat 19.08, punkt 2).
+    val mojeNagraniaShortcuts = remember(nagraniaVariant) {
+        if (nagraniaVariant == 4) {
+            listOf(
+                ShortcutItem("1", "Zarządzaj nagraniami", ShortcutIcon.MaterialIcon("settings"))
+            )
+        } else {
+            listOf(
+                ShortcutItem("1", "Zarządzaj nagraniami", ShortcutIcon.MaterialIcon("settings")),
+                ShortcutItem("2", "Pojedyncze", ShortcutIcon.MaterialIcon("video_library")),
+                ShortcutItem("3", "Serie", ShortcutIcon.MaterialIcon("live_tv")),
+                ShortcutItem("4", "Zaplanowane", ShortcutIcon.MaterialIcon("schedule"))
+            )
+        }
     }
 
     // Maximum number of channels when NAGRANIA is expanded (for stable FocusRequester map)
@@ -6658,6 +6671,7 @@ private fun MojeChannelsScreen(
                 "Pojedyncze nagrania",
                 "SERIE",
                 "ZAPLANOWANE",
+                "Skróty v2 Moje",                      // button "Zarządzaj nagraniami"
                 "Do obejrzenia",
                 "Wypożyczone",
                 "Aktywne pakiety"
@@ -6789,7 +6803,7 @@ private fun MojeChannelsScreen(
     // colIndex: -1 = icon, 0 = content
     // Special handling for "Skróty" - NO CategoryIcon (like WIDEO "Skróty v2")
     // Recreate when channels change (expand/collapse) to match current channel list
-    val channelFocusRequesters = remember(channels) {
+    val channelFocusRequesters = remember(channels, mojeNagraniaShortcuts.size) {
         mutableMapOf<Pair<Int, Int>, FocusRequester>().apply {
             channels.forEachIndexed { rowIndex, channelName ->
                 when {
@@ -6801,8 +6815,10 @@ private fun MojeChannelsScreen(
                         put(Pair(rowIndex, 0), FocusRequester())
                     }
                     channelName == "Skróty v2 Moje" -> {
-                        // 4 shortcuts row: direct focus on 4 buttons (NO CategoryIcon)
-                        repeat(4) { colIndex ->
+                        // Wiersz skrótów: bezpośredni fokus na przyciskach (BEZ CategoryIcon).
+                        // Liczba zależna od wariantu — 4 w wariantach 2/3, jeden
+                        // ("Zarządzaj nagraniami") w wariancie 4.
+                        repeat(mojeNagraniaShortcuts.size) { colIndex ->
                             put(Pair(rowIndex, colIndex), FocusRequester())
                         }
                     }
@@ -6920,7 +6936,8 @@ private fun MojeChannelsScreen(
                     onToggleExpansion = if (nagraniaVariant == 1) toggleNagraniaExpansion else null,
                     isNagraniaExpanded = isNagraniaExpanded,  // Faza 5
                     onToggleVersion = toggleNagraniaVersion,   // Key "8" handler
-                    onNavigateToMovieDetail = onNavigateToMovieDetail  // ENTER on Wypożyczone poster
+                    onNavigateToMovieDetail = onNavigateToMovieDetail,  // ENTER on Wypożyczone poster
+                    shortcutsCount = mojeNagraniaShortcuts.size
                 )
             }
             .focusable()
@@ -9605,6 +9622,25 @@ fun MojeUnifiedChannelRow(
                 sx = sx,
                 sy = sy
             )
+        } else if (channel == "Skróty v2 Moje" && mojeNagraniaShortcuts.size == 1) {
+            // WARIANT 4: pojedynczy przycisk "Zarządzaj nagraniami" pod channelami.
+            // BEZ ikony i w stylu przycisku z widoku zarządzania ("Dokup przestrzeń",
+            // RecordingsGridScreen.FigmaButton): wysokość 72, radius 8, aqua na fokusie.
+            // Nie ShortcutCardV2 — tam ikona jest częścią kompozycji karty.
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = sx(400))
+            ) {
+                MojeManageRecordingsButton(
+                    isFocused = isCurrentRow && focusedColIndex == 0,
+                    focusRequester = channelFocusRequesters[Pair(rowIndex, 0)] ?: FocusRequester(),
+                    onFocusChange = { onChannelContentFocusChange(rowIndex, 0) },
+                    onClick = { onNavigateToRecordingsGrid("Zarządzaj nagraniami", "MOJE") },
+                    sx = sx,
+                    sy = sy
+                )
+            }
         } else if (channel == "Skróty v2 Moje") {
             // 3. Shortcuts Row - 4 focusable buttons (Zarządzaj, Pojedyncze, Serie, Zaplanowane)
             Row(
@@ -10061,6 +10097,52 @@ private const val MOJE_VERTICAL_EXPANDED_ROW_HEIGHT = 636 // CategoryIcon (216px
 // Shortcuts v4 (Skróty sub-channel) - fixed height, NO expansion, half-size card
 private const val MOJE_SHORTCUTS_NORMAL_ROW_HEIGHT = 150 // Shortcut card (90px) + spacing (60px)
 private const val MOJE_SHORTCUTS_EXPANDED_ROW_HEIGHT = 150 // NO expansion - always 150px
+/**
+ * Przycisk "Zarządzaj nagraniami" dla wariantu 4 sekcji MOJE.
+ *
+ * Wygląd 1:1 z `FigmaButton` w RecordingsGridScreen (ten przy statusie zajętości,
+ * "Dokup przestrzeń"): wysokość 72, radius 8, padding 32 w poziomie, Bold 24sp,
+ * aqua #5AECD3 + tekst #48227C na fokusie. Bez ikony.
+ *
+ * KEY HANDLER: sam obsługuje ENTER (jak FigmaButton), bo wiersz "Skróty v2 Moje"
+ * nie przepuszcza ENTER-a do CategoryIcon — CategoryIcon-a w tym wierszu nie ma.
+ * BACK KeyUp konsumowany — patrz dwufazowy bug BACK.
+ */
+@Composable
+private fun MojeManageRecordingsButton(
+    isFocused: Boolean,
+    focusRequester: FocusRequester,
+    onFocusChange: () -> Unit,
+    onClick: () -> Unit,
+    sx: (Int) -> androidx.compose.ui.unit.Dp,
+    sy: (Int) -> androidx.compose.ui.unit.Dp
+) {
+    Box(
+        modifier = Modifier
+            .height(sy(72))
+            .background(
+                color = if (isFocused) Color(0xFF5AECD3) else Color(0x33EEEEEE),
+                shape = RoundedCornerShape(sx(8))
+            )
+            .focusRequester(focusRequester)
+            // KOLEJNOŚĆ: clickable PRZED focusable — inaczej element dostaje dwa
+            // focus targety i ENTER trafia w ten pierwszy, bez akcji
+            .clickable { onClick() }
+            .onFocusChanged { if (it.isFocused) onFocusChange() }
+            .focusable()
+            .padding(horizontal = sx(32)),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "Zarządzaj nagraniami",
+            color = if (isFocused) Color(0xFF48227C) else Color(0xFFEEEEEE),
+            fontSize = (24 * sy(1).value / 1.dp.value).sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = (-0.48).sp
+        )
+    }
+}
+
 // Shortcuts v2 (Skróty v2 Moje) - fixed height, NO expansion, larger card
 private const val MOJE_SHORTCUTS_V2_NORMAL_ROW_HEIGHT = 160 // Shortcut card (120px) + spacing (40px)
 private const val MOJE_SHORTCUTS_V2_EXPANDED_ROW_HEIGHT = 160 // NO expansion - always 160px
@@ -10300,7 +10382,10 @@ fun handleMojeChannelsNavigation(
     onToggleExpansion: (() -> Unit)? = null,
     isNagraniaExpanded: Boolean = false,  // Faza 5: For auto-collapse detection
     onToggleVersion: (() -> Unit)? = null,  // Key "8": Toggle v1/v2
-    onNavigateToMovieDetail: (VodSlideData) -> Unit = {}  // ENTER on rented poster (Wypożyczone)
+    onNavigateToMovieDetail: (VodSlideData) -> Unit = {},  // ENTER on rented poster (Wypożyczone)
+    // Liczba przycisków w wierszu "Skróty v2 Moje" — 4 w wariantach 2/3, jeden
+    // ("Zarządzaj nagraniami") w wariancie 4. Granica dla PRAWO.
+    shortcutsCount: Int = 4
 ): Boolean {
     if (event.nativeKeyEvent.action != android.view.KeyEvent.ACTION_DOWN) return false
 
@@ -10542,19 +10627,15 @@ fun handleMojeChannelsNavigation(
                 return true
             }
 
-            // Special handling for "Skróty v2 Moje" - 4 shortcuts, move between them
+            // Skróty v2 Moje — ruch między przyciskami. Liczba przycisków zależy od
+            // wariantu (4 w wariantach 2/3, jeden w wariancie 4), więc granica NIE może
+            // być zahardkodowana na 3 — inaczej w wariancie 4 fokus wchodził na kolumny
+            // bez karty i przycisk "gubił" podświetlenie.
             if (currentChannel == "Skróty v2 Moje") {
-                when {
-                    focusedColIndex < 3 -> {
-                        // Move to next shortcut (max colIndex is 3 for 4 shortcuts)
-                        val newColIndex = focusedColIndex + 1
-                        onChannelContentFocusChange(focusedRowIndex, newColIndex)
-                        channelFocusRequesters[Pair(focusedRowIndex, newColIndex)]?.requestFocus()
-                    }
-                    focusedColIndex == 3 -> {
-                        // Already at last shortcut - do nothing
-                        return true
-                    }
+                if (focusedColIndex < shortcutsCount - 1) {
+                    val newColIndex = focusedColIndex + 1
+                    onChannelContentFocusChange(focusedRowIndex, newColIndex)
+                    channelFocusRequesters[Pair(focusedRowIndex, newColIndex)]?.requestFocus()
                 }
                 return true
             }
