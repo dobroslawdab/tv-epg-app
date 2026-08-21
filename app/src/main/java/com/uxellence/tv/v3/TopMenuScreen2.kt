@@ -1365,7 +1365,23 @@ fun TopMenuScreen2(
 
     // Global state for keyboard shortcuts (defined early for use in global handlers)
     var isEpgSectionExpanded by remember { mutableStateOf(com.uxellence.tv.v3.utils.VersionTracker.getEpgSectionExpanded(context)) }
-    var showNagraniaV2 by remember { mutableStateOf(com.uxellence.tv.v3.utils.VersionTracker.getNagraniaVersion(context) == "v2") }
+    // Wariant układu NAGRAŃ w sekcji MOJE (dev menu "0" → "Nagrania (MOJE)"):
+    //   1 = drzewko rozwijalne ("Moje nagrania" + pod-wiersze po rozwinięciu)
+    //       — kierunek ODRZUCONY przez deweloperów (nie chcą rozwijania sekcji),
+    //         trzymany do porównania na warsztatach
+    //   2 = płasko: licznik miejsca + jeden wiersz "Nagrania" + empty state
+    //   3 = trzy wiersze WPROST w "Moje" (Pojedyncze / SERIE / ZAPLANOWANE),
+    //       bez rozwijania — wariant "wyniesione o poziom wyżej" (arg. Oli:
+    //       wchodzisz w MOJE i od razu widzisz nagrania)
+    var nagraniaVariant by remember {
+        mutableIntStateOf(
+            when (com.uxellence.tv.v3.utils.VersionTracker.getNagraniaVersion(context)) {
+                "v2" -> 2
+                "v3" -> 3
+                else -> 1
+            }
+        )
+    }
 
     // "Moja lista kanałów" — flag shared with TELEWIZJA "Utwórz/Edytuj listę"
     // skrót. When false, MOJE v2 swaps the row for `[BANNER-MOJE-FAV]` empty state.
@@ -2177,9 +2193,9 @@ fun TopMenuScreen2(
                 onEpgSectionExpandedChange = { expanded ->
                     isEpgSectionExpanded = expanded
                 },
-                showNagraniaV2 = showNagraniaV2,
-                onShowNagraniaV2Change = { v2 ->
-                    showNagraniaV2 = v2
+                nagraniaVariant = nagraniaVariant,
+                onNagraniaVariantChange = { v ->
+                    nagraniaVariant = v
                 },
                 isMyListCreated = rootIsMyListCreated,
                 sliderVersion = sliderVersion,
@@ -2452,11 +2468,12 @@ fun TopMenuScreen2(
                     vodWypozyczoneVariant = (vodWypozyczoneVariant + 1) % 2
                     sliderPrefs.edit().putInt("vod_wypozyczone_variant", vodWypozyczoneVariant).apply()
                 },
-                showNagraniaV2 = showNagraniaV2,
-                onShowNagraniaV2Toggle = {
-                    showNagraniaV2 = !showNagraniaV2
+                nagraniaVariant = nagraniaVariant,
+                onNagraniaVariantCycle = {
+                    // 1 → 2 → 3 → 1
+                    nagraniaVariant = (nagraniaVariant % 3) + 1
                     com.uxellence.tv.v3.utils.VersionTracker.setNagraniaVersion(
-                        context, if (showNagraniaV2) "v2" else "v1"
+                        context, "v$nagraniaVariant"
                     )
                 },
                 candyBarVisible = isCandyBarVisible,
@@ -2482,8 +2499,8 @@ private fun DevTogglesModal(
     onProfileVariantCycle: () -> Unit,
     vodWypozyczoneVariant: Int,
     onVodWypozyczoneVariantCycle: () -> Unit,
-    showNagraniaV2: Boolean = false,
-    onShowNagraniaV2Toggle: () -> Unit = {},
+    nagraniaVariant: Int = 1,
+    onNagraniaVariantCycle: () -> Unit = {},
     candyBarVisible: Boolean = true,
     onOfferToggle: () -> Unit = {},
     onDismiss: () -> Unit
@@ -2503,8 +2520,12 @@ private fun DevTogglesModal(
         Triple("Wypożyczone Kino Play", vodWypLabels.getOrElse(vodWypozyczoneVariant) { vodWypozyczoneVariant.toString() }, onVodWypozyczoneVariantCycle),
         Triple(
             "MOJE wersja",
-            if (showNagraniaV2) "v2 (empty state banner)" else "v1 (kanały)",
-            onShowNagraniaV2Toggle
+            when (nagraniaVariant) {
+                2 -> "2: płasko + licznik miejsca"
+                3 -> "3: trzy wiersze w Moje"
+                else -> "1: drzewko (odrzucone przez dev)"
+            },
+            onNagraniaVariantCycle
         ),
         Triple(
             "Wypożyczone",
@@ -4115,8 +4136,8 @@ private fun FullPageContent(
     onProfileSelected: (UserProfile) -> Unit = {},  // Wywoływane po kliknięciu profilu w ProfileScreenContent
     isEpgSectionExpanded: Boolean = false,
     onEpgSectionExpandedChange: (Boolean) -> Unit = {},
-    showNagraniaV2: Boolean = false,
-    onShowNagraniaV2Change: (Boolean) -> Unit = {},
+    nagraniaVariant: Int = 1,
+    onNagraniaVariantChange: (Int) -> Unit = {},
     isMyListCreated: Boolean = false,  // MOJE v2 swaps "Moja lista kanałów" for `[BANNER-MOJE-FAV]` when false
     sliderVersion: Int = 1,  // 1 = V1 with carousel, 2 = V2 with border
     v3SliderAutoSlideEnabled: Boolean = false,  // Key.Eight toggle for V3 slider auto-slide and bullets
@@ -4179,8 +4200,8 @@ private fun FullPageContent(
                         onNavigateToMovieDetail = onNavigateToMovieDetail,
                         sx = sx,
                         sy = sy,
-                        showNagraniaV2 = showNagraniaV2,
-                        onShowNagraniaV2Change = onShowNagraniaV2Change,
+                        nagraniaVariant = nagraniaVariant,
+                        onNagraniaVariantChange = onNagraniaVariantChange,
                         onFocusedChannelChange = onFocusedChannelChange,
                         isMyListCreated = isMyListCreated
                     )
@@ -4325,8 +4346,8 @@ private fun MojeScreenContent(
     onNavigateToMovieDetail: (VodSlideData) -> Unit = {},  // ENTER on rented poster → MovieDetail
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
-    showNagraniaV2: Boolean = false,
-    onShowNagraniaV2Change: (Boolean) -> Unit = {},
+    nagraniaVariant: Int = 1,
+    onNagraniaVariantChange: (Int) -> Unit = {},
     isMyListCreated: Boolean = false,
     onFocusedChannelChange: (String) -> Unit = {}  // Callback for top gradient (MOJE always shows gradient)
 ) {
@@ -4345,14 +4366,14 @@ private fun MojeScreenContent(
     // so the user sees their normal MOJE channels layout. This makes the dev
     // toggle a single source of truth — no extra "isMyListCreated" or session
     // dismissal flags get in the way.
-    if (showNagraniaV2) {
+    if (nagraniaVariant == 2) {
         MojeEmptyStateScreen(
             shouldAutoFocus = globalFocusState.value.sectionId == "MOJE" && globalFocusState.value.currentRow > 0,
             onReturnToMenu = {
                 globalFocusState.value = GlobalFocusManager.returnToMenu(globalFocusState.value)
             },
-            onCreateList = { onShowNagraniaV2Change(false) },
-            onDismiss = { onShowNagraniaV2Change(false) },
+            onCreateList = { onNagraniaVariantChange(1) },
+            onDismiss = { onNagraniaVariantChange(1) },
             // Update globalFocusState.currentRow when one of the hero buttons takes
             // focus — otherwise the top menu keeps drawing its own focus ring (it
             // gates on `currentRow == 0`) and you'd see two focus indicators at once.
@@ -4380,8 +4401,8 @@ private fun MojeScreenContent(
         sx = sx,
         sy = sy,
         resetTrigger = resetTrigger,
-        showNagraniaV2 = showNagraniaV2,
-        onShowNagraniaV2Change = onShowNagraniaV2Change,
+        nagraniaVariant = nagraniaVariant,
+        onNagraniaVariantChange = onNagraniaVariantChange,
         isMyListCreated = isMyListCreated,
         onFocusedChannelChange = onFocusedChannelChange
     )
@@ -6547,8 +6568,8 @@ private fun MojeChannelsScreen(
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp,
     resetTrigger: Int = 0,
-    showNagraniaV2: Boolean = false,
-    onShowNagraniaV2Change: (Boolean) -> Unit = {},
+    nagraniaVariant: Int = 1,
+    onNagraniaVariantChange: (Int) -> Unit = {},
     isMyListCreated: Boolean = false,
     onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> },  // For TV channel click
     onFocusedChannelChange: (String) -> Unit = {}  // Callback for top gradient
@@ -6598,7 +6619,7 @@ private fun MojeChannelsScreen(
     // Toggle between v1 (Moje nagrania expandable) and v2 (Header + Nagrania + Skróty v2)
     // Key "8" on remote toggles this state (loaded from SharedPreferences)
     // MOVED TO TOP (now defined globally for keyboard shortcut access at line ~711)
-    // var showNagraniaV2 - defined at line ~711
+    // nagraniaVariant — przekazywany z TopMenuScreen2 (dev menu "0")
 
     // Shortcuts data for "Skróty v2 Moje" channel (4 buttons)
     val mojeNagraniaShortcuts = remember {
@@ -6614,9 +6635,29 @@ private fun MojeChannelsScreen(
     val MAX_MOJE_CHANNELS = 12  // Max from both versions (v1 expanded: 9, v2: 7)
 
     // Faza 3: Dynamic channel list - Toggle between v1 (Moje nagrania) and v2 (Header+Nagrania+Skróty)
-    // Key "8" on remote toggles showNagraniaV2
-    val channels = remember(isNagraniaExpanded, showNagraniaV2) {
-        if (showNagraniaV2) {
+    // Wariant przełączany w dev menu "0" → "Nagrania (MOJE)"
+    val channels = remember(isNagraniaExpanded, nagraniaVariant) {
+        if (nagraniaVariant == 3) {
+            // ═══════════════════════════════════════════════════════════════
+            // WARIANT 3: trzy wiersze nagrań WPROST w "Moje" — bez rozwijania.
+            // Kierunek "wyniesione o poziom wyżej" (warsztat 19.08): user wchodzi
+            // w MOJE i od razu widzi nagrania, bez przechodzenia na podstronę.
+            // Nie ma wiersza "wszystkie" — wejście do zarządzania nagraniami
+            // idzie skrótem "Nagrania" w wierszu Skróty.
+            // ═══════════════════════════════════════════════════════════════
+            listOf(
+                "Oglądaj dalej",
+                "Moja lista kanałów",
+                "[HEADER-RIGHT] Miejsce na nagrania",  // licznik pojemności
+                "Pojedyncze nagrania",
+                "SERIE",
+                "ZAPLANOWANE",
+                "Skróty v2 Moje",
+                "Do obejrzenia",
+                "Wypożyczone",
+                "Aktywne pakiety"
+            )
+        } else if (nagraniaVariant == 2) {
             // ═══════════════════════════════════════════════════════════════
             // VERSION 2: Header + Nagrania + Skróty v2 (8 channels)
             // Empty-state (nothing added yet) is handled at MojeScreenContent
@@ -6670,10 +6711,13 @@ private fun MojeChannelsScreen(
         Log.d("MOJE_DEBUG", "NAGRANIA expanded: $isNagraniaExpanded (channels: ${channels.size})")
     }
 
-    // Toggle between v1 and v2 (Key "8" on remote)
+    // Przełączanie wariantu nagrań: WYŁĄCZNIE dev menu "0" → "Nagrania (MOJE)".
+    // Klawisz "8" NIE działał, bo jest przechwytywany globalnie wyżej (auto-slide
+    // slidera V3 w ODKRYWAJ, `return@onPreviewKeyEvent true`) i nigdy nie docierał
+    // do MOJE — dlatego cykl trybów przeniesiony do dev menu.
     val toggleNagraniaVersion: () -> Unit = {
-        onShowNagraniaV2Change(!showNagraniaV2)
-        Log.d("MOJE_DEBUG", "Key 8 → Toggle Nagrania version: ${if (!showNagraniaV2) "v2" else "v1"} (channels: ${channels.size})")
+        onNagraniaVariantChange((nagraniaVariant % 3) + 1)
+        Log.d("MOJE_DEBUG", "Wariant nagrań → ${(nagraniaVariant % 3) + 1} (channels: ${channels.size})")
     }
 
     // Faza 3: Grid content mapping - uses MojeContentCache for persistent content
@@ -6682,7 +6726,7 @@ private fun MojeChannelsScreen(
     // "Wypożyczone" and "Do obejrzenia" refresh when user adds/removes items.
     val rentalsSnapshot = com.uxellence.tv.v3.rental.RentalManager.rentals.value
     val watchlistSnapshot = com.uxellence.tv.v3.watchlist.WatchlistManager.items.value
-    val gridContent = remember(isNagraniaExpanded, showNagraniaV2, rentalsSnapshot, watchlistSnapshot) {
+    val gridContent = remember(isNagraniaExpanded, nagraniaVariant, rentalsSnapshot, watchlistSnapshot) {
         MojeContentCache.getContent(channels, context)
     }
 
