@@ -2525,7 +2525,7 @@ private fun DevTogglesModal(
         Triple("Profil variant", profileVariantLabels.getOrElse(profileVariant) { profileVariant.toString() }, onProfileVariantCycle),
         Triple("Wypożyczone Kino Play", vodWypLabels.getOrElse(vodWypozyczoneVariant) { vodWypozyczoneVariant.toString() }, onVodWypozyczoneVariantCycle),
         Triple(
-            "MOJE wersja",
+            "MOJE Nagrania",
             when (nagraniaVariant) {
                 2 -> "2: płasko + licznik miejsca"
                 3 -> "3: wiersz + skróty (małe ikony)"
@@ -6654,7 +6654,7 @@ private fun MojeChannelsScreen(
             listOf(
                 "Oglądaj dalej",
                 "Moja lista kanałów",
-                "[HEADER-RIGHT] Miejsce na nagrania",  // status pojemności
+                "[HEADER-RIGHT] Moje nagrania",        // tytuł sekcji + status pojemności
                 "Pojedyncze nagrania",
                 "SERIE",
                 "ZAPLANOWANE",
@@ -9196,6 +9196,10 @@ fun handleStartNavigation(
 fun StorageCounterHeader(
     usedHours: Int = 140,
     totalHours: Int = 220,
+    // Tytuł sekcji po LEWEJ, na wysokości belki zajętości. Wariant 4 nie ma
+    // wiersza-rodzica "Moje nagrania", więc bez tego nic nie nazywa sekcji.
+    // Pusty = tylko belka po prawej (warianty 2 i 3, gdzie tytuł niesie wiersz).
+    sectionTitle: String = "",
     sx: (Int) -> androidx.compose.ui.unit.Dp,
     sy: (Int) -> androidx.compose.ui.unit.Dp
 ) {
@@ -9207,6 +9211,18 @@ fun StorageCounterHeader(
             .fillMaxWidth()
             .padding(end = sx(120))  // Right padding for alignment
     ) {
+        if (sectionTitle.isNotBlank()) {
+            Text(
+                text = sectionTitle,
+                fontSize = (32 * (sy(1).value / 1.dp.value)).sp,
+                fontWeight = FontWeight.Medium,
+                color = Color(0xFFEEEEEE),
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(start = sx(120))   // ta sama kolumna co CategoryIcony
+            )
+        }
+
         // Semi-transparent pill container - right-aligned
         Box(
             modifier = Modifier
@@ -9566,10 +9582,16 @@ fun MojeUnifiedChannelRow(
         // NEW SECTION v2: Header + Content + Shortcuts (3 channels)
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         if (channel.startsWith("[HEADER-RIGHT]")) {
-            // 1. Storage Counter Header - right-aligned, no focus
+            // 1. Storage Counter Header - right-aligned, no focus.
+            // Tytuł sekcji bierzemy z nazwy wiersza: "[HEADER-RIGHT] Moje nagrania"
+            // → "Moje nagrania" po lewej. Wariant 2/3 używa nazwy
+            // "[HEADER-RIGHT] Miejsce na nagrania", która tytułu nie wyświetla
+            // (tam sekcję nazywa CategoryIcon wiersza).
+            val headerLabel = channel.removePrefix("[HEADER-RIGHT]").trim()
             StorageCounterHeader(
                 usedHours = 140,
                 totalHours = 220,
+                sectionTitle = if (headerLabel == "Moje nagrania") headerLabel else "",
                 sx = sx,
                 sy = sy
             )
