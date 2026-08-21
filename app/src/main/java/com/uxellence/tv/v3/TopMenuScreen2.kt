@@ -6915,7 +6915,9 @@ private fun MojeChannelsScreen(
                     coroutineScope = coroutineScope,
                     gridContent = gridContent,
                     onReturnToMenu = onReturnToMenu,
-                    onToggleExpansion = toggleNagraniaExpansion,
+                    // Rozwijanie tylko w wariancie 1 — w 3/4 ENTER ma przejść
+                    // do CategoryIcon.onClick (grid nagrań)
+                    onToggleExpansion = if (nagraniaVariant == 1) toggleNagraniaExpansion else null,
                     isNagraniaExpanded = isNagraniaExpanded,  // Faza 5
                     onToggleVersion = toggleNagraniaVersion,   // Key "8" handler
                     onNavigateToMovieDetail = onNavigateToMovieDetail  // ENTER on Wypożyczone poster
@@ -6942,7 +6944,11 @@ private fun MojeChannelsScreen(
             sx = sx,
             sy = sy,
             isNagraniaExpanded = isNagraniaExpanded,
-            toggleNagraniaExpansion = toggleNagraniaExpansion,
+            // Rozwijanie (chevron) TYLKO w wariancie 1. W 3 i 4 chevron rysował
+            // strzałkę przy "Moje nagrania" I PRZECHWYTYWAŁ OK, więc klik nie
+            // otwierał gridu — dlatego v3 nie linkowało, a v4 tak (tam nie ma
+            // wiersza o tej nazwie).
+            toggleNagraniaExpansion = if (nagraniaVariant == 1) toggleNagraniaExpansion else null,
             mojeNagraniaShortcuts = mojeNagraniaShortcuts,  // NEW: pass shortcuts data
             mojaListaChannels = mojaListaChannels,  // NEW: pass TV channels for "Moja lista kanałów"
             onNavigateToEpgDay = onNavigateToEpgDay,  // For TV channel click
@@ -10029,7 +10035,9 @@ fun MojeUnifiedChannelRow(
                 // "Moje nagrania" to zwykły wiersz — chevron obiecywałby rozwijanie,
                 // które deweloperzy odrzucili
                 showChevron = (channel == "Moje nagrania" && toggleNagraniaExpansion != null),
-                onChevronClick = if (channel == "Moje nagrania") { { toggleNagraniaExpansion?.invoke() } } else null
+                onChevronClick = if (channel == "Moje nagrania" && toggleNagraniaExpansion != null) {
+                    { toggleNagraniaExpansion.invoke() }
+                } else null
             )
         }
         }  // end if (!channel.startsWith("[HEADER") && channel != "Skróty" && channel != "Skróty v2 Moje")
@@ -10302,11 +10310,16 @@ fun handleMojeChannelsNavigation(
         Key.Enter, Key.DirectionCenter -> {
             val channelName = channels.getOrNull(focusedRowIndex)
             if (focusedColIndex == -1) {
-                if (channelName == "Moje nagrania") {
-                    onToggleExpansion?.invoke()
+                // Rozwijanie TYLKO gdy wariant je udostępnia (onToggleExpansion != null,
+                // czyli wariant 1). W 3 i 4 ten handler zjadał ENTER i zwracał true,
+                // więc CategoryIcon.onClick nigdy się nie wykonywał — dlatego "Moje
+                // nagrania" nie linkowało do gridu, mimo że klik był podpięty.
+                if (channelName == "Moje nagrania" && onToggleExpansion != null) {
+                    onToggleExpansion.invoke()
                     Log.d("MOJE_DEBUG", "OK on MOJE NAGRANIA → toggle expansion")
                     return true
                 }
+                // Delegacja do CategoryIcon.clickable (grid nagrań w wariantach 3/4)
                 return false
             }
             // Content cell ENTER — Wypożyczone resolves the visible movie via the
