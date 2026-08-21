@@ -10370,19 +10370,27 @@ private fun calculateMojeChannelYPosition(
         rowIndex > focusedRowIndex -> {
             // Sprawdzamy czy zfokusowany kanał ma miniaturkę zfokusowaną (powiększony)
             val focusedChannelName = channels.getOrNull(focusedRowIndex) ?: ""
-            val focusedIsShortcuts = focusedChannelName in listOf("Skróty", "Skróty v2 Moje")
+            // UWAGA: "Skróty" i "Skróty v2 Moje" to DWA różne typy wiersza o różnej
+            // wysokości. Wspólny warunek mapował oba na wysokość starego "Skróty"
+            // (150), więc gdy fokus stał na wierszu skrótów v2, kolejny channel
+            // pozycjonował się o (v2 − 150) px za wysoko i odstęp pod nim się kurczył.
+            // Przy 160 to było 10 px (niewidoczne), przy panelu zajętości 200 — 50 px.
+            val focusedIsShortcutsV1 = focusedChannelName == "Skróty"
+            val focusedIsShortcutsV2 = focusedChannelName == "Skróty v2 Moje"
             val focusedIsVertical = focusedChannelName == "Wypożyczone"
             val focusedIsAppIcons = focusedChannelName == "Moja lista kanałów"
             val focusedChannelExpansion = if (focusedColIndex >= 0) {
                 when {
-                    focusedIsShortcuts -> MOJE_SHORTCUTS_EXPANDED_ROW_HEIGHT
+                    focusedIsShortcutsV1 -> MOJE_SHORTCUTS_EXPANDED_ROW_HEIGHT
+                    focusedIsShortcutsV2 -> shortcutsV2Height   // brak rozwijania
                     focusedIsVertical -> MOJE_VERTICAL_EXPANDED_ROW_HEIGHT
                     focusedIsAppIcons -> MOJE_APP_ICONS_EXPANDED_ROW_HEIGHT  // No expansion
                     else -> MOJE_HORIZONTAL_EXPANDED_ROW_HEIGHT
                 }
             } else {
                 when {
-                    focusedIsShortcuts -> MOJE_SHORTCUTS_NORMAL_ROW_HEIGHT
+                    focusedIsShortcutsV1 -> MOJE_SHORTCUTS_NORMAL_ROW_HEIGHT
+                    focusedIsShortcutsV2 -> shortcutsV2Height
                     focusedIsVertical -> MOJE_VERTICAL_NORMAL_ROW_HEIGHT
                     focusedIsAppIcons -> MOJE_APP_ICONS_NORMAL_ROW_HEIGHT
                     else -> MOJE_HORIZONTAL_NORMAL_ROW_HEIGHT
