@@ -7951,11 +7951,15 @@ private fun ShortcutCardV2(
             .clip(RoundedCornerShape(sx(20)))
             .background(Color(0x3B000000)) // rgba(0, 0, 0, 0.23)
             .focusRequester(focusRequester)
-            .focusable()
+            // KOLEJNOŚĆ MA ZNACZENIE: clickable PRZED focusable (jak w CategoryIcon,
+            // które działa). Przy `.focusable().clickable{}` element dostawał dwa
+            // focus targety i ENTER trafiał w ten pierwszy, bez akcji — skróty
+            // nagrań w MOJE wyglądały na klikalne, ale nic nie robiły.
             .clickable { onClick() }
             .onFocusChanged { focusState ->
                 onFocusChange(focusState.isFocused)
             }
+            .focusable()
     ) {
         Box(
             modifier = Modifier
