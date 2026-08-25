@@ -156,6 +156,7 @@ import com.uxellence.tv.v3.utils.VersionTracker
 import com.uxellence.tv.v3.config.ConfigManager
 import com.uxellence.tv.v3.repository.toVodSlideData
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import com.uxellence.tv.v3.components.PrototypeStub
@@ -1329,6 +1330,7 @@ fun TopMenuScreen2(
     onNavigateToEpg: () -> Unit = {},
     onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> },
     onNavigateToStartupMode: () -> Unit = {},  // Navigate to startup mode selection
+    onNavigateToDevices: () -> Unit = {},  // Navigate to logged devices screen
     onFocusRestored: () -> Unit = {},
     restoredTelewizjaFocus: FocusState? = null,
     restoredSection: String? = null,
@@ -1455,6 +1457,8 @@ fun TopMenuScreen2(
     val globalFocusState = GlobalFocusManager.rememberGlobalFocusState(
         initialRow = if (restoredTelewizjaFocus != null && restoredSection == "TELEWIZJA") {
             1  // Restore to content mode (actual channel/item restoration handled by ID-based logic)
+        } else if (restoredSection == "ACCOUNT") {
+            1  // Powrót z pełnoekranowych podstron Konta (Zalogowane urządzenia)
         } else {
             0  // Default to menu
         },
@@ -2175,6 +2179,7 @@ fun TopMenuScreen2(
                 onNavigateToEpg = onNavigateToEpg,
                 onNavigateToEpgDay = onNavigateToEpgDay,
                 onNavigateToStartupMode = onNavigateToStartupMode,
+                onNavigateToDevices = onNavigateToDevices,
                 onFocusRestored = onFocusRestored,
                 restoredTelewizjaFocus = restoredTelewizjaFocus,
                 onNavigateToChannelGrid = onNavigateToChannelGrid,
@@ -4128,6 +4133,7 @@ private fun FullPageContent(
     onNavigateToEpg: () -> Unit = {},
     onNavigateToEpgDay: (channelId: String, itemId: String?, scrollPosition: Int, sectionId: String) -> Unit = { _, _, _, _ -> },
     onNavigateToStartupMode: () -> Unit = {},  // Navigate to startup mode selection
+    onNavigateToDevices: () -> Unit = {},  // Navigate to logged devices screen
     onFocusRestored: () -> Unit = {},
     restoredTelewizjaFocus: FocusState? = null,
     onNavigateToChannelGrid: (title: String, category: String, filter: ((TvChannel) -> Boolean)?, channelList: List<TvChannel>?) -> Unit = { _, _, _, _ -> },
@@ -4288,6 +4294,7 @@ private fun FullPageContent(
                     "ACCOUNT" -> AccountScreenContent(
                         globalFocusState = globalFocusState,
                         onNavigateToStartupMode = onNavigateToStartupMode,
+                        onNavigateToDevices = onNavigateToDevices,
                         onPrepareReturnFocus = { onPrepareReturnFocus("ACCOUNT") },
                         sx = sx,
                         sy = sy,
@@ -23986,6 +23993,7 @@ private fun ProfileScreenContent(
 private fun AccountScreenContent(
     globalFocusState: MutableState<GlobalFocusState>,
     onNavigateToStartupMode: () -> Unit,
+    onNavigateToDevices: () -> Unit = {},
     onPrepareReturnFocus: () -> Unit = {},  // Set button focus state BEFORE returning
     sx: (Int) -> Dp,
     sy: (Int) -> Dp,
@@ -24015,6 +24023,7 @@ private fun AccountScreenContent(
             )
         },
         onNavigateToStartupMode = onNavigateToStartupMode,
+        onNavigateToDevices = onNavigateToDevices,
         shouldAutoFocus = globalFocusState.value.sectionId == "ACCOUNT" && globalFocusState.value.currentRow > 0,
         sx = sx,
         sy = sy,
@@ -24030,7 +24039,7 @@ private fun AccountScreenContent(
 /**
  * Focus levels for Account section
  * Level 1: Top Menu (handled by GlobalFocusManager)
- * Level 2: Menu List (10 menu items: Powiadomienia + 9 others)
+ * Level 2: Menu List (12 menu items: Powiadomienia + 11 others)
  */
 private enum class AccountFocusLevel {
     PROFILE,      // Unused - kept for compatibility
@@ -24041,7 +24050,7 @@ private enum class AccountFocusLevel {
  * AccountChannelsScreen - Main Account section component
  *
  * Design:
- * - Menu List: 10 menu items (Powiadomienia as first item)
+ * - Menu List: 12 menu items (Powiadomienia as first item)
  *
  * Focus Hierarchy:
  * 1. Top Menu → MENU_LIST (auto-focus on Powiadomienia)
@@ -24065,6 +24074,7 @@ private fun getCurrentStartupModeLabel(context: Context): String {
 private fun AccountChannelsScreen(
     onReturnToMenu: () -> Unit = {},
     onNavigateToStartupMode: () -> Unit = {},
+    onNavigateToDevices: () -> Unit = {},
     shouldAutoFocus: Boolean = false,
     sx: (Int) -> Dp,
     sy: (Int) -> Dp,
@@ -24077,7 +24087,7 @@ private fun AccountChannelsScreen(
 ) {
     val context = LocalContext.current
 
-    // 10 menu items (Powiadomienia first, then Ekran startowy at row 3)
+    // 12 menu items (Powiadomienia first, then Ekran startowy at row 3)
     val menuItems = remember(context, availableUpdate) {
         listOf(
             AccountMenuItem(
@@ -24141,6 +24151,13 @@ private fun AccountChannelsScreen(
                 icon = Icons.Default.Search
             ),
             AccountMenuItem(
+                id = "devices",
+                title = "Zalogowane urządzenia",
+                subtitle = "Zarządzaj urządzeniami zalogowanymi na koncie " +
+                    "(limit ${com.uxellence.tv.v3.devices.DeviceSessionManager.DEVICE_LIMIT})",
+                icon = Icons.Default.Devices
+            ),
+            AccountMenuItem(
                 id = "help",
                 title = "Pomoc",
                 subtitle = "Znajdź odpowiedź na najczęstsze pytania",
@@ -24153,25 +24170,31 @@ private fun AccountChannelsScreen(
 
     // 2-level focus state (Profile, Menu List)
     var focusLevel by remember { mutableStateOf(AccountFocusLevel.PROFILE) }
-    var menuListIndex by remember { mutableStateOf(0) } // 0-10 for menu items (11 total)
+    var menuListIndex by remember { mutableStateOf(0) } // 0-11 for menu items (12 total)
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
 
     // FocusRequesters for 2 levels
     val profileFocusRequester = remember { FocusRequester() }
 
-    // FocusRequesters for Menu List (11 items: Powiadomienia + Ekran startowy + Pobierz parametry + others)
+    // FocusRequesters for Menu List (12 items: Powiadomienia + Ekran startowy + Pobierz parametry + others)
     val menuListFocusRequesters = remember {
-        (0 until 11).associateWith { FocusRequester() }
+        (0 until 12).associateWith { FocusRequester() }
     }
 
     // Auto-focus first menu item (Powiadomienia) when entering content (follows Focus Architect pattern)
+    // Wyjątek: powrót z pełnoekranowego "Zalogowane urządzenia" (pendingAccountRefocus)
+    // ląduje z powrotem na tej pozycji menu, nie na Powiadomieniach
     LaunchedEffect(shouldAutoFocus, resetTrigger) {
         if (shouldAutoFocus) {
             delay(100)
+            val target = if (com.uxellence.tv.v3.devices.DeviceSessionManager.pendingAccountRefocus) {
+                com.uxellence.tv.v3.devices.DeviceSessionManager.pendingAccountRefocus = false
+                menuItems.indexOfFirst { it.id == "devices" }.coerceAtLeast(0)
+            } else 0
             focusLevel = AccountFocusLevel.MENU_LIST
-            menuListIndex = 0
-            menuListFocusRequesters[0]?.requestFocus()
+            menuListIndex = target
+            menuListFocusRequesters[target]?.requestFocus()
         }
     }
 
@@ -24224,6 +24247,10 @@ private fun AccountChannelsScreen(
                             "startup_mode" -> {
                                 Log.d("ACCOUNT", "Navigate to Startup Mode Selection")
                                 onNavigateToStartupMode()
+                            }
+                            "devices" -> {
+                                Log.d("ACCOUNT", "Navigate to Logged Devices")
+                                onNavigateToDevices()
                             }
                             "remote_config" -> {
                                 Log.d("ACCOUNT", "Pobierz parametry clicked - fetching config from Supabase")
@@ -24286,6 +24313,10 @@ private fun AccountChannelsScreen(
                             "startup_mode" -> {
                                 Log.d("ACCOUNT", "Navigate to Startup Mode Selection")
                                 onNavigateToStartupMode()
+                            }
+                            "devices" -> {
+                                Log.d("ACCOUNT", "Navigate to Logged Devices")
+                                onNavigateToDevices()
                             }
                             "remote_config" -> {
                                 Log.d("ACCOUNT", "Pobierz parametry clicked - fetching config from Supabase")

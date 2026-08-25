@@ -107,7 +107,7 @@ class MainActivity : ComponentActivity() {
 }
 
 enum class NavigationScreen {
-    HOME, LIVE, COMPONENT_SHOWCASE, TOP_MENU2, SHORTCUT, CHANNELE, VIDEOSLIDER, SLIDER, SLIDER_MIX, EPG, EPG_DAY, FOCUS_MINI_CARD, VOICE_TEST, SPLASH, WHATS_NEW, STARTUP_MODE_SELECTION, LAUNCHER_SETUP, ZAPPING_BAR, CHANNEL_GRID, WIDEO_GRID, KINO_GRID, VOD_GRID, RECORDINGS_GRID, APPS_GRID, SERIES_EPISODES, MOVIE_DETAIL, PURCHASE, RENTAL_PROCESSING, OLYMPICS, VOD_PLAYER, DEMO_LIVE, DEMO_VOD, PACKAGE_DETAIL
+    HOME, LIVE, COMPONENT_SHOWCASE, TOP_MENU2, SHORTCUT, CHANNELE, VIDEOSLIDER, SLIDER, SLIDER_MIX, EPG, EPG_DAY, FOCUS_MINI_CARD, VOICE_TEST, SPLASH, WHATS_NEW, STARTUP_MODE_SELECTION, LAUNCHER_SETUP, ZAPPING_BAR, CHANNEL_GRID, WIDEO_GRID, KINO_GRID, VOD_GRID, RECORDINGS_GRID, APPS_GRID, SERIES_EPISODES, MOVIE_DETAIL, PURCHASE, RENTAL_PROCESSING, OLYMPICS, VOD_PLAYER, DEMO_LIVE, DEMO_VOD, PACKAGE_DETAIL, DEVICES
 }
 
 // Helper functions for launcher setup
@@ -717,6 +717,9 @@ fun TvRoot(
                         } else {
                             currentScreen = NavigationScreen.EPG_DAY
                         }
+                    },
+                    onNavigateToDevices = {
+                        currentScreen = NavigationScreen.DEVICES
                     },
                     onNavigateToStartupMode = {
                         previousScreen = NavigationScreen.TOP_MENU2
@@ -1587,6 +1590,26 @@ fun TvRoot(
                         savedTelewizjaSection = "KINO_PLAY"
                     }
                 }
+            }
+            NavigationScreen.DEVICES -> {
+                val configuration = LocalConfiguration.current
+                val scaleX = configuration.screenWidthDp / 1920f
+                val scaleY = configuration.screenHeightDp / 1080f
+                fun sx(px: Int) = (px * scaleX).dp
+                fun sy(px: Int) = (px * scaleY).dp
+
+                com.uxellence.tv.v3.devices.LoggedDevicesScreen(
+                    onClose = {
+                        // Wróć do sekcji Konto z fokusem na pozycji "Zalogowane
+                        // urządzenia" (konsumowane w AccountChannelsScreen)
+                        com.uxellence.tv.v3.devices.DeviceSessionManager
+                            .pendingAccountRefocus = true
+                        savedTelewizjaSection = "ACCOUNT"
+                        currentScreen = NavigationScreen.TOP_MENU2
+                    },
+                    sx = ::sx,
+                    sy = ::sy
+                )
             }
             NavigationScreen.PACKAGE_DETAIL -> {
                 val paket = selectedPaket
