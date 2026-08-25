@@ -1044,6 +1044,18 @@ SafeNavigationScope(
 - **Chicken-and-egg ostrzeżenie**: Update-flow fix można dostarczyć tylko via update-flow. Jeśli wypuszczasz fix tej infrastruktury, testuj **dwukrotnie**: prev→fix (czy popsute potrafi się zaktualizować) **i** fix→fix+1 (czy fix sam nie wprowadził regresji)
 - **Lesson**: Filesystem timing + ACTION_VIEW install + Compose state flip to **trzy niezależne wyścigi**. Każdy z nich osobno wygląda jak "nie do złapania w testach" race. Fix wymaga obrony na każdej z warstw — usunięcie nawet jednej (np. "po co spinner skoro flush już jest") otwiera ponownie tę samą klasę bugów na innej rate-of-failure. **NIE usuwaj żadnego z elementów bez przeczytania pattern guide.**
 
+#### **Issue #13: Konto → Zalogowane urządzenia (zarządzanie sesjami, limit 5)** (2026-08-25, v5.18.5)
+- **Feature**: Nowa pozycja Konta między "Wyszukiwaniem kanałów TV" a "Pomocą" — pełnoekranowa podstrona (bez top menu) z listą urządzeń zalogowanych na koncie: licznik "X z 5" + komunikat limitu, zdalne wylogowanie z potwierdzeniem (Wyloguj/Anuluj), bieżący dekoder z kłódką (modal wyjaśniający zamiast akcji)
+- **Architektura**:
+  - `devices/DeviceSessionManager.kt` — Compose-observable singleton, stan **in-memory bez persystencji** (świadomie: demo limitu 5/5 resetuje się przy restarcie apki; `logout()` ignoruje `isCurrent` także poza UI). Debug reset: `DeviceSessionManager.reset()`
+  - `devices/LoggedDevicesScreen.kt` — pełny ekran renderowany z MainActivity jako `NavigationScreen.DEVICES` (wzór PACKAGE_DETAIL), NIE overlay w sekcji Konta (pierwsza iteracja overlayowa odrzucona — top menu zostawało widoczne)
+  - Wejście: `AccountChannelsScreen` item `devices` → callback `onNavigateToDevices` przewleczony przez TopMenuScreen2 → MainActivity
+  - **Powrót z fokusem**: `DeviceSessionManager.pendingAccountRefocus` (ustawiane w `onClose`) + `restoredSection == "ACCOUNT"` → `initialRow = 1` w TopMenuScreen2 + konsumpcja flagi w auto-focus `AccountChannelsScreen` (fokus ląduje z powrotem na pozycji "Zalogowane urządzenia", nie na Powiadomieniach)
+- **Key handling** (wzorce repo): BACK przez `BackHandler` (dwufazowy bug BACK — KeyDown zwraca false, zabłąkane KeyUp konsumowane), modal STANOWY bez własnych focusable (lekcja #11 — realny fokus zostaje na karcie), UP z pierwszej karty / LEFT = wyjście
+- **Menu Konta**: 12 pozycji (menuListFocusRequesters `0 until 12`) — przy dodawaniu kolejnej pozycji pamiętaj o podbiciu tego zakresu
+- **Files**: NEW `devices/DeviceSessionManager.kt`, NEW `devices/LoggedDevicesScreen.kt`, MOD `MainActivity.kt` (+DEVICES enum, +case, +callback), MOD `TopMenuScreen2.kt` (item devices, przewleczenie callbacku, initialRow ACCOUNT, konsumpcja pendingAccountRefocus)
+- **Release**: v5.18.5 (vc 72) — update flow prev→new przetestowany na emulatorze (5.18.2 → dialog → download → Zainstaluj teraz → packageinstaller → 5.18.5 ✅)
+
 #### **Key Learnings**
 1. **Delegation Pattern**: Sections with complex multi-row navigation (MOJE, START, APLIKACJE, VOD) should delegate ALL keys to child components
 2. **Callback Pattern**: Child components use `onReturnToMenu` callback for menu transitions instead of parent intercepting keys
