@@ -631,6 +631,10 @@ fun DemoLiveScreen(
     // v4: taśma miniatur na poziomie paska pojawia się DOPIERO po pierwszym
     // LEFT/RIGHT (uwaga usera 2026-08-26) — wejście na pasek to sam playhead
     var v4StripEngaged by remember { mutableStateOf(false) }
+    // Zakres karuzeli kart (pełna ramówka) — aktualizowane w renderze (SideEffect),
+    // czytane w keyHandlerze do clampowania v4CardShift na krańcach listy
+    var v4CardsCount by remember { mutableStateOf(3) }
+    var v4WatchedIdx by remember { mutableStateOf(1) }
     // Wersja 3 — poziom fokusa: 0=kontrolki, 1=pasek (L/P=przewijanie), 2=miniaturka
     var figmaZone by remember { mutableIntStateOf(0) }
     var scrubCursorMs by remember { mutableLongStateOf(0L) }
@@ -2274,11 +2278,13 @@ fun DemoLiveScreen(
                     // Karta: ‹ › przegląd sąsiednich programów, DOWN → pasek, UP/OK
                     playerZone == PlayerZone.SNIPPET -> when (keyCode) {
                         android.view.KeyEvent.KEYCODE_DPAD_LEFT -> {
-                            if (v4CardShift > -1) v4CardShift--
+                            // Pełna ramówka: aż do pierwszego bloku listy
+                            v4CardShift = (v4CardShift - 1).coerceAtLeast(-v4WatchedIdx)
                             true
                         }
                         android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                            if (v4CardShift < 1) v4CardShift++
+                            v4CardShift = (v4CardShift + 1)
+                                .coerceAtMost(v4CardsCount - 1 - v4WatchedIdx)
                             true
                         }
                         android.view.KeyEvent.KEYCODE_DPAD_DOWN -> {
@@ -2582,12 +2588,21 @@ fun DemoLiveScreen(
                 )
             }
             val liveNow = uiRefVirtualMs in uiMainBlock.startVirtualMs..uiMainBlock.endVirtualMs
-            val v4Cards = listOfNotNull(
-                v4Block(uiPrevBlock, live = false),
-                v4Block(uiMainBlock, live = liveNow),
-                v4Block(uiNextBlock, live = false)
-            )
-            val v4CurIndex = if (uiPrevBlock != null) 1 else 0
+            // CAŁA ramówka w karuzeli (uwaga usera 2026-08-26: nie tylko ±1
+            // program) — jak w pasku mini EPG; barker daje bloki z blocksAround
+            val v4AllBlocks = activeBarker()?.schedule
+                ?.blocksAround(uiRefVirtualMs, before = 12, after = 12)
+                ?: listOfNotNull(uiPrevBlock, uiMainBlock, uiNextBlock)
+            val v4CurIndex = v4AllBlocks.indexOfFirst {
+                uiRefVirtualMs in it.startVirtualMs..it.endVirtualMs
+            }.coerceAtLeast(0)
+            val v4Cards = v4AllBlocks.mapIndexed { i, b ->
+                v4Block(b, live = i == v4CurIndex && liveNow)!!
+            }
+            SideEffect {
+                v4CardsCount = v4Cards.size
+                v4WatchedIdx = v4CurIndex
+            }
             DemoPlayerV4Ui(
                 isVisible = layer == DemoLayer.PLAYER_UI && playerZone != PlayerZone.DETAIL,
                 zone = playerZone,
