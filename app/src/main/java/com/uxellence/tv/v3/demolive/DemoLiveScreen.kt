@@ -628,6 +628,9 @@ fun DemoLiveScreen(
     // Player v4 (prototyp player-scrub): przesunięcie karty TERAZ OGLĄDASZ
     // strzałkami ‹ › przy fokusie na karcie (-1 poprzedni, 0 bieżący, +1 następny)
     var v4CardShift by remember { mutableStateOf(0) }
+    // v4: taśma miniatur na poziomie paska pojawia się DOPIERO po pierwszym
+    // LEFT/RIGHT (uwaga usera 2026-08-26) — wejście na pasek to sam playhead
+    var v4StripEngaged by remember { mutableStateOf(false) }
     // Wersja 3 — poziom fokusa: 0=kontrolki, 1=pasek (L/P=przewijanie), 2=miniaturka
     var figmaZone by remember { mutableIntStateOf(0) }
     var scrubCursorMs by remember { mutableLongStateOf(0L) }
@@ -1682,6 +1685,7 @@ fun DemoLiveScreen(
                             // Realny live: taśma na osi wall-clock, kursor od bieżącej
                             // pozycji (live minus cofnięcie w oknie DVR)
                             playerZone = PlayerZone.STRIP
+                            v4StripEngaged = false
                             scrubStartVirtualMs = controller.virtualNow() - liveBehindMs
                             scrubCursorMs = scrubStartVirtualMs
                             updateFilmstrip(scrubCursorMs)
@@ -1692,6 +1696,7 @@ fun DemoLiveScreen(
                             // środkowy slot taśmy lądował "za live" i startował pustą
                             // klatką (LEFT/RIGHT robią ten sam coerceIn, stąd znikała).
                             playerZone = PlayerZone.STRIP
+                            v4StripEngaged = false
                             scrubStartVirtualMs = activeCtl().currentVirtualPositionMs()
                                 .coerceIn(activeCtl().dvrStartMs(), activeCtl().virtualNow())
                             scrubCursorMs = scrubStartVirtualMs
@@ -2251,6 +2256,14 @@ fun DemoLiveScreen(
                 // scrub i akcje OK 0-4; tu tylko różnice v4.
                 playerInteractionAt = System.currentTimeMillis()
                 when {
+                    // Pasek: LEFT/RIGHT odsłania taśmę miniatur (scrub obsługuje
+                    // standardowy handler — tu tylko side-effect i delegacja)
+                    playerZone == PlayerZone.STRIP &&
+                        (keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT ||
+                         keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT) -> {
+                        v4StripEngaged = true
+                        false
+                    }
                     // Pasek/taśma: UP → fokus na kartę (cała grupa + strzałki)
                     playerZone == PlayerZone.STRIP &&
                         keyCode == android.view.KeyEvent.KEYCODE_DPAD_UP -> {
@@ -2270,6 +2283,7 @@ fun DemoLiveScreen(
                         }
                         android.view.KeyEvent.KEYCODE_DPAD_DOWN -> {
                             playerZone = PlayerZone.STRIP
+                            v4StripEngaged = false   // sam playhead, taśma po LEFT/RIGHT
                             scrubStartVirtualMs = activeCtl().currentVirtualPositionMs()
                                 .coerceIn(activeCtl().dvrStartMs(), activeCtl().virtualNow())
                             scrubCursorMs = scrubStartVirtualMs
@@ -2279,13 +2293,29 @@ fun DemoLiveScreen(
                         android.view.KeyEvent.KEYCODE_DPAD_UP -> true   // karta = top
                         else -> false   // OK → standard (SNIPPET → detal programu)
                     }
-                    // Kontrolki: OK na EPG (5) / ustawieniach (6) — spoza standardu
+                    // Kontrolki: kolejność PROTOTYPU (1=Od początku, 2=Na żywo)
+                    // jest odwrotna niż akcje standardu (1=live, 2=od początku),
+                    // a 5/6 (EPG/ustawienia) nie istnieją w starym pasku
                     playerZone == PlayerZone.BUTTONS &&
                         (keyCode == android.view.KeyEvent.KEYCODE_DPAD_CENTER ||
                          keyCode == android.view.KeyEvent.KEYCODE_ENTER) &&
-                        playerButtonsFocus >= 5 -> {
-                        if (playerButtonsFocus == 5) openEpg()
-                        else demoToast = "Napisy i dźwięk — atrapa makiety"
+                        playerButtonsFocus in listOf(1, 2, 5, 6) -> {
+                        when (playerButtonsFocus) {
+                            1 -> {  // Od początku (slot 1 w prototypie)
+                                val ctl = activeCtl()
+                                val block = ctl.schedule.epgBlockAt(ctl.currentVirtualPositionMs())
+                                ctl.seekToVirtual(block.startVirtualMs)
+                                isPaused = false
+                                Log.i(TAG, "v4: od początku → ${block.startVirtualMs}ms")
+                            }
+                            2 -> {  // Wróć na żywo (slot 2 w prototypie)
+                                activeCtl().seekToLiveEdge()
+                                isPaused = false
+                                Log.i(TAG, "v4: wróć do live")
+                            }
+                            5 -> openEpg()
+                            else -> demoToast = "Napisy i dźwięk — atrapa makiety"
+                        }
                         true
                     }
                     else -> false
@@ -2561,9 +2591,10 @@ fun DemoLiveScreen(
             DemoPlayerV4Ui(
                 isVisible = layer == DemoLayer.PLAYER_UI && playerZone != PlayerZone.DETAIL,
                 zone = playerZone,
+                stripEngaged = v4StripEngaged,
                 cardBlocks = v4Cards,
                 cardIndex = (v4CurIndex + v4CardShift).coerceIn(0, v4Cards.lastIndex),
-                nextBlock = v4Block(uiNextBlock, live = false),
+                watchedIndex = v4CurIndex,
                 channelName = playerTunedRow?.channel?.name ?: "DEMO TV",
                 channelNumber = playerTunedRow?.channelNumber ?: 122,
                 channelLogoUrl = playerTunedRow?.channel?.logoUrl,
@@ -2574,11 +2605,6 @@ fun DemoLiveScreen(
                     isTunedLiveStream() -> !isPaused && liveBehindMs < 5_000L
                     else -> true
                 },
-                recScheduledNext = uiNextBlock?.let {
-                    DemoRecordingScheduler.isScheduled(
-                        it.title, activeCtl().antennaStartWallMs + it.startVirtualMs
-                    )
-                } ?: false,
                 blockStartMs = uiMainBlock.startVirtualMs,
                 blockEndMs = uiMainBlock.endVirtualMs,
                 prevStartMs = uiPrevBlock?.startVirtualMs,

@@ -2,8 +2,11 @@ package com.uxellence.tv.v3.demolive
 
 import android.graphics.Bitmap
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.runtime.getValue
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -67,16 +70,18 @@ data class V4CardBlock(
 fun DemoPlayerV4Ui(
     isVisible: Boolean,
     zone: PlayerZone,                // BUTTONS / STRIP / SNIPPET
-    cardBlocks: List<V4CardBlock>,   // [prev?, current, next?] — karta wg cardIndex
-    cardIndex: Int,                  // indeks bieżąco pokazywanego na karcie
-    nextBlock: V4CardBlock?,         // wyszarzony tytuł po prawej (zawsze następny)
+    // Poziom paska (STRIP) bez taśmy: taśma miniatur pojawia się DOPIERO po
+    // pierwszym LEFT/RIGHT (jak w prototypie); wcześniej fokus na playheadzie
+    stripEngaged: Boolean,
+    cardBlocks: List<V4CardBlock>,   // [prev?, current, next?] — sloty karuzeli
+    cardIndex: Int,                  // slot pod ramką fokusa (karuzela dojeżdża do niego)
+    watchedIndex: Int,               // slot AKTUALNIE OGLĄDANEGO programu ("TERAZ OGLĄDASZ")
     channelName: String,
     channelNumber: Int,
     channelLogoUrl: String?,
     buttonsFocusIndex: Int,
     isPaused: Boolean,
     isAtLiveEdge: Boolean,
-    recScheduledNext: Boolean,       // "ZLECONO NAGRYWANIE" przy następnym
     // Oś czasu (wirtualna) bieżącego bloku + sąsiadów
     blockStartMs: Long, blockEndMs: Long,
     prevStartMs: Long?, nextEndMs: Long?,
@@ -116,31 +121,33 @@ fun DemoPlayerV4Ui(
                 modifier = Modifier.offset(x = sx(1716), y = sy(60))
             )
 
-            if (zone == PlayerZone.STRIP) {
+            val showScrubTape = zone == PlayerZone.STRIP && stripEngaged
+            if (showScrubTape) {
                 V4ScrubStrip(
                     centerVirtualMs = cursorMs, liveEdgeMs = liveEdgeMs,
                     frames = frames, blockTitleFor = blockTitleFor, sx = sx, sy = sy
                 )
             } else {
                 V4PlayerLayer(
-                    cardBlocks = cardBlocks, cardIndex = cardIndex, nextBlock = nextBlock,
+                    cardBlocks = cardBlocks, cardIndex = cardIndex,
+                    watchedIndex = watchedIndex,
                     cardFocused = zone == PlayerZone.SNIPPET,
                     channelName = channelName, channelNumber = channelNumber,
                     channelLogoUrl = channelLogoUrl,
                     buttonsFocusIndex = if (zone == PlayerZone.BUTTONS) buttonsFocusIndex else -1,
                     isPaused = isPaused, isAtLiveEdge = isAtLiveEdge,
-                    recScheduledNext = recScheduledNext, sx = sx, sy = sy
+                    sx = sx, sy = sy
                 )
             }
 
             V4Timeline(
-                atPlayer = zone != PlayerZone.STRIP,
+                atPlayer = !showScrubTape,
                 blockStartMs = blockStartMs, blockEndMs = blockEndMs,
                 prevStartMs = prevStartMs, nextEndMs = nextEndMs,
                 positionMs = positionMs,
                 cursorMs = if (zone == PlayerZone.STRIP) cursorMs else null,
                 liveEdgeMs = liveEdgeMs, antennaStartWallMs = antennaStartWallMs,
-                playheadFocused = zone == PlayerZone.STRIP,
+                playheadFocused = zone == PlayerZone.STRIP,   // fokus na kropce także PRZED taśmą
                 sx = sx, sy = sy
             )
         }
@@ -151,20 +158,20 @@ fun DemoPlayerV4Ui(
 
 @Composable
 private fun V4PlayerLayer(
-    cardBlocks: List<V4CardBlock>, cardIndex: Int, nextBlock: V4CardBlock?,
+    cardBlocks: List<V4CardBlock>, cardIndex: Int, watchedIndex: Int,
     cardFocused: Boolean,
     channelName: String, channelNumber: Int, channelLogoUrl: String?,
     buttonsFocusIndex: Int, isPaused: Boolean, isAtLiveEdge: Boolean,
-    recScheduledNext: Boolean,
     sx: (Int) -> Dp, sy: (Int) -> Dp
 ) {
-    val card = cardBlocks.getOrNull(cardIndex) ?: return
+    if (cardBlocks.isEmpty()) return
 
-    // channel-card: left 105, top 937 (pattern 485 + 452); logo 120, numer h40
+    // channel-card: left 105, top 452 — w CSS siedzi bezpośrednio w .layer-player
+    // (inset 0), NIE w .pattern-player; NAD karuzelą kart (uwaga usera 2026-08-26)
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(sy(24)),
-        modifier = Modifier.offset(x = sx(105), y = sy(937)).width(sx(172))
+        modifier = Modifier.offset(x = sx(105), y = sy(452)).width(sx(172)).zIndex(3f)
     ) {
         Box(
             modifier = Modifier
@@ -197,11 +204,12 @@ private fun V4PlayerLayer(
         }
     }
 
-    // watch-prev: left 73, top 675 (485+190) — kółko 64 ze strzałką + tekst 2 linie
+    // watch-prev: left 73, top 675 (485+190) — WARSTWA NAD karuzelą kart
+    // (karta poprzedniego programu przejeżdża POD przyciskiem)
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(sx(16)),
-        modifier = Modifier.offset(x = sx(73), y = sy(675))
+        modifier = Modifier.offset(x = sx(73), y = sy(675)).zIndex(3f)
     ) {
         Box(
             modifier = Modifier.size(sx(64), sy(64)).clip(CircleShape).background(V4_BRAND),
@@ -215,161 +223,52 @@ private fun V4PlayerLayer(
         )
     }
 
-    // info-now: left 389, top 562 (485+77), w1142 — caption + body (cover 280×168 + treść)
-    Column(
-        verticalArrangement = Arrangement.spacedBy(sy(16)),
-        modifier = Modifier.offset(x = sx(389), y = sy(562)).width(sx(1142))
-    ) {
-        Text("TERAZ OGLĄDASZ", color = V4_TEXT, fontSize = demoSp(20, sy), fontWeight = FontWeight.Bold)
-        Box(modifier = Modifier.width(sx(1142)).height(sy(168))) {
-            // Ramka fokusa CAŁEJ grupy: inset -20, border 4 aqua, radius 16, tło black 20%
-            if (cardFocused) {
-                Box(
-                    modifier = Modifier
-                        .offset(x = -sx(20), y = -sy(20))
-                        .width(sx(1142 + 40)).height(sy(168 + 40))
-                        .clip(RoundedCornerShape(sx(16)))
-                        .background(Color(0x33000000))
-                        .border(sx(4), V4_AQUA, RoundedCornerShape(sx(16)))
+    // ===== KARUZELA PROGRAMÓW (info-now + sąsiedzi) =====
+    // Sloty co 1190 px (karta 1142 + przerwa 48): fokusowany slot na x=389,
+    // następny wystaje z prawej od x=1579 (CSS .info-next left 1579 = 389+1190),
+    // poprzedni chowa się z lewej POD "Oglądaj poprzednie". LEFT/RIGHT przewija
+    // karuzelę animacją — ramka fokusa STOI na x=389, znika na czas przejazdu
+    // i wraca na programie, który wjechał w jej miejsce (uwaga usera 2026-08-26).
+    val slotPitch = 1190
+    val animIndex by animateFloatAsState(
+        targetValue = cardIndex.toFloat(),
+        animationSpec = tween(320), label = "v4_carousel"
+    )
+    val isSettled = kotlin.math.abs(animIndex - cardIndex) < 0.01f
+    Box(modifier = Modifier.fillMaxSize().zIndex(1f)) {
+        cardBlocks.forEachIndexed { idx, blk ->
+            val slotX = (389 + (idx - animIndex) * slotPitch).toInt()
+            if (slotX > -1200 && slotX < 1990) {
+                V4ProgramCard(
+                    block = blk,
+                    // Pełne kolory tylko w slocie fokusa; sąsiedzi wyszarzeni
+                    dimmed = idx != cardIndex,
+                    caption = when {
+                        idx != cardIndex -> null
+                        idx == watchedIndex -> "TERAZ OGLĄDASZ"
+                        else -> formatWall(blk.startWallMs, false) + " – " +
+                            formatWall(blk.endWallMs, false)
+                    },
+                    isWatched = idx == watchedIndex,
+                    modifier = Modifier.offset(x = sx(slotX), y = sy(562)),
+                    sx = sx, sy = sy
                 )
             }
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(sx(24)),
-                verticalAlignment = Alignment.Bottom,
-                modifier = Modifier.fillMaxSize()
-            ) {
-                // cover 280×168
-                Box(
-                    modifier = Modifier
-                        .size(sx(280), sy(168))
-                        .clip(RoundedCornerShape(sx(8)))
-                        .background(Color(0x14EEEEEE))
-                ) {
-                    if (card.coverUrl != null) {
-                        AsyncImage(
-                            model = card.coverUrl, contentDescription = null,
-                            contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()
-                        )
-                    }
-                }
-                // treść: markery / tytuł 64 / meta
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(sy(8)),
-                    modifier = Modifier.width(sx(838))
-                ) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(sx(16)),
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.height(sy(32))
-                    ) {
-                        if (card.isLive) {
-                            Box(
-                                modifier = Modifier
-                                    .height(sy(24)).widthIn(min = sx(88))
-                                    .clip(RoundedCornerShape(sx(4)))
-                                    .background(V4_TEXT)
-                                    .padding(horizontal = sx(8)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text("NA ŻYWO", color = V4_BRAND, fontSize = demoSp(16, sy), fontWeight = FontWeight.Bold)
-                            }
-                        }
-                        // ODTWÓRZ: białe kółko 32 z ikoną startover 24 (brand)
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(sx(8))) {
-                            Box(
-                                modifier = Modifier.size(sx(32), sy(32)).clip(CircleShape).background(V4_TEXT),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Image(
-                                    painter = painterResource(R.drawable.demo_ic_startover),
-                                    contentDescription = null,
-                                    colorFilter = ColorFilter.tint(V4_BRAND),
-                                    modifier = Modifier.size(sx(24), sy(24))
-                                )
-                            }
-                            Text("ODTWÓRZ", color = V4_TEXT, fontSize = demoSp(16, sy), fontWeight = FontWeight.Bold)
-                        }
-                        if (card.isRecording) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(sx(8))) {
-                                Box(
-                                    modifier = Modifier.size(sx(32), sy(32)).clip(CircleShape).background(V4_TEXT),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Box(modifier = Modifier.size(sx(14), sy(14)).clip(CircleShape).background(Color(0xFFE53935)))
-                                }
-                                Text("NAGRYWASZ", color = V4_TEXT, fontSize = demoSp(16, sy), fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
-                    Text(
-                        text = card.title, color = V4_TEXT,
-                        fontSize = demoSp(64, sy), fontWeight = FontWeight.Medium,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.width(sx(838)).height(sy(80))
-                    )
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(sx(16)),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        card.meta.forEachIndexed { i, m ->
-                            if (i > 0) Box(modifier = Modifier.size(sx(2), sy(24)).background(V4_WHITE_40))
-                            Text(m, color = V4_TEXT, fontSize = demoSp(20, sy), fontWeight = FontWeight.Bold)
-                        }
-                        // KRRiT: S W N P — kwadraciki 20×20 border 2 radius 4
-                        Box(modifier = Modifier.size(sx(2), sy(24)).background(V4_WHITE_40))
-                        Row(horizontalArrangement = Arrangement.spacedBy(sx(20))) {
-                            listOf("S", "W", "N", "P").forEach { k ->
-                                Box(
-                                    modifier = Modifier
-                                        .size(sx(20), sy(20))
-                                        .border(sx(2), V4_TEXT, RoundedCornerShape(sx(4))),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(k, color = V4_TEXT, fontSize = demoSp(13, sy), fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            // Strzałki ‹ › na coverze — tylko przy fokusie karty; left 2/214, top 56, 56×56
-            if (cardFocused) {
-                if (cardIndex > 0) V4CoverNav("‹", 2, sx, sy)
-                if (cardIndex < cardBlocks.lastIndex) V4CoverNav("›", 214, sx, sy)
-            }
         }
-    }
-
-    // info-next: left 1579, top 592 (485+107) — markery dim + tytuł dim
-    if (nextBlock != null) {
-        Column(
-            verticalArrangement = Arrangement.spacedBy(sy(16)),
-            modifier = Modifier.offset(x = sx(1579), y = sy(592)).width(sx(340)).clipToBounds()
-        ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(sx(16)),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.height(sy(32))
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(sx(8))) {
-                    Box(
-                        modifier = Modifier.size(sx(32), sy(32)).clip(CircleShape).background(V4_WHITE_40),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("🔔", fontSize = demoSp(16, sy))
-                    }
-                    Text("USTAWIONO PRZYPOMNIENIE", color = V4_TEXT_DIM, fontSize = demoSp(16, sy), fontWeight = FontWeight.Bold, maxLines = 1)
-                }
-                if (recScheduledNext) {
-                    Box(modifier = Modifier.size(sx(14), sy(14)).clip(CircleShape).background(Color(0xFFE53935)))
-                }
-            }
-            Text(
-                text = nextBlock.title, color = V4_TEXT_DIM,
-                fontSize = demoSp(64, sy), fontWeight = FontWeight.Medium,
-                maxLines = 1, overflow = TextOverflow.Clip,
-                modifier = Modifier.height(sy(80))
+        // Ramka fokusa CAŁEJ grupy (cover+markery+tytuł+meta): stała pozycja
+        // nad slotem x=389 (body y=606: 562 + caption 28 + gap 16), inset -20
+        if (cardFocused && isSettled) {
+            Box(
+                modifier = Modifier
+                    .offset(x = sx(389 - 20), y = sy(606 - 20))
+                    .width(sx(1142 + 40)).height(sy(168 + 40))
+                    .clip(RoundedCornerShape(sx(16)))
+                    .background(Color(0x33000000))
+                    .border(sx(4), V4_AQUA, RoundedCornerShape(sx(16)))
             )
+            // Strzałki ‹ › na coverze slotu fokusa (cover: x=389..669, body y=606)
+            if (cardIndex > 0) V4CoverNav("‹", 389 + 2, 606 + 56, sx, sy)
+            if (cardIndex < cardBlocks.lastIndex) V4CoverNav("›", 389 + 214, 606 + 56, sx, sy)
         }
     }
 
@@ -400,15 +299,151 @@ private fun V4PlayerLayer(
                     )
                 }
                 if (focused) {
-                    Text(
-                        text = label, color = V4_AQUA,
-                        fontSize = demoSp(24, sy), fontWeight = FontWeight.Bold,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                        maxLines = 1, softWrap = false,
-                        modifier = Modifier
-                            .offset(x = -sx(44), y = sy(116))
-                            .width(sx(240))
+                    // Wyśrodkowanie do IKONY (środek boxa = 76px slotu), tekst może
+                    // wystawać poza slot symetrycznie (unbounded) — bez ucinania
+                    Box(
+                        modifier = Modifier.offset(y = sy(116)).width(sx(152)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = label, color = V4_AQUA,
+                            fontSize = demoSp(24, sy), fontWeight = FontWeight.Bold,
+                            maxLines = 1, softWrap = false,
+                            modifier = Modifier.wrapContentWidth(unbounded = true)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Karta programu w karuzeli: caption (TERAZ OGLĄDASZ / godziny) + body:
+ * cover 280×168, markery, tytuł 64, metadane + KRRiT. Poza slotem fokusa
+ * wyszarzona (jak .info-next w CSS prototypu).
+ */
+@Composable
+private fun V4ProgramCard(
+    block: V4CardBlock,
+    dimmed: Boolean,
+    caption: String?,
+    isWatched: Boolean,
+    modifier: Modifier,
+    sx: (Int) -> Dp,
+    sy: (Int) -> Dp
+) {
+    val text = if (dimmed) V4_TEXT_DIM else V4_TEXT
+    Column(verticalArrangement = Arrangement.spacedBy(sy(16)), modifier = modifier.width(sx(1142))) {
+        Text(
+            text = caption ?: " ",
+            color = text, fontSize = demoSp(20, sy), fontWeight = FontWeight.Bold,
+            modifier = Modifier.height(sy(28))
+        )
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(sx(24)),
+            verticalAlignment = Alignment.Bottom,
+            modifier = Modifier.width(sx(1142)).height(sy(168))
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(sx(280), sy(168))
+                    .clip(RoundedCornerShape(sx(8)))
+                    .background(Color(0x14EEEEEE))
+            ) {
+                if (block.coverUrl != null) {
+                    AsyncImage(
+                        model = block.coverUrl, contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize(),
+                        alpha = if (dimmed) 0.45f else 1f
                     )
+                }
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(sy(8)), modifier = Modifier.width(sx(838))) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(sx(16)),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.height(sy(32))
+                ) {
+                    if (isWatched && block.isLive) {
+                        Box(
+                            modifier = Modifier
+                                .height(sy(24)).widthIn(min = sx(88))
+                                .clip(RoundedCornerShape(sx(4)))
+                                .background(if (dimmed) V4_WHITE_40 else V4_TEXT)
+                                .padding(horizontal = sx(8)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("NA ŻYWO", color = V4_BRAND, fontSize = demoSp(16, sy), fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    if (isWatched) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(sx(8))) {
+                            Box(
+                                modifier = Modifier.size(sx(32), sy(32)).clip(CircleShape)
+                                    .background(if (dimmed) V4_WHITE_40 else V4_TEXT),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Image(
+                                    painter = painterResource(R.drawable.demo_ic_startover),
+                                    contentDescription = null,
+                                    colorFilter = ColorFilter.tint(V4_BRAND),
+                                    modifier = Modifier.size(sx(24), sy(24))
+                                )
+                            }
+                            Text("ODTWÓRZ", color = text, fontSize = demoSp(16, sy), fontWeight = FontWeight.Bold)
+                        }
+                    } else if (block.startWallMs > System.currentTimeMillis()) {
+                        // Program przyszły: marker przypomnienia (dim, jak .info-next)
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(sx(8))) {
+                            Box(
+                                modifier = Modifier.size(sx(32), sy(32)).clip(CircleShape).background(V4_WHITE_40),
+                                contentAlignment = Alignment.Center
+                            ) { Text("🔔", fontSize = demoSp(16, sy)) }
+                            Text("USTAWIONO PRZYPOMNIENIE", color = text, fontSize = demoSp(16, sy), fontWeight = FontWeight.Bold, maxLines = 1)
+                        }
+                    }
+                    if (block.isRecording) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(sx(8))) {
+                            Box(
+                                modifier = Modifier.size(sx(32), sy(32)).clip(CircleShape)
+                                    .background(if (dimmed) V4_WHITE_40 else V4_TEXT),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Box(modifier = Modifier.size(sx(14), sy(14)).clip(CircleShape).background(Color(0xFFE53935)))
+                            }
+                            Text(if (isWatched) "NAGRYWASZ" else "ZLECONO NAGRYWANIE", color = text, fontSize = demoSp(16, sy), fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+                Text(
+                    text = block.title, color = text,
+                    fontSize = demoSp(64, sy), fontWeight = FontWeight.Medium,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.width(sx(838)).height(sy(80))
+                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(sx(16)),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    block.meta.forEachIndexed { i, m ->
+                        if (i > 0) Box(modifier = Modifier.size(sx(2), sy(24)).background(V4_WHITE_40))
+                        Text(m, color = text, fontSize = demoSp(20, sy), fontWeight = FontWeight.Bold)
+                    }
+                    Box(modifier = Modifier.size(sx(2), sy(24)).background(V4_WHITE_40))
+                    Row(horizontalArrangement = Arrangement.spacedBy(sx(20))) {
+                        listOf("S", "W", "N", "P").forEach { k ->
+                            Box(
+                                modifier = Modifier
+                                    .size(sx(20), sy(20))
+                                    .border(sx(2), text, RoundedCornerShape(sx(4))),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(k, color = text, fontSize = demoSp(13, sy), fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -416,10 +451,10 @@ private fun V4PlayerLayer(
 }
 
 @Composable
-private fun V4CoverNav(glyph: String, leftPx: Int, sx: (Int) -> Dp, sy: (Int) -> Dp) {
+private fun V4CoverNav(glyph: String, leftPx: Int, topPx: Int, sx: (Int) -> Dp, sy: (Int) -> Dp) {
     Box(
         modifier = Modifier
-            .offset(x = sx(leftPx), y = sy(56))
+            .offset(x = sx(leftPx), y = sy(topPx))
             .size(sx(56), sy(56))
             .shadow(sy(10), CircleShape)
             .clip(CircleShape)
@@ -498,17 +533,19 @@ private fun V4ScrubStrip(
             }
         }
     }
-    // Tytuł materiału pod kursorem — pas na y=890 (537+353), font 32/64 bold.
-    // Prototyp trzyma tytuł przy lewej krawędzi materiału; dla taśmy krokowej
-    // wystarczy tytuł bieżącego materiału przy lewym marginesie 64.
+    // Tytuł materiału pod kursorem — WYCENTROWANY pod dużą miniaturką
+    // (uwaga usera 2026-08-26: nie przy lewej krawędzi), pas na y=890 (537+353)
     val title = blockTitleFor?.invoke(centerVirtualMs.coerceIn(0, liveEdgeMs))
     if (title != null) {
-        Text(
-            text = title, color = V4_TEXT,
-            fontSize = demoSp(32, sy), fontWeight = FontWeight.Bold,
-            maxLines = 1, overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.offset(x = sx(64), y = sy(890)).width(sx(1400))
-        )
+        Box(modifier = Modifier.fillMaxWidth().offset(y = sy(890))) {
+            Text(
+                text = title, color = V4_TEXT,
+                fontSize = demoSp(32, sy), fontWeight = FontWeight.Bold,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.align(Alignment.Center).widthIn(max = sx(1400))
+            )
+        }
     }
 }
 
@@ -544,11 +581,11 @@ private fun V4Timeline(
     }
 
     Box(modifier = Modifier.fillMaxWidth().offset(y = sy(top)).height(sy(138))) {
-        // glow aqua pod paskiem — do pozycji odtwarzania
+        // glow aqua pod paskiem — ZAWSZE do znacznika LIVE (uwaga usera 2026-08-26)
         Box(
             modifier = Modifier
                 .offset(y = sy(22))
-                .width(sx(xFor(positionMs).toInt()))
+                .width(sx(xFor(liveEdgeMs).toInt()))
                 .height(sy(80))
                 .background(Brush.verticalGradient(0f to Color(0x995AECD3), 1f to Color.Transparent))
         )
