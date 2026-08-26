@@ -345,7 +345,10 @@ private fun V4ProgramCard(
             verticalAlignment = Alignment.Bottom,
             modifier = Modifier.width(sx(1142)).height(sy(168))
         ) {
-            Box(
+            // Miniaturka TYLKO na karcie zafokusowanej — sąsiednie karty
+            // (np. następny program wchodzący pod prawą krawędź) bez covera,
+            // jak .info-next w prototypie (uwaga usera 2026-08-26)
+            if (!dimmed) Box(
                 modifier = Modifier
                     .size(sx(280), sy(168))
                     .clip(RoundedCornerShape(sx(8)))
@@ -355,8 +358,7 @@ private fun V4ProgramCard(
                     AsyncImage(
                         model = block.coverUrl, contentDescription = null,
                         contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize(),
-                        alpha = if (dimmed) 0.45f else 1f
+                        modifier = Modifier.fillMaxSize()
                     )
                 }
             }
