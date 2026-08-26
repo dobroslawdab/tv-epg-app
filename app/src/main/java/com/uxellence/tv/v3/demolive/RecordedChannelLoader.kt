@@ -114,13 +114,27 @@ object RecordedChannelLoader {
      *   (/storage/<UUID>/Android/data/<pkg>/files/…)
      * - filesDir — Android 11+ blokuje adb push do Android/data pamięci
      *   wewnętrznej; deploy: push → /data/local/tmp + `run-as <pkg> cp`
+     * - PUBLICZNY <wolumen>/PlayRec/ (np. /storage/7D49-1019/PlayRec/) —
+     *   na PLAY BOX (Android 11) FUSE blokuje adb push do Android/data
+     *   TAKŻE na karcie SD, a run-as nie widzi /storage; deploy na kartę
+     *   działa tylko do katalogu publicznego. Czytanie manifest.json (nie-media)
+     *   spoza katalogu apki wymaga MANAGE_EXTERNAL_STORAGE — nadawane przez
+     *   adb (makieta): appops set --uid <pkg> MANAGE_EXTERNAL_STORAGE allow
      * W każdym roocie paczką jest KAŻDY podkatalog z manifest.json
      * (np. tvp1rec/, pnewsrec/). Duplikaty katalogów (ta sama nazwa na kilku
      * rootach) — wygrywa pierwszy znaleziony.
      */
     fun loadAll(context: Context): List<RecordedChannel> {
-        val roots =
-            context.getExternalFilesDirs(null).filterNotNull() + context.filesDir
+        val appRoots = context.getExternalFilesDirs(null).filterNotNull()
+        // /storage/<UUID>/Android/data/<pkg>/files → /storage/<UUID>/PlayRec
+        // (z pominięciem emulated — tam deploy działa przez run-as do filesDir)
+        val publicRoots = appRoots.mapNotNull { f ->
+            f.parentFile?.parentFile?.parentFile?.parentFile
+                ?.takeIf { !it.absolutePath.startsWith("/storage/emulated") }
+                ?.let { File(it, "PlayRec") }
+                ?.takeIf { it.isDirectory }
+        }
+        val roots = appRoots + context.filesDir + publicRoots
         val seen = mutableSetOf<String>()
         val channels = mutableListOf<RecordedChannel>()
         for (root in roots) {

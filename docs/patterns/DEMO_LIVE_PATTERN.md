@@ -82,3 +82,42 @@ Menu deweloperskie (klawisz „1" w TopMenu) → „📡 Demo: Kanał live + ram
 ## Debugowanie
 
 `adb logcat -s DemoLive` — akcje, przejścia stanów, seek, tick pozycji co 5 s. Emulator `Television_1080p` z `-no-snapshot` (snapshot bywa zepsuty).
+
+## Kanały z nagrań (RecordedChannelLoader) — deploy
+
+Paczka = katalog z `manifest.json` + `program_NN.mp4` (produkcja: `tools/record_scheduled_0714.sh`
+→ `cut_by_epg.py`; gotowe paczki 2026-07-14: `~/nagrania_0714/{tvp1rec,pnewsrec}` na Macu).
+W demo live montują się jako **TVP1 (#1)** i **Polsat News Polityka (#2)** — mapowanie
+po `rec.id` w `DemoLiveScreen` (~linia 343).
+
+Rooty skanowane przez `RecordedChannelLoader.loadAll()`:
+1. `getExternalFilesDirs(null)` — `Android/data/<pkg>/files/` (internal + karta)
+2. `filesDir` (internal)
+3. **publiczny `<karta SD>/PlayRec/`** — jedyna działająca ścieżka deployu na PLAY BOX
+
+### Deploy per urządzenie
+
+| Urządzenie | Ścieżka | Jak |
+|---|---|---|
+| Emulator | `/sdcard/Android/data/<pkg>/files/<paczka>/` | zwykły `adb push` (emulator pozwala) |
+| PLAY BOX (Android 11) | `/storage/<UUID>/PlayRec/<paczka>/` | `adb push` do katalogu PUBLICZNEGO karty |
+
+### Pułapki deployu na PLAY BOX (2026-08-26)
+
+1. **FUSE blokuje `adb push` do `Android/data` również na karcie SD** (nie tylko internal).
+   `mkdir` przez shell pozornie przechodzi, push kończy się "remote couldn't create file".
+2. **`run-as` nie widzi `/storage`** — deploy przez `run-as cp` działa tylko do internal
+   `filesDir`, a tam brakuje miejsca (2 paczki = 14.3 GB > ~7 GB wolnego na boxie).
+3. **Karta sformatowana na Macu (exFAT) nie montuje się** — box jej nie wspiera.
+   Objaw: `/storage/<stary-UUID>` widoczny w `ls`, ale `sm list-volumes` bez wpisu
+   `public:` i każdy zapis = Permission denied. Fix: `sm list-disks` →
+   `sm partition disk:179,0 public` (kasuje kartę!) → montuje się z nowym UUID.
+4. **Odczyt publicznego `PlayRec/` wymaga MANAGE_EXTERNAL_STORAGE** (manifest.json to
+   nie-media — File API bez "All files access" go nie odczyta). Nadanie bez UI:
+   `adb shell appops set --uid com.uxellence.tv.prod MANAGE_EXTERNAL_STORAGE allow`.
+   Uprawnienie zadeklarowane w manifeście z `tools:ignore="ScopedStorage"` — makieta.
+5. Restart apki na boxie **tylko przez `am force-stop`** (am start dokłada drugą
+   aktywność i drugi grający player — patrz memory projektu).
+
+Transfer przez WiFi: ~11 MB/s → 14.3 GB ≈ 21 min. Okładki EPG generują się na
+urządzeniu przy pierwszym załadowaniu paczki (covers/, jeden wątek, trwałe).
