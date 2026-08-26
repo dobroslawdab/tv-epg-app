@@ -2297,7 +2297,37 @@ fun DemoLiveScreen(
                             true
                         }
                         android.view.KeyEvent.KEYCODE_DPAD_UP -> true   // karta = top
-                        else -> false   // OK → standard (SNIPPET → detal programu)
+                        android.view.KeyEvent.KEYCODE_DPAD_CENTER,
+                        android.view.KeyEvent.KEYCODE_ENTER -> {
+                            // OK na programie Z PRZESZŁOŚCI = oglądaj OD POCZĄTKU
+                            // (pasek postępu przeskakuje na oś tego programu);
+                            // OK na oglądanym → standard (detal programu)
+                            if (v4CardShift == 0) false else {
+                                val ctl = activeCtl()
+                                val blocks = activeBarker()?.schedule
+                                    ?.blocksAround(ctl.currentVirtualPositionMs(), 12, 12)
+                                val watched = blocks?.indexOfFirst {
+                                    ctl.currentVirtualPositionMs() in it.startVirtualMs..it.endVirtualMs
+                                } ?: -1
+                                val target = blocks?.getOrNull(watched + v4CardShift)
+                                when {
+                                    target == null -> true
+                                    target.startVirtualMs > ctl.virtualNow() -> {
+                                        demoToast = "Ten program jeszcze się nie rozpoczął"
+                                        true
+                                    }
+                                    else -> {
+                                        ctl.seekToVirtual(target.startVirtualMs)
+                                        isPaused = false
+                                        v4CardShift = 0   // karta wraca na TERAZ OGLĄDASZ
+                                        Log.i(TAG, "v4: oglądaj od początku '" + target.title +
+                                            "' → ${target.startVirtualMs}ms")
+                                        true
+                                    }
+                                }
+                            }
+                        }
+                        else -> false
                     }
                     // Kontrolki: kolejność PROTOTYPU (1=Od początku, 2=Na żywo)
                     // jest odwrotna niż akcje standardu (1=live, 2=od początku),
