@@ -99,6 +99,9 @@ fun DemoPlayerUi(
     recScheduled: Boolean = false,
     blockMetaFor: ((Long) -> String?)? = null,
     blockRangeFor: ((Long) -> String?)? = null,   // "HH:mm – HH:mm" nagłówek kafelka przejścia
+    // Dev menu "0": wersja paska przewijania (1 = filmstrip, 2 = taśma scrub
+    // wg prototypu player-scrub — patrz DemoScrubTape)
+    seekTapeVersion: Int = 1,
     sx: (Int) -> Dp,
     sy: (Int) -> Dp
 ) {
@@ -159,17 +162,29 @@ fun DemoPlayerUi(
                         .align(Alignment.BottomCenter)
                         .padding(bottom = sy(48))
                 ) {
-                    DemoFilmstrip(
-                        centerVirtualMs = scrubCursorMs,
-                        liveEdgeVirtualMs = liveEdgeVirtualMs,
-                        frames = frames,
-                        antennaStartWallMs = antennaStartWallMs,
-                        showTimeLabels = false,   // czasy są nad paskiem, nie nad miniaturami
-                        blockTitleFor = blockTitleFor,
-                        blockMetaFor = blockMetaFor,
-                        blockRangeFor = blockRangeFor,
-                        sx = sx, sy = sy
-                    )
+                    if (seekTapeVersion == 2) {
+                        // v2: taśma scrub wg prototypu player-scrub (pełna taśma
+                        // małych miniatur + duży podgląd kursora + tytuł pod taśmą)
+                        DemoScrubTape(
+                            centerVirtualMs = scrubCursorMs,
+                            liveEdgeVirtualMs = liveEdgeVirtualMs,
+                            frames = frames,
+                            blockTitleFor = blockTitleFor,
+                            sx = sx, sy = sy
+                        )
+                    } else {
+                        DemoFilmstrip(
+                            centerVirtualMs = scrubCursorMs,
+                            liveEdgeVirtualMs = liveEdgeVirtualMs,
+                            frames = frames,
+                            antennaStartWallMs = antennaStartWallMs,
+                            showTimeLabels = false,   // czasy są nad paskiem, nie nad miniaturami
+                            blockTitleFor = blockTitleFor,
+                            blockMetaFor = blockMetaFor,
+                            blockRangeFor = blockRangeFor,
+                            sx = sx, sy = sy
+                        )
+                    }
                     Spacer(modifier = Modifier.height(sy(16)))
                     if (vodButtons) {
                         // Player VOD: pasek TYLKO odtwarzanego materiału, czasy

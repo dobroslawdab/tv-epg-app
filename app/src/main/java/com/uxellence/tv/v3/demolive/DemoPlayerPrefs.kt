@@ -24,6 +24,7 @@ object DemoPlayerPrefs {
     private const val KEY_HINT_BUBBLE = "long_press_hint_bubble"
     private const val KEY_HINT_ENABLED = "long_press_hint_enabled"
     private const val KEY_PLAYER_VERSION = "player_version"
+    private const val KEY_SEEKBAR_VERSION = "seekbar_version"
 
     // Default true: pasek IKONOWY wg Figmy (decyzja 2026-08-04)
     val useFigmaButtons = mutableStateOf(true)
@@ -32,7 +33,16 @@ object DemoPlayerPrefs {
     //  2 = jak 1, ale zamiast bloku opisu ikonka ⓘ "Zobacz opis"
     //  3 = player wg Figmy 5530-5203: pasek EPG + ikonowe kontrolki,
     //      poziomy kontrolki→pasek→miniaturka, wyżej/niżej widok 3 kanałów
+    //  4 = prototyp player-scrub (makieta "Nowy player – scrubb preview 2026"):
+    //      pełny layout 1:1 — karta TERAZ OGLĄDASZ z fokusem na całej grupie
+    //      + strzałkami, 7 kontrolek z labelami, timeline z bąbelkiem i LIVE,
+    //      taśma slotów 291.6/486. Patrz DemoPlayerV4.kt
     val playerVersion = mutableStateOf(1)
+    // Dev menu "0" na demo: wersja PASKA PRZEWIJANIA (scrub)
+    //  1 = filmstrip 7 klatek (obecny, Figma 5530-5395)
+    //  2 = taśma scrub wg prototypu player-scrub (pełna taśma miniatur +
+    //      duży podgląd kursora w białej ramce + tytuł pod taśmą)
+    val seekBarVersion = mutableStateOf(1)
     // Dawny klawisz "8" (A/B: tytuły nad taśmą ⇄ kafelek "Przechodzisz do…")
     // USUNIĘTY 2026-07-14 — obowiązuje tryb połączony (oba naraz, DemoFilmstrip)
     // Podpowiedź long-press na miniaturkach (Kino Play):
@@ -53,6 +63,7 @@ object DemoPlayerPrefs {
         longPressHintBubble.value = prefs.getBoolean(KEY_HINT_BUBBLE, false)
         longPressHintEnabled.value = prefs.getBoolean(KEY_HINT_ENABLED, false)
         playerVersion.value = prefs.getInt(KEY_PLAYER_VERSION, 1)
+        seekBarVersion.value = prefs.getInt(KEY_SEEKBAR_VERSION, 1)
         loaded = true
     }
 
@@ -85,14 +96,38 @@ object DemoPlayerPrefs {
         else -> "v2: dymek pod miniaturą"
     }
 
-    /** Cykl wersji playera 1→2→3→1 (klawisz "0" na playerze demo). */
+    /** Cykl wersji playera 1→2→3→4→1 (dev menu "0" na playerze demo). */
     fun cyclePlayerVersion(context: Context): Int {
-        val next = (playerVersion.value % 3) + 1
+        val next = (playerVersion.value % 4) + 1
         playerVersion.value = next
         context.applicationContext
             .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit().putInt(KEY_PLAYER_VERSION, next).apply()
         return next
+    }
+
+    /** Cykl wersji paska przewijania 1⇄2 (dev menu "0" na demo). */
+    fun cycleSeekBarVersion(context: Context): Int {
+        val next = if (seekBarVersion.value == 1) 2 else 1
+        seekBarVersion.value = next
+        context.applicationContext
+            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putInt(KEY_SEEKBAR_VERSION, next).apply()
+        return next
+    }
+
+    /** Etykieta bieżącej wersji paska przewijania (dev menu "0"). */
+    fun seekBarLabel(): String = when (seekBarVersion.value) {
+        2 -> "v2: taśma scrub (prototyp)"
+        else -> "v1: filmstrip 7 klatek"
+    }
+
+    /** Etykieta bieżącej wersji playera (dev menu "0"). */
+    fun playerVersionLabel(): String = when (playerVersion.value) {
+        2 -> "2: ikonka ⓘ zamiast opisu"
+        3 -> "3: pasek EPG + kontrolki (Figma)"
+        4 -> "4: prototyp player-scrub (1:1)"
+        else -> "1: obecny (opis pod przyciskami)"
     }
 
     /** Przełącz i zapisz. Zwraca nowy stan. */

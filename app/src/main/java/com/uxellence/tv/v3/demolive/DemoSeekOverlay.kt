@@ -250,3 +250,97 @@ internal fun formatWall(wallMs: Long, withSeconds: Boolean): String {
  */
 internal fun demoSp(designPx: Int, sy: (Int) -> Dp): androidx.compose.ui.unit.TextUnit =
     (designPx * sy(1).value).sp
+
+/**
+ * Taśma scrub v2 — wygląd 1:1 wg prototypu player-scrub (Figma "Nowy player –
+ * scrubb preview 2026", makieta z ~/Downloads/player-scrub):
+ *  - ciągła taśma małych miniatur (254x143, gap 10) przez CAŁĄ szerokość ekranu,
+ *  - nad nią DUŻY podgląd kursora (390x220) w białej ramce, wystaje ponad taśmę,
+ *  - tytuł programu pod kursorem wycentrowany POD taśmą.
+ * Czasy/kursor/LIVE pokazuje pasek postępu pod spodem (DemoFixedBlockBar) —
+ * ten komponent renderuje wyłącznie miniatury i tytuł.
+ *
+ * Wybór wersji: dev menu pod "0" na demo (DemoPlayerPrefs.seekBarVersion).
+ */
+@Composable
+internal fun DemoScrubTape(
+    centerVirtualMs: Long,
+    liveEdgeVirtualMs: Long,
+    frames: List<Pair<Long, Bitmap?>>,
+    blockTitleFor: ((Long) -> String?)? = null,
+    sx: (Int) -> Dp,
+    sy: (Int) -> Dp
+) {
+    val slotW = 254; val slotH = 143         // małe miniatury 16:9
+    val bigW = 390; val bigH = 220           // podgląd kursora
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(sy(bigH + 16))
+                .clipToBounds(),
+            contentAlignment = Alignment.Center
+        ) {
+            // Ciągła taśma — wycentrowana na slocie kursora, szersza niż ekran
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(sx(10)),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.wrapContentWidth(unbounded = true)
+            ) {
+                frames.forEachIndexed { index, (frameOffsetMs, bitmap) ->
+                    val slotVirtualMs = centerVirtualMs + frameOffsetMs
+                    val inRange = slotVirtualMs in 0..liveEdgeVirtualMs
+                    Box(
+                        modifier = Modifier
+                            .width(sx(slotW))
+                            .height(sy(slotH))
+                            .clip(RoundedCornerShape(sx(6)))
+                            .background(Color(0x33000000)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (inRange && bitmap != null && !bitmap.isRecycled) {
+                            Image(
+                                bitmap = bitmap.asImageBitmap(),
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                    }
+                }
+            }
+            // Duży podgląd kursora — klatka środkowego slotu w białej ramce,
+            // przykrywa taśmę (wystaje równo nad i pod małe miniatury)
+            val centerBitmap = frames.getOrNull(frames.size / 2)?.second
+            Box(
+                modifier = Modifier
+                    .width(sx(bigW))
+                    .height(sy(bigH))
+                    .shadow(sy(18), RoundedCornerShape(sx(10)))
+                    .clip(RoundedCornerShape(sx(10)))
+                    .background(Color(0xFF16101F))
+                    .border(sx(3), Color(0xFFF2F2F2), RoundedCornerShape(sx(10)))
+            ) {
+                if (centerBitmap != null && !centerBitmap.isRecycled) {
+                    Image(
+                        bitmap = centerBitmap.asImageBitmap(),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+            }
+        }
+        // Tytuł programu pod kursorem — wycentrowany pod taśmą (jak w prototypie)
+        val title = blockTitleFor?.invoke(centerVirtualMs.coerceIn(0, liveEdgeVirtualMs))
+        Spacer(modifier = Modifier.height(sy(20)))
+        Text(
+            text = title ?: "",
+            color = Color(0xFFF5F2FA),
+            fontSize = demoSp(36, sy),
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+        )
+    }
+}

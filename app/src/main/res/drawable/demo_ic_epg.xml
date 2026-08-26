@@ -1,0 +1,13 @@
+<!-- Podgląd programu TV (EPG) — ekran z liniami ramówki, wg prototypu player-scrub -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp" android:height="48dp"
+    android:viewportWidth="48" android:viewportHeight="48">
+    <path
+        android:strokeColor="#EEEEEE" android:strokeWidth="3"
+        android:fillColor="#00000000"
+        android:pathData="M6,10 h36 a2,2 0 0 1 2,2 v22 a2,2 0 0 1 -2,2 h-36 a2,2 0 0 1 -2,-2 v-22 a2,2 0 0 1 2,-2 z" />
+    <path android:strokeColor="#EEEEEE" android:strokeWidth="3"
+        android:pathData="M10,18 h12 M10,24 h12 M10,30 h12 M26,18 h12 M26,24 h12 M26,30 h12" />
+    <path android:strokeColor="#EEEEEE" android:strokeWidth="3"
+        android:pathData="M18,36 v6 M30,36 v6 M14,42 h20" />
+</vector>

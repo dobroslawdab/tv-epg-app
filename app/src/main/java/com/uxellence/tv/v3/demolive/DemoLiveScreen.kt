@@ -620,6 +620,14 @@ fun DemoLiveScreen(
     // Klawisz "0": wersja playera (1 = obecna, 2 = ikonka ⓘ zamiast opisu,
     // 3 = player wg Figmy 5530-5203: pasek EPG + kontrolki + poziomy fokusa)
     val playerVersion = DemoPlayerPrefs.playerVersion.value
+    val seekBarVersion = DemoPlayerPrefs.seekBarVersion.value
+    // Dev menu playera (klawisz "0") — Dialog ma własne okno/fokus,
+    // więc klawisze nie przeciekają do keyHandlera pod spodem
+    var showDevMenu by remember { mutableStateOf(false) }
+    var devMenuIndex by remember { mutableStateOf(0) }
+    // Player v4 (prototyp player-scrub): przesunięcie karty TERAZ OGLĄDASZ
+    // strzałkami ‹ › przy fokusie na karcie (-1 poprzedni, 0 bieżący, +1 następny)
+    var v4CardShift by remember { mutableStateOf(0) }
     // Wersja 3 — poziom fokusa: 0=kontrolki, 1=pasek (L/P=przewijanie), 2=miniaturka
     var figmaZone by remember { mutableIntStateOf(0) }
     var scrubCursorMs by remember { mutableLongStateOf(0L) }
@@ -707,7 +715,9 @@ fun DemoLiveScreen(
                 centerVirtualMs = centerMs,
                 liveEdgeVirtualMs = barker.controller.virtualNow(),
                 stepMs = baseSeekStepMs(),
-                sideCount = 3,
+                // Taśma scrub v2 (dev menu "0") biegnie przez całą szerokość
+                // ekranu — potrzebuje 9 slotów (sideCount 4), filmstrip 7 (3)
+                sideCount = if (DemoPlayerPrefs.seekBarVersion.value == 2) 4 else 3,
                 dvrStartVirtualMs = barker.controller.dvrStartMs()
             )
         } else if (livePlayer != null) {
@@ -1479,7 +1489,11 @@ fun DemoLiveScreen(
                             isTunedLiveStream() -> !isPaused && liveBehindMs < 5_000L
                             else -> true
                         }
-                        val maxBtn = if (DemoPlayerPrefs.playerVersion.value == 2) 5 else 4
+                        val maxBtn = when (DemoPlayerPrefs.playerVersion.value) {
+                            2 -> 5
+                            4 -> 6   // v4 (prototyp): 7 kontrolek z EPG i ustawieniami
+                            else -> 4
+                        }
                         if (dir < 0 && playerButtonsFocus == 0) {
                             // LEWO z pierwszej ikony ("Zatrzymaj") → od razu taśma
                             // przewijania WSTECZ — jak UP na taśmę + LEFT
@@ -1697,9 +1711,10 @@ fun DemoLiveScreen(
                     PlayerZone.BUTTONS -> {
                         // Wersja 2: brak bloku opisu (ⓘ jest ikoną paska) — DOWN nic
                         // (odczyt ŚWIEŻY — lambdy w remember{} trzymają stale val)
-                        if (DemoPlayerPrefs.playerVersion.value != 2) {
+                        val pv = DemoPlayerPrefs.playerVersion.value
+                        if (pv != 2 && pv != 4) {
                             playerZone = PlayerZone.SNIPPET   // fokus na skrót opisu (bez PIP)
-                        }
+                        } /* v4: karta jest NAD paskiem — DOWN z kontrolek nic */
                     }
                     PlayerZone.STRIP -> {
                         if (DemoPlayerPrefs.playerVersion.value == 3) {
@@ -2104,6 +2119,21 @@ fun DemoLiveScreen(
         scrubKeyRepeat = repeatCount   // sygnał trzymania dla scrubStepWithSnap
         if (keyCode == android.view.KeyEvent.KEYCODE_BACK) {
             false
+        } else if (showDevMenu) {
+            // ===== DEV MENU (overlay stanowy, patrz DemoDevMenu.kt) =====
+            // Input gate: menu obsługuje UP/DOWN/OK/0, resztę BLOKUJE (nie
+            // przecieka do playera pod spodem). BACK → BackHandler overlaya.
+            when (keyCode) {
+                android.view.KeyEvent.KEYCODE_DPAD_UP ->
+                    devMenuIndex = (devMenuIndex - 1).coerceAtLeast(0)
+                android.view.KeyEvent.KEYCODE_DPAD_DOWN ->
+                    devMenuIndex = (devMenuIndex + 1).coerceAtMost(DemoDevMenuModel.COUNT - 1)
+                android.view.KeyEvent.KEYCODE_DPAD_CENTER,
+                android.view.KeyEvent.KEYCODE_ENTER ->
+                    DemoDevMenuModel.activate(devMenuIndex, context)
+                android.view.KeyEvent.KEYCODE_0 -> showDevMenu = false
+            }
+            true
         } else if (!isReady) {
             false
         } else if (layer == DemoLayer.PLAYER_UI && playerZone == PlayerZone.DETAIL) {
@@ -2111,17 +2141,15 @@ fun DemoLiveScreen(
             // nie przechwytuj (tylko BACK idzie przez nasz BackHandler)
             false
         } else if (keyCode == android.view.KeyEvent.KEYCODE_0) {
-            // Wersja playera 1→2→3→1 (badanie A/B/C)
-            val v = DemoPlayerPrefs.cyclePlayerVersion(context)
+            // Dev menu playera (wzór DevTogglesModal z głównej): wersja playera
+            // 1/2/3 (dawne bezpośrednie działanie "0"), wersja paska przewijania
+            // (filmstrip ⇄ taśma scrub z prototypu player-scrub), przyciski
             figmaZone = 0
             playerInteractionAt = System.currentTimeMillis()
             epgInteractionAt = System.currentTimeMillis()
-            demoToast = when (v) {
-                2 -> "Player: wersja 2 (ikonka ⓘ zamiast opisu)"
-                3 -> "Player: wersja 3 (pasek EPG + kontrolki, Figma)"
-                else -> "Player: wersja 1 (obecna)"
-            }
-            Log.i(TAG, "playerVersion=$v")
+            showDevMenu = true
+            devMenuIndex = 0
+            Log.i(TAG, "devMenu open")
             true
         } else if (playerVersion == 3 && layer == DemoLayer.EPG && !epgExpanded) {
             // ===== WERSJA 3 (Figma 5530-5203): pasek EPG single + kontrolki =====
@@ -2214,6 +2242,55 @@ fun DemoLiveScreen(
             }
             demoToast = "DEMO TV: przewijanie = ${demoPolicyOverride}"
             Log.i(TAG, "demoPolicyOverride=$demoPolicyOverride")
+            true
+        } else if (DemoPlayerPrefs.playerVersion.value == 4 && layer == DemoLayer.PLAYER_UI &&
+            run {
+                // ===== PLAYER V4 (prototyp player-scrub) — nadpisania nawigacji =====
+                // Poziomy pionowe (jak w makiecie): karta (562) → pasek (804) →
+                // kontrolki (880). Standard obsługuje: kontrolki⇄pasek(STRIP),
+                // scrub i akcje OK 0-4; tu tylko różnice v4.
+                playerInteractionAt = System.currentTimeMillis()
+                when {
+                    // Pasek/taśma: UP → fokus na kartę (cała grupa + strzałki)
+                    playerZone == PlayerZone.STRIP &&
+                        keyCode == android.view.KeyEvent.KEYCODE_DPAD_UP -> {
+                        playerZone = PlayerZone.SNIPPET
+                        v4CardShift = 0
+                        true
+                    }
+                    // Karta: ‹ › przegląd sąsiednich programów, DOWN → pasek, UP/OK
+                    playerZone == PlayerZone.SNIPPET -> when (keyCode) {
+                        android.view.KeyEvent.KEYCODE_DPAD_LEFT -> {
+                            if (v4CardShift > -1) v4CardShift--
+                            true
+                        }
+                        android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                            if (v4CardShift < 1) v4CardShift++
+                            true
+                        }
+                        android.view.KeyEvent.KEYCODE_DPAD_DOWN -> {
+                            playerZone = PlayerZone.STRIP
+                            scrubStartVirtualMs = activeCtl().currentVirtualPositionMs()
+                                .coerceIn(activeCtl().dvrStartMs(), activeCtl().virtualNow())
+                            scrubCursorMs = scrubStartVirtualMs
+                            updateFilmstrip(scrubCursorMs)
+                            true
+                        }
+                        android.view.KeyEvent.KEYCODE_DPAD_UP -> true   // karta = top
+                        else -> false   // OK → standard (SNIPPET → detal programu)
+                    }
+                    // Kontrolki: OK na EPG (5) / ustawieniach (6) — spoza standardu
+                    playerZone == PlayerZone.BUTTONS &&
+                        (keyCode == android.view.KeyEvent.KEYCODE_DPAD_CENTER ||
+                         keyCode == android.view.KeyEvent.KEYCODE_ENTER) &&
+                        playerButtonsFocus >= 5 -> {
+                        if (playerButtonsFocus == 5) openEpg()
+                        else demoToast = "Napisy i dźwięk — atrapa makiety"
+                        true
+                    }
+                    else -> false
+                }
+            }) {
             true
         } else if (keyCode == android.view.KeyEvent.KEYCODE_3) {
             // DEMO: przełącz wygląd paska przycisków playera (tekstowy ⇄ ikonowy wg Figmy).
@@ -2459,6 +2536,62 @@ fun DemoLiveScreen(
         } else null
         val uiNextBlock = blockForTunedChannel(uiMainBlock.endVirtualMs + 1)
         val playerTunedRow = epgRows.getOrNull(tunedChannelIndex)
+        if (playerVersion == 4) {
+            // ===== PLAYER V4: prototyp player-scrub 1:1 (DemoPlayerV4.kt) =====
+            fun v4Block(b: BarkerSchedule.EpgBlock?, live: Boolean): V4CardBlock? = b?.let {
+                V4CardBlock(
+                    title = it.title,
+                    meta = listOf(it.genre, it.age).filter { m -> m.isNotBlank() },
+                    coverUrl = it.coverUrl,
+                    isLive = live,
+                    isRecording = DemoRecordingScheduler.isScheduled(
+                        it.title, activeCtl().antennaStartWallMs + it.startVirtualMs
+                    ),
+                    startWallMs = activeCtl().antennaStartWallMs + it.startVirtualMs,
+                    endWallMs = activeCtl().antennaStartWallMs + it.endVirtualMs,
+                )
+            }
+            val liveNow = uiRefVirtualMs in uiMainBlock.startVirtualMs..uiMainBlock.endVirtualMs
+            val v4Cards = listOfNotNull(
+                v4Block(uiPrevBlock, live = false),
+                v4Block(uiMainBlock, live = liveNow),
+                v4Block(uiNextBlock, live = false)
+            )
+            val v4CurIndex = if (uiPrevBlock != null) 1 else 0
+            DemoPlayerV4Ui(
+                isVisible = layer == DemoLayer.PLAYER_UI && playerZone != PlayerZone.DETAIL,
+                zone = playerZone,
+                cardBlocks = v4Cards,
+                cardIndex = (v4CurIndex + v4CardShift).coerceIn(0, v4Cards.lastIndex),
+                nextBlock = v4Block(uiNextBlock, live = false),
+                channelName = playerTunedRow?.channel?.name ?: "DEMO TV",
+                channelNumber = playerTunedRow?.channelNumber ?: 122,
+                channelLogoUrl = playerTunedRow?.channel?.logoUrl,
+                buttonsFocusIndex = if (playerZone == PlayerZone.BUTTONS) playerButtonsFocus else -1,
+                isPaused = isPaused,
+                isAtLiveEdge = when {
+                    activeBarker() != null -> !isPaused && (liveEdgeMs - currentVirtualMs) < 5_000L
+                    isTunedLiveStream() -> !isPaused && liveBehindMs < 5_000L
+                    else -> true
+                },
+                recScheduledNext = uiNextBlock?.let {
+                    DemoRecordingScheduler.isScheduled(
+                        it.title, activeCtl().antennaStartWallMs + it.startVirtualMs
+                    )
+                } ?: false,
+                blockStartMs = uiMainBlock.startVirtualMs,
+                blockEndMs = uiMainBlock.endVirtualMs,
+                prevStartMs = uiPrevBlock?.startVirtualMs,
+                nextEndMs = uiNextBlock?.endVirtualMs,
+                positionMs = uiRefVirtualMs,
+                cursorMs = scrubCursorMs,
+                liveEdgeMs = liveEdgeMs.coerceAtLeast(1L),
+                antennaStartWallMs = activeCtl().antennaStartWallMs,
+                frames = filmstripFrames,
+                blockTitleFor = { v -> blockForTunedChannel(v)?.title },
+                sx = sx, sy = sy
+            )
+        } else
         DemoPlayerUi(
             isVisible = layer == DemoLayer.PLAYER_UI && playerZone != PlayerZone.DETAIL,
             zone = playerZone,
@@ -2485,6 +2618,7 @@ fun DemoLiveScreen(
             isPaused = isPaused,
             buttonsFocusIndex = if (playerZone == PlayerZone.BUTTONS) playerButtonsFocus else -1,
             figmaButtons = useFigmaButtons,
+            seekTapeVersion = seekBarVersion,
             frames = filmstripFrames,
             blockTitleFor = { v -> blockForTunedChannel(v)?.title },
             infoInsteadOfDescription = playerVersion == 2,
@@ -2559,6 +2693,15 @@ fun DemoLiveScreen(
             onHidden = { demoToast = null },
             sx = sx, sy = sy
         )
+
+        // Dev menu playera (klawisz "0") — po zamknięciu wróć fokusem na root,
+        // żeby klawisze dalej trafiały w keyHandler (Dialog zabiera fokus okna)
+        if (showDevMenu) {
+            DemoDevMenu(
+                selectedIndex = devMenuIndex,
+                onDismiss = { showDevMenu = false }
+            )
+        }
         recordingToast?.let { (header, recTitle) ->
             DemoRecordingToast(
                 header = header,
