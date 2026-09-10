@@ -1601,6 +1601,37 @@ Pełny flow kanału live z ramówką (barker channel): warstwa EPG jak pod Telew
 
 ---
 
+## Demo Live 2: warstwa playera z launchera Play 🆕
+
+**Status**: ✅ Makieta UX (`demolive2`), obok nietkniętego `demolive`
+**Pattern Guide**: [`docs/patterns/PLAY_NOW_PLAYER_OVERLAY_PATTERN.md`](docs/patterns/PLAY_NOW_PLAYER_OVERLAY_PATTERN.md)
+**Pakiet**: `app/src/main/java/com/uxellence/tv/v3/demolive2/`
+**Wejście**: menu deweloperskie („1") → „📡 Demo: Kanał live 2 (player Play Now)"
+
+Nowa wersja **wyłącznie warstwy nad wideo** (pas kontrolek, pas przewijania, karta
+programu, mini-EPG) odwzorowana 1:1 z `pl.play.playnow.box` 3.10.10 na PLAY BOX TV 4B.
+Silnik anteny re-użyty z `demolive` (`BarkerSchedule`, `DemoChannelPlayerController`,
+`RecordedChannelLoader`) — **tam nic nie zmieniamy**. Materiał: nagrania anteny,
+domyślnie TVP1 Retro.
+
+**Metoda pomiaru**: wideo na boxie jest chronione DRM → `screencap` daje w jego
+miejscu czysty czarny, więc piksel nakładki to jej własny kolor × alfa. Cała warstwa
+została rozłożona arytmetycznie (kolory co do bitu, poświata `#5AECD3` @ 0.60 → 0
+na 68 px). Ikony odtworzone wektorowo — zasoby w APK launchera są zaciemnione.
+
+**Trzy rzeczy, których nie upraszczaj** (szczegóły w pattern-doc):
+1. **Gradient tła to DWIE warstwy** (pionowa kurtyna 520→720 + diagonalna poświata
+   lewa), dopasowane numerycznie do 77 próbek, RMSE 0.030. Jedna warstwa liniowa
+   nie potrafi się spłaszczyć po prawej → wideo prześwituje przez metadane.
+2. **Oś paska**: bieżący blok mapuje się na `x = 325..1530`, a kropki granic leżą
+   POZA tym zakresem (290 / 1562). Zweryfikowane dwoma stanami z boxa.
+3. **Środek rzędu kontrolek to 926 px, nie 960.**
+
+⚠️ Emulator `Television_1080p` dorzuca fantomowe eventy — zrzuty nakładki rób
+w pierwszych ~5 s po starcie ekranu.
+
+---
+
 ## Live Channels: Zdalna konfiguracja + token JWT 🆕
 
 **Status**: ✅ Zaimplementowane, czeka na token JWT od zespołu CDN

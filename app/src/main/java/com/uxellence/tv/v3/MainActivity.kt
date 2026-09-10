@@ -107,7 +107,7 @@ class MainActivity : ComponentActivity() {
 }
 
 enum class NavigationScreen {
-    HOME, LIVE, COMPONENT_SHOWCASE, TOP_MENU2, SHORTCUT, CHANNELE, VIDEOSLIDER, SLIDER, SLIDER_MIX, EPG, EPG_DAY, FOCUS_MINI_CARD, VOICE_TEST, SPLASH, WHATS_NEW, STARTUP_MODE_SELECTION, LAUNCHER_SETUP, ZAPPING_BAR, CHANNEL_GRID, WIDEO_GRID, KINO_GRID, VOD_GRID, RECORDINGS_GRID, APPS_GRID, SERIES_EPISODES, MOVIE_DETAIL, PURCHASE, RENTAL_PROCESSING, OLYMPICS, VOD_PLAYER, DEMO_LIVE, DEMO_VOD, PACKAGE_DETAIL, DEVICES
+    HOME, LIVE, COMPONENT_SHOWCASE, TOP_MENU2, SHORTCUT, CHANNELE, VIDEOSLIDER, SLIDER, SLIDER_MIX, EPG, EPG_DAY, FOCUS_MINI_CARD, VOICE_TEST, SPLASH, WHATS_NEW, STARTUP_MODE_SELECTION, LAUNCHER_SETUP, ZAPPING_BAR, CHANNEL_GRID, WIDEO_GRID, KINO_GRID, VOD_GRID, RECORDINGS_GRID, APPS_GRID, SERIES_EPISODES, MOVIE_DETAIL, PURCHASE, RENTAL_PROCESSING, OLYMPICS, VOD_PLAYER, DEMO_LIVE, DEMO_LIVE2, DEMO_VOD, PACKAGE_DETAIL, DEVICES
 }
 
 // Helper functions for launcher setup
@@ -618,6 +618,7 @@ fun TvRoot(
     // Menu items dla wszystkich ekranów - najnowsze na górze
     val menuItems = remember {
         listOf(
+            MainMenuItem(id = "demo_live2", title = "📡 Demo: Kanał live 2 (player Play Now)", navigationScreen = NavigationScreen.DEMO_LIVE2),
             MainMenuItem(id = "demo_live", title = "📡 Demo: Kanał live + ramówka", navigationScreen = NavigationScreen.DEMO_LIVE),
             MainMenuItem(id = "demo_vod", title = "🎞 Demo: VOD + miniaturki", navigationScreen = NavigationScreen.DEMO_VOD),
             MainMenuItem(id = "kino_grid", title = "🎬 Lista Kino", navigationScreen = NavigationScreen.KINO_GRID),
@@ -1688,6 +1689,18 @@ fun TvRoot(
                             NavigationScreen.TOP_MENU2
                         } else NavigationScreen.HOME
                     },
+                    sx = ::sx,
+                    sy = ::sy
+                )
+            }
+            NavigationScreen.DEMO_LIVE2 -> {
+                val demo2Config = LocalConfiguration.current
+                val scaleX = demo2Config.screenWidthDp / 1920f
+                val scaleY = demo2Config.screenHeightDp / 1080f
+                fun sx(px: Int) = (px * scaleX).dp
+                fun sy(px: Int) = (px * scaleY).dp
+                com.uxellence.tv.v3.demolive2.DemoLive2Screen(
+                    onBackPressed = { currentScreen = NavigationScreen.HOME },
                     sx = ::sx,
                     sy = ::sy
                 )
