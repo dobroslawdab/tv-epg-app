@@ -1619,13 +1619,20 @@ miejscu czysty czarny, więc piksel nakładki to jej własny kolor × alfa. Cał
 została rozłożona arytmetycznie (kolory co do bitu, poświata `#5AECD3` @ 0.60 → 0
 na 68 px). Ikony odtworzone wektorowo — zasoby w APK launchera są zaciemnione.
 
-**Trzy rzeczy, których nie upraszczaj** (szczegóły w pattern-doc):
+**Dwa świadome odejścia od launchera**: podlanie/gradienty są w NASZYM ciemnym
+fiolecie `#281443` (nie `#48227C` z boxa), a przewijanie pokazuje taśmę miniatur
+z naszego playera (Play Now ma tam sam playhead).
+
+**Cztery rzeczy, których nie upraszczaj** (szczegóły w pattern-doc):
 1. **Gradient tła to DWIE warstwy** (pionowa kurtyna 520→720 + diagonalna poświata
    lewa), dopasowane numerycznie do 77 próbek, RMSE 0.030. Jedna warstwa liniowa
    nie potrafi się spłaszczyć po prawej → wideo prześwituje przez metadane.
 2. **Oś paska**: bieżący blok mapuje się na `x = 325..1530`, a kropki granic leżą
    POZA tym zakresem (290 / 1562). Zweryfikowane dwoma stanami z boxa.
 3. **Środek rzędu kontrolek to 926 px, nie 960.**
+4. **Oś wirtualna wymaga przekotwiczenia** po tym, jak `onTimelineChanged` nadpisze
+   nominalne długości z manifestu realnymi — inaczej przy ~480 cyklach sekundy
+   różnicy na cykl dają godziny odjazdu i przewijanie ląduje na brzegu okna DVR.
 
 ⚠️ Emulator `Television_1080p` dorzuca fantomowe eventy — zrzuty nakładki rób
 w pierwszych ~5 s po starcie ekranu.

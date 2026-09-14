@@ -34,6 +34,13 @@ arytmetycznie, bez pipety „na oko":
 | tor paska (dalej) | `#EEEEEE` @ 40% | `#9481AE` nad `#48227C` → rozwiązane |
 | poświata pod paskiem | `#5AECD3` @ **0.60** → 0 na **68 px** | z równania mieszania; R/G/B zgadzają się **co do bitu** |
 
+### Świadome odejścia od launchera
+
+| co | Play Now | u nas | dlaczego |
+|---|---|---|---|
+| podlanie / gradienty | `#48227C` | **`#281443`** (`PN_SCRIM`) | ciemny fiolet projektu, ten sam co overlay-scrub w V4 i tła modali. Geometria pola alfy zostaje zmierzona — zmienia się wyłącznie kolor docelowy. `PN_PURPLE` zostaje tam, gdzie jest kolorem „na akcencie" (glif na kaflu mint, chip LIVE). |
+| przewijanie | sam playhead | **taśma miniatur** (`PlayNowScrubTape`) | podgląd przewijania z naszego playera — patrz sekcja 4a |
+
 > Zasoby w APK launchera są zaciemnione (`res/` to same `color/*.xml`), więc ikon
 > **nie da się wyciągnąć z pliku** — są odtworzone wektorowo z geometrii zbliżeń
 > (`PlayNowIcons.kt`).
@@ -104,7 +111,7 @@ Kropki granic leżą **poza** zakresem bieżącego bloku, w przerwach toru.
 też segmentów sąsiednich (ogon poprzedniego bloku jest jasny w całości).
 Pod jasną częścią poświata mint (patrz tabela wyżej).
 
-**Bąbelek czasu** to prostokąt w `#48227C` **na** poświacie — czyta się jako
+**Bąbelek czasu** to prostokąt w kolorze podlania (`PN_SCRIM`) **na** poświacie — czyta się jako
 „wycięcie" w niej. Szerokość 122 px designu: przy 104 px `HH:mm:ss` się ucinało.
 
 ---
@@ -130,6 +137,44 @@ nie parametrów:
 
 ---
 
+## 4a. Podgląd przewijania (nasz dodatek)
+
+Taśma miniatur z prototypu „Nowy player – scrubb preview 2026" (ta sama geometria
+co `V4ScrubStrip` w `demolive`): sloty 292x175, kadr kursora 486x292 w białej
+ramce, gap 20, tytuł materiału wyśrodkowany pod taśmą.
+
+- wchodzi **dopiero po pierwszym LEWO/PRAWO** na pasku — samo wejście na pasek
+  pokazuje tylko playhead,
+- gdy jest widoczna, karta programu i pas kontrolek ustępują; pas przewijania zostaje,
+- klatki z **re-użytego** `DemoFilmstripProvider` (trwały cache `frames/<program>/`
+  obok materiału, więc kolejne wejścia mają taśmę od razu).
+
+### ⚠️ Pułapka: oś wirtualna rozjeżdża się po poznaniu realnych długości
+
+`BarkerSchedule` startuje z **nominalnymi** długościami z `manifest.json`, a
+`onTimelineChanged` **nadpisuje** je tym, co zmierzył ExoPlayer. `trackedCycle`
+policzony przy `preparePlayer` na nominalnych przestaje wtedy pasować:
+
+```
+pozycja wirtualna = cycle × materialCycleMs + prefix + pos
+```
+
+Przy ~480 cyklach (nagranie sprzed 2 miesięcy) nawet **sekundy** różnicy na cykl
+dają **godziny** odjazdu. Objaw w demolive2: pierwsze LEWO/PRAWO wyrzucało kursor
+na brzeg okna DVR (bąbelek sprzed doby, taśma pusta po lewej — bo wszystkie sloty
+wypadały przed `dvrStart`).
+
+**Dwie warstwy obrony** (obie w `DemoLive2Screen`):
+1. `LaunchedEffect(prepared)` → `delay(1500)` → `controller.seekToLiveEdge()` —
+   przekotwiczenie `trackedCycle` już na realnych długościach,
+2. strażnik bazy kursora w `moveCursor`: baza `<= 0` albo starsza niż całe okno DVR
+   nie jest realną pozycją → bierzemy `virtualNow()`.
+
+> Stary `demolive` tego nie widzi, bo ma okno DVR = 1 h (odjazd jest tam clampowany
+> do godziny i maskowany przez kolejne seeki). Przy oknie 24 h wychodzi wprost.
+
+---
+
 ## 5. Mini-EPG (stan po DÓŁ)
 
 Zafokusowany rząd kanału stoi **nad** pasem przewijania, kolejne kanały pod nim —
@@ -145,7 +190,8 @@ Kolumny rzędu: szyna (`MOJE` / numer / logo) → okładka + opis bieżącego pr
 ```
 OK (wideo)   → nakładka, fokus na pasie kontrolek
 LEWO/PRAWO   → CONTROLS: wybór ikony
-GÓRA         → SCRUB (playhead na mint), LEWO/PRAWO przewija ±30 s
+GÓRA         → SCRUB (playhead na mint); LEWO/PRAWO przewija ±30 s
+               i odsłania taśmę podglądu
 DÓŁ          → MINI_EPG (GÓRA/DÓŁ kanał, LEWO/PRAWO program, OK dostraja)
 BACK         → schowaj nakładkę; przy schowanej — wyjście z ekranu
 ```

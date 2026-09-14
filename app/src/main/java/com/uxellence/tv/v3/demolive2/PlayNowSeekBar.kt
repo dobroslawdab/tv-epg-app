@@ -128,13 +128,13 @@ fun PlayNowSeekBar(
             sizePx = PN.LABEL_SIZE, color = PN_TEXT, sx = sx, sy = sy
         )
 
-        // ── bąbelek z czasem playheada (granatowy prostokąt na poświacie) ──
+        // ── bąbelek z czasem playheada (prostokąt w kolorze podlania na poświacie) ──
         val bubbleTop = trackTopPx + (PN.BUBBLE_TOP - PN.TRACK_TOP)
         Box(
             modifier = Modifier
                 .offset(x = sx((headX - PN.BUBBLE_W / 2f).toInt()), y = sy(bubbleTop))
                 .width(sx(PN.BUBBLE_W)).height(sy(PN.BUBBLE_H))
-                .background(PN_PURPLE, RoundedCornerShape(sx(3))),
+                .background(PN_SCRIM, RoundedCornerShape(sx(3))),
             contentAlignment = androidx.compose.ui.Alignment.Center
         ) {
             Text(

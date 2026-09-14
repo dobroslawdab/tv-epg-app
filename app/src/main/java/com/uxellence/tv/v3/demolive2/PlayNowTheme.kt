@@ -17,7 +17,9 @@ import java.util.Locale
  * 1920x1080, wideo pod spodem czarne przez DRM — dzięki temu piksele nakładki dały
  * się zmierzyć wprost). Wszystkie liczby poniżej są ZMIERZONE, nie oszacowane:
  *
- *  - kolory: próbka piksela (kolor nakładki nad czarnym = kolor własny),
+ *  - kolory: próbka piksela (kolor nakładki nad czarnym = kolor własny)
+ *    — UWAGA: podlanie/gradient celowo NIE jest z boxa, tylko nasze #281443,
+ *    geometria pola alfy zostaje zmierzona,
  *  - poświata pod paskiem: #5AECD3 z alfą 0.60 gasnącą do 0 na 68 px
  *    (rozwiązane z równania mieszania nad #48227C — R/G/B zgadzają się co do bitu),
  *  - gradient tła: pole alfy wyliczone z siatki 77 próbek i dopasowane numerycznie
@@ -30,7 +32,17 @@ import java.util.Locale
 
 // ═══════════════ kolory (próbkowane z boxa) ═══════════════
 
-/** Brand purple nakładki — #48227C (identyczny jak V4_BRAND w demolive). */
+/**
+ * Podlanie/gradienty pod playerem — CIEMNY fiolet projektu (#281443, ten sam co
+ * overlay-scrub w demolive V4 i tło modali). Launcher Play ma tu #48227C, ale
+ * w naszej makiecie warstwa playera ma siedzieć na ciemniejszym podlaniu.
+ */
+val PN_SCRIM = Color(0xFF281443)
+
+/**
+ * Brand purple — #48227C. NIE jest już kolorem podlania: zostaje wyłącznie tam,
+ * gdzie jest kolorem "na akcencie" (glif na kaflu mint, chip LIVE).
+ */
 val PN_PURPLE = Color(0xFF48227C)
 
 /** Akcent/fokus — #5AECD3 (ten sam aqua co karty kanałów w projekcie). */
@@ -153,7 +165,7 @@ fun pnOverlayBrushDiagonal(sx: (Int) -> Dp, sy: (Int) -> Dp, density: Float): Br
     fun px(v: Float, f: (Int) -> Dp) = f(1).value * v * density
     return Brush.linearGradient(
         0f to Color.Transparent,
-        1f to PN_PURPLE,
+        1f to PN_SCRIM,
         start = Offset(px(PN.GRAD_B_START_X, sx), px(PN.GRAD_B_START_Y, sy)),
         end = Offset(px(PN.GRAD_B_END_X, sx), px(PN.GRAD_B_END_Y, sy))
     )
@@ -164,7 +176,7 @@ fun pnOverlayBrushBottom(sy: (Int) -> Dp, density: Float): Brush {
     fun py(v: Float) = sy(1).value * v * density
     return Brush.verticalGradient(
         0f to Color.Transparent,
-        1f to PN_PURPLE,
+        1f to PN_SCRIM,
         startY = py(PN.GRAD_A_TOP),
         endY = py(PN.GRAD_A_BOTTOM)
     )

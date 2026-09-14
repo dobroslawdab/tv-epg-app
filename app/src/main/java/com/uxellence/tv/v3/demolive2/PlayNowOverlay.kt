@@ -76,6 +76,11 @@ fun PlayNowOverlay(
     miniEpgRows: List<PnChannelRow>,
     miniEpgRowIndex: Int,
     miniEpgProgramIndex: Int,
+    /** Taśma podglądu przewijania — widoczna po pierwszym LEWO/PRAWO na pasku. */
+    scrubTapeVisible: Boolean,
+    scrubFrames: List<Pair<android.graphics.Bitmap?, Long>> = emptyList(),
+    dvrStartMs: Long = 0L,
+    blockTitleFor: (Long) -> String? = { null },
     sx: (Int) -> Dp,
     sy: (Int) -> Dp,
 ) {
@@ -112,8 +117,21 @@ fun PlayNowOverlay(
                     sx = sx, sy = sy
                 )
             } else {
-                PnChannelIdentity(channelName, channelNumber, channelLogoUrl, sx, sy)
-                PnProgramCard(shownProgram, nextProgram, shownIsLive, antennaStartWallMs, sx, sy)
+                if (scrubTapeVisible) {
+                    // Podgląd przewijania: karta programu i pas kontrolek ustępują
+                    // taśmie miniatur; pas przewijania zostaje na swoim miejscu.
+                    PlayNowScrubTape(
+                        cursorMs = cursorMs ?: positionMs,
+                        liveEdgeMs = liveEdgeMs,
+                        dvrStartMs = dvrStartMs,
+                        frames = scrubFrames.map { (bmp, off) -> off to bmp },
+                        blockTitleFor = blockTitleFor,
+                        sx = sx, sy = sy
+                    )
+                } else {
+                    PnChannelIdentity(channelName, channelNumber, channelLogoUrl, sx, sy)
+                    PnProgramCard(shownProgram, nextProgram, shownIsLive, antennaStartWallMs, sx, sy)
+                }
                 PlayNowSeekBar(
                     trackTopPx = PN.TRACK_TOP,
                     blockStartMs = shownProgram.startMs,
@@ -124,11 +142,13 @@ fun PlayNowOverlay(
                     focused = zone == PnZone.SCRUB,
                     sx = sx, sy = sy
                 )
-                PnControlBar(
-                    focusedIndex = if (zone == PnZone.CONTROLS) controlIndex else -1,
-                    isPaused = isPaused,
-                    sx = sx, sy = sy
-                )
+                if (!scrubTapeVisible) {
+                    PnControlBar(
+                        focusedIndex = if (zone == PnZone.CONTROLS) controlIndex else -1,
+                        isPaused = isPaused,
+                        sx = sx, sy = sy
+                    )
+                }
             }
         }
     }

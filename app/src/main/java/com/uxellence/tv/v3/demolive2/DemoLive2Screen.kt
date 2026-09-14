@@ -24,6 +24,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.uxellence.tv.v3.channels.ChannelManager
 import com.uxellence.tv.v3.demolive.BarkerSchedule
 import com.uxellence.tv.v3.demolive.DemoChannelPlayerController
+import com.uxellence.tv.v3.demolive.DemoFilmstripProvider
 import com.uxellence.tv.v3.demolive.RecordedChannelLoader
 import kotlinx.coroutines.delay
 import java.io.File
@@ -43,7 +44,8 @@ import java.io.File
  * Nawigacja (jak na boxie):
  *   OK               → pokaż nakładkę, fokus na pasie kontrolek
  *   LEWO/PRAWO       → pas kontrolek: wybór ikony
- *   GÓRA             → pas przewijania (playhead na mint), LEWO/PRAWO przewija
+ *   GÓRA             → pas przewijania (playhead na mint); LEWO/PRAWO przewija
+ *                      i ODSŁANIA taśmę podglądu (nasz dodatek, Play Now jej nie ma)
  *   DÓŁ              → mini-EPG (GÓRA/DÓŁ kanał, LEWO/PRAWO program, OK dostrój)
  *   BACK             → schowaj nakładkę; przy schowanej — wyjście z ekranu
  */
@@ -51,6 +53,7 @@ import java.io.File
 private const val AUTO_HIDE_MS = 6_000L
 private const val SCRUB_STEP_MS = 30_000L
 private const val SCRUB_COMMIT_MS = 800L
+private const val DVR_WINDOW_MS = 24 * 3_600_000L
 
 @Composable
 fun DemoLive2Screen(
@@ -80,24 +83,33 @@ fun DemoLive2Screen(
         DemoChannelPlayerController(
             context = context,
             schedule = BarkerSchedule(channel.items),
-            dvrWindowMs = 24 * 3_600_000L,
+            dvrWindowMs = DVR_WINDOW_MS,
             antennaStartWallMs = channel.recordedAtWallMs
         )
     }
     var prepared by remember(channel.id) { mutableStateOf(false) }
     var prepareError by remember(channel.id) { mutableStateOf<String?>(null) }
 
+    // Miniaturki podglądu przewijania — RE-UŻYTY provider z demolive (trwały cache
+    // klatek obok materiału: frames/<program>/f_<pos>.jpg, więc kolejne wejścia
+    // mają taśmę od razu, bez ekstrakcji z mp4)
+    val filmstrip = remember(channel.id) { DemoFilmstripProvider(controller.schedule) }
+
     LaunchedEffect(channel.id) {
         try {
             val files = channel.items.map { File(it.url.removePrefix("file://")) }
             controller.preparePlayer(files)
             prepared = true
+            filmstrip.startExtraction(files.map { it.absolutePath })
         } catch (e: Exception) {
             prepareError = e.message ?: e.toString()
         }
     }
     DisposableEffect(channel.id) {
-        onDispose { controller.release() }
+        onDispose {
+            controller.release()
+            filmstrip.release()
+        }
     }
 
     // ── stan nakładki ──
@@ -112,6 +124,8 @@ fun DemoLive2Screen(
     var liveEdgeMs by remember { mutableLongStateOf(0L) }
     var cursorMs by remember { mutableStateOf<Long?>(null) }
     var cursorTouchedAt by remember { mutableLongStateOf(0L) }
+    // Taśma podglądu wchodzi DOPIERO po pierwszym LEWO/PRAWO na pasku
+    var scrubTapeVisible by remember { mutableStateOf(false) }
 
     // Program pokazywany na karcie: po przewinięciu — blok pod kursorem
     val schedule = controller.schedule
@@ -119,6 +133,17 @@ fun DemoLive2Screen(
     val shownBlock = remember(shownBase / 1000L, prepared) { schedule.epgBlockAt(shownBase) }
     val nextBlock = remember(shownBase / 1000L, prepared) {
         schedule.epgBlockAt(shownBlock.endVirtualMs + 1)
+    }
+
+    // Klatki wokół kursora: przeliczane przy każdym kroku kursora (getClosestFrame
+    // czyta z cache RAM/dysku, więc to tanie); poza taśmą nie liczymy nic.
+    val scrubFrames = remember(scrubTapeVisible, cursorMs, prepared) {
+        if (!scrubTapeVisible || !prepared) emptyList()
+        else filmstrip.framesAround(
+            centerVirtualMs = cursorMs ?: positionMs,
+            liveEdgeVirtualMs = controller.virtualNow(),
+            dvrStartVirtualMs = controller.dvrStartMs()
+        ).map { (offset, bmp) -> bmp to offset }
     }
 
     // mini-EPG
@@ -139,6 +164,21 @@ fun DemoLive2Screen(
         }
     }
 
+    // ── przekotwiczenie osi wirtualnej po poznaniu REALNYCH długości ──
+    // BarkerSchedule startuje z nominalnymi długościami z manifestu, a
+    // onTimelineChanged NADPISUJE je tym, co zmierzył ExoPlayer. trackedCycle
+    // policzony przy preparePlayer na nominalnych przestaje wtedy pasować:
+    // pozycja wirtualna = cycle × materialCycleMs + …, więc przy ~480 cyklach
+    // nawet sekundy różnicy na cykl dają GODZINY odjazdu (objaw: pierwsze
+    // LEWO/PRAWO wyrzucało kursor na brzeg okna DVR, taśma pusta po lewej).
+    // Jeden seek na live edge po ustabilizowaniu Timeline liczy trackedCycle
+    // od nowa, już na realnych długościach.
+    LaunchedEffect(prepared) {
+        if (!prepared) return@LaunchedEffect
+        delay(1_500)
+        controller.seekToLiveEdge()
+    }
+
     // ── tick pozycji/zegara ──
     LaunchedEffect(prepared) {
         while (true) {
@@ -155,6 +195,7 @@ fun DemoLive2Screen(
         if (System.currentTimeMillis() - lastInputAt >= AUTO_HIDE_MS) {
             overlayVisible = false
             cursorMs = null
+            scrubTapeVisible = false
         }
     }
 
@@ -165,6 +206,7 @@ fun DemoLive2Screen(
         if (System.currentTimeMillis() - cursorTouchedAt >= SCRUB_COMMIT_MS) {
             cursorMs?.let { controller.seekToVirtual(it) }
             cursorMs = null
+            scrubTapeVisible = false
             isPaused = false
         }
     }
@@ -180,7 +222,13 @@ fun DemoLive2Screen(
     }
 
     fun moveCursor(deltaMs: Long) {
-        val base = cursorMs ?: positionMs
+        scrubTapeVisible = true
+        // Baza musi być SENSOWNA: 0 (tick jeszcze nie odczytał pozycji) ani
+        // pozycja starsza niż całe okno DVR (oś jeszcze nie przekotwiczona —
+        // patrz LaunchedEffect wyżej) nie są realną pozycją odtwarzania.
+        val now = controller.virtualNow()
+        val raw = cursorMs ?: positionMs
+        val base = if (raw <= 0L || now - raw >= DVR_WINDOW_MS) now else raw
         val target = (base + deltaMs)
             .coerceIn(controller.dvrStartMs(), controller.virtualNow())
         cursorMs = target
@@ -251,10 +299,15 @@ fun DemoLive2Screen(
             PnZone.SCRUB -> when (keyCode) {
                 KeyEvent.KEYCODE_DPAD_LEFT -> { moveCursor(-SCRUB_STEP_MS); true }
                 KeyEvent.KEYCODE_DPAD_RIGHT -> { moveCursor(SCRUB_STEP_MS); true }
-                KeyEvent.KEYCODE_DPAD_DOWN -> { zone = PnZone.CONTROLS; true }
+                KeyEvent.KEYCODE_DPAD_DOWN -> {
+                    scrubTapeVisible = false
+                    zone = PnZone.CONTROLS
+                    true
+                }
                 KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
                     cursorMs?.let { controller.seekToVirtual(it) }
                     cursorMs = null
+                    scrubTapeVisible = false
                     isPaused = false
                     zone = PnZone.CONTROLS
                     true
@@ -293,6 +346,7 @@ fun DemoLive2Screen(
         if (overlayVisible) {
             overlayVisible = false
             cursorMs = null
+            scrubTapeVisible = false
         } else onBackPressed()
     }
 
@@ -332,6 +386,10 @@ fun DemoLive2Screen(
             miniEpgRows = miniRows,
             miniEpgRowIndex = epgRowIndex,
             miniEpgProgramIndex = epgProgramIndex,
+            scrubTapeVisible = scrubTapeVisible && zone == PnZone.SCRUB,
+            scrubFrames = scrubFrames,
+            dvrStartMs = controller.dvrStartMs(),
+            blockTitleFor = { v -> schedule.epgBlockAt(v).title },
             sx = sx, sy = sy
         )
     }
@@ -367,7 +425,7 @@ private fun pnLogoFor(recordedName: String): String? {
 private fun PnMissingMaterial(onBackPressed: () -> Unit, sy: (Int) -> Dp) {
     BackHandler(enabled = true) { onBackPressed() }
     Box(
-        modifier = Modifier.fillMaxSize().background(PN_PURPLE),
+        modifier = Modifier.fillMaxSize().background(PN_SCRIM),
         contentAlignment = Alignment.Center
     ) {
         Text(
