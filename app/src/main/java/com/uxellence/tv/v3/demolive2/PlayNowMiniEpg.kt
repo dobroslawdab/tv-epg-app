@@ -210,7 +210,7 @@ private fun PnEpgRow(
         )
         Box(
             modifier = Modifier.offset(
-                x = sx(PN.EPG_TEXT_LEFT + 340), y = sy(topPx + DY_TIME - 2)
+                x = sx(PN.EPG_TEXT_LEFT + 358), y = sy(topPx + DY_TIME - 2)
             )
         ) {
             PnRestartBadge(26, PN_TEXT_SOFT, sx, sy)
