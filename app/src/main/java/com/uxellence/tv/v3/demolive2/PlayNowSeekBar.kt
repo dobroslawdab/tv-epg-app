@@ -39,6 +39,23 @@ import androidx.compose.ui.unit.Dp
  * Pod jasną częścią poświata #5AECD3 o alfie 0.60 gasnąca do 0 na 68 px.
  */
 
+/**
+ * Jak pasek ma się zachować — ZMIERZONE na boxie, to nie jest nasza inwencja:
+ *
+ *  PLAYING       fokus na kontrolkach lub na pasku → wypełnienie do pozycji,
+ *                poświata, bullet i bąbelek z czasem
+ *  POSITION_ONLY mini-EPG → wypełnienie i poświata zostają (pokazują, gdzie
+ *                faktycznie jest odtwarzanie), ale BULLETA I BĄBELKA NIE MA
+ *  DOTS_ONLY     karta pokazuje INNY program niż grany (poziom miniaturki /
+ *                detal) → sam wygaszony tor i kropki granic, zero wypełnienia
+ *
+ * Weryfikacja: zrzut mini-EPG ma na wysokości paska tylko dwie 8-px kropki
+ * (x≈300 i 1262) i jasny ogon 0..264 — żadnego szerokiego koła playheada
+ * ani prostokąta bąbelka. Zrzut detalu programu z przyszłości ma WYŁĄCZNIE
+ * dwie 12-px kropki (284-296, 1556-1568) i nic poza tym.
+ */
+enum class PnBarStyle { PLAYING, POSITION_ONLY, DOTS_ONLY }
+
 /** Pozycja X playheada dla postępu w bloku (0..1), w px designu. */
 private fun headXFor(progress: Float): Float =
     PN.SEG_CUR_START + progress.coerceIn(0f, 1f) * (PN.SEG_CUR_END - PN.SEG_CUR_START)
@@ -56,6 +73,8 @@ fun PlayNowSeekBar(
     antennaStartWallMs: Long,
     /** Fokus na pasku (strefa SCRUB) — playhead na mint. */
     focused: Boolean,
+    /** Wariant paska — patrz [PnBarStyle]. */
+    style: PnBarStyle = PnBarStyle.PLAYING,
     sx: (Int) -> Dp,
     sy: (Int) -> Dp,
 ) {
@@ -76,8 +95,10 @@ fun PlayNowSeekBar(
             val r = h / 2f
             val head = dx(headX)
 
+            val fills = style != PnBarStyle.DOTS_ONLY
+
             // ── poświata pod obejrzaną częścią (mint 0.60 → 0) ──
-            if (head > 0f) {
+            if (fills && head > 0f) {
                 drawRect(
                     brush = Brush.verticalGradient(
                         0f to PN_MINT.copy(alpha = PN.GLOW_ALPHA),
@@ -95,7 +116,7 @@ fun PlayNowSeekBar(
                 if (toPx <= fromPx) return
                 val a = dx(fromPx)
                 val b = dx(toPx)
-                val split = head.coerceIn(a, b)
+                val split = if (fills) head.coerceIn(a, b) else a
                 if (split > a) drawRoundRectPart(a, split, top, h, r, PN_TRACK)
                 if (b > split) drawRoundRectPart(split, b, top, h, r, PN_TRACK_DIM)
             }
@@ -108,12 +129,14 @@ fun PlayNowSeekBar(
             drawCircle(PN_TEXT, dotR, Offset(dx(PN.DOT_PREV_CX.toFloat()), top + h / 2f))
             drawCircle(PN_TEXT, dotR, Offset(dx(PN.DOT_NEXT_CX.toFloat()), top + h / 2f))
 
-            // ── playhead ──
-            drawCircle(
-                color = if (focused) PN_MINT else PN_TEXT,
-                radius = dx(PN.HEAD_R.toFloat()),
-                center = Offset(head, top + h / 2f)
-            )
+            // ── playhead: TYLKO gdy pasek pokazuje granie (patrz PnBarStyle) ──
+            if (style == PnBarStyle.PLAYING) {
+                drawCircle(
+                    color = if (focused) PN_MINT else PN_TEXT,
+                    radius = dx(PN.HEAD_R.toFloat()),
+                    center = Offset(head, top + h / 2f)
+                )
+            }
         }
 
         // ── godziny granic bloku (wyśrodkowane pod kropkami) ──
@@ -130,7 +153,7 @@ fun PlayNowSeekBar(
 
         // ── bąbelek z czasem playheada (prostokąt w kolorze podlania na poświacie) ──
         val bubbleTop = trackTopPx + (PN.BUBBLE_TOP - PN.TRACK_TOP)
-        Box(
+        if (style == PnBarStyle.PLAYING) Box(
             modifier = Modifier
                 .offset(x = sx((headX - PN.BUBBLE_W / 2f).toInt()), y = sy(bubbleTop))
                 .width(sx(PN.BUBBLE_W)).height(sy(PN.BUBBLE_H))

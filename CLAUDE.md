@@ -1623,6 +1623,12 @@ na 68 px). Ikony odtworzone wektorowo — zasoby w APK launchera są zaciemnione
 fiolecie `#281443` (nie `#48227C` z boxa), a przewijanie pokazuje taśmę miniatur
 z naszego playera (Play Now ma tam sam playhead).
 
+**Trzy poziomy fokusa nad wideo**: pas kontrolek → pas przewijania → miniaturka
+(OK rozwija detal z opisem i akcjami). Bullet z godziną na pasku pojawia się
+TYLKO gdy pasek pokazuje pozycję odtwarzania — w mini-EPG go nie ma, a przy
+karcie ustawionej na inny program zostają same kropki granic bloku
+(`PnBarStyle.PLAYING / POSITION_ONLY / DOTS_ONLY`).
+
 **Cztery rzeczy, których nie upraszczaj** (szczegóły w pattern-doc):
 1. **Gradient tła to DWIE warstwy** (pionowa kurtyna 520→720 + diagonalna poświata
    lewa), dopasowane numerycznie do 77 próbek, RMSE 0.030. Jedna warstwa liniowa

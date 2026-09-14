@@ -175,6 +175,42 @@ wypadały przed `dvrStart`).
 
 ---
 
+## 4b. Trzy poziomy fokusa i warianty paska
+
+Nad wideo są **trzy** poziomy, licząc od dołu:
+
+```
+pas kontrolek  ──GÓRA──▶  pas przewijania  ──GÓRA──▶  miniaturka / karta programu
+      │                          │                              │
+      └──DÓŁ──▶ mini-EPG         └──LEWO/PRAWO: przewijanie      ├─ LEWO/PRAWO: ramówka kanału
+                                                                 └─ OK: detal (opis + Nagraj/Przypomnij)
+```
+
+### Kiedy pasek pokazuje bullet i bąbelek
+
+To NIE jest dowolność — wynika ze zrzutów:
+
+| stan | wypełnienie + poświata | bullet + bąbelek | dowód ze zrzutu |
+|---|---|---|---|
+| kontrolki / pasek | ✔ | ✔ | `box_osd1`: koło na 1501 i bąbelek „10:58:42" |
+| mini-EPG | ✔ (do POZYCJI ODTWARZANIA) | ✘ | jasne odcinki na wysokości paska: `0-264`, kropki `296-304` i `1256-1264` — same 8-px kropki, żadnego szerokiego koła ani prostokąta bąbelka |
+| karta pokazuje INNY program (detal) | ✘ | ✘ | wyłącznie dwie 12-px kropki `284-296` i `1556-1568`, poza tym nic |
+
+W kodzie: `PnBarStyle.PLAYING / POSITION_ONLY / DOTS_ONLY`.
+
+> Sens tego jest taki, że bullet z godziną mówi „tu jesteś w odtwarzaniu".
+> Gdy karta wędruje po ramówce, pokazywany program nie ma nic wspólnego
+> z pozycją odtwarzania — więc bullet znika, zostają same granice bloku.
+
+### Detal programu
+
+Karta rozwija się w górę ekranu: etykieta dnia (165), okładka (203), tytuł (250),
+metadane (318), rząd akcji „Nagraj" / „Przypomnij" (392, wys. 64) i opis
+(485, szer. 910, 28 px, interlinia 48). Akcje są w makiecie bez skutków —
+chodzi o układ i stan fokusa.
+
+---
+
 ## 5. Mini-EPG (stan po DÓŁ)
 
 Zafokusowany rząd kanału stoi **nad** pasem przewijania, kolejne kanały pod nim —
@@ -192,8 +228,10 @@ OK (wideo)   → nakładka, fokus na pasie kontrolek
 LEWO/PRAWO   → CONTROLS: wybór ikony
 GÓRA         → SCRUB (playhead na mint); LEWO/PRAWO przewija ±30 s
                i odsłania taśmę podglądu
+GÓRA z paska → CARD: ramka mint na miniaturce; LEWO/PRAWO chodzi po ramówce,
+               OK rozwija detal
 DÓŁ          → MINI_EPG (GÓRA/DÓŁ kanał, LEWO/PRAWO program, OK dostraja)
-BACK         → schowaj nakładkę; przy schowanej — wyjście z ekranu
+BACK         → detal → karta → schowaj nakładkę → wyjście z ekranu
 ```
 
 Przewijanie zatwierdza się samo po 800 ms bezczynności (albo OK).

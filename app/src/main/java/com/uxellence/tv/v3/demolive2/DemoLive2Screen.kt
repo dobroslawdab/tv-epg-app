@@ -46,6 +46,8 @@ import java.io.File
  *   LEWO/PRAWO       → pas kontrolek: wybór ikony
  *   GÓRA             → pas przewijania (playhead na mint); LEWO/PRAWO przewija
  *                      i ODSŁANIA taśmę podglądu (nasz dodatek, Play Now jej nie ma)
+ *   GÓRA z paska     → miniaturka/karta (3. poziom); LEWO/PRAWO chodzi po
+ *                      ramówce kanału, OK rozwija detal (opis + Nagraj/Przypomnij)
  *   DÓŁ              → mini-EPG (GÓRA/DÓŁ kanał, LEWO/PRAWO program, OK dostrój)
  *   BACK             → schowaj nakładkę; przy schowanej — wyjście z ekranu
  */
@@ -126,14 +128,34 @@ fun DemoLive2Screen(
     var cursorTouchedAt by remember { mutableLongStateOf(0L) }
     // Taśma podglądu wchodzi DOPIERO po pierwszym LEWO/PRAWO na pasku
     var scrubTapeVisible by remember { mutableStateOf(false) }
+    // 3. poziom fokusa: miniaturka/karta. Offset liczony w BLOKACH ramówki od
+    // programu granego (0 = grany), OK rozwija kartę w detal.
+    var cardOffset by remember { mutableStateOf(0) }
+    var detailOpen by remember { mutableStateOf(false) }
+    var detailActionIndex by remember { mutableStateOf(0) }
 
-    // Program pokazywany na karcie: po przewinięciu — blok pod kursorem
+    // Program pokazywany na karcie:
+    //  - strefa CARD/detal → blok oddalony o cardOffset od granego,
+    //  - inaczej → blok pod kursorem (albo pod pozycją odtwarzania).
     val schedule = controller.schedule
     val shownBase = cursorMs ?: positionMs
-    val shownBlock = remember(shownBase / 1000L, prepared) { schedule.epgBlockAt(shownBase) }
-    val nextBlock = remember(shownBase / 1000L, prepared) {
+    val onCardLevel = zone == PnZone.CARD || detailOpen
+    val shownBlock = remember(shownBase / 1000L, prepared, onCardLevel, cardOffset) {
+        val here = schedule.epgBlockAt(shownBase)
+        if (!onCardLevel || cardOffset == 0) here else {
+            var b = here
+            repeat(kotlin.math.abs(cardOffset)) {
+                b = if (cardOffset > 0) schedule.epgBlockAt(b.endVirtualMs + 1)
+                else schedule.epgBlockAt((b.startVirtualMs - 1).coerceAtLeast(0L))
+            }
+            b
+        }
+    }
+    val nextBlock = remember(shownBlock.startVirtualMs) {
         schedule.epgBlockAt(shownBlock.endVirtualMs + 1)
     }
+    // Czy karta pokazuje program AKTUALNIE GRANY — steruje wariantem paska
+    val shownIsPlaying = positionMs in shownBlock.startVirtualMs until shownBlock.endVirtualMs
 
     // Klatki wokół kursora: przeliczane przy każdym kroku kursora (getClosestFrame
     // czyta z cache RAM/dysku, więc to tanie); poza taśmą nie liczymy nic.
@@ -196,6 +218,9 @@ fun DemoLive2Screen(
             overlayVisible = false
             cursorMs = null
             scrubTapeVisible = false
+            detailOpen = false
+            cardOffset = 0
+            zone = PnZone.CONTROLS
         }
     }
 
@@ -299,6 +324,14 @@ fun DemoLive2Screen(
             PnZone.SCRUB -> when (keyCode) {
                 KeyEvent.KEYCODE_DPAD_LEFT -> { moveCursor(-SCRUB_STEP_MS); true }
                 KeyEvent.KEYCODE_DPAD_RIGHT -> { moveCursor(SCRUB_STEP_MS); true }
+                KeyEvent.KEYCODE_DPAD_UP -> {
+                    // trzeci poziom: miniaturka nad paskiem
+                    scrubTapeVisible = false
+                    cursorMs = null
+                    cardOffset = 0
+                    zone = PnZone.CARD
+                    true
+                }
                 KeyEvent.KEYCODE_DPAD_DOWN -> {
                     scrubTapeVisible = false
                     zone = PnZone.CONTROLS
@@ -313,6 +346,33 @@ fun DemoLive2Screen(
                     true
                 }
                 else -> false
+            }
+            PnZone.CARD -> when {
+                detailOpen -> when (keyCode) {
+                    KeyEvent.KEYCODE_DPAD_LEFT -> {
+                        detailActionIndex = (detailActionIndex - 1).coerceAtLeast(0); true
+                    }
+                    KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                        detailActionIndex =
+                            (detailActionIndex + 1).coerceAtMost(PnDetailAction.values().lastIndex)
+                        true
+                    }
+                    // Akcje "Nagraj"/"Przypomnij" są w makiecie bez skutków —
+                    // chodzi o układ i stan fokusa, nie o realne nagrywanie.
+                    KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> true
+                    else -> false
+                }
+                else -> when (keyCode) {
+                    KeyEvent.KEYCODE_DPAD_LEFT -> { cardOffset--; true }
+                    KeyEvent.KEYCODE_DPAD_RIGHT -> { cardOffset++; true }
+                    KeyEvent.KEYCODE_DPAD_DOWN -> { cardOffset = 0; zone = PnZone.SCRUB; true }
+                    KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
+                        detailActionIndex = 0
+                        detailOpen = true
+                        true
+                    }
+                    else -> false
+                }
             }
             PnZone.MINI_EPG -> when (keyCode) {
                 KeyEvent.KEYCODE_DPAD_UP -> {
@@ -343,11 +403,18 @@ fun DemoLive2Screen(
 
     // BACK: nakładka widoczna → schowaj; schowana → wyjście (wzorzec z demolive)
     BackHandler(enabled = true) {
-        if (overlayVisible) {
-            overlayVisible = false
-            cursorMs = null
-            scrubTapeVisible = false
-        } else onBackPressed()
+        when {
+            detailOpen -> detailOpen = false
+            overlayVisible -> {
+                overlayVisible = false
+                cursorMs = null
+                scrubTapeVisible = false
+                cardOffset = 0
+                zone = PnZone.CONTROLS
+            }
+            else -> onBackPressed()
+        }
+        touch()
     }
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
@@ -386,6 +453,10 @@ fun DemoLive2Screen(
             miniEpgRows = miniRows,
             miniEpgRowIndex = epgRowIndex,
             miniEpgProgramIndex = epgProgramIndex,
+            detailOpen = detailOpen,
+            detailDescription = shownBlock.description,
+            detailActionIndex = detailActionIndex,
+            shownIsPlaying = shownIsPlaying,
             scrubTapeVisible = scrubTapeVisible && zone == PnZone.SCRUB,
             scrubFrames = scrubFrames,
             dvrStartMs = controller.dvrStartMs(),

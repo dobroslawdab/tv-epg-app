@@ -81,6 +81,9 @@ fun PlayNowMiniEpg(
             cursorMs = null,
             antennaStartWallMs = antennaStartWallMs,
             focused = false,
+            // W mini-EPG pasek pokazuje, GDZIE jest odtwarzanie, ale bulletu
+            // i bąbelka z czasem NIE MA — zmierzone na boxie (patrz PnBarStyle).
+            style = PnBarStyle.POSITION_ONLY,
             sx = sx, sy = sy
         )
 

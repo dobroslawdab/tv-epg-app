@@ -48,7 +48,12 @@ data class PnChannelRow(
 )
 
 /** Strefy fokusa warstwy playera (pas kontrolek / pas przewijania / mini-EPG). */
-enum class PnZone { CONTROLS, SCRUB, MINI_EPG }
+/**
+ * Strefy fokusa warstwy playera. Trzy poziomy nad wideo (od dołu):
+ * pas kontrolek → pas przewijania → miniaturka/karta programu (wejście w detal),
+ * plus mini-EPG wywoływane DOŁEM z pasa kontrolek.
+ */
+enum class PnZone { CONTROLS, SCRUB, CARD, MINI_EPG }
 
 /**
  * WARSTWA PLAYERA "PLAY NOW" — wszystko, co rysuje się NAD wideo:
@@ -81,6 +86,12 @@ fun PlayNowOverlay(
     scrubFrames: List<Pair<android.graphics.Bitmap?, Long>> = emptyList(),
     dvrStartMs: Long = 0L,
     blockTitleFor: (Long) -> String? = { null },
+    /** Detal programu (OK na miniaturce) — karta rozwija się w opis + akcje. */
+    detailOpen: Boolean = false,
+    detailDescription: String = "",
+    detailActionIndex: Int = 0,
+    /** Czy pokazywany program to ten AKTUALNIE GRANY (steruje wariantem paska). */
+    shownIsPlaying: Boolean = true,
     sx: (Int) -> Dp,
     sy: (Int) -> Dp,
 ) {
@@ -116,6 +127,25 @@ fun PlayNowOverlay(
                     positionMs = positionMs,
                     sx = sx, sy = sy
                 )
+            } else if (detailOpen) {
+                PlayNowDetail(
+                    program = shownProgram,
+                    description = detailDescription,
+                    isToday = true,
+                    focusedAction = detailActionIndex,
+                    sx = sx, sy = sy
+                )
+                PlayNowSeekBar(
+                    trackTopPx = PN.TRACK_TOP,
+                    blockStartMs = shownProgram.startMs,
+                    blockEndMs = shownProgram.endMs,
+                    positionMs = positionMs,
+                    cursorMs = null,
+                    antennaStartWallMs = antennaStartWallMs,
+                    focused = false,
+                    style = PnBarStyle.DOTS_ONLY,
+                    sx = sx, sy = sy
+                )
             } else {
                 if (scrubTapeVisible) {
                     // Podgląd przewijania: karta programu i pas kontrolek ustępują
@@ -130,7 +160,13 @@ fun PlayNowOverlay(
                     )
                 } else {
                     PnChannelIdentity(channelName, channelNumber, channelLogoUrl, sx, sy)
-                    PnProgramCard(shownProgram, nextProgram, shownIsLive, antennaStartWallMs, sx, sy)
+                    PnProgramCard(
+                        program = shownProgram,
+                        next = nextProgram,
+                        shownIsLive = shownIsLive,
+                        focused = zone == PnZone.CARD,
+                        sx = sx, sy = sy
+                    )
                 }
                 PlayNowSeekBar(
                     trackTopPx = PN.TRACK_TOP,
@@ -140,6 +176,10 @@ fun PlayNowOverlay(
                     cursorMs = cursorMs,
                     antennaStartWallMs = antennaStartWallMs,
                     focused = zone == PnZone.SCRUB,
+                    style = when {
+                        !shownIsPlaying -> PnBarStyle.DOTS_ONLY
+                        else -> PnBarStyle.PLAYING
+                    },
                     sx = sx, sy = sy
                 )
                 if (!scrubTapeVisible) {
@@ -231,7 +271,8 @@ private fun PnProgramCard(
     program: PnProgram,
     next: PnProgram?,
     shownIsLive: Boolean,
-    antennaStartWallMs: Long,
+    /** 3. poziom fokusa — ramka mint wokół miniaturki. */
+    focused: Boolean,
     sx: (Int) -> Dp,
     sy: (Int) -> Dp,
 ) {
@@ -251,6 +292,7 @@ private fun PnProgramCard(
             .offset(x = sx(PN.COVER_LEFT), y = sy(PN.COVER_TOP))
             .size(sx(PN.COVER_W), sy(PN.COVER_H))
             .background(Color_Cover)
+            .then(if (focused) Modifier.border(sx(4), PN_MINT) else Modifier)
     ) {
         if (program.coverUrl != null) {
             AsyncImage(
