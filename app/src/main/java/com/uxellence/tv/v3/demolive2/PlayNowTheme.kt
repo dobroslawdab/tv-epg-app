@@ -146,7 +146,11 @@ object PN {
     const val LIVE_H = 28
     const val LIVE_SIZE = 16
     const val LIVE_LINE_W = 4
-    const val LIVE_LINE_BOTTOM = 900   // linia przechodzi przez tor i poświatę
+    // Długość kreski LICZONA WZGLĘDEM PASKA, nie do absolutnego y: pas
+    // przewijania zjeżdża na 988 przy taśmie podglądu, a przy stałej absolutnej
+    // wychodziła ujemna długość i kreska znikała (plakietka "wisiała" nad torem).
+    const val LIVE_LINE_TOP_OFFSET = -12   // start: 12 px nad torem
+    const val LIVE_LINE_LEN = 80           // przez tor (12) i w głąb poświaty
 
     // --- pas kontrolek ---
     // Rząd 7 ikon; środek rzędu na 926 px (NIE 960 — zmierzone na boxie).

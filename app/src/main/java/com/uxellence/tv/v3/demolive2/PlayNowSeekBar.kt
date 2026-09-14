@@ -99,8 +99,20 @@ fun PlayNowSeekBar(
 
             val fills = style != PnBarStyle.DOTS_ONLY
 
-            // ── poświata pod obejrzaną częścią (mint 0.60 → 0) ──
-            if (fills && head > 0f) {
+            // ── poświata: ZAWSZE DO ZNACZNIKA LIVE, nie do playheada ──
+            // Poświata oznacza "materiał dostępny do live", więc przy przewijaniu
+            // stoi w miejscu, a rusza się tylko playhead. (Ta sama zasada co
+            // w demolive V4 — tam zapisana jako uwaga z 2026-08-26.)
+            val liveProgress = liveEdgeWallMs?.let {
+                (it - blockStartWallMs).toFloat() / span
+            }
+            val glowToX = when {
+                liveProgress == null -> head
+                liveProgress < 0f -> 0f
+                liveProgress > 1f -> dx(1920f)
+                else -> dx(headXFor(liveProgress))
+            }
+            if (fills && glowToX > 0f) {
                 drawRect(
                     brush = Brush.verticalGradient(
                         0f to PN_MINT.copy(alpha = PN.GLOW_ALPHA),
@@ -109,7 +121,7 @@ fun PlayNowSeekBar(
                         endY = top + h + dy(PN.GLOW_H.toFloat())
                     ),
                     topLeft = Offset(0f, top + h),
-                    size = Size(head, dy(PN.GLOW_H.toFloat()))
+                    size = Size(glowToX, dy(PN.GLOW_H.toFloat()))
                 )
             }
 
@@ -132,16 +144,19 @@ fun PlayNowSeekBar(
             drawCircle(PN_TEXT, dotR, Offset(dx(PN.DOT_NEXT_CX.toFloat()), top + h / 2f))
 
             // ── znacznik LIVE: pionowa linia na pozycji live edge ──
-            if (liveEdgeWallMs != null && style != PnBarStyle.DOTS_ONLY) {
+            if (liveEdgeWallMs != null && style == PnBarStyle.PLAYING) {
                 val p = ((liveEdgeWallMs - blockStartWallMs).toFloat() / span)
                 if (p in 0f..1f) {
                     val lx = dx(headXFor(p))
                     drawRect(
                         color = PN_TEXT,
-                        topLeft = Offset(lx - dx(PN.LIVE_LINE_W / 2f), dy((trackTopPx - 12).toFloat())),
+                        topLeft = Offset(
+                            lx - dx(PN.LIVE_LINE_W / 2f),
+                            dy((trackTopPx + PN.LIVE_LINE_TOP_OFFSET).toFloat())
+                        ),
                         size = Size(
                             dx(PN.LIVE_LINE_W.toFloat()),
-                            dy((PN.LIVE_LINE_BOTTOM - trackTopPx + 12).toFloat())
+                            dy(PN.LIVE_LINE_LEN.toFloat())
                         )
                     )
                 }
@@ -170,7 +185,7 @@ fun PlayNowSeekBar(
         )
 
         // ── plakietka LIVE nad linią ──
-        if (liveEdgeWallMs != null && style != PnBarStyle.DOTS_ONLY) {
+        if (liveEdgeWallMs != null && style == PnBarStyle.PLAYING) {
             val p = ((liveEdgeWallMs - blockStartWallMs).toFloat() / span)
             if (p in 0f..1f) {
                 val lx = headXFor(p)

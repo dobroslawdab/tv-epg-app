@@ -1,7 +1,14 @@
 package com.uxellence.tv.v3.demolive2
 
-import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -16,7 +23,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -31,16 +37,15 @@ import coil.compose.AsyncImage
 /**
  * MINI-EPG nad wideo — stan po DÓŁ z pasa kontrolek (jak w launcherze Play).
  *
- * To jest SIATKA, która się PRZEWIJA, a nie przerysowywana lista:
- *  - pionowo kanały, krok [ROW_PITCH]; zafokusowany rząd zawsze na [ROW_FOCUS_TOP],
- *  - poziomo programy kanału, krok [COL_PITCH]; zafokusowany program zawsze
- *    w kolumnie startowej.
- * Obie osie jadą przez [animateDpAsState], więc GÓRA/DÓŁ i LEWO/PRAWO widać jako
- * przesuw, a nie przeskok. Szyna kanału (MOJE / numer / nazwa) jedzie tylko
- * pionowo — poziomo stoi, bo należy do kanału, nie do programu.
+ * PRZEWIJANIE jak w 1. wersji (DemoMiniEpgBar): dwa [AnimatedContent] ze
+ * slide+fade, a nie ciągłe przesuwanie siatki.
+ *  - GÓRA/DÓŁ: cały blok wierszy wjeżdża z kierunku nawigacji (250 ms, h/3),
+ *  - LEWO/PRAWO: karta programu zjeżdża w bok, nowa wjeżdża (250 ms, w/2).
+ * Zafokusowany wiersz zostaje na [ROW_FOCUS_TOP], zafokusowany program
+ * w kolumnie startowej — rusza się treść, nie ramka fokusa.
  *
- * Rzędy nad zafokusowanym są PRZYCINANE (clipToBounds od ROW_FOCUS_TOP w dół) —
- * na boxie nad zafokusowanym kanałem nie ma nic poza wideo.
+ * Rzędy są przycinane do obszaru od [ROW_FOCUS_TOP] w dół — na boxie nad
+ * zafokusowanym kanałem nie ma nic poza wideo.
  *
  * Czasy programów są w zegarze ściennym (patrz [PnProgram]) — mini-EPG zestawia
  * kanały o RÓŻNYCH osiach (każde nagranie ma własny recordedAtWallMs, kanały
@@ -65,7 +70,7 @@ private const val DY_META = 125
 private const val DX_TEXT = 241            // 585 - 344
 private const val TEXT_W = 680             // 1305 - 585 - 40
 
-private const val SCROLL_MS = 220
+private const val SCROLL_MS = 250   // jak w 1. wersji (DemoMiniEpgBar)
 
 @Composable
 fun PlayNowMiniEpg(
@@ -74,6 +79,8 @@ fun PlayNowMiniEpg(
     programIndex: Int,
     /** Pozycja odtwarzania w zegarze ściennym — steruje wypełnieniem paska. */
     positionWallMs: Long,
+    /** Live edge — poświata na pasku sięga DO NIEGO, nie do pozycji. */
+    liveEdgeWallMs: Long,
     sx: (Int) -> Dp,
     sy: (Int) -> Dp,
 ) {
@@ -83,39 +90,36 @@ fun PlayNowMiniEpg(
     val shown = focusedRow.programs.getOrNull(programIndex)
         ?: focusedRow.programs.firstOrNull() ?: return
 
-    val rowShift by animateDpAsState(
-        targetValue = sy(-safeRow * ROW_PITCH),
-        animationSpec = tween(SCROLL_MS),
-        label = "miniEpgRows"
-    )
-    val colShift by animateDpAsState(
-        targetValue = sx(-programIndex * COL_PITCH),
-        animationSpec = tween(SCROLL_MS),
-        label = "miniEpgCols"
-    )
-
     Box(modifier = Modifier.fillMaxSize()) {
-        // ── warstwa kanałów: przesuwana pionowo, przycięta od rzędu fokusa w dół ──
-        Box(
+        // ── kanały: cały blok wierszy wjeżdża z kierunku nawigacji ──
+        AnimatedContent(
+            targetState = safeRow,
+            transitionSpec = {
+                val dir = if (targetState >= initialState) 1 else -1
+                (slideInVertically(tween(SCROLL_MS)) { h -> dir * h / 3 } +
+                    fadeIn(tween(SCROLL_MS - 50))).togetherWith(
+                    slideOutVertically(tween(SCROLL_MS)) { h -> -dir * h / 3 } +
+                        fadeOut(tween(SCROLL_MS - 100))
+                )
+            },
+            label = "miniEpgChannels",
             modifier = Modifier
                 .offset(y = sy(ROW_FOCUS_TOP))
                 .fillMaxWidth()
                 .height(sy(1080 - ROW_FOCUS_TOP))
                 .clipToBounds()
-        ) {
-            Box(modifier = Modifier.fillMaxSize().offset(y = rowShift)) {
-                rows.forEachIndexed { i, row ->
-                    // Rysuj tylko okno wokół fokusa — reszta jest i tak za krawędzią
-                    if (i in (safeRow - 1)..(safeRow + VISIBLE_ROWS)) {
-                        PnEpgRow(
-                            row = row,
-                            topPx = i * ROW_PITCH,
-                            programIndex = if (i == safeRow) programIndex else row.liveIndex,
-                            colShift = if (i == safeRow) colShift else sx(0),
-                            focused = i == safeRow,
-                            sx = sx, sy = sy
-                        )
-                    }
+        ) { chIdx ->
+            Box(modifier = Modifier.fillMaxSize()) {
+                for (k in 0 until VISIBLE_ROWS) {
+                    val row = rows.getOrNull(chIdx + k) ?: continue
+                    PnEpgRow(
+                        row = row,
+                        topPx = k * ROW_PITCH,
+                        programIndex = if (k == 0) programIndex else row.liveIndex,
+                        animatePrograms = k == 0,
+                        focused = k == 0,
+                        sx = sx, sy = sy
+                    )
                 }
             }
         }
@@ -127,6 +131,7 @@ fun PlayNowMiniEpg(
             blockEndWallMs = shown.endWallMs,
             positionWallMs = positionWallMs,
             cursorWallMs = null,
+            liveEdgeWallMs = liveEdgeWallMs,
             focused = false,
             // W mini-EPG pasek pokazuje, GDZIE jest odtwarzanie, ale bulletu
             // i bąbelka z czasem NIE MA — zmierzone na boxie (patrz PnBarStyle).
@@ -141,7 +146,8 @@ private fun PnEpgRow(
     row: PnChannelRow,
     topPx: Int,
     programIndex: Int,
-    colShift: Dp,
+    /** Tylko zafokusowany wiersz animuje zmianę programu. */
+    animatePrograms: Boolean,
     focused: Boolean,
     sx: (Int) -> Dp,
     sy: (Int) -> Dp,
@@ -202,6 +208,23 @@ private fun PnEpgRow(
     // Modifier.offset NIE powiększa zmierzonego rozmiaru, więc bez jawnej
     // wysokości ten Box mierzył się okładką (120) albo warstwą (335)
     // i clipToBounds ucinał metadane na DY_META=125.
+    val columns: @Composable (Int) -> Unit = { idx ->
+        Box(modifier = Modifier.fillMaxSize()) {
+            // bieżący program + zajawka następnego
+            for (k in 0..1) {
+                val program = row.programs.getOrNull(idx + k) ?: continue
+                PnEpgProgramColumn(
+                    program = program,
+                    leftPx = k * COL_PITCH,
+                    focused = focused && k == 0,
+                    isLive = (idx + k) == row.liveIndex,
+                    dim = !(focused && k == 0),
+                    sx = sx, sy = sy
+                )
+            }
+        }
+    }
+
     Box(
         modifier = Modifier
             .offset(x = sx(PN.EPG_COVER_LEFT), y = sy(topPx))
@@ -209,17 +232,21 @@ private fun PnEpgRow(
             .height(sy(ROW_PITCH))
             .clipToBounds()
     ) {
-        Box(modifier = Modifier.fillMaxSize().offset(x = colShift)) {
-            row.programs.forEachIndexed { i, program ->
-                PnEpgProgramColumn(
-                    program = program,
-                    leftPx = i * COL_PITCH,
-                    focused = focused && i == programIndex,
-                    isLive = i == row.liveIndex,
-                    dim = !(focused && i == programIndex),
-                    sx = sx, sy = sy
-                )
-            }
+        if (animatePrograms) {
+            AnimatedContent(
+                targetState = programIndex,
+                transitionSpec = {
+                    val dir = if (targetState >= initialState) 1 else -1
+                    (slideInHorizontally(tween(SCROLL_MS)) { w -> dir * w / 2 } +
+                        fadeIn(tween(SCROLL_MS - 50))).togetherWith(
+                        slideOutHorizontally(tween(SCROLL_MS)) { w -> -dir * w / 2 } +
+                            fadeOut(tween(SCROLL_MS - 100))
+                    )
+                },
+                label = "miniEpgPrograms"
+            ) { idx -> columns(idx) }
+        } else {
+            columns(programIndex)
         }
     }
 }
@@ -252,8 +279,8 @@ private fun PnEpgProgramColumn(
             .offset(x = sx(leftPx), y = sy(DY_COVER))
             .size(sx(PN.EPG_COVER_W), sy(PN.EPG_COVER_H))
             .background(Color(0x33000000))
-            // ramka fokusa sx(4) — jedna grubość we wszystkich wersjach playera
-            .then(if (focused) Modifier.border(sx(4), PN_MINT) else Modifier)
+            // ramka fokusa sx(6) — tak jak zafokusowana miniaturka w 1. wersji (DemoMiniEpgBar)
+            .then(if (focused) Modifier.border(sx(6), PN_MINT) else Modifier)
     ) {
         if (program.coverUrl != null) {
             AsyncImage(

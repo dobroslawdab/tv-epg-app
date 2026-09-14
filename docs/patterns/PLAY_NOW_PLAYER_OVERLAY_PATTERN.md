@@ -216,8 +216,9 @@ chodzi o układ i stan fokusa.
 To **siatka, która się przewija**, nie przerysowywana lista:
 - pionowo kanały, krok 208 px; zafokusowany rząd zawsze na 745,
 - poziomo programy kanału, krok 961 px; zafokusowany program zawsze w kolumnie startowej,
-- obie osie przez `animateDpAsState` (220 ms), więc GÓRA/DÓŁ i LEWO/PRAWO widać
-  jako przesuw, a nie przeskok,
+- przewijanie przez dwa `AnimatedContent` ze slide+fade (250 ms) — **dokładnie
+  jak w 1. wersji** (`DemoMiniEpgBar`): blok wierszy wjeżdża z kierunku nawigacji,
+  karta programu zjeżdża w bok, a nowa wjeżdża,
 - szyna kanału (MOJE / numer / nazwa) jedzie **tylko pionowo** — należy do kanału,
 - rzędy nad zafokusowanym są przycinane (na boxie nad nim nie ma nic poza wideo).
 
@@ -245,6 +246,15 @@ z nagrań anteny.
 > `recordedAtWallMs`, mocki nie mają żadnej). Przed tą zmianą drugi kanał
 > z nagrania pokazywałby godziny policzone na osi pierwszego.
 
+### Poświata pod paskiem sięga DO LIVE, nie do playheada
+
+Poświata oznacza „materiał dostępny do live edge", więc przy przewijaniu **stoi
+w miejscu** — rusza się tylko playhead i wypełnienie toru. Ta sama zasada jest
+w `demolive` V4 (zapisana tam jako uwaga z 2026-08-26).
+
+Zmierzone przy przewinięciu wstecz: wypełnienie i playhead na x≈666, poświata do
+x≈714, kreska LIVE na x≈716 — poświata kończy się na znaczniku, nie na kropce.
+
 ### Znacznik LIVE
 
 Plakietka „LIVE" + pionowa linia na pozycji live edge — jest w OBU wersjach
@@ -252,6 +262,14 @@ playera. W demolive2 siedzi na `y = 792..820`, czyli w jedynej wolnej luce
 **między metadanymi karty** (kończą się ~790) **a playheadem** (822..854).
 W `demolive` V4 była na `-18` i kropka playheada na nią wjeżdżała — podniesiona
 na `-34`, linia urosła o te 16 px, żeby nadal sięgać toru.
+
+> ⚠️ Długość kreski LICZ WZGLĘDEM PASKA, nie do absolutnego `y`. Pas przewijania
+> zjeżdża na 988 przy taśmie podglądu — przy stałej absolutnej (900) wychodziła
+> ujemna długość, kreska znikała i plakietka „wisiała" nad torem.
+
+Ramki fokusa: `sx(6)` — tyle, ile ma zafokusowana miniaturka w 1. wersji
+(`DemoMiniEpgBar`). Biała ramka kursora na taśmie zostaje `sx(4)`, bo taśma jest
+przepisana 1:1 z V4.
 
 ---
 

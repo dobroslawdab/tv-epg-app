@@ -131,6 +131,7 @@ fun PlayNowOverlay(
                     rowIndex = miniEpgRowIndex,
                     programIndex = miniEpgProgramIndex,
                     positionWallMs = antennaStartWallMs + positionMs,
+                    liveEdgeWallMs = antennaStartWallMs + liveEdgeMs,
                     sx = sx, sy = sy
                 )
             } else if (detailOpen) {
@@ -302,8 +303,8 @@ private fun PnProgramCard(
             .offset(x = sx(PN.COVER_LEFT), y = sy(PN.COVER_TOP))
             .size(sx(PN.COVER_W), sy(PN.COVER_H))
             .background(Color_Cover)
-            // ramka fokusa sx(4) — tak jak w pozostałych wersjach playera (V4)
-            .then(if (focused) Modifier.border(sx(4), PN_MINT) else Modifier)
+            // ramka fokusa sx(6) — tak jak zafokusowana miniaturka w 1. wersji (DemoMiniEpgBar)
+            .then(if (focused) Modifier.border(sx(6), PN_MINT) else Modifier)
     ) {
         if (program.coverUrl != null) {
             AsyncImage(
