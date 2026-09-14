@@ -645,11 +645,14 @@ private fun V4Timeline(
                     .background(Color(0xD9EEEEEE))
             )
         }
-        // LIVE: badge + pionowa linia 4×94 na pozycji live edge
+        // LIVE: badge + pionowa linia na pozycji live edge.
+        // Badge podniesiony z -18 na -34: przy -18 kończył się na +10, a playhead
+        // (kropka 32 od y=0) na niego wjeżdżał. Teraz badge kończy się na -6,
+        // czyli 6 px nad kropką; linia urosła o te 16 px, żeby nadal sięgać toru.
         val liveX = xFor(liveEdgeMs).toInt()
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.offset(x = sx(liveX - 32), y = -sy(18)).width(sx(64))
+            modifier = Modifier.offset(x = sx(liveX - 32), y = -sy(34)).width(sx(64))
         ) {
             Box(
                 modifier = Modifier
@@ -660,7 +663,7 @@ private fun V4Timeline(
             ) {
                 Text("LIVE", color = Color(0xFF16101F), fontSize = demoSp(16, sy), fontWeight = FontWeight.Bold)
             }
-            Box(modifier = Modifier.size(sx(4), sy(94)).background(V4_TEXT))
+            Box(modifier = Modifier.size(sx(4), sy(110)).background(V4_TEXT))
         }
         // playhead: kropka 32 + bąbelek czasu (bg brand) pod nią
         val headMs = cursorMs ?: positionMs

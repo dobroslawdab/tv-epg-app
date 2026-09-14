@@ -117,6 +117,8 @@ object PN {
 
     // --- pasek przewijania ---
     const val TRACK_TOP = 832
+    /** Pas przewijania na czas taśmy podglądu — jak V4Timeline (804→978). */
+    const val TRACK_TOP_TAPE = 988
     const val TRACK_H = 12
     const val SEG_PREV_END = 258       // koniec segmentu poprzedniego bloku
     const val DOT_PREV_CX = 290        // kropka granicy: start bieżącego bloku
@@ -134,6 +136,17 @@ object PN {
     const val BUBBLE_H = 28
     const val BUBBLE_W = 122
     const val BUBBLE_SIZE = 26
+
+    // --- znacznik LIVE na pasku ---
+    // Siedzi MIĘDZY metadanymi karty (kończą się ~790) a playheadem (822..854):
+    // 792..820 to jedyne wolne 28 px. Kilka px wyżej i wchodzi na metadane,
+    // kilka niżej i bullet po niego wjeżdża.
+    const val LIVE_TOP = 792
+    const val LIVE_W = 52
+    const val LIVE_H = 28
+    const val LIVE_SIZE = 16
+    const val LIVE_LINE_W = 4
+    const val LIVE_LINE_BOTTOM = 900   // linia przechodzi przez tor i poświatę
 
     // --- pas kontrolek ---
     // Rząd 7 ikon; środek rzędu na 926 px (NIE 960 — zmierzone na boxie).

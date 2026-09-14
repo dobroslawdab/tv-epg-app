@@ -64,13 +64,15 @@ private fun headXFor(progress: Float): Float =
 fun PlayNowSeekBar(
     /** Górna krawędź paska w px designu — CONTROLS: 832, mini-EPG: 929. */
     trackTopPx: Int,
-    blockStartMs: Long,
-    blockEndMs: Long,
-    /** Pozycja odtwarzania (oś wirtualna). */
-    positionMs: Long,
+    /** Granice bloku w ZEGARZE ŚCIENNYM (patrz PnProgram). */
+    blockStartWallMs: Long,
+    blockEndWallMs: Long,
+    /** Pozycja odtwarzania w zegarze ściennym. */
+    positionWallMs: Long,
     /** Kursor przewijania — gdy != null, playhead i bąbelek idą za kursorem. */
-    cursorMs: Long?,
-    antennaStartWallMs: Long,
+    cursorWallMs: Long?,
+    /** Live edge w zegarze ściennym — znacznik LIVE; null = nie pokazuj. */
+    liveEdgeWallMs: Long? = null,
     /** Fokus na pasku (strefa SCRUB) — playhead na mint. */
     focused: Boolean,
     /** Wariant paska — patrz [PnBarStyle]. */
@@ -78,9 +80,9 @@ fun PlayNowSeekBar(
     sx: (Int) -> Dp,
     sy: (Int) -> Dp,
 ) {
-    val span = (blockEndMs - blockStartMs).coerceAtLeast(1L)
-    val headMs = cursorMs ?: positionMs
-    val progress = ((headMs - blockStartMs).toFloat() / span).coerceIn(0f, 1f)
+    val span = (blockEndWallMs - blockStartWallMs).coerceAtLeast(1L)
+    val headMs = cursorWallMs ?: positionWallMs
+    val progress = ((headMs - blockStartWallMs).toFloat() / span).coerceIn(0f, 1f)
     val headX = headXFor(progress)
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -129,6 +131,22 @@ fun PlayNowSeekBar(
             drawCircle(PN_TEXT, dotR, Offset(dx(PN.DOT_PREV_CX.toFloat()), top + h / 2f))
             drawCircle(PN_TEXT, dotR, Offset(dx(PN.DOT_NEXT_CX.toFloat()), top + h / 2f))
 
+            // ── znacznik LIVE: pionowa linia na pozycji live edge ──
+            if (liveEdgeWallMs != null && style != PnBarStyle.DOTS_ONLY) {
+                val p = ((liveEdgeWallMs - blockStartWallMs).toFloat() / span)
+                if (p in 0f..1f) {
+                    val lx = dx(headXFor(p))
+                    drawRect(
+                        color = PN_TEXT,
+                        topLeft = Offset(lx - dx(PN.LIVE_LINE_W / 2f), dy((trackTopPx - 12).toFloat())),
+                        size = Size(
+                            dx(PN.LIVE_LINE_W.toFloat()),
+                            dy((PN.LIVE_LINE_BOTTOM - trackTopPx + 12).toFloat())
+                        )
+                    )
+                }
+            }
+
             // ── playhead: TYLKO gdy pasek pokazuje granie (patrz PnBarStyle) ──
             if (style == PnBarStyle.PLAYING) {
                 drawCircle(
@@ -141,15 +159,41 @@ fun PlayNowSeekBar(
 
         // ── godziny granic bloku (wyśrodkowane pod kropkami) ──
         PnCenteredLabel(
-            text = pnClock(antennaStartWallMs + blockStartMs),
+            text = pnClock(blockStartWallMs),
             centerXPx = PN.DOT_PREV_CX, topPx = trackTopPx + (PN.LABEL_TOP - PN.TRACK_TOP),
             sizePx = PN.LABEL_SIZE, color = PN_TEXT, sx = sx, sy = sy
         )
         PnCenteredLabel(
-            text = pnClock(antennaStartWallMs + blockEndMs),
+            text = pnClock(blockEndWallMs),
             centerXPx = PN.DOT_NEXT_CX, topPx = trackTopPx + (PN.LABEL_TOP - PN.TRACK_TOP),
             sizePx = PN.LABEL_SIZE, color = PN_TEXT, sx = sx, sy = sy
         )
+
+        // ── plakietka LIVE nad linią ──
+        if (liveEdgeWallMs != null && style != PnBarStyle.DOTS_ONLY) {
+            val p = ((liveEdgeWallMs - blockStartWallMs).toFloat() / span)
+            if (p in 0f..1f) {
+                val lx = headXFor(p)
+                Box(
+                    modifier = Modifier
+                        .offset(
+                            x = sx((lx - PN.LIVE_W / 2f).toInt()),
+                            y = sy(trackTopPx + (PN.LIVE_TOP - PN.TRACK_TOP))
+                        )
+                        .width(sx(PN.LIVE_W)).height(sy(PN.LIVE_H))
+                        .background(PN_TEXT, RoundedCornerShape(sx(4))),
+                    contentAlignment = androidx.compose.ui.Alignment.Center
+                ) {
+                    Text(
+                        text = "LIVE",
+                        color = PN_SCRIM,
+                        fontSize = pnSp(PN.LIVE_SIZE, sy),
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
+                    )
+                }
+            }
+        }
 
         // ── bąbelek z czasem playheada (prostokąt w kolorze podlania na poświacie) ──
         val bubbleTop = trackTopPx + (PN.BUBBLE_TOP - PN.TRACK_TOP)
@@ -161,7 +205,7 @@ fun PlayNowSeekBar(
             contentAlignment = androidx.compose.ui.Alignment.Center
         ) {
             Text(
-                text = pnClock(antennaStartWallMs + headMs, withSeconds = true),
+                text = pnClock(headMs, withSeconds = true),
                 color = PN_TEXT,
                 fontSize = pnSp(PN.BUBBLE_SIZE, sy),
                 fontWeight = FontWeight.Normal,

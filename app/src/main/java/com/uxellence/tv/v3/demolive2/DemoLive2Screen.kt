@@ -171,19 +171,24 @@ fun DemoLive2Screen(
     // mini-EPG
     var epgRowIndex by remember { mutableStateOf(0) }
     var epgProgramIndex by remember { mutableStateOf(0) }
-    val miniRows = remember(recorded, channelIdx, positionMs / 60_000L) {
-        recorded.map { rec ->
+    // Rzędy mini-EPG: najpierw kanały z nagrań (grywalne), potem mockupowe
+    // (sama ramówka, bez materiału — patrz PnMockChannels).
+    val miniRows = remember(recorded, positionMs / 60_000L) {
+        val now = System.currentTimeMillis()
+        val recordedRows = recorded.map { rec ->
             val sch = BarkerSchedule(rec.items)
-            val virt = (System.currentTimeMillis() - rec.recordedAtWallMs).coerceAtLeast(0L)
-            val blocks = sch.blocksAround(virt, before = 0, after = 3)
+            val virt = (now - rec.recordedAtWallMs).coerceAtLeast(0L)
+            val blocks = sch.blocksAround(virt, before = 0, after = 4)
             PnChannelRow(
                 name = rec.name,
                 number = rec.number,
                 logoUrl = pnLogoFor(rec.name),
-                programs = blocks.map { it.toPnProgram() },
-                liveIndex = 0
+                programs = blocks.map { it.toPnProgram(rec.recordedAtWallMs) },
+                liveIndex = 0,
+                tunable = true
             )
         }
+        recordedRows + pnMockChannelRows(now)
     }
 
     // ── przekotwiczenie osi wirtualnej po poznaniu REALNYCH długości ──
@@ -392,7 +397,11 @@ fun DemoLive2Screen(
                     epgProgramIndex = (epgProgramIndex + 1).coerceAtMost(last); true
                 }
                 KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-                    if (epgRowIndex != channelIdx) channelIdx = epgRowIndex
+                    // Kanały mockupowe nie mają materiału — OK je tylko zamyka
+                    val row = miniRows.getOrNull(epgRowIndex)
+                    if (row != null && row.tunable && epgRowIndex != channelIdx) {
+                        channelIdx = epgRowIndex
+                    }
                     zone = PnZone.CONTROLS
                     true
                 }
@@ -443,8 +452,8 @@ fun DemoLive2Screen(
             channelName = channel.name,
             channelNumber = channel.number,
             channelLogoUrl = pnLogoFor(channel.name),
-            shownProgram = shownBlock.toPnProgram(),
-            nextProgram = nextBlock.toPnProgram(),
+            shownProgram = shownBlock.toPnProgram(controller.antennaStartWallMs),
+            nextProgram = nextBlock.toPnProgram(controller.antennaStartWallMs),
             shownIsLive = positionMs in shownBlock.startVirtualMs until shownBlock.endVirtualMs,
             positionMs = positionMs,
             cursorMs = cursorMs,
@@ -466,15 +475,19 @@ fun DemoLive2Screen(
     }
 }
 
-/** EpgBlock silnika anteny → model karty/mini-EPG. */
-private fun BarkerSchedule.EpgBlock.toPnProgram(): PnProgram {
+/**
+ * EpgBlock silnika anteny → model karty/mini-EPG.
+ * [antennaStartWallMs] przelicza oś wirtualną kanału na zegar ścienny — każdy
+ * kanał ma własną oś, a mini-EPG zestawia je obok siebie.
+ */
+private fun BarkerSchedule.EpgBlock.toPnProgram(antennaStartWallMs: Long): PnProgram {
     val minutes = ((endVirtualMs - startVirtualMs) / 60_000L).toInt()
     return PnProgram(
         title = title,
         meta = listOf(year, genre, "$minutes min.", age),
         coverUrl = coverUrl,
-        startMs = startVirtualMs,
-        endMs = endVirtualMs
+        startWallMs = antennaStartWallMs + startVirtualMs,
+        endWallMs = antennaStartWallMs + endVirtualMs
     )
 }
 

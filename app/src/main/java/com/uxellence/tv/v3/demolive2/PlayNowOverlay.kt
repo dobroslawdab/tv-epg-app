@@ -28,13 +28,18 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import coil.compose.AsyncImage
 
-/** Program bloku ramówki na osi wirtualnej kanału. */
+/**
+ * Program bloku ramówki. Czasy w ZEGARZE ŚCIENNYM, nie na osi wirtualnej —
+ * mini-EPG zestawia kanały o RÓŻNYCH osiach (każde nagranie ma własny
+ * recordedAtWallMs, kanały mockupowe nie mają żadnej), więc wspólnym
+ * mianownikiem może być tylko zegar.
+ */
 data class PnProgram(
     val title: String,
     val meta: List<String>,
     val coverUrl: String?,
-    val startMs: Long,
-    val endMs: Long,
+    val startWallMs: Long,
+    val endWallMs: Long,
 )
 
 /** Jeden kanał w mini-EPG. */
@@ -45,6 +50,8 @@ data class PnChannelRow(
     val programs: List<PnProgram>,
     /** Indeks programu aktualnie emitowanego na tym kanale. */
     val liveIndex: Int,
+    /** Czy da się na niego przełączyć (kanały mockupowe są tylko do ramówki). */
+    val tunable: Boolean = true,
 )
 
 /** Strefy fokusa warstwy playera (pas kontrolek / pas przewijania / mini-EPG). */
@@ -123,8 +130,7 @@ fun PlayNowOverlay(
                     rows = miniEpgRows,
                     rowIndex = miniEpgRowIndex,
                     programIndex = miniEpgProgramIndex,
-                    antennaStartWallMs = antennaStartWallMs,
-                    positionMs = positionMs,
+                    positionWallMs = antennaStartWallMs + positionMs,
                     sx = sx, sy = sy
                 )
             } else if (detailOpen) {
@@ -137,11 +143,10 @@ fun PlayNowOverlay(
                 )
                 PlayNowSeekBar(
                     trackTopPx = PN.TRACK_TOP,
-                    blockStartMs = shownProgram.startMs,
-                    blockEndMs = shownProgram.endMs,
-                    positionMs = positionMs,
-                    cursorMs = null,
-                    antennaStartWallMs = antennaStartWallMs,
+                    blockStartWallMs = shownProgram.startWallMs,
+                    blockEndWallMs = shownProgram.endWallMs,
+                    positionWallMs = antennaStartWallMs + positionMs,
+                    cursorWallMs = null,
                     focused = false,
                     style = PnBarStyle.DOTS_ONLY,
                     sx = sx, sy = sy
@@ -169,16 +174,21 @@ fun PlayNowOverlay(
                     )
                 }
                 PlayNowSeekBar(
-                    trackTopPx = PN.TRACK_TOP,
-                    blockStartMs = shownProgram.startMs,
-                    blockEndMs = shownProgram.endMs,
-                    positionMs = positionMs,
-                    cursorMs = cursorMs,
-                    antennaStartWallMs = antennaStartWallMs,
+                    // Na czas taśmy pas zjeżdża niżej — tak samo jak w V4
+                    trackTopPx = if (scrubTapeVisible) PN.TRACK_TOP_TAPE else PN.TRACK_TOP,
+                    blockStartWallMs = shownProgram.startWallMs,
+                    blockEndWallMs = shownProgram.endWallMs,
+                    positionWallMs = antennaStartWallMs + positionMs,
+                    cursorWallMs = cursorMs?.let { antennaStartWallMs + it },
+                    liveEdgeWallMs = antennaStartWallMs + liveEdgeMs,
                     focused = zone == PnZone.SCRUB,
-                    style = when {
-                        !shownIsPlaying -> PnBarStyle.DOTS_ONLY
-                        else -> PnBarStyle.PLAYING
+                    // Bullet z godziną należy do POZYCJI ODTWARZANIA/kursora: na
+                    // kontrolkach i pasku jest zawsze, a znika dopiero gdy karta
+                    // wędruje po ramówce na inny program niż grany.
+                    style = if (zone == PnZone.CARD && !shownIsPlaying) {
+                        PnBarStyle.DOTS_ONLY
+                    } else {
+                        PnBarStyle.PLAYING
                     },
                     sx = sx, sy = sy
                 )
@@ -292,6 +302,7 @@ private fun PnProgramCard(
             .offset(x = sx(PN.COVER_LEFT), y = sy(PN.COVER_TOP))
             .size(sx(PN.COVER_W), sy(PN.COVER_H))
             .background(Color_Cover)
+            // ramka fokusa sx(4) — tak jak w pozostałych wersjach playera (V4)
             .then(if (focused) Modifier.border(sx(4), PN_MINT) else Modifier)
     ) {
         if (program.coverUrl != null) {

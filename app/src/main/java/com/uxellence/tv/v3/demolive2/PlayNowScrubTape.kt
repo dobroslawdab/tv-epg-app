@@ -43,18 +43,21 @@ import androidx.compose.ui.unit.Dp
  * samo wejście na pasek pokazuje tylko playhead. Gdy taśma jest widoczna,
  * karta programu i pas kontrolek chowają się; pas przewijania zostaje.
  *
- * Pozycja pionowa dopasowana do rytmu tej nakładki (pas przewijania siedzi na
- * y=832), a nie przepisana 1:1 z V4 — tam taśma stała niżej.
+ * Pozycje pionowe 1:1 z V4: taśma 566..858, tytuł 890, a pas przewijania na
+ * czas taśmy zjeżdża z 832 na 988 (tak samo jak V4Timeline przełącza 804→978).
  */
 
-private const val TAPE_TOP = 460
+// Pozycje 1:1 z V4ScrubStrip w demolive (prototyp „Nowy player – scrubb
+// preview 2026"): taśma 566..858, tytuł 890. Pas przewijania zjeżdża wtedy
+// na 988 — patrz PN.TRACK_TOP_TAPE.
+private const val TAPE_TOP = 566
 private const val TAPE_H = 292
 private const val SLOT_W = 292
 private const val SLOT_H = 175
 private const val FOCUS_W = 486
 private const val FOCUS_H = 292
 private const val GAP = 20
-private const val TITLE_TOP = 768
+private const val TITLE_TOP = 890
 private const val TITLE_SIZE = 32
 
 @Composable

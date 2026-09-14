@@ -213,6 +213,50 @@ chodzi o układ i stan fokusa.
 
 ## 5. Mini-EPG (stan po DÓŁ)
 
+To **siatka, która się przewija**, nie przerysowywana lista:
+- pionowo kanały, krok 208 px; zafokusowany rząd zawsze na 745,
+- poziomo programy kanału, krok 961 px; zafokusowany program zawsze w kolumnie startowej,
+- obie osie przez `animateDpAsState` (220 ms), więc GÓRA/DÓŁ i LEWO/PRAWO widać
+  jako przesuw, a nie przeskok,
+- szyna kanału (MOJE / numer / nazwa) jedzie **tylko pionowo** — należy do kanału,
+- rzędy nad zafokusowanym są przycinane (na boxie nad nim nie ma nic poza wideo).
+
+### ⚠️ Pułapka: `Modifier.offset` nie powiększa zmierzonego rozmiaru
+
+Kontener kolumn miał `clipToBounds` i wrap-height. Ponieważ dzieci są ustawiane
+przez `offset`, rodzic zmierzył się **wysokością okładki (120 px)** i przycinał
+metadane siedzące na `DY_META = 125`. Objaw: znikająca linia metadanych
+w zafokusowanym rzędzie — i tylko tam, bo tylko tam jest rysowana.
+
+Rozwiązanie: kontener kolumn ma **jawną wysokość rzędu** i stoi na `y = topPx`,
+a kolumny liczą swoje `dy` względem rzędu. Przycinanie jest wtedy wyłącznie
+poziome (żeby programy nie wjeżdżały na szynę kanału).
+
+### Kanały mockupowe
+
+`PnMockChannels.kt` dokłada 8 kanałów **wyłącznie ramówkowych** (TVP2, TVN, TVN 7,
+Polsat, TV4, TVP Sport, TVP Kultura, Discovery) — mają numer, nazwę i pełną siatkę
+programów zakotwiczoną na dzisiejszej 6:00, ale NIE MA pod nimi materiału wideo,
+więc `tunable = false` i OK na nich tylko zamyka mini-EPG. Grają wyłącznie kanały
+z nagrań anteny.
+
+> Dlatego `PnProgram` trzyma czasy w **zegarze ściennym**, nie na osi wirtualnej:
+> mini-EPG zestawia kanały o różnych osiach (każde nagranie ma własny
+> `recordedAtWallMs`, mocki nie mają żadnej). Przed tą zmianą drugi kanał
+> z nagrania pokazywałby godziny policzone na osi pierwszego.
+
+### Znacznik LIVE
+
+Plakietka „LIVE" + pionowa linia na pozycji live edge — jest w OBU wersjach
+playera. W demolive2 siedzi na `y = 792..820`, czyli w jedynej wolnej luce
+**między metadanymi karty** (kończą się ~790) **a playheadem** (822..854).
+W `demolive` V4 była na `-18` i kropka playheada na nią wjeżdżała — podniesiona
+na `-34`, linia urosła o te 16 px, żeby nadal sięgać toru.
+
+---
+
+## 5a. Mini-EPG — układ rzędu
+
 Zafokusowany rząd kanału stoi **nad** pasem przewijania, kolejne kanały pod nim —
 pas pełni rolę separatora i przenosi się wtedy z `y=832` na `y=929`.
 
