@@ -180,11 +180,21 @@ wypadały przed `dvrStart`).
 Nad wideo są **trzy** poziomy, licząc od dołu:
 
 ```
-pas kontrolek  ──GÓRA──▶  pas przewijania  ──GÓRA──▶  miniaturka / karta programu
-      │                          │                              │
-      └──DÓŁ──▶ mini-EPG         └──LEWO/PRAWO: przewijanie      ├─ LEWO/PRAWO: ramówka kanału
-                                                                 └─ OK: detal (opis + Nagraj/Przypomnij)
+pas kontrolek  ──GÓRA──▶  pas przewijania  ──GÓRA──▶  miniaturka / karta
+      │                          │                          │      │
+      │                          │                          │      ├─ LEWO/PRAWO: ramówka kanału
+      │                          └─ LEWO/PRAWO: przewijanie  │      └─ OK: detal (opis + akcje)
+      │                                                      │
+      └──────────── DÓŁ ──▶  MINI-EPG  ◀── GÓRA ─────────────┘
+                                │
+                                └─ OK: dostraja i wraca do playera (BACK: poziom niżej)
 ```
+
+**Mini-EPG leży NAD playerem**, więc wchodzi się w nie GÓRĄ z miniaturki —
+czyli przechodząc przez wszystkie trzy poziomy playera. Dla wygody otwiera się
+też DOŁEM z pasa kontrolek, z drugiego końca stosu. W środku GÓRA/DÓŁ chodzą
+WYŁĄCZNIE po kanałach: do playera wraca się OK-iem (dostrojenie) albo BACK-iem,
+nigdy kierunkiem — inaczej przy pierwszym kanale DÓŁ byłby dwuznaczny.
 
 ### Kiedy pasek pokazuje bullet i bąbelek
 

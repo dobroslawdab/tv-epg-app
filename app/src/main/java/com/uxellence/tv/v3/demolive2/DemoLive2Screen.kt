@@ -48,7 +48,10 @@ import java.io.File
  *                      i ODSŁANIA taśmę podglądu (nasz dodatek, Play Now jej nie ma)
  *   GÓRA z paska     → miniaturka/karta (3. poziom); LEWO/PRAWO chodzi po
  *                      ramówce kanału, OK rozwija detal (opis + Nagraj/Przypomnij)
- *   DÓŁ              → mini-EPG (GÓRA/DÓŁ kanał, LEWO/PRAWO program, OK dostrój)
+ *   GÓRA z miniaturki → mini-EPG (lista leży NAD playerem)
+ *   DÓŁ z kontrolek  → mini-EPG (to samo, z drugiego końca stosu)
+ *                      W liście: GÓRA/DÓŁ kanały, LEWO/PRAWO programy,
+ *                      a do playera wraca OK (dostrojenie) albo BACK.
  *   BACK             → schowaj nakładkę; przy schowanej — wyjście z ekranu
  */
 
@@ -319,6 +322,8 @@ fun DemoLive2Screen(
                     controlIndex = (controlIndex + 1).coerceAtMost(PnControl.values().lastIndex); true
                 }
                 KeyEvent.KEYCODE_DPAD_UP -> { zone = PnZone.SCRUB; true }
+                // Mini-EPG otwiera się z OBU stron stosu playera: DOŁEM
+                // z kontrolek i GÓRĄ z miniaturki (patrz gałąź CARD).
                 KeyEvent.KEYCODE_DPAD_DOWN -> {
                     epgRowIndex = channelIdx; epgProgramIndex = 0
                     zone = PnZone.MINI_EPG; true
@@ -370,6 +375,15 @@ fun DemoLive2Screen(
                 else -> when (keyCode) {
                     KeyEvent.KEYCODE_DPAD_LEFT -> { cardOffset--; true }
                     KeyEvent.KEYCODE_DPAD_RIGHT -> { cardOffset++; true }
+                    KeyEvent.KEYCODE_DPAD_UP -> {
+                        // Mini-EPG leży NAD playerem: miniaturka to ostatni poziom
+                        // playera, więc kolejne GÓRA wychodzi z niego do listy.
+                        cardOffset = 0
+                        epgRowIndex = channelIdx
+                        epgProgramIndex = 0
+                        zone = PnZone.MINI_EPG
+                        true
+                    }
                     KeyEvent.KEYCODE_DPAD_DOWN -> { cardOffset = 0; zone = PnZone.SCRUB; true }
                     KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
                         detailActionIndex = 0
@@ -380,9 +394,10 @@ fun DemoLive2Screen(
                 }
             }
             PnZone.MINI_EPG -> when (keyCode) {
+                // GÓRA/DÓŁ chodzą WYŁĄCZNIE po kanałach — do playera wraca się
+                // OK-iem (dostrojenie) albo BACK-iem, nie kierunkiem.
                 KeyEvent.KEYCODE_DPAD_UP -> {
                     if (epgRowIndex > 0) { epgRowIndex--; epgProgramIndex = 0 }
-                    else zone = PnZone.CONTROLS
                     true
                 }
                 KeyEvent.KEYCODE_DPAD_DOWN -> {
@@ -414,6 +429,7 @@ fun DemoLive2Screen(
     BackHandler(enabled = true) {
         when {
             detailOpen -> detailOpen = false
+            zone == PnZone.MINI_EPG -> zone = PnZone.CARD
             overlayVisible -> {
                 overlayVisible = false
                 cursorMs = null
