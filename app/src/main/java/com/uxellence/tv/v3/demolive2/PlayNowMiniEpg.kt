@@ -44,8 +44,9 @@ import coil.compose.AsyncImage
  * Zafokusowany wiersz zostaje na [ROW_FOCUS_TOP], zafokusowany program
  * w kolumnie startowej — rusza się treść, nie ramka fokusa.
  *
- * Rzędy są przycinane do obszaru od [ROW_FOCUS_TOP] w dół — na boxie nad
- * zafokusowanym kanałem nie ma nic poza wideo.
+ * Widoczne są TRZY rzędy: poprzedni kanał, zafokusowany i następny — tak samo
+ * jak w 1. wersji. Zafokusowany stoi na [ROW_FOCUS_TOP], a pas przewijania pod
+ * nim oddziela go od reszty listy.
  *
  * Czasy programów są w zegarze ściennym (patrz [PnProgram]) — mini-EPG zestawia
  * kanały o RÓŻNYCH osiach (każde nagranie ma własny recordedAtWallMs, kanały
@@ -55,7 +56,10 @@ import coil.compose.AsyncImage
 private const val ROW_FOCUS_TOP = 745
 private const val ROW_PITCH = 208          // 953 - 745, zmierzone na boxie
 private const val COL_PITCH = 961          // 1305 - 344, zmierzone na boxie
-private const val VISIBLE_ROWS = 3
+// Okno wierszy jak w 1. wersji (DemoMiniEpgBar: chIdx-1 .. chIdx+1):
+// POPRZEDNI kanał nad zafokusowanym, zafokusowany w środku, następny pod nim.
+private const val ROWS_ABOVE = 1
+private const val ROWS_BELOW = 1
 
 // przesunięcia wewnątrz rzędu (względem jego górnej krawędzi)
 private const val DY_MOJE = 33
@@ -104,17 +108,17 @@ fun PlayNowMiniEpg(
             },
             label = "miniEpgChannels",
             modifier = Modifier
-                .offset(y = sy(ROW_FOCUS_TOP))
+                .offset(y = sy(ROW_FOCUS_TOP - ROWS_ABOVE * ROW_PITCH))
                 .fillMaxWidth()
-                .height(sy(1080 - ROW_FOCUS_TOP))
+                .height(sy(1080 - ROW_FOCUS_TOP + ROWS_ABOVE * ROW_PITCH))
                 .clipToBounds()
         ) { chIdx ->
             Box(modifier = Modifier.fillMaxSize()) {
-                for (k in 0 until VISIBLE_ROWS) {
+                for (k in -ROWS_ABOVE..ROWS_BELOW) {
                     val row = rows.getOrNull(chIdx + k) ?: continue
                     PnEpgRow(
                         row = row,
-                        topPx = k * ROW_PITCH,
+                        topPx = (k + ROWS_ABOVE) * ROW_PITCH,
                         programIndex = if (k == 0) programIndex else row.liveIndex,
                         animatePrograms = k == 0,
                         focused = k == 0,

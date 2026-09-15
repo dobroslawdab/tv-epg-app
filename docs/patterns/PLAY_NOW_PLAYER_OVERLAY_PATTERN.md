@@ -223,6 +223,10 @@ chodzi o układ i stan fokusa.
 
 ## 5. Mini-EPG (stan po DÓŁ)
 
+Widoczne są **TRZY rzędy** — poprzedni kanał, zafokusowany, następny — tak samo
+jak w 1. wersji (`DemoMiniEpgBar` renderuje `chIdx-1 .. chIdx+1`). Zafokusowany
+stoi na 745, pas przewijania pod nim oddziela go od reszty listy.
+
 To **siatka, która się przewija**, nie przerysowywana lista:
 - pionowo kanały, krok 208 px; zafokusowany rząd zawsze na 745,
 - poziomo programy kanału, krok 961 px; zafokusowany program zawsze w kolumnie startowej,
@@ -244,6 +248,10 @@ a kolumny liczą swoje `dy` względem rzędu. Przycinanie jest wtedy wyłącznie
 poziome (żeby programy nie wjeżdżały na szynę kanału).
 
 ### Kanały mockupowe
+
+Okładki mocków są **podłożone z paczek nagrań** — mock nie ma własnych klatek,
+a puste prostokąty w mini-EPG wyglądały jak błąd. To jedyne miejsce w makiecie,
+gdzie obrazek nie odpowiada tytułowi.
 
 `PnMockChannels.kt` dokłada 8 kanałów **wyłącznie ramówkowych** (TVP2, TVN, TVN 7,
 Polsat, TV4, TVP Sport, TVP Kultura, Discovery) — mają numer, nazwę i pełną siatkę

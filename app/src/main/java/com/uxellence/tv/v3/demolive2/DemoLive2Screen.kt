@@ -191,7 +191,10 @@ fun DemoLive2Screen(
                 tunable = true
             )
         }
-        recordedRows + pnMockChannelRows(now)
+        // Mock nie ma własnych klatek — podkładamy okładki z paczek nagrań,
+        // żeby rzędy mini-EPG nie były pustymi prostokątami.
+        val covers = recorded.flatMap { rec -> rec.items.mapNotNull { it.coverUrl } }
+        recordedRows + pnMockChannelRows(now, covers)
     }
 
     // ── przekotwiczenie osi wirtualnej po poznaniu REALNYCH długości ──

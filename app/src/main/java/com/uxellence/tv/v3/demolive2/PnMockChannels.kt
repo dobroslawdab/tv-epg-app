@@ -10,6 +10,11 @@ import java.util.Calendar
  * nie przełączyć (`tunable = false`). Grają tylko kanały z nagrań anteny.
  * OK na rzędzie mockowym zamyka mini-EPG i zostawia bieżący kanał.
  *
+ * Okładki są PODŁOŻONE z paczek nagrań ([placeholderCovers]) — mock nie ma
+ * własnych klatek, a puste prostokąty w mini-EPG wyglądały jak błąd. To jedyne
+ * miejsce, gdzie obrazek nie odpowiada tytułowi; w makiecie chodzi o to, żeby
+ * rząd był kompletny wizualnie.
+ *
  * Ramówka jest deterministyczna: każdy kanał ma zapętloną listę slotów
  * zakotwiczoną na dzisiejszej 6:00, więc godziny są sensowne o każdej porze
  * dnia i nie skaczą przy recompose.
@@ -101,8 +106,14 @@ private fun anchorWallMs(nowWallMs: Long): Long {
  * Rzędy mini-EPG dla kanałów mockupowych: program lecący TERAZ + [after] kolejnych.
  * Czasy w zegarze ściennym, więc wpinają się wprost obok kanałów z nagrań.
  */
-fun pnMockChannelRows(nowWallMs: Long, after: Int = 4): List<PnChannelRow> {
+fun pnMockChannelRows(
+    nowWallMs: Long,
+    /** Okładki podłożone z nagrań — cyklowane po programach. */
+    placeholderCovers: List<String> = emptyList(),
+    after: Int = 4,
+): List<PnChannelRow> {
     val anchor = anchorWallMs(nowWallMs)
+    var coverSeq = 0
     return MOCK_CHANNELS.map { ch ->
         val cycleMs = ch.slots.sumOf { it.minutes } * 60_000L
         val intoCycle = ((nowWallMs - anchor) % cycleMs + cycleMs) % cycleMs
@@ -125,7 +136,7 @@ fun pnMockChannelRows(nowWallMs: Long, after: Int = 4): List<PnChannelRow> {
             programs += PnProgram(
                 title = slot.title,
                 meta = listOf(slot.year, slot.genre, "${slot.minutes} min.", slot.age),
-                coverUrl = null,
+                coverUrl = placeholderCovers.getOrNull(coverSeq++ % placeholderCovers.size.coerceAtLeast(1)),
                 startWallMs = start,
                 endWallMs = start + dur,
             )
