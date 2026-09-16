@@ -285,16 +285,24 @@ Zweryfikowane logiem: `base=3295s` w bloku 3300 s, krok +30 s → `stepped`
 przekracza koniec, `bounded` = koniec bloku; następny krok startuje już
 z `base=0s` kolejnego bloku.
 
-### Bullet przejeżdża, nie teleportuje się
+### Zmiana programu przewija CAŁĄ TAŚMĘ
 
-Playhead jest animowany po **X w px designu** (`animateFloatAsState`, 350 ms),
-a nie po wartości czasu. To istotne: przy przejściu do sąsiedniego programu oś
-paska się przestawia i `progress` skacze 0↔1, więc animacja samego czasu nic by
-nie dała — bullet i tak teleportowałby się z początku paska na koniec.
-Animując pozycję, widać przejazd wzdłuż paska.
+Pierwsze podejście animowało sam bullet po nieruchomym pasku (`animateFloatAsState`
+na X). Efekt był zły: godziny granic podmieniały się natychmiast, a kulka jechała
+przez pusty pasek — wyglądało to „jak sprężyna".
 
-Zweryfikowane: zrzut zrobiony zaraz po przekroczeniu granicy złapał bullet
-na x≈1249, czyli w połowie drogi między 325 a 1519.
+Teraz cała zawartość paska (tor, kropki, godziny, wypełnienie, bullet) należy do
+**konkretnego bloku** i siedzi w `AnimatedContent` kluczowanym parą
+`(blockStart, blockEnd)`. Przy zmianie programu stara taśma wyjeżdża, nowa
+wjeżdża z przeciwnej strony (320 ms) — oś czasu przesuwa się jak taśma, a bullet
+jedzie razem z nią.
+
+Dwie rzeczy, bez których wraca sprężyna:
+1. Zawartość liczy pozycje z **bloku przekazanego z klucza**, nie z aktualnych
+   parametrów — inaczej wyjeżdżająca taśma przeskakiwałaby na nową oś w locie.
+2. `animateFloatAsState` na bullecie zostaje, ale działa już tylko **wewnątrz**
+   bloku (drobne kroki przewijania). Przy zmianie bloku powstaje nowa instancja,
+   więc bullet startuje od razu na swojej pozycji i nie dubluje ruchu taśmy.
 
 ### Poświata pod paskiem sięga DO LIVE, nie do playheada
 

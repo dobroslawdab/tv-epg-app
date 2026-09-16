@@ -1,6 +1,12 @@
 package com.uxellence.tv.v3.demolive2
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -59,8 +65,11 @@ import androidx.compose.ui.unit.Dp
  */
 enum class PnBarStyle { PLAYING, POSITION_ONLY, DOTS_ONLY }
 
-/** Czas przejazdu bullet-a; przy zmianie bloku to przejazd przez cały pasek. */
-private const val HEAD_ANIM_MS = 350
+/** Płynny ruch bulletu WEWNĄTRZ bloku (kroki przewijania). */
+private const val HEAD_ANIM_MS = 250
+
+/** Przejazd CAŁEJ taśmy przy zmianie programu. */
+private const val TAPE_ANIM_MS = 320
 
 /** Pozycja X playheada dla postępu w bloku (0..1), w px designu. */
 private fun headXFor(progress: Float): Float =
@@ -88,13 +97,67 @@ fun PlayNowSeekBar(
     sx: (Int) -> Dp,
     sy: (Int) -> Dp,
 ) {
+    // PRZEJŚCIE MIĘDZY PROGRAMAMI = PRZEWINIĘCIE CAŁEJ TAŚMY.
+    // Wcześniej animowany był sam bullet po nieruchomym pasku, a godziny
+    // podmieniały się w miejscu — wyglądało to jak sprężyna. Teraz cała
+    // zawartość paska (tor, kropki, godziny, wypełnienie, bullet) należy do
+    // KONKRETNEGO bloku i przy zmianie bloku wjeżdża/wyjeżdża w bok, więc oś
+    // czasu przesuwa się jak taśma. Bullet jedzie razem z nią.
+    AnimatedContent(
+        targetState = blockStartWallMs to blockEndWallMs,
+        transitionSpec = {
+            // Wstecz w czasie → taśma jedzie w PRAWO (nowa treść wjeżdża z lewej)
+            val forward = targetState.first > initialState.first
+            (slideInHorizontally(tween(TAPE_ANIM_MS)) { w -> if (forward) w else -w } +
+                fadeIn(tween(TAPE_ANIM_MS / 2))).togetherWith(
+                slideOutHorizontally(tween(TAPE_ANIM_MS)) { w -> if (forward) -w else w } +
+                    fadeOut(tween(TAPE_ANIM_MS / 2))
+            )
+        },
+        label = "seekBarTape",
+        modifier = Modifier.fillMaxSize()
+    ) { (blockStart, blockEnd) ->
+        PnSeekBarContent(
+            trackTopPx = trackTopPx,
+            blockStartWallMs = blockStart,
+            blockEndWallMs = blockEnd,
+            positionWallMs = positionWallMs,
+            cursorWallMs = cursorWallMs,
+            liveEdgeWallMs = liveEdgeWallMs,
+            glow = glow,
+            focused = focused,
+            style = style,
+            sx = sx, sy = sy
+        )
+    }
+}
+
+/**
+ * Zawartość paska dla JEDNEGO bloku ramówki. Wszystkie pozycje liczone względem
+ * [blockStartWallMs]/[blockEndWallMs] przekazanych z klucza animacji — dzięki
+ * temu wyjeżdżająca taśma zachowuje swoją własną oś, zamiast przeskakiwać na
+ * nową w trakcie przejazdu.
+ */
+@Composable
+private fun PnSeekBarContent(
+    trackTopPx: Int,
+    blockStartWallMs: Long,
+    blockEndWallMs: Long,
+    positionWallMs: Long,
+    cursorWallMs: Long?,
+    liveEdgeWallMs: Long?,
+    glow: Boolean,
+    focused: Boolean,
+    style: PnBarStyle,
+    sx: (Int) -> Dp,
+    sy: (Int) -> Dp,
+) {
     val span = (blockEndWallMs - blockStartWallMs).coerceAtLeast(1L)
     val headMs = cursorWallMs ?: positionWallMs
     val progress = ((headMs - blockStartWallMs).toFloat() / span).coerceIn(0f, 1f)
-    // ANIMACJA pozycji, nie samej wartości czasu: przy przejściu do sąsiedniego
-    // programu oś się przestawia i progress skacze 0↔1, więc bez animacji bullet
-    // teleportował się z początku paska na koniec. Animujemy X w px designu,
-    // dzięki czemu widać przejazd wzdłuż paska.
+    // Animacja bulletu działa już TYLKO wewnątrz bloku (drobne kroki przewijania).
+    // Przy zmianie bloku powstaje NOWA instancja tej funkcji, więc bullet startuje
+    // od razu na swojej pozycji — ruch daje przejazd całej taśmy, nie bullet.
     val headX by animateFloatAsState(
         targetValue = headXFor(progress),
         animationSpec = tween(HEAD_ANIM_MS),
