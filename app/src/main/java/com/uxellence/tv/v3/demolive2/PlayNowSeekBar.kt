@@ -1,5 +1,7 @@
 package com.uxellence.tv.v3.demolive2
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -11,6 +13,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -56,6 +59,9 @@ import androidx.compose.ui.unit.Dp
  */
 enum class PnBarStyle { PLAYING, POSITION_ONLY, DOTS_ONLY }
 
+/** Czas przejazdu bullet-a; przy zmianie bloku to przejazd przez cały pasek. */
+private const val HEAD_ANIM_MS = 350
+
 /** Pozycja X playheada dla postępu w bloku (0..1), w px designu. */
 private fun headXFor(progress: Float): Float =
     PN.SEG_CUR_START + progress.coerceIn(0f, 1f) * (PN.SEG_CUR_END - PN.SEG_CUR_START)
@@ -73,6 +79,8 @@ fun PlayNowSeekBar(
     cursorWallMs: Long?,
     /** Live edge w zegarze ściennym — znacznik LIVE; null = nie pokazuj. */
     liveEdgeWallMs: Long? = null,
+    /** Poświata do live — w mini-EPG tylko na zafokusowanym wierszu (jak v1). */
+    glow: Boolean = true,
     /** Fokus na pasku (strefa SCRUB) — playhead na mint. */
     focused: Boolean,
     /** Wariant paska — patrz [PnBarStyle]. */
@@ -83,7 +91,15 @@ fun PlayNowSeekBar(
     val span = (blockEndWallMs - blockStartWallMs).coerceAtLeast(1L)
     val headMs = cursorWallMs ?: positionWallMs
     val progress = ((headMs - blockStartWallMs).toFloat() / span).coerceIn(0f, 1f)
-    val headX = headXFor(progress)
+    // ANIMACJA pozycji, nie samej wartości czasu: przy przejściu do sąsiedniego
+    // programu oś się przestawia i progress skacze 0↔1, więc bez animacji bullet
+    // teleportował się z początku paska na koniec. Animujemy X w px designu,
+    // dzięki czemu widać przejazd wzdłuż paska.
+    val headX by animateFloatAsState(
+        targetValue = headXFor(progress),
+        animationSpec = tween(HEAD_ANIM_MS),
+        label = "playheadX"
+    )
 
     Box(modifier = Modifier.fillMaxSize()) {
         Canvas(modifier = Modifier.fillMaxSize()) {
@@ -112,7 +128,7 @@ fun PlayNowSeekBar(
                 liveProgress > 1f -> dx(1920f)
                 else -> dx(headXFor(liveProgress))
             }
-            if (fills && glowToX > 0f) {
+            if (fills && glow && glowToX > 0f) {
                 drawRect(
                     brush = Brush.verticalGradient(
                         0f to PN_MINT.copy(alpha = PN.GLOW_ALPHA),

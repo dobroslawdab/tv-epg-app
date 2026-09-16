@@ -45,6 +45,7 @@ import java.io.File
  *   OK               → pokaż nakładkę, fokus na pasie kontrolek
  *   LEWO/PRAWO       → pas kontrolek: wybór ikony
  *   GÓRA             → pas przewijania (playhead na mint); LEWO/PRAWO przewija
+ *                      ±30 s, ZATRZYMUJĄC SIĘ na każdej granicy programu
  *                      i ODSŁANIA taśmę podglądu (nasz dodatek, Play Now jej nie ma)
  *   GÓRA z paska     → miniaturka/karta (3. poziom); LEWO/PRAWO chodzi po
  *                      ramówce kanału, OK rozwija detal (opis + Nagraj/Przypomnij)
@@ -265,8 +266,23 @@ fun DemoLive2Screen(
         val now = controller.virtualNow()
         val raw = cursorMs ?: positionMs
         val base = if (raw <= 0L || now - raw >= DVR_WINDOW_MS) now else raw
-        val target = (base + deltaMs)
-            .coerceIn(controller.dvrStartMs(), controller.virtualNow())
+
+        // ZATRZYMANIE NA GRANICY PROGRAMU: krok, który przeskoczyłby do
+        // sąsiedniego bloku ramówki, zatrzymuje się dokładnie na jego granicy.
+        // Dopiero KOLEJNE naciśnięcie przechodzi dalej — dzięki temu trzymanie
+        // strzałki nie przelatuje przez programy, tylko zatrzymuje się na każdym
+        // przejściu. Gdy już stoimy na granicy, warunki są fałszywe i krok
+        // wchodzi normalnie w sąsiedni blok.
+        val block = schedule.epgBlockAt(base)
+        val stepped = base + deltaMs
+        val bounded = when {
+            deltaMs < 0 && stepped < block.startVirtualMs && base > block.startVirtualMs ->
+                block.startVirtualMs
+            deltaMs > 0 && stepped > block.endVirtualMs && base < block.endVirtualMs ->
+                block.endVirtualMs
+            else -> stepped
+        }
+        val target = bounded.coerceIn(controller.dvrStartMs(), controller.virtualNow())
         cursorMs = target
         cursorTouchedAt = System.currentTimeMillis()
         touch()
@@ -481,6 +497,7 @@ fun DemoLive2Screen(
             miniEpgRows = miniRows,
             miniEpgRowIndex = epgRowIndex,
             miniEpgProgramIndex = epgProgramIndex,
+            miniEpgTunedIndex = channelIdx,
             detailOpen = detailOpen,
             detailDescription = shownBlock.description,
             detailActionIndex = detailActionIndex,

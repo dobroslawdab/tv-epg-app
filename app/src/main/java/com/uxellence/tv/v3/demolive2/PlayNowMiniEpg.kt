@@ -76,6 +76,11 @@ private const val TEXT_W = 680             // 1305 - 585 - 40
 
 private const val SCROLL_MS = 250   // jak w 1. wersji (DemoMiniEpgBar)
 
+// Pasek postępu należy do WIERSZA (jak w v1), więc przewija się razem z nim.
+// 184 = zmierzone 929 (pasek) - 745 (wiersz fokusowany).
+private const val DY_BAR = 184
+private const val BAR_BOX_H = 120   // tor + etykiety + poświata
+
 @Composable
 fun PlayNowMiniEpg(
     rows: List<PnChannelRow>,
@@ -85,14 +90,15 @@ fun PlayNowMiniEpg(
     positionWallMs: Long,
     /** Live edge — poświata na pasku sięga DO NIEGO, nie do pozycji. */
     liveEdgeWallMs: Long,
+    /** Indeks kanału AKTUALNIE DOSTROJONEGO — tylko on pokazuje pozycję
+     *  odtwarzania; pozostałe wiersze mają wypełnienie do live (jak v1). */
+    tunedRowIndex: Int,
     sx: (Int) -> Dp,
     sy: (Int) -> Dp,
 ) {
     if (rows.isEmpty()) return
     val safeRow = rowIndex.coerceIn(rows.indices)
-    val focusedRow = rows[safeRow]
-    val shown = focusedRow.programs.getOrNull(programIndex)
-        ?: focusedRow.programs.firstOrNull() ?: return
+    if (rows[safeRow].programs.isEmpty()) return
 
     Box(modifier = Modifier.fillMaxSize()) {
         // ── kanały: cały blok wierszy wjeżdża z kierunku nawigacji ──
@@ -122,26 +128,16 @@ fun PlayNowMiniEpg(
                         programIndex = if (k == 0) programIndex else row.liveIndex,
                         animatePrograms = k == 0,
                         focused = k == 0,
+                        // Pozycję odtwarzania pokazuje TYLKO kanał dostrojony;
+                        // pozostałe wiersze mają wypełnienie do live (jak v1).
+                        barPositionWallMs =
+                            if (chIdx + k == tunedRowIndex) positionWallMs else liveEdgeWallMs,
+                        liveEdgeWallMs = liveEdgeWallMs,
                         sx = sx, sy = sy
                     )
                 }
             }
         }
-
-        // ── pas przewijania: separator między oglądanym kanałem a listą ──
-        PlayNowSeekBar(
-            trackTopPx = PN.EPG_TRACK_TOP,
-            blockStartWallMs = shown.startWallMs,
-            blockEndWallMs = shown.endWallMs,
-            positionWallMs = positionWallMs,
-            cursorWallMs = null,
-            liveEdgeWallMs = liveEdgeWallMs,
-            focused = false,
-            // W mini-EPG pasek pokazuje, GDZIE jest odtwarzanie, ale bulletu
-            // i bąbelka z czasem NIE MA — zmierzone na boxie (patrz PnBarStyle).
-            style = PnBarStyle.POSITION_ONLY,
-            sx = sx, sy = sy
-        )
     }
 }
 
@@ -153,6 +149,9 @@ private fun PnEpgRow(
     /** Tylko zafokusowany wiersz animuje zmianę programu. */
     animatePrograms: Boolean,
     focused: Boolean,
+    /** Do czego sięga wypełnienie paska tego wiersza. */
+    barPositionWallMs: Long,
+    liveEdgeWallMs: Long,
     sx: (Int) -> Dp,
     sy: (Int) -> Dp,
 ) {
@@ -253,6 +252,33 @@ private fun PnEpgRow(
             columns(programIndex)
         }
     }
+    // ── pasek postępu TEGO kanału — w wierszu, więc przewija się razem z nim
+    //    (tak jak w 1. wersji: pasek jest częścią DemoMiniEpgChannelRow) ──
+    val barProgram = row.programs.getOrNull(programIndex)
+    if (barProgram != null) {
+        Box(
+            modifier = Modifier
+                .offset(y = sy(topPx + DY_BAR))
+                .fillMaxWidth()
+                .height(sy(BAR_BOX_H))
+        ) {
+            PlayNowSeekBar(
+                trackTopPx = 0,
+                blockStartWallMs = barProgram.startWallMs,
+                blockEndWallMs = barProgram.endWallMs,
+                positionWallMs = barPositionWallMs,
+                cursorWallMs = null,
+                liveEdgeWallMs = liveEdgeWallMs,
+                // Poświata (wskaźnik live) TYLKO na wierszu zafokusowanym — v1
+                glow = focused,
+                focused = false,
+                // Bulletu i bąbelka z czasem w mini-EPG nie ma (zmierzone na boxie)
+                style = PnBarStyle.POSITION_ONLY,
+                sx = sx, sy = sy
+            )
+        }
+    }
+
 }
 
 @Composable

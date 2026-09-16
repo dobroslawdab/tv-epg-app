@@ -88,6 +88,8 @@ fun PlayNowOverlay(
     miniEpgRows: List<PnChannelRow>,
     miniEpgRowIndex: Int,
     miniEpgProgramIndex: Int,
+    /** Który wiersz mini-EPG to kanał aktualnie dostrojony. */
+    miniEpgTunedIndex: Int = 0,
     /** Taśma podglądu przewijania — widoczna po pierwszym LEWO/PRAWO na pasku. */
     scrubTapeVisible: Boolean,
     scrubFrames: List<Pair<android.graphics.Bitmap?, Long>> = emptyList(),
@@ -132,6 +134,7 @@ fun PlayNowOverlay(
                     programIndex = miniEpgProgramIndex,
                     positionWallMs = antennaStartWallMs + positionMs,
                     liveEdgeWallMs = antennaStartWallMs + liveEdgeMs,
+                    tunedRowIndex = miniEpgTunedIndex,
                     sx = sx, sy = sy
                 )
             } else if (detailOpen) {

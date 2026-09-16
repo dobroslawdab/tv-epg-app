@@ -264,6 +264,38 @@ z nagrań anteny.
 > `recordedAtWallMs`, mocki nie mają żadnej). Przed tą zmianą drugi kanał
 > z nagrania pokazywałby godziny policzone na osi pierwszego.
 
+### Pasek postępu należy do WIERSZA, nie do ekranu
+
+W mini-EPG **każdy kanał ma własny pasek**, rysowany wewnątrz swojego wiersza
+(`DY_BAR = 184` = zmierzone 929 − 745), więc przewija się razem z nim — tak jak
+w 1. wersji, gdzie pasek jest częścią `DemoMiniEpgChannelRow`. Wypełnienie
+pokazuje pozycję odtwarzania **tylko na kanale dostrojonym**; pozostałe wiersze
+wypełniają się do live. Poświata (wskaźnik live) jest wyłącznie na wierszu
+zafokusowanym — również jak v1.
+
+### Przewijanie zatrzymuje się na granicy programu
+
+Krok, który przeskoczyłby do sąsiedniego bloku ramówki, jest **przycinany do
+granicy**; dopiero kolejne naciśnięcie przechodzi dalej. Dzięki temu trzymanie
+strzałki nie przelatuje przez programy — zatrzymuje się na każdym przejściu.
+Gdy kursor już stoi na granicy, warunki są fałszywe i krok wchodzi normalnie
+w sąsiedni blok.
+
+Zweryfikowane logiem: `base=3295s` w bloku 3300 s, krok +30 s → `stepped`
+przekracza koniec, `bounded` = koniec bloku; następny krok startuje już
+z `base=0s` kolejnego bloku.
+
+### Bullet przejeżdża, nie teleportuje się
+
+Playhead jest animowany po **X w px designu** (`animateFloatAsState`, 350 ms),
+a nie po wartości czasu. To istotne: przy przejściu do sąsiedniego programu oś
+paska się przestawia i `progress` skacze 0↔1, więc animacja samego czasu nic by
+nie dała — bullet i tak teleportowałby się z początku paska na koniec.
+Animując pozycję, widać przejazd wzdłuż paska.
+
+Zweryfikowane: zrzut zrobiony zaraz po przekroczeniu granicy złapał bullet
+na x≈1249, czyli w połowie drogi między 325 a 1519.
+
 ### Poświata pod paskiem sięga DO LIVE, nie do playheada
 
 Poświata oznacza „materiał dostępny do live edge", więc przy przewijaniu **stoi
