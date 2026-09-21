@@ -71,6 +71,14 @@ private const val SCRUB_HIDE_MS = 60_000L
 /** Ile programów pokazywać w mini-EPG wstecz / w przód od bieżącego. */
 private const val EPG_BEFORE = 3
 private const val EPG_AFTER = 4
+/**
+ * Margines przy skoku na POCZĄTEK materiału. Granica bloku leży dokładnie na
+ * styku dwóch plików, a realne długości z ExoPlayera różnią się od nominalnych
+ * o ułamki sekundy — seek dokładnie na granicę potrafił wylądować tuż przed
+ * końcem POPRZEDNIEGO materiału i natychmiast przeskoczyć do następnego
+ * (objaw: "klikam informacyjny, a leci Agrobiznes").
+ */
+private const val START_MARGIN_MS = 2_000L
 private const val SCRUB_STEP_MS = 30_000L
 private const val DVR_WINDOW_MS = 24 * 3_600_000L
 
@@ -384,7 +392,7 @@ fun DemoLive2Screen(
                 // Miniony program oglądamy OD POCZĄTKU (timeshift), bieżący
                 // po prostu dostrajamy na żywo.
                 val seekTo = if (detailTiming == PnTiming.PAST) {
-                    program.startWallMs - antenna
+                    program.startWallMs - antenna + START_MARGIN_MS
                 } else -1L
 
                 if (targetRow != channelIdx) {
@@ -440,7 +448,14 @@ fun DemoLive2Screen(
             // Jak v1: pozycje bez logiki dają komunikat, żeby było widać, że
             // klik został przyjęty (a nie że przycisk jest martwy)
             PnControl.REC -> recordingFor = shownBlock.toPnProgram(controller.antennaStartWallMs)
-            PnControl.INFO -> toast = "Opis programu — atrapa makiety"
+            // Opis z kontrolek = TEN SAM detal co po kliknięciu miniaturki
+            PnControl.INFO -> {
+                cardOffset = 0
+                detailFromEpg = false
+                detailActionIndex = 0
+                detailOpen = true
+                zone = PnZone.CARD
+            }
             PnControl.SETTINGS -> toast = "Napisy i dźwięk — atrapa makiety"
         }
         touch()
@@ -711,6 +726,15 @@ fun DemoLive2Screen(
             detailIsToday = detailTiming != PnTiming.FUTURE ||
                 (detailProgram?.startWallMs ?: 0L) - nowWall < 12 * 3_600_000L,
             shownIsPlaying = shownIsPlaying,
+            shownTiming = run {
+                val startWall = controller.antennaStartWallMs + shownBlock.startVirtualMs
+                val endWall = controller.antennaStartWallMs + shownBlock.endVirtualMs
+                when {
+                    endWall <= nowWall -> PnTiming.PAST
+                    startWall > nowWall -> PnTiming.FUTURE
+                    else -> PnTiming.CURRENT
+                }
+            },
             hasPrevProgram = shownBlock.startVirtualMs > controller.dvrStartMs(),
             isAtLiveEdge = controller.isAtLiveEdge(),
             scrubTapeVisible = scrubTapeVisible && zone == PnZone.SCRUB,

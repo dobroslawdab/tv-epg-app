@@ -112,6 +112,8 @@ fun PlayNowOverlay(
     detailTiming: PnTiming = PnTiming.CURRENT,
     /** Czy pokazywany program to ten AKTUALNIE GRANY (steruje wariantem paska). */
     shownIsPlaying: Boolean = true,
+    /** Czas pokazywanego programu — miniony ma pasek CAŁY biały (jak v1). */
+    shownTiming: PnTiming = PnTiming.CURRENT,
     /** Czy jest poprzedni program — pokazuje podpowiedź "Oglądaj poprzednie". */
     hasPrevProgram: Boolean = true,
     /** Czy odtwarzanie jest na żywo — etykieta LIVE (jak v1). */
@@ -207,17 +209,24 @@ fun PlayNowOverlay(
                     trackTopPx = if (scrubTapeVisible) PN.TRACK_TOP_TAPE else PN.TRACK_TOP,
                     blockStartWallMs = shownProgram.startWallMs,
                     blockEndWallMs = shownProgram.endWallMs,
-                    positionWallMs = antennaStartWallMs + positionMs,
+                    // Materiał MINIONY jest w całości dostępny do przewijania,
+                    // więc jego pasek jest cały biały (jak v1); przyszły pusty.
+                    positionWallMs = when {
+                        shownIsPlaying -> antennaStartWallMs + positionMs
+                        shownTiming == PnTiming.PAST -> shownProgram.endWallMs
+                        else -> shownProgram.startWallMs
+                    },
                     cursorWallMs = cursorMs?.let { antennaStartWallMs + it },
                     liveEdgeWallMs = antennaStartWallMs + liveEdgeMs,
                     focused = zone == PnZone.SCRUB,
                     // Bullet z godziną należy do POZYCJI ODTWARZANIA/kursora: na
                     // kontrolkach i pasku jest zawsze, a znika dopiero gdy karta
                     // wędruje po ramówce na inny program niż grany.
-                    style = if (zone == PnZone.CARD && !shownIsPlaying) {
-                        PnBarStyle.DOTS_ONLY
-                    } else {
-                        PnBarStyle.PLAYING
+                    style = when {
+                        shownIsPlaying -> PnBarStyle.PLAYING
+                        zone != PnZone.CARD -> PnBarStyle.PLAYING
+                        shownTiming == PnTiming.FUTURE -> PnBarStyle.DOTS_ONLY
+                        else -> PnBarStyle.POSITION_ONLY
                     },
                     sx = sx, sy = sy
                 )
