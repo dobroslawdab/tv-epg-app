@@ -291,7 +291,19 @@ zafokusowanym — również jak v1.
 - Ikony rzędu kontrolek to **te same zasoby co v1** (`demo_ic_*`), więc kształty
   nie rozjeżdżają się między wersjami.
 
-### ⚠️ Dwie pułapki, które dały „Oglądaj nie działa"
+### ⚠️ Trzy pułapki, które dały „Oglądaj nie działa"
+
+0. **STALE VAL w `AndroidView.factory` — najgroźniejsza z trzech.** `factory`
+   wykonuje się RAZ i zamyka w sobie `handleKey` z **pierwszej** kompozycji, a wraz
+   z nim wszystkie `val` obliczane w kompozycji: `detailProgram`, `detailTiming`,
+   `detailActions`, `shownBlock`, `miniRows`. Delegaty `by remember { mutableStateOf }`
+   są bezpieczne (czytają State), ale zwykłe `val` — nie. Objaw: „Oglądaj" na
+   minionym programie zawsze odtwarzało ten sam materiał — ten, który był bieżący
+   **w chwili startu ekranu**. Poprawka jak w v1: handler przez `rememberUpdatedState`,
+   a widok woła `keyHandler.value(code, repeat)`. Patrz też memory
+   `feedback_stale_val_in_effects`.
+
+### ⚠️ Pozostałe dwie, które dały „Oglądaj nie działa"
 
 1. **Detal otwarty z mini-EPG zostaje w strefie `MINI_EPG`.** Obsługa klawiszy
    detalu siedziała tylko w gałęzi `PnZone.CARD`, więc OK w detalu z listy

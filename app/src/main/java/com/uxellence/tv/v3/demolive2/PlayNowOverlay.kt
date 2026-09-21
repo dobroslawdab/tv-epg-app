@@ -45,6 +45,12 @@ data class PnProgram(
     val endWallMs: Long,
     /** Opis do detalu — pokazywany pod przyciskami akcji. */
     val description: String = "",
+    /**
+     * Początek programu w OSI WIRTUALNEJ swojego kanału (-1 = brak, np. mock).
+     * Trzymany wprost, bez przeliczania przez zegar — seek bierze tę wartość
+     * tak samo jak v1 bierze `detailStartVirtualMs`.
+     */
+    val startVirtualMs: Long = -1L,
 )
 
 /** Jeden kanał w mini-EPG. */

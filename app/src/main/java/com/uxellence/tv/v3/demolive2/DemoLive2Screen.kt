@@ -15,6 +15,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -127,7 +128,6 @@ fun DemoLive2Screen(
             val files = channel.items.map { File(it.url.removePrefix("file://")) }
             controller.preparePlayer(files)
             prepared = true
-            filmstrip.startExtraction(files.map { it.absolutePath })
         } catch (e: Exception) {
             prepareError = e.message ?: e.toString()
         }
@@ -269,6 +269,14 @@ fun DemoLive2Screen(
         toast = null
     }
 
+    // ── klatki taśmy DOPIERO przy pierwszym przewijaniu ──
+    // Ekstrakcja idzie po 15 plikach po ~1 GB z karty SD; robiona przy starcie
+    // kanału dławiła box (I/O + CPU) razem z odtwarzaniem i seekiem.
+    LaunchedEffect(scrubTapeVisible, prepared, channel.id) {
+        if (!scrubTapeVisible || !prepared) return@LaunchedEffect
+        filmstrip.startExtraction(channel.items.map { it.url.removePrefix("file://") })
+    }
+
     // ── seek zlecony przed przełączeniem kanału ──
     LaunchedEffect(prepared, channel.id, pendingSeekMs) {
         val target = pendingSeekMs ?: return@LaunchedEffect
@@ -387,13 +395,19 @@ fun DemoLive2Screen(
                     return
                 }
                 // Seek w osi wirtualnej kanału docelowego
-                val targetChannel = recorded.getOrNull(targetRow)
-                val antenna = targetChannel?.recordedAtWallMs ?: controller.antennaStartWallMs
                 // Miniony program oglądamy OD POCZĄTKU (timeshift), bieżący
-                // po prostu dostrajamy na żywo.
-                val seekTo = if (detailTiming == PnTiming.PAST) {
-                    program.startWallMs - antenna + START_MARGIN_MS
+                // po prostu dostrajamy na żywo. Pozycja bierze się WPROST z osi
+                // wirtualnej programu — tak jak v1 używa detailStartVirtualMs —
+                // zamiast przeliczania przez zegar, gdzie łatwo o rozjazd.
+                val seekTo = if (detailTiming == PnTiming.PAST && program.startVirtualMs >= 0) {
+                    program.startVirtualMs + START_MARGIN_MS
                 } else -1L
+                android.util.Log.i(
+                    "DemoLive2",
+                    "detal:${detailActions[detailActionIndex]} timing=$detailTiming " +
+                        "row=$targetRow→ch=$channelIdx virt=${program.startVirtualMs} " +
+                        "seekTo=$seekTo '${program.title}'"
+                )
 
                 if (targetRow != channelIdx) {
                     channelIdx = targetRow              // nowy kontroler
@@ -407,6 +421,7 @@ fun DemoLive2Screen(
                 }
                 // Jak v1: miniony materiał startuje na CZYSTYM obrazie
                 closeDetail()
+                cardOffset = 0
                 cursorMs = null
                 scrubTapeVisible = false
                 zone = PnZone.CONTROLS
@@ -646,8 +661,16 @@ fun DemoLive2Screen(
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         // ── wideo (TextureView — nie SurfaceView, z-order w Compose) ──
         val player = controller.player
+        // STALE VAL: factory AndroidView wykonuje się RAZ i zamyka w sobie handleKey
+        // z PIERWSZEJ kompozycji — wraz z detailProgram, detailTiming, shownBlock
+        // i miniRows sprzed wszystkich zmian. Objaw: "Oglądaj" na minionym programie
+        // odtwarzało zawsze ten sam, bieżący-na-starcie materiał. Handler musi być
+        // czytany przez State, tak jak keyHandler w v1 (rememberUpdatedState).
+        val keyHandler = rememberUpdatedState<(Int, Int) -> Boolean> { code, repeat ->
+            handleKey(code, repeat)
+        }
         AndroidView(
-            factory = { ctx -> PnVideoView(ctx) { code, repeat -> handleKey(code, repeat) } },
+            factory = { ctx -> PnVideoView(ctx) { code, repeat -> keyHandler.value(code, repeat) } },
             modifier = Modifier.fillMaxSize(),
             update = { view -> view.attach(player) }
         )
@@ -759,7 +782,8 @@ private fun BarkerSchedule.EpgBlock.toPnProgram(antennaStartWallMs: Long): PnPro
         coverUrl = coverUrl,
         startWallMs = antennaStartWallMs + startVirtualMs,
         endWallMs = antennaStartWallMs + endVirtualMs,
-        description = description
+        description = description,
+        startVirtualMs = startVirtualMs
     )
 }
 
