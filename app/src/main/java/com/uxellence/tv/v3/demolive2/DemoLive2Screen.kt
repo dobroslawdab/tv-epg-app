@@ -45,7 +45,8 @@ import java.io.File
  *   OK               → pokaż nakładkę, fokus na pasie kontrolek
  *   LEWO/PRAWO       → pas kontrolek: wybór ikony
  *   GÓRA             → pas przewijania (playhead na mint); LEWO/PRAWO przewija
- *                      ±30 s, ZATRZYMUJĄC SIĘ na każdej granicy programu
+ *                      ±30 s, ZATRZYMUJĄC SIĘ na każdej granicy programu;
+ *                      OK zatwierdza przewinięcie (bez OK kanał się nie przestraja)
  *                      i ODSŁANIA taśmę podglądu (nasz dodatek, Play Now jej nie ma)
  *   GÓRA z paska     → miniaturka/karta (3. poziom); LEWO/PRAWO chodzi po
  *                      ramówce kanału, OK rozwija detal (opis + Nagraj/Przypomnij)
@@ -58,7 +59,6 @@ import java.io.File
 
 private const val AUTO_HIDE_MS = 6_000L
 private const val SCRUB_STEP_MS = 30_000L
-private const val SCRUB_COMMIT_MS = 800L
 private const val DVR_WINDOW_MS = 24 * 3_600_000L
 
 @Composable
@@ -129,9 +129,12 @@ fun DemoLive2Screen(
     var positionMs by remember { mutableLongStateOf(0L) }
     var liveEdgeMs by remember { mutableLongStateOf(0L) }
     var cursorMs by remember { mutableStateOf<Long?>(null) }
-    var cursorTouchedAt by remember { mutableLongStateOf(0L) }
     // Taśma podglądu wchodzi DOPIERO po pierwszym LEWO/PRAWO na pasku
     var scrubTapeVisible by remember { mutableStateOf(false) }
+    // repeatCount ostatniego KeyDown: 0 = nowe fizyczne naciśnięcie, >0 = trzymanie
+    var scrubKeyRepeat by remember { mutableStateOf(0) }
+    // Pozycja granicy, na której kursor STOI aż do puszczenia klawisza (-1 = brak)
+    var snapLockMs by remember { mutableLongStateOf(-1L) }
     // 3. poziom fokusa: miniaturka/karta. Offset liczony w BLOKACH ramówki od
     // programu granego (0 = grany), OK rozwija kartę w detal.
     var cardOffset by remember { mutableStateOf(0) }
@@ -230,23 +233,16 @@ fun DemoLive2Screen(
             overlayVisible = false
             cursorMs = null
             scrubTapeVisible = false
+            snapLockMs = -1L
             detailOpen = false
             cardOffset = 0
             zone = PnZone.CONTROLS
         }
     }
 
-    // ── zatwierdzenie przewijania po chwili bezczynności ──
-    LaunchedEffect(cursorTouchedAt) {
-        if (cursorMs == null) return@LaunchedEffect
-        delay(SCRUB_COMMIT_MS)
-        if (System.currentTimeMillis() - cursorTouchedAt >= SCRUB_COMMIT_MS) {
-            cursorMs?.let { controller.seekToVirtual(it) }
-            cursorMs = null
-            scrubTapeVisible = false
-            isPaused = false
-        }
-    }
+    // BEZ auto-commitu: przewinięcie zatwierdza dopiero OK (jak w 1. wersji).
+    // Wcześniej seek odpalał się sam po 800 ms bezczynności, więc przy wolniejszym
+    // przewijaniu kanał "wstrajał się" w miejscu, w którym user tylko przystanął.
 
     fun touch() {
         lastInputAt = System.currentTimeMillis()
@@ -258,33 +254,40 @@ fun DemoLive2Screen(
         touch()
     }
 
+    /**
+     * Krok przewijania ze SNAPEM do granicy materiału — wzorzec z 1. wersji
+     * (scrubStepWithSnap): przy TRZYMANIU strzałki (autorepeat, repeatCount > 0)
+     * kursor zatrzymuje się na granicy i stoi, aż user puści klawisz. NOWE
+     * fizyczne naciśnięcie (repeatCount == 0) zwalnia blokadę i rusza dalej.
+     * Sygnałem jest repeatCount, nie timing — dzięki temu szybkie klikanie nigdy
+     * nie daje trwałej blokady, a trzymanie nie przelatuje przez programy.
+     */
     fun moveCursor(deltaMs: Long) {
         scrubTapeVisible = true
-        // Baza musi być SENSOWNA: 0 (tick jeszcze nie odczytał pozycji) ani
-        // pozycja starsza niż całe okno DVR (oś jeszcze nie przekotwiczona —
-        // patrz LaunchedEffect wyżej) nie są realną pozycją odtwarzania.
         val now = controller.virtualNow()
         val raw = cursorMs ?: positionMs
+        // 0 albo pozycja starsza niż całe okno DVR nie są realną pozycją odtwarzania
         val base = if (raw <= 0L || now - raw >= DVR_WINDOW_MS) now else raw
 
-        // ZATRZYMANIE NA GRANICY PROGRAMU: krok, który przeskoczyłby do
-        // sąsiedniego bloku ramówki, zatrzymuje się dokładnie na jego granicy.
-        // Dopiero KOLEJNE naciśnięcie przechodzi dalej — dzięki temu trzymanie
-        // strzałki nie przelatuje przez programy, tylko zatrzymuje się na każdym
-        // przejściu. Gdy już stoimy na granicy, warunki są fałszywe i krok
-        // wchodzi normalnie w sąsiedni blok.
+        if (scrubKeyRepeat == 0) snapLockMs = -1L      // nowy klik zwalnia lock
+        if (snapLockMs >= 0 && base == snapLockMs) {
+            touch()
+            return                                     // autorepeat na granicy — stój
+        }
+        snapLockMs = -1L
+
         val block = schedule.epgBlockAt(base)
         val stepped = base + deltaMs
-        val bounded = when {
+        val snapped = when {
             deltaMs < 0 && stepped < block.startVirtualMs && base > block.startVirtualMs ->
                 block.startVirtualMs
             deltaMs > 0 && stepped > block.endVirtualMs && base < block.endVirtualMs ->
                 block.endVirtualMs
             else -> stepped
         }
-        val target = bounded.coerceIn(controller.dvrStartMs(), controller.virtualNow())
-        cursorMs = target
-        cursorTouchedAt = System.currentTimeMillis()
+        if (snapped != stepped) snapLockMs = snapped    // stanęliśmy na granicy
+
+        cursorMs = snapped.coerceIn(controller.dvrStartMs(), now)
         touch()
     }
 
@@ -317,7 +320,8 @@ fun DemoLive2Screen(
         touch()
     }
 
-    fun handleKey(keyCode: Int): Boolean {
+    fun handleKey(keyCode: Int, repeatCount: Int): Boolean {
+        scrubKeyRepeat = repeatCount
         touch()
         if (!overlayVisible) {
             when (keyCode) {
@@ -363,13 +367,16 @@ fun DemoLive2Screen(
                 }
                 KeyEvent.KEYCODE_DPAD_DOWN -> {
                     scrubTapeVisible = false
+                    snapLockMs = -1L
                     zone = PnZone.CONTROLS
                     true
                 }
+                // OK ZATWIERDZA przewinięcie — dopiero tu następuje seek
                 KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
                     cursorMs?.let { controller.seekToVirtual(it) }
                     cursorMs = null
                     scrubTapeVisible = false
+                    snapLockMs = -1L
                     isPaused = false
                     zone = PnZone.CONTROLS
                     true
@@ -453,6 +460,7 @@ fun DemoLive2Screen(
                 overlayVisible = false
                 cursorMs = null
                 scrubTapeVisible = false
+                snapLockMs = -1L
                 cardOffset = 0
                 zone = PnZone.CONTROLS
             }
@@ -465,7 +473,7 @@ fun DemoLive2Screen(
         // ── wideo (TextureView — nie SurfaceView, z-order w Compose) ──
         val player = controller.player
         AndroidView(
-            factory = { ctx -> PnVideoView(ctx) { code -> handleKey(code) } },
+            factory = { ctx -> PnVideoView(ctx) { code, repeat -> handleKey(code, repeat) } },
             modifier = Modifier.fillMaxSize(),
             update = { view -> view.attach(player) }
         )
@@ -567,7 +575,7 @@ private fun PnMissingMaterial(onBackPressed: () -> Unit, sy: (Int) -> Dp) {
  */
 private class PnVideoView(
     context: android.content.Context,
-    private val onKey: (Int) -> Boolean,
+    private val onKey: (Int, Int) -> Boolean,   // (keyCode, repeatCount)
 ) : android.widget.FrameLayout(context) {
 
     private val textureView = android.view.TextureView(context)
@@ -624,7 +632,9 @@ private class PnVideoView(
     }
 
     override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
-        if (event.action == android.view.KeyEvent.ACTION_DOWN && onKey(event.keyCode)) return true
+        if (event.action == android.view.KeyEvent.ACTION_DOWN &&
+            onKey(event.keyCode, event.repeatCount)
+        ) return true
         return super.dispatchKeyEvent(event)
     }
 }

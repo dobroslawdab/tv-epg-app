@@ -273,6 +273,21 @@ pokazuje pozycję odtwarzania **tylko na kanale dostrojonym**; pozostałe wiersz
 wypełniają się do live. Poświata (wskaźnik live) jest wyłącznie na wierszu
 zafokusowanym — również jak v1.
 
+### Przewijanie: OK zatwierdza, granica blokuje przy trzymaniu
+
+Seek następuje **dopiero po OK** — tak jak w 1. wersji. Wcześniej był auto-commit
+po 800 ms bezczynności, przez co kanał „wstrajał się" w miejscu, w którym user
+tylko przystanął przy przewijaniu.
+
+Blokada na granicy materiału działa wzorcem z v1 (`scrubStepWithSnap`): przy
+TRZYMANIU strzałki (autorepeat, `repeatCount > 0`) kursor staje na granicy i stoi,
+aż klawisz zostanie puszczony; NOWE fizyczne naciśnięcie (`repeatCount == 0`)
+zwalnia blokadę. Sygnałem jest **repeatCount, nie timing** — dzięki temu szybkie
+klikanie nigdy nie daje trwałej blokady, a trzymanie nie przelatuje przez programy.
+
+> Wymaga to przekazywania `repeatCount` z `dispatchKeyEvent` aż do handlera —
+> `PnVideoView` podaje parę `(keyCode, repeatCount)`, jak `DemoVideoView` w v1.
+
 ### Przewijanie zatrzymuje się na granicy programu
 
 Krok, który przeskoczyłby do sąsiedniego bloku ramówki, jest **przycinany do
