@@ -5,15 +5,18 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -101,6 +104,8 @@ fun PlayNowOverlay(
     detailActionIndex: Int = 0,
     /** Czy pokazywany program to ten AKTUALNIE GRANY (steruje wariantem paska). */
     shownIsPlaying: Boolean = true,
+    /** Czy jest poprzedni program — pokazuje podpowiedź "Oglądaj poprzednie". */
+    hasPrevProgram: Boolean = true,
     sx: (Int) -> Dp,
     sy: (Int) -> Dp,
 ) {
@@ -169,6 +174,7 @@ fun PlayNowOverlay(
                     )
                 } else {
                     PnChannelIdentity(channelName, channelNumber, channelLogoUrl, sx, sy)
+                    if (hasPrevProgram) PnWatchPrev(sx, sy)
                     PnProgramCard(
                         program = shownProgram,
                         next = nextProgram,
@@ -424,5 +430,37 @@ private fun PnControlBar(
                 maxLines = 1
             )
         }
+    }
+}
+
+/**
+ * "Oglądaj poprzednie" — podpowiedź, że LEWO cofa do wcześniejszego programu.
+ * Przeniesione z 1. wersji (tam stało w V4PlayerLayer); w v2 siedzi po LEWEJ
+ * od karty programu, na wysokości okładki. Element czysto wizualny — nie bierze
+ * fokusa, samo przewijanie robi LEWO na poziomie karty.
+ */
+@Composable
+private fun PnWatchPrev(sx: (Int) -> Dp, sy: (Int) -> Dp) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(sx(PN.PREV_GAP)),
+        modifier = Modifier.offset(x = sx(PN.PREV_LEFT), y = sy(PN.PREV_TOP))
+    ) {
+        Box(
+            modifier = Modifier
+                .size(sx(PN.PREV_CIRCLE), sy(PN.PREV_CIRCLE))
+                .clip(CircleShape)
+                .background(PN_PURPLE),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("◀", color = PN_TEXT, fontSize = pnSp(24, sy))
+        }
+        Text(
+            text = "Oglądaj\npoprzednie",
+            color = PN_TEXT,
+            fontSize = pnSp(PN.PREV_TEXT_SIZE, sy),
+            lineHeight = pnSp(32, sy),
+            fontWeight = FontWeight.Medium
+        )
     }
 }

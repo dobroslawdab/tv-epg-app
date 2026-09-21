@@ -166,12 +166,14 @@ private fun V4PlayerLayer(
 ) {
     if (cardBlocks.isEmpty()) return
 
-    // channel-card: left 105, top 452 — w CSS siedzi bezpośrednio w .layer-player
-    // (inset 0), NIE w .pattern-player; NAD karuzelą kart (uwaga usera 2026-08-26)
+    // channel-card: left 105 — OBNIŻONA w miejsce dawnego "Oglądaj poprzednie"
+    // (uwaga usera). Kolumna ma 184 px (logo 120 + 24 + numer 40), a pasek
+    // timeline zaczyna się na 804, więc y=600 stawia ją tuż nad paskiem;
+    // dawny przycisk stał na 675 i był niższy, stąd nie 675 tylko 600.
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(sy(24)),
-        modifier = Modifier.offset(x = sx(105), y = sy(452)).width(sx(172)).zIndex(3f)
+        modifier = Modifier.offset(x = sx(105), y = sy(600)).width(sx(172)).zIndex(3f)
     ) {
         Box(
             modifier = Modifier
@@ -204,29 +206,13 @@ private fun V4PlayerLayer(
         }
     }
 
-    // watch-prev: left 73, top 675 (485+190) — WARSTWA NAD karuzelą kart
-    // (karta poprzedniego programu przejeżdża POD przyciskiem)
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(sx(16)),
-        modifier = Modifier.offset(x = sx(73), y = sy(675)).zIndex(3f)
-    ) {
-        Box(
-            modifier = Modifier.size(sx(64), sy(64)).clip(CircleShape).background(V4_BRAND),
-            contentAlignment = Alignment.Center
-        ) {
-            Text("◀", color = V4_TEXT, fontSize = demoSp(24, sy))
-        }
-        Text(
-            "Oglądaj\npoprzednie", color = V4_TEXT,
-            fontSize = demoSp(24, sy), lineHeight = demoSp(32, sy), fontWeight = FontWeight.Medium
-        )
-    }
+    // "Oglądaj poprzednie" USUNIĘTE (uwaga usera) — przeniesione do v2
+    // (demolive2/PlayNowOverlay). W jego miejscu stoi teraz karta kanału.
 
     // ===== KARUZELA PROGRAMÓW (info-now + sąsiedzi) =====
     // Sloty co 1190 px (karta 1142 + przerwa 48): fokusowany slot na x=389,
     // następny wystaje z prawej od x=1579 (CSS .info-next left 1579 = 389+1190),
-    // poprzedni chowa się z lewej POD "Oglądaj poprzednie". LEFT/RIGHT przewija
+    // poprzedni chowa się z lewej za krawędzią. LEFT/RIGHT przewija
     // karuzelę animacją — ramka fokusa STOI na x=389, znika na czas przejazdu
     // i wraca na programie, który wjechał w jej miejsce (uwaga usera 2026-08-26).
     val slotPitch = 1190
@@ -267,8 +253,6 @@ private fun V4PlayerLayer(
                     .border(sx(4), V4_AQUA, RoundedCornerShape(sx(16)))
             )
             // Strzałki ‹ › na coverze slotu fokusa (cover: x=389..669, body y=606)
-            if (cardIndex > 0) V4CoverNav("‹", 389 + 2, 606 + 56, sx, sy)
-            if (cardIndex < cardBlocks.lastIndex) V4CoverNav("›", 389 + 214, 606 + 56, sx, sy)
         }
     }
 
@@ -452,25 +436,6 @@ private fun V4ProgramCard(
     }
 }
 
-@Composable
-private fun V4CoverNav(glyph: String, leftPx: Int, topPx: Int, sx: (Int) -> Dp, sy: (Int) -> Dp) {
-    Box(
-        modifier = Modifier
-            .offset(x = sx(leftPx), y = sy(topPx))
-            .size(sx(56), sy(56))
-            .shadow(sy(10), CircleShape)
-            .clip(CircleShape)
-            .background(V4_TEXT),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            glyph, color = V4_BRAND, fontSize = demoSp(34, sy), fontWeight = FontWeight.Bold,
-            modifier = Modifier.offset(y = -sy(3))
-        )
-    }
-}
-
-/** 7 kontrolek wg prototypu: pauza · od początku · live · rec · opis · EPG · ustawienia */
 private fun v4Controls(isPaused: Boolean, isAtLiveEdge: Boolean): List<Pair<Int, String>> = listOf(
     R.drawable.demo_ic_pause to if (isPaused) "Wznów" else "Pauza",
     R.drawable.demo_ic_startover to "Od początku",

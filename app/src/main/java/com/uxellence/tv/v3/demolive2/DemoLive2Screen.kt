@@ -58,6 +58,13 @@ import java.io.File
  */
 
 private const val AUTO_HIDE_MS = 6_000L
+/**
+ * Auto-hide w trakcie PRZEWIJANIA: dopóki przewinięcie nie jest zatwierdzone
+ * OK-iem, cały scrub (pasek + taśma podglądu) zostaje na ekranie MINUTĘ od
+ * ostatniego ruchu — user przegląda materiał i nie chce, żeby UI uciekało
+ * po 6 s jak przy zwykłej nakładce.
+ */
+private const val SCRUB_HIDE_MS = 60_000L
 private const val SCRUB_STEP_MS = 30_000L
 private const val DVR_WINDOW_MS = 24 * 3_600_000L
 
@@ -226,10 +233,12 @@ fun DemoLive2Screen(
     }
 
     // ── auto-hide nakładki ──
-    LaunchedEffect(lastInputAt, overlayVisible, zone) {
+    LaunchedEffect(lastInputAt, overlayVisible, zone, cursorMs != null) {
         if (!overlayVisible) return@LaunchedEffect
-        delay(AUTO_HIDE_MS)
-        if (System.currentTimeMillis() - lastInputAt >= AUTO_HIDE_MS) {
+        // Rozpoczęte, niezatwierdzone przewinięcie trzyma UI przez minutę
+        val hideAfter = if (cursorMs != null) SCRUB_HIDE_MS else AUTO_HIDE_MS
+        delay(hideAfter)
+        if (System.currentTimeMillis() - lastInputAt >= hideAfter) {
             overlayVisible = false
             cursorMs = null
             scrubTapeVisible = false
@@ -512,6 +521,7 @@ fun DemoLive2Screen(
             detailDescription = shownBlock.description,
             detailActionIndex = detailActionIndex,
             shownIsPlaying = shownIsPlaying,
+            hasPrevProgram = shownBlock.startVirtualMs > controller.dvrStartMs(),
             scrubTapeVisible = scrubTapeVisible && zone == PnZone.SCRUB,
             scrubFrames = scrubFrames,
             dvrStartMs = controller.dvrStartMs(),

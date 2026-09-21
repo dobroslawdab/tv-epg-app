@@ -115,6 +115,15 @@ object PN {
     const val META_SIZE = 21
     const val NEXT_LEFT = 1608
 
+    // --- "Oglądaj poprzednie" (przeniesione z v1) ---
+    // Po LEWEJ od karty programu (karta zaczyna się na 336), na wysokości
+    // okładki (633..803) — kółko wyrównane do jej środka.
+    const val PREV_LEFT = 105
+    const val PREV_TOP = 686
+    const val PREV_CIRCLE = 64
+    const val PREV_GAP = 16
+    const val PREV_TEXT_SIZE = 24
+
     // --- pasek przewijania ---
     const val TRACK_TOP = 832
     /** Pas przewijania na czas taśmy podglądu — jak V4Timeline (804→978). */

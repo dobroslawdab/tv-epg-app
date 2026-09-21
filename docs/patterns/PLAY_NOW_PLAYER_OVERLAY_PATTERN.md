@@ -278,6 +278,16 @@ pokazuje pozycję odtwarzania **tylko na kanale dostrojonym**; pozostałe wiersz
 wypełniają się do live. Poświata (wskaźnik live) jest wyłącznie na wierszu
 zafokusowanym — również jak v1.
 
+### Rozpoczęte przewinięcie trzyma UI przez MINUTĘ
+
+Zwykła nakładka chowa się po 6 s, ale **dopóki przewinięcie nie jest zatwierdzone
+OK-iem** (`cursorMs != null`), cały scrub — pasek i taśma podglądu — zostaje na
+ekranie **60 s** od ostatniego ruchu. User przegląda wtedy materiał i UI nie ma
+mu uciekać. Zmierzone na boxie: zniknęło między 54. a 63. sekundą.
+
+> Warunek siedzi w kluczu `LaunchedEffect`, więc zatwierdzenie OK-iem (kursor
+> wraca do `null`) natychmiast przestawia timeout z powrotem na 6 s.
+
 ### Przewijanie: OK zatwierdza, granica blokuje przy trzymaniu
 
 Seek następuje **dopiero po OK** — tak jak w 1. wersji. Wcześniej był auto-commit
@@ -332,6 +342,16 @@ w `demolive` V4 (zapisana tam jako uwaga z 2026-08-26).
 
 Zmierzone przy przewinięciu wstecz: wypełnienie i playhead na x≈666, poświata do
 x≈714, kreska LIVE na x≈716 — poświata kończy się na znaczniku, nie na kropce.
+
+### „Oglądaj poprzednie"
+
+Podpowiedź, że LEWO cofa do wcześniejszego programu — kółko `◀` + dwuwierszowy
+tekst po LEWEJ od karty (105, 686). **Przeniesiona z 1. wersji**: w V4 stała na
+(73, 675) i została stamtąd usunięta, a w jej miejsce zjechała karta kanału
+(logo + numer, z y=452 na y=600 — kolumna ma 184 px, a timeline zaczyna się na
+804). Z zafokusowanej miniaturki V4 zniknęły też białe strzałki `‹ ›`.
+
+Element czysto wizualny — nie bierze fokusa, przewijanie robi LEWO na poziomie karty.
 
 ### Znacznik LIVE
 
