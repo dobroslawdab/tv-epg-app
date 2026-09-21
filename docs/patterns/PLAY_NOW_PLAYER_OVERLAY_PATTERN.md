@@ -364,8 +364,10 @@ Kolumny rzędu: szyna (`MOJE` / numer / logo) → okładka + opis bieżącego pr
 ## 6. Nawigacja
 
 ```
-OK (wideo)   → nakładka, fokus na pasie kontrolek
-LEWO/PRAWO   → CONTROLS: wybór ikony
+OK/GÓRA/DÓŁ  → na CZYSTYM obrazie wszystkie trzy robią to samo: nakładka,
+               fokus na pasie kontrolek (do paska i mini-EPG wchodzi się
+               dopiero Z nakładki)
+LEWO/PRAWO   → na czystym obrazie: od razu przewijanie; w nakładce: wybór ikony
 GÓRA         → SCRUB (playhead na mint); LEWO/PRAWO przewija ±30 s
                i odsłania taśmę podglądu
 GÓRA z paska → CARD: ramka mint na miniaturce; LEWO/PRAWO chodzi po ramówce,

@@ -42,7 +42,7 @@ import java.io.File
  * domyślnie TVP1 Retro. Brak paczki → plansza z informacją, jak ją wgrać.
  *
  * Nawigacja (jak na boxie):
- *   OK               → pokaż nakładkę, fokus na pasie kontrolek
+ *   OK / GÓRA / DÓŁ  → na czystym obrazie: pokaż nakładkę, fokus na kontrolkach
  *   LEWO/PRAWO       → pas kontrolek: wybór ikony
  *   GÓRA             → pas przewijania (playhead na mint); LEWO/PRAWO przewija
  *                      ±30 s, ZATRZYMUJĄC SIĘ na każdej granicy programu;
@@ -325,11 +325,13 @@ fun DemoLive2Screen(
         touch()
         if (!overlayVisible) {
             when (keyCode) {
-                KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> { show(PnZone.CONTROLS); return true }
-                KeyEvent.KEYCODE_DPAD_UP -> { show(PnZone.SCRUB); return true }
-                KeyEvent.KEYCODE_DPAD_DOWN -> {
-                    epgRowIndex = channelIdx; epgProgramIndex = 0
-                    show(PnZone.MINI_EPG); return true
+                // Na CZYSTYM playerze OK, GÓRA i DÓŁ robią to samo: pokazują
+                // player (pas kontrolek). Do paska przewijania i do mini-EPG
+                // wchodzi się dopiero Z nakładki — inaczej DÓŁ z czystego obrazu
+                // wrzucał od razu w listę kanałów, z pominięciem playera.
+                KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER,
+                KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN -> {
+                    show(PnZone.CONTROLS); return true
                 }
                 KeyEvent.KEYCODE_DPAD_LEFT -> { show(PnZone.SCRUB); moveCursor(-SCRUB_STEP_MS); return true }
                 KeyEvent.KEYCODE_DPAD_RIGHT -> { show(PnZone.SCRUB); moveCursor(SCRUB_STEP_MS); return true }
