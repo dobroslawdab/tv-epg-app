@@ -26,6 +26,7 @@ private data class MockSlot(
     val minutes: Int,
     val year: String = "",
     val age: String = "12 lat",
+    val desc: String = "",
 )
 
 private data class MockChannel(
@@ -110,6 +111,7 @@ fun pnMockChannelRows(
     nowWallMs: Long,
     /** Okładki podłożone z nagrań — cyklowane po programach. */
     placeholderCovers: List<String> = emptyList(),
+    before: Int = 3,
     after: Int = 4,
 ): List<PnChannelRow> {
     val anchor = anchorWallMs(nowWallMs)
@@ -128,10 +130,15 @@ fun pnMockChannelRows(
             acc += dur
         }
 
+        // Cofnij się o `before` slotów, żeby w liście były też programy minione
         var start = cycleStart + acc
+        repeat(before) { k ->
+            val prev = ch.slots[((idx - 1 - k) % ch.slots.size + ch.slots.size) % ch.slots.size]
+            start -= prev.minutes * 60_000L
+        }
         val programs = mutableListOf<PnProgram>()
-        repeat(after + 1) { k ->
-            val slot = ch.slots[(idx + k) % ch.slots.size]
+        repeat(before + after + 1) { k ->
+            val slot = ch.slots[((idx - before + k) % ch.slots.size + ch.slots.size) % ch.slots.size]
             val dur = slot.minutes * 60_000L
             programs += PnProgram(
                 title = slot.title,
@@ -139,6 +146,10 @@ fun pnMockChannelRows(
                 coverUrl = placeholderCovers.getOrNull(coverSeq++ % placeholderCovers.size.coerceAtLeast(1)),
                 startWallMs = start,
                 endWallMs = start + dur,
+                description = slot.desc.ifBlank {
+                    "\"${slot.title}\" — ${slot.genre}. Pozycja ramówki kanału ${ch.name} " +
+                        "w makiecie badawczej; opis zastępczy, bez danych z EPG."
+                },
             )
             start += dur
         }
@@ -148,7 +159,7 @@ fun pnMockChannelRows(
             number = ch.number,
             logoUrl = null,
             programs = programs,
-            liveIndex = 0,
+            liveIndex = before,
             tunable = false,
         )
     }

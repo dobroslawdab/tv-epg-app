@@ -4,7 +4,9 @@ import android.view.KeyEvent
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -19,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.uxellence.tv.v3.channels.ChannelManager
@@ -65,6 +68,9 @@ private const val AUTO_HIDE_MS = 6_000L
  * po 6 s jak przy zwykłej nakładce.
  */
 private const val SCRUB_HIDE_MS = 60_000L
+/** Ile programów pokazywać w mini-EPG wstecz / w przód od bieżącego. */
+private const val EPG_BEFORE = 3
+private const val EPG_AFTER = 4
 private const val SCRUB_STEP_MS = 30_000L
 private const val DVR_WINDOW_MS = 24 * 3_600_000L
 
@@ -130,6 +136,9 @@ fun DemoLive2Screen(
     var zone by remember { mutableStateOf(PnZone.CONTROLS) }
     var controlIndex by remember { mutableStateOf(0) }
     var isPaused by remember { mutableStateOf(false) }
+    var toast by remember { mutableStateOf<String?>(null) }
+    // Program, dla którego otwarty jest modal nagrywania (jak v1)
+    var recordingFor by remember { mutableStateOf<PnProgram?>(null) }
     var lastInputAt by remember { mutableLongStateOf(System.currentTimeMillis()) }
 
     // Oś: pozycja odtwarzania + live edge (tickowane), kursor przewijania
@@ -146,13 +155,26 @@ fun DemoLive2Screen(
     // programu granego (0 = grany), OK rozwija kartę w detal.
     var cardOffset by remember { mutableStateOf(0) }
     var detailOpen by remember { mutableStateOf(false) }
+    // Detal otwarty Z MINI-EPG (a nie z karty playera) — wtedy dotyczy programu
+    // wskazanego w liście i ma akcje zależne od tego, czy już leciał.
+    var detailFromEpg by remember { mutableStateOf(false) }
+    // Seek zlecony dla kanału, który dopiero się przygotowuje (zmiana kanału
+    // tworzy NOWY kontroler) — wykonywany po `prepared`.
+    var pendingSeekMs by remember { mutableStateOf<Long?>(null) }
     var detailActionIndex by remember { mutableStateOf(0) }
 
     // Program pokazywany na karcie:
     //  - strefa CARD/detal → blok oddalony o cardOffset od granego,
     //  - inaczej → blok pod kursorem (albo pod pozycją odtwarzania).
     val schedule = controller.schedule
-    val shownBase = cursorMs ?: positionMs
+    // TEN SAM STRAŻNIK co w moveCursor: 0 (tick jeszcze nie odczytał pozycji) ani
+    // pozycja starsza niż całe okno DVR nie są realną pozycją odtwarzania. Bez
+    // tego epgBlockAt(0) zwracał PIERWSZY blok nagrania i "Oglądaj" seekowało
+    // do zera zamiast na początek programu.
+    val shownBase = cursorMs ?: positionMs.let { p ->
+        val now = controller.virtualNow()
+        if (p <= 0L || now - p >= DVR_WINDOW_MS) now else p
+    }
     val onCardLevel = zone == PnZone.CARD || detailOpen
     val shownBlock = remember(shownBase / 1000L, prepared, onCardLevel, cardOffset) {
         val here = schedule.epgBlockAt(shownBase)
@@ -187,18 +209,27 @@ fun DemoLive2Screen(
     var epgProgramIndex by remember { mutableStateOf(0) }
     // Rzędy mini-EPG: najpierw kanały z nagrań (grywalne), potem mockupowe
     // (sama ramówka, bez materiału — patrz PnMockChannels).
-    val miniRows = remember(recorded, positionMs / 60_000L) {
+    val miniRows = remember(recorded, channel.id, prepared, positionMs / 60_000L) {
         val now = System.currentTimeMillis()
         val recordedRows = recorded.map { rec ->
-            val sch = BarkerSchedule(rec.items)
+            // KANAŁ DOSTROJONY musi korzystać z harmonogramu KONTROLERA: ten ma
+            // długości nadpisane przez ExoPlayer, a świeży BarkerSchedule tylko
+            // nominalne z manifestu. Przy ~200 cyklach rozjazd jest tak duży, że
+            // bloki wypadały na początku nagrania (startVirtualMs = 0) i "Oglądaj"
+            // seekowało do zera. Dla pozostałych kanałów nie mamy nic lepszego
+            // niż wartości nominalne.
+            val sch = if (rec.id == channel.id) controller.schedule else BarkerSchedule(rec.items)
             val virt = (now - rec.recordedAtWallMs).coerceAtLeast(0L)
-            val blocks = sch.blocksAround(virt, before = 0, after = 4)
+            // Programy TAKŻE WSTECZ — user ma móc cofnąć się kilka materiałów
+            // i odtworzyć je od początku (jak v1).
+            val blocks = sch.blocksAround(virt, before = EPG_BEFORE, after = EPG_AFTER)
+            val live = blocks.indexOfFirst { virt < it.endVirtualMs }.coerceAtLeast(0)
             PnChannelRow(
                 name = rec.name,
                 number = rec.number,
                 logoUrl = pnLogoFor(rec.name),
                 programs = blocks.map { it.toPnProgram(rec.recordedAtWallMs) },
-                liveIndex = 0,
+                liveIndex = live,
                 tunable = true
             )
         }
@@ -221,6 +252,23 @@ fun DemoLive2Screen(
         if (!prepared) return@LaunchedEffect
         delay(1_500)
         controller.seekToLiveEdge()
+    }
+
+    // ── komunikat atrapy znika sam ──
+    LaunchedEffect(toast) {
+        if (toast == null) return@LaunchedEffect
+        delay(2_500)
+        toast = null
+    }
+
+    // ── seek zlecony przed przełączeniem kanału ──
+    LaunchedEffect(prepared, channel.id, pendingSeekMs) {
+        val target = pendingSeekMs ?: return@LaunchedEffect
+        if (!prepared) return@LaunchedEffect
+        delay(1_600)                     // po przekotwiczeniu osi (patrz niżej)
+        controller.seekToVirtual(target)
+        isPaused = false
+        pendingSeekMs = null
     }
 
     // ── tick pozycji/zegara ──
@@ -300,6 +348,69 @@ fun DemoLive2Screen(
         touch()
     }
 
+    // ── DETAL: program, czas względem teraz i zestaw akcji (jak v1) ──
+    val nowWall = System.currentTimeMillis()
+    val epgProgram = miniRows.getOrNull(epgRowIndex)?.programs?.getOrNull(epgProgramIndex)
+    val detailProgram =
+        if (detailFromEpg) epgProgram else shownBlock.toPnProgram(controller.antennaStartWallMs)
+    val detailTiming = when {
+        detailProgram == null -> PnTiming.CURRENT
+        detailProgram.endWallMs <= nowWall -> PnTiming.PAST
+        detailProgram.startWallMs > nowWall -> PnTiming.FUTURE
+        else -> PnTiming.CURRENT
+    }
+    val detailActions = pnDetailActions(detailTiming)
+
+    fun closeDetail() {
+        detailOpen = false
+        detailFromEpg = false
+        detailActionIndex = 0
+    }
+
+    /** OK na przycisku detalu — odwzorowanie zachowania v1. */
+    fun activateDetailAction() {
+        val program = detailProgram ?: return
+        when (detailActions.getOrNull(detailActionIndex)) {
+            PnDetailAction.WATCH -> {
+                val targetRow = if (detailFromEpg) epgRowIndex else channelIdx
+                val row = miniRows.getOrNull(targetRow)
+                if (row != null && !row.tunable) {
+                    toast = "${row.name}: kanał bez materiału w makiecie"
+                    return
+                }
+                // Seek w osi wirtualnej kanału docelowego
+                val targetChannel = recorded.getOrNull(targetRow)
+                val antenna = targetChannel?.recordedAtWallMs ?: controller.antennaStartWallMs
+                // Miniony program oglądamy OD POCZĄTKU (timeshift), bieżący
+                // po prostu dostrajamy na żywo.
+                val seekTo = if (detailTiming == PnTiming.PAST) {
+                    program.startWallMs - antenna
+                } else -1L
+
+                if (targetRow != channelIdx) {
+                    channelIdx = targetRow              // nowy kontroler
+                    pendingSeekMs = seekTo.takeIf { it > 0 }
+                } else if (seekTo > 0) {
+                    controller.seekToVirtual(seekTo)
+                    isPaused = false
+                } else {
+                    controller.seekToLiveEdge()
+                    isPaused = false
+                }
+                // Jak v1: miniony materiał startuje na CZYSTYM obrazie
+                closeDetail()
+                cursorMs = null
+                scrubTapeVisible = false
+                zone = PnZone.CONTROLS
+                overlayVisible = detailTiming != PnTiming.PAST
+            }
+            PnDetailAction.RECORD -> recordingFor = program
+            PnDetailAction.REMIND -> toast = "Ustawiono przypomnienie: ${program.title}"
+            null -> Unit
+        }
+        touch()
+    }
+
     fun activateControl() {
         when (PnControl.values()[controlIndex]) {
             PnControl.LIVE -> {
@@ -308,7 +419,10 @@ fun DemoLive2Screen(
                 isPaused = false
             }
             PnControl.RESTART -> {
-                controller.seekToVirtual(shownBlock.startVirtualMs)
+                // Jak v1: blok liczony z AKTUALNEJ POZYCJI ODTWARZANIA, a nie
+                // z karty (ta może pokazywać inny program po przewinięciu).
+                val block = schedule.epgBlockAt(controller.currentVirtualPositionMs())
+                controller.seekToVirtual(block.startVirtualMs)
                 cursorMs = null
                 isPaused = false
             }
@@ -323,8 +437,11 @@ fun DemoLive2Screen(
                 epgProgramIndex = 0
                 zone = PnZone.MINI_EPG
             }
-            // REC / INFO / SETTINGS — poza zakresem tej wersji (tylko warstwa playera)
-            PnControl.REC, PnControl.INFO, PnControl.SETTINGS -> Unit
+            // Jak v1: pozycje bez logiki dają komunikat, żeby było widać, że
+            // klik został przyjęty (a nie że przycisk jest martwy)
+            PnControl.REC -> recordingFor = shownBlock.toPnProgram(controller.antennaStartWallMs)
+            PnControl.INFO -> toast = "Opis programu — atrapa makiety"
+            PnControl.SETTINGS -> toast = "Napisy i dźwięk — atrapa makiety"
         }
         touch()
     }
@@ -347,6 +464,25 @@ fun DemoLive2Screen(
                 else -> return false
             }
         }
+        // DETAL ma własną obsługę NIEZALEŻNIE od strefy — otwiera się i z karty
+        // (zone=CARD), i z mini-EPG (zone=MINI_EPG). Wcześniej siedziała tylko
+        // w gałęzi CARD, więc OK w detalu z listy nie działał.
+        if (detailOpen) {
+            return when (keyCode) {
+                KeyEvent.KEYCODE_DPAD_LEFT -> {
+                    detailActionIndex = (detailActionIndex - 1).coerceAtLeast(0); true
+                }
+                KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                    detailActionIndex =
+                        (detailActionIndex + 1).coerceAtMost(detailActions.lastIndex); true
+                }
+                KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
+                    activateDetailAction(); true
+                }
+                else -> false
+            }
+        }
+
         return when (zone) {
             PnZone.CONTROLS -> when (keyCode) {
                 KeyEvent.KEYCODE_DPAD_LEFT -> {
@@ -359,7 +495,8 @@ fun DemoLive2Screen(
                 // Mini-EPG otwiera się z OBU stron stosu playera: DOŁEM
                 // z kontrolek i GÓRĄ z miniaturki (patrz gałąź CARD).
                 KeyEvent.KEYCODE_DPAD_DOWN -> {
-                    epgRowIndex = channelIdx; epgProgramIndex = 0
+                    epgRowIndex = channelIdx
+                    epgProgramIndex = miniRows.getOrNull(channelIdx)?.liveIndex ?: 0
                     zone = PnZone.MINI_EPG; true
                 }
                 KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> { activateControl(); true }
@@ -395,20 +532,6 @@ fun DemoLive2Screen(
                 else -> false
             }
             PnZone.CARD -> when {
-                detailOpen -> when (keyCode) {
-                    KeyEvent.KEYCODE_DPAD_LEFT -> {
-                        detailActionIndex = (detailActionIndex - 1).coerceAtLeast(0); true
-                    }
-                    KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                        detailActionIndex =
-                            (detailActionIndex + 1).coerceAtMost(PnDetailAction.values().lastIndex)
-                        true
-                    }
-                    // Akcje "Nagraj"/"Przypomnij" są w makiecie bez skutków —
-                    // chodzi o układ i stan fokusa, nie o realne nagrywanie.
-                    KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> true
-                    else -> false
-                }
                 else -> when (keyCode) {
                     KeyEvent.KEYCODE_DPAD_LEFT -> { cardOffset--; true }
                     KeyEvent.KEYCODE_DPAD_RIGHT -> { cardOffset++; true }
@@ -417,7 +540,7 @@ fun DemoLive2Screen(
                         // playera, więc kolejne GÓRA wychodzi z niego do listy.
                         cardOffset = 0
                         epgRowIndex = channelIdx
-                        epgProgramIndex = 0
+                        epgProgramIndex = miniRows.getOrNull(channelIdx)?.liveIndex ?: 0
                         zone = PnZone.MINI_EPG
                         true
                     }
@@ -434,11 +557,17 @@ fun DemoLive2Screen(
                 // GÓRA/DÓŁ chodzą WYŁĄCZNIE po kanałach — do playera wraca się
                 // OK-iem (dostrojenie) albo BACK-iem, nie kierunkiem.
                 KeyEvent.KEYCODE_DPAD_UP -> {
-                    if (epgRowIndex > 0) { epgRowIndex--; epgProgramIndex = 0 }
+                    if (epgRowIndex > 0) {
+                        epgRowIndex--
+                        epgProgramIndex = miniRows.getOrNull(epgRowIndex)?.liveIndex ?: 0
+                    }
                     true
                 }
                 KeyEvent.KEYCODE_DPAD_DOWN -> {
-                    if (epgRowIndex < miniRows.lastIndex) { epgRowIndex++; epgProgramIndex = 0 }
+                    if (epgRowIndex < miniRows.lastIndex) {
+                        epgRowIndex++
+                        epgProgramIndex = miniRows.getOrNull(epgRowIndex)?.liveIndex ?: 0
+                    }
                     true
                 }
                 KeyEvent.KEYCODE_DPAD_LEFT -> {
@@ -448,13 +577,32 @@ fun DemoLive2Screen(
                     val last = (miniRows.getOrNull(epgRowIndex)?.programs?.lastIndex ?: 0)
                     epgProgramIndex = (epgProgramIndex + 1).coerceAtMost(last); true
                 }
+                // OK otwiera DETAL programu (jak v1) — dopiero z niego wychodzi
+                // oglądanie od początku / nagrywanie.
                 KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-                    // Kanały mockupowe nie mają materiału — OK je tylko zamyka
-                    val row = miniRows.getOrNull(epgRowIndex)
-                    if (row != null && row.tunable && epgRowIndex != channelIdx) {
-                        channelIdx = epgRowIndex
+                    // Program, KTÓRY WŁAŚNIE TRWA, włącza się od razu — bez detalu
+                    // (jak v1). Detal jest dla minionych (oglądaj od początku)
+                    // i przyszłych (nagrywanie).
+                    val prog = miniRows.getOrNull(epgRowIndex)
+                        ?.programs?.getOrNull(epgProgramIndex)
+                    val nowMs = System.currentTimeMillis()
+                    val isNow = prog != null &&
+                        prog.startWallMs <= nowMs && nowMs < prog.endWallMs
+                    if (isNow) {
+                        val row = miniRows.getOrNull(epgRowIndex)
+                        if (row != null && !row.tunable) {
+                            toast = "${row.name}: kanał bez materiału w makiecie"
+                        } else {
+                            if (epgRowIndex != channelIdx) channelIdx = epgRowIndex
+                            cursorMs = null
+                            scrubTapeVisible = false
+                            zone = PnZone.CONTROLS
+                        }
+                    } else {
+                        detailActionIndex = 0
+                        detailFromEpg = true
+                        detailOpen = true
                     }
-                    zone = PnZone.CONTROLS
                     true
                 }
                 else -> false
@@ -465,7 +613,7 @@ fun DemoLive2Screen(
     // BACK: nakładka widoczna → schowaj; schowana → wyjście (wzorzec z demolive)
     BackHandler(enabled = true) {
         when {
-            detailOpen -> detailOpen = false
+            detailOpen -> closeDetail()
             zone == PnZone.MINI_EPG -> zone = PnZone.CARD
             overlayVisible -> {
                 overlayVisible = false
@@ -498,6 +646,42 @@ fun DemoLive2Screen(
             )
         }
 
+        recordingFor?.let { prog ->
+            com.uxellence.tv.v3.demolive.DemoRecordingModal(
+                title = prog.title,
+                subtitle = "${pnClock(prog.startWallMs)} - ${pnClock(prog.endWallMs)}",
+                keepLabel = "Zachowaj do 30 dni",
+                onRecordEpisode = {
+                    recordingFor = null
+                    toast = "Zlecono nagrywanie odcinka: ${prog.title}"
+                },
+                onRecordSeries = {
+                    recordingFor = null
+                    toast = "Zlecono nagrywanie serii: ${prog.title}"
+                },
+                onDismiss = { recordingFor = null },
+                sx = sx, sy = sy
+            )
+        }
+
+        toast?.let { msg ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .zIndex(30f),
+                contentAlignment = Alignment.BottomCenter
+            ) {
+                Box(
+                    modifier = Modifier
+                        .padding(bottom = sy(120))
+                        .background(PN_SCRIM, RoundedCornerShape(sx(12)))
+                        .padding(horizontal = sx(28), vertical = sy(14))
+                ) {
+                    Text(text = msg, color = PN_TEXT, fontSize = pnSp(26, sy))
+                }
+            }
+        }
+
         PlayNowOverlay(
             visible = overlayVisible,
             zone = zone,
@@ -518,10 +702,17 @@ fun DemoLive2Screen(
             miniEpgProgramIndex = epgProgramIndex,
             miniEpgTunedIndex = channelIdx,
             detailOpen = detailOpen,
-            detailDescription = shownBlock.description,
+            detailDescription =
+                if (detailFromEpg) (epgProgram?.description ?: "") else shownBlock.description,
             detailActionIndex = detailActionIndex,
+            detailProgram = detailProgram,
+            detailActions = detailActions,
+            detailTiming = detailTiming,
+            detailIsToday = detailTiming != PnTiming.FUTURE ||
+                (detailProgram?.startWallMs ?: 0L) - nowWall < 12 * 3_600_000L,
             shownIsPlaying = shownIsPlaying,
             hasPrevProgram = shownBlock.startVirtualMs > controller.dvrStartMs(),
+            isAtLiveEdge = controller.isAtLiveEdge(),
             scrubTapeVisible = scrubTapeVisible && zone == PnZone.SCRUB,
             scrubFrames = scrubFrames,
             dvrStartMs = controller.dvrStartMs(),
@@ -543,7 +734,8 @@ private fun BarkerSchedule.EpgBlock.toPnProgram(antennaStartWallMs: Long): PnPro
         meta = listOf(year, genre, "$minutes min.", age),
         coverUrl = coverUrl,
         startWallMs = antennaStartWallMs + startVirtualMs,
-        endWallMs = antennaStartWallMs + endVirtualMs
+        endWallMs = antennaStartWallMs + endVirtualMs,
+        description = description
     )
 }
 

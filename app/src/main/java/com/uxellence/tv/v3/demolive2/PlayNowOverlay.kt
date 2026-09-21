@@ -43,6 +43,8 @@ data class PnProgram(
     val coverUrl: String?,
     val startWallMs: Long,
     val endWallMs: Long,
+    /** Opis do detalu — pokazywany pod przyciskami akcji. */
+    val description: String = "",
 )
 
 /** Jeden kanał w mini-EPG. */
@@ -102,10 +104,18 @@ fun PlayNowOverlay(
     detailOpen: Boolean = false,
     detailDescription: String = "",
     detailActionIndex: Int = 0,
+    /** Program pokazywany w detalu (z karty albo z mini-EPG). */
+    detailProgram: PnProgram? = null,
+    detailActions: List<PnDetailAction> = emptyList(),
+    detailIsToday: Boolean = true,
+    /** Czas programu w detalu — decyduje o wypełnieniu paska (jak v1). */
+    detailTiming: PnTiming = PnTiming.CURRENT,
     /** Czy pokazywany program to ten AKTUALNIE GRANY (steruje wariantem paska). */
     shownIsPlaying: Boolean = true,
     /** Czy jest poprzedni program — pokazuje podpowiedź "Oglądaj poprzednie". */
     hasPrevProgram: Boolean = true,
+    /** Czy odtwarzanie jest na żywo — etykieta LIVE (jak v1). */
+    isAtLiveEdge: Boolean = true,
     sx: (Int) -> Dp,
     sy: (Int) -> Dp,
 ) {
@@ -132,7 +142,7 @@ fun PlayNowOverlay(
                 )
             }
 
-            if (zone == PnZone.MINI_EPG) {
+            if (zone == PnZone.MINI_EPG && !detailOpen) {
                 PlayNowMiniEpg(
                     rows = miniEpgRows,
                     rowIndex = miniEpgRowIndex,
@@ -142,22 +152,31 @@ fun PlayNowOverlay(
                     tunedRowIndex = miniEpgTunedIndex,
                     sx = sx, sy = sy
                 )
-            } else if (detailOpen) {
+            } else if (detailOpen) {   // także gdy przyszliśmy z mini-EPG
                 PlayNowDetail(
-                    program = shownProgram,
+                    program = detailProgram ?: shownProgram,
                     description = detailDescription,
-                    isToday = true,
+                    isToday = detailIsToday,
                     focusedAction = detailActionIndex,
+                    actions = detailActions,
                     sx = sx, sy = sy
                 )
+                val dp = detailProgram ?: shownProgram
                 PlayNowSeekBar(
                     trackTopPx = PN.TRACK_TOP,
-                    blockStartWallMs = shownProgram.startWallMs,
-                    blockEndWallMs = shownProgram.endWallMs,
-                    positionWallMs = antennaStartWallMs + positionMs,
+                    blockStartWallMs = dp.startWallMs,
+                    blockEndWallMs = dp.endWallMs,
+                    // Miniony materiał ma pasek CAŁY WYPEŁNIONY (jak v1) —
+                    // pozycja "po końcu bloku" daje pełne wypełnienie.
+                    positionWallMs = when (detailTiming) {
+                        PnTiming.PAST -> dp.endWallMs
+                        PnTiming.FUTURE -> dp.startWallMs
+                        PnTiming.CURRENT -> antennaStartWallMs + positionMs
+                    },
                     cursorWallMs = null,
                     focused = false,
-                    style = PnBarStyle.DOTS_ONLY,
+                    style = if (detailTiming == PnTiming.FUTURE) PnBarStyle.DOTS_ONLY
+                    else PnBarStyle.POSITION_ONLY,
                     sx = sx, sy = sy
                 )
             } else {
@@ -206,6 +225,7 @@ fun PlayNowOverlay(
                     PnControlBar(
                         focusedIndex = if (zone == PnZone.CONTROLS) controlIndex else -1,
                         isPaused = isPaused,
+                        isAtLiveEdge = isAtLiveEdge,
                         sx = sx, sy = sy
                     )
                 }
@@ -392,6 +412,7 @@ private val Color_Cover = androidx.compose.ui.graphics.Color(0x33000000)
 private fun PnControlBar(
     focusedIndex: Int,
     isPaused: Boolean,
+    isAtLiveEdge: Boolean,
     sx: (Int) -> Dp,
     sy: (Int) -> Dp,
 ) {
@@ -407,7 +428,6 @@ private fun PnControlBar(
             PnControlIcon(
                 control = control,
                 focused = i == focusedIndex,
-                isPaused = isPaused,
                 boxPx = PN.CTRL_BOX,
                 sx = sx, sy = sy
             )
@@ -424,7 +444,7 @@ private fun PnControlBar(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = pnControlLabel(controls[focusedIndex], isPaused),
+                text = pnControlLabel(controls[focusedIndex], isPaused, isAtLiveEdge),
                 color = PN_MINT,
                 fontSize = pnSp(PN.CTRL_LABEL_SIZE, sy),
                 maxLines = 1

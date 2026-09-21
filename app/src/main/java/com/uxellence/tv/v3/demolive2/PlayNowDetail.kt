@@ -41,10 +41,26 @@ private const val DESC_TOP = 485
 private const val DESC_W = 910
 private const val DESC_SIZE = 28
 
-/** Akcje detalu — w makiecie bez skutków, chodzi o stan fokusa i układ. */
+/** Kiedy leci program względem teraz — decyduje o zestawie akcji (jak v1). */
+enum class PnTiming { PAST, CURRENT, FUTURE }
+
+/** Akcje detalu. */
 enum class PnDetailAction(val label: String) {
+    WATCH("Oglądaj"),
     RECORD("Nagraj"),
     REMIND("Przypomnij"),
+}
+
+/**
+ * Zestaw akcji wg czasu programu — ten sam podział co w 1. wersji:
+ * miniony → oglądanie od początku (timeshift), bieżący → oglądanie,
+ * przyszły → nagrywanie/przypomnienie.
+ */
+fun pnDetailActions(timing: PnTiming): List<PnDetailAction> = when (timing) {
+    // Miniony i bieżący: "Oglądaj" (dla minionego = od początku, timeshift).
+    // Przyszły: nagrywanie.
+    PnTiming.PAST, PnTiming.CURRENT -> listOf(PnDetailAction.WATCH, PnDetailAction.RECORD)
+    PnTiming.FUTURE -> listOf(PnDetailAction.RECORD, PnDetailAction.REMIND)
 }
 
 @Composable
@@ -53,6 +69,8 @@ fun PlayNowDetail(
     description: String,
     isToday: Boolean,
     focusedAction: Int,
+    /** Akcje do pokazania — zależne od czasu programu (patrz [pnDetailActions]). */
+    actions: List<PnDetailAction>,
     sx: (Int) -> Dp,
     sy: (Int) -> Dp,
 ) {
@@ -106,8 +124,12 @@ fun PlayNowDetail(
 
         // ── rząd akcji ──
         var x = PN.CARD_LABEL_LEFT
-        PnDetailAction.values().forEachIndexed { i, action ->
-            val w = if (action == PnDetailAction.RECORD) 130 else 200
+        actions.forEachIndexed { i, action ->
+            val w = when (action) {
+                PnDetailAction.RECORD -> 130
+                PnDetailAction.WATCH -> 160
+                PnDetailAction.REMIND -> 200
+            }
             PnActionButton(
                 label = action.label,
                 focused = i == focusedAction,

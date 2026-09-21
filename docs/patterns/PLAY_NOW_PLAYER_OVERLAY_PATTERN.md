@@ -278,6 +278,34 @@ pokazuje pozycję odtwarzania **tylko na kanale dostrojonym**; pozostałe wiersz
 wypełniają się do live. Poświata (wskaźnik live) jest wyłącznie na wierszu
 zafokusowanym — również jak v1.
 
+### Mini-EPG: detal, oglądanie wstecz, nagrywanie (jak v1)
+
+- Lista pokazuje programy **wstecz i w przód** (`EPG_BEFORE = 3`, `EPG_AFTER = 4`),
+  fokus startuje na programie bieżącym (`liveIndex`).
+- **OK na programie, który TRWA** → od razu włącza kanał, bez detalu.
+- **OK na minionym / przyszłym** → detal: miniony ma `[Oglądaj] [Nagraj]`
+  (oglądanie = timeshift od początku), przyszły `[Nagraj] [Przypomnij]`.
+- Pasek w detalu: miniony **cały wypełniony**, bieżący do pozycji, przyszły
+  same kropki.
+- „Nagraj" otwiera `DemoRecordingModal` z v1 (odcinek / seria).
+- Ikony rzędu kontrolek to **te same zasoby co v1** (`demo_ic_*`), więc kształty
+  nie rozjeżdżają się między wersjami.
+
+### ⚠️ Dwie pułapki, które dały „Oglądaj nie działa"
+
+1. **Detal otwarty z mini-EPG zostaje w strefie `MINI_EPG`.** Obsługa klawiszy
+   detalu siedziała tylko w gałęzi `PnZone.CARD`, więc OK w detalu z listy
+   trafiał do gałęzi listy i nic nie robił. Obsługa `detailOpen` musi być
+   **przed** `when (zone)`.
+2. **`positionMs` bywa jeszcze 0**, zanim tick odczyta pozycję z playera.
+   `epgBlockAt(0)` zwraca wtedy PIERWSZY blok nagrania, więc „Oglądaj"
+   seekowało do zera. Ten sam strażnik co w `moveCursor` (0 albo pozycja
+   starsza niż okno DVR → `virtualNow()`) musi być też przy `shownBase`.
+
+> Powiązane: mini-EPG dla kanału DOSTROJONEGO musi używać `controller.schedule`,
+> a nie świeżego `BarkerSchedule` — ten drugi ma tylko nominalne długości
+> z manifestu i przy ~200 cyklach bloki wypadają na początku nagrania.
+
 ### Rozpoczęte przewinięcie trzyma UI przez MINUTĘ
 
 Zwykła nakładka chowa się po 6 s, ale **dopóki przewinięcie nie jest zatwierdzone
