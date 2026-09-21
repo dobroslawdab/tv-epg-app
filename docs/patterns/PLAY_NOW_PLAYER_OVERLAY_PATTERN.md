@@ -52,13 +52,18 @@ było zafokusować i zrzucić osobno (`input keyevent KEYCODE_DPAD_RIGHT` + scre
 
 | # | ikona | etykieta |
 |---|---|---|
-| 0 | chip `LIVE` | Oglądasz LIVE |
-| 1 | kropka + `REC` | Nagraj od początku |
-| 2 | strzałka w kółko | Zacznij od początku |
-| 3 | dwie belki | Zatrzymaj |
-| 4 | ekran z listą | Podgląd programu TV |
-| 5 | kółko z „i" | Zobacz opis |
+| 0 | dwie belki | Zatrzymaj / Odtwórz |
+| 1 | szewron « w kółko | Zacznij od początku |
+| 2 | chip `LIVE` | Wróć do live |
+| 3 | kropka + `REC` | Nagraj od początku |
+| 4 | kółko z „i" | Zobacz opis |
+| 5 | ekran z listą | Podgląd programu TV |
 | 6 | dymek z zębatką | Napisy, dźwięk, jakość |
+
+> ⚠️ **Kolejność jest z FIGMY, nie z launchera.** Launcher Play zaczyna rząd od
+> chipa LIVE; makieta idzie za Figmą „Nowy player – scrubb preview 2026"
+> (node `5730:3571`), gdzie pierwsza jest pauza. Zmierzone na boxie zostają
+> pozycje (krok 134 px, środek rzędu 926) — Figma ma tam 152 px.
 
 ---
 

@@ -45,12 +45,12 @@ import androidx.compose.ui.unit.sp
  * ikony są odtworzone z geometrii zrzutów, nie wyciągnięte z pliku.
  */
 enum class PnControl(val label: String) {
-    LIVE("Oglądasz LIVE"),
-    REC("Nagraj od początku"),
-    RESTART("Zacznij od początku"),
     PAUSE("Zatrzymaj"),
-    GUIDE("Podgląd programu TV"),
+    RESTART("Zacznij od początku"),
+    LIVE("Wróć do live"),
+    REC("Nagraj od początku"),
     INFO("Zobacz opis"),
+    GUIDE("Podgląd programu TV"),
     SETTINGS("Napisy, dźwięk, jakość"),
 }
 
